@@ -27,6 +27,8 @@ class PluginContext:
     - Event bus
     - Scheduler
     - Audit log
+    - Engagement DB
+    - Security subsystems
     """
     identity_name: str
     data_dir: Path
@@ -37,10 +39,18 @@ class PluginContext:
     event_bus: Any = None
     scheduler: Any = None
     audit_log: Any = None
-    quiet_hours: Any = None
+    quiet_hours_checker: Any = None
+    response_router: Any = None
 
     # Identity config (read-only)
     identity: Any = None
+
+    # Per-identity engagement database
+    engagement_db: Any = None
+
+    # Security subsystems
+    preflight_checker: Any = None
+    output_safety: Any = None
 
     # Secrets accessor (callable)
     _secrets_getter: Any = field(default=None, repr=False)

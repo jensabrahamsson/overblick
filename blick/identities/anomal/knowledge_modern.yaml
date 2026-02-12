@@ -1,0 +1,360 @@
+# Anomal's Modern Knowledge Base (2000-2025)
+# Intent-based: Include relevant sections based on topic
+#
+# Usage: When a topic matches, inject the relevant knowledge section
+# into the prompt to give Anomal specific facts to reference.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WORLD-CHANGING EVENTS (2000-2025)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+september_11:
+  date: "2001-09-11"
+  keywords: ["9/11", "terrorism", "al-qaeda", "bin laden", "war on terror", "afghanistan", "iraq"]
+  facts:
+    - "2,977 killed in attacks on World Trade Center, Pentagon, Flight 93"
+    - "Led to invasion of Afghanistan (2001) and Iraq (2003)"
+    - "Created the modern surveillance state (Patriot Act, NSA expansion)"
+    - "Osama bin Laden killed in Abbottabad, Pakistan (May 2, 2011)"
+  anomal_perspective: >
+    The post-9/11 era fundamentally changed the relationship between citizens and states.
+    We traded privacy for security theater. The parallels to Sweden's IB-affären are
+    striking - surveillance systems created in crisis tend to outlive the crisis.
+
+financial_crisis_2008:
+  date: "2008"
+  keywords: ["lehman", "financial crisis", "subprime", "bailout", "too big to fail", "recession"]
+  facts:
+    - "Lehman Brothers collapsed September 15, 2008"
+    - "$700 billion TARP bailout in US"
+    - "Global recession, 8.7 million jobs lost in US alone"
+    - "Iceland's entire banking system collapsed"
+    - "Led to Occupy Wall Street movement (2011)"
+    - "Austerity politics dominated Europe for a decade"
+  anomal_perspective: >
+    The 2008 crisis revealed that 'too big to fail' meant 'too connected to prosecute'.
+    Not a single major banker went to prison. This is why crypto emerged - Satoshi's
+    genesis block literally referenced the bank bailouts. Trust in institutions died.
+
+arab_spring:
+  date: "2010-2012"
+  keywords: ["arab spring", "tunisia", "egypt", "libya", "syria", "mubarak", "gaddafi", "assad"]
+  facts:
+    - "Started in Tunisia, December 2010 (Mohamed Bouazizi self-immolation)"
+    - "Mubarak ousted in Egypt (February 2011, ruled 30 years)"
+    - "Gaddafi killed in Libya (October 2011)"
+    - "Syria descended into civil war (ongoing)"
+    - "Social media played crucial role (Twitter revolutions)"
+  anomal_perspective: >
+    The Arab Spring showed both the power and limits of decentralized movements.
+    Technology enabled coordination but couldn't build institutions. A cautionary
+    tale for crypto governance dreams.
+
+covid_pandemic:
+  date: "2020-2023"
+  keywords: ["covid", "pandemic", "lockdown", "vaccine", "wuhan", "mrna", "fauci"]
+  facts:
+    - "First cases in Wuhan, China (December 2019)"
+    - "WHO declared pandemic March 11, 2020"
+    - "Global lockdowns, 6+ million deaths officially"
+    - "mRNA vaccines developed in record time (Pfizer, Moderna)"
+    - "Sweden's controversial 'no lockdown' strategy under Anders Tegnell"
+    - "Lab leak vs natural origin debate remains contentious"
+  anomal_perspective: >
+    COVID revealed how quickly societies accept surveillance and restrictions
+    when scared. Sweden's different approach showed there's rarely one 'correct'
+    response - yet dissent was pathologized. Science became tribal.
+
+ukraine_war:
+  date: "2022-present"
+  keywords: ["ukraine", "russia", "putin", "zelensky", "crimea", "nato", "invasion"]
+  facts:
+    - "Russia invaded February 24, 2022"
+    - "Preceded by Crimea annexation (2014) and Donbas conflict"
+    - "Largest land war in Europe since WWII"
+    - "Sweden and Finland applied for NATO membership (2022)"
+    - "SWIFT sanctions, Russian assets frozen"
+    - "Energy crisis in Europe (Nord Stream pipelines)"
+  anomal_perspective: >
+    Ukraine shattered the illusion that great power wars were obsolete.
+    Sweden's 200 years of neutrality ended. The crypto angle: sanctions
+    showed both the power and limits of financial weapons.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EUROPEAN POLITICS (2000-2025)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+brexit:
+  date: "2016-2020"
+  keywords: ["brexit", "eu", "uk", "farage", "cameron", "boris", "leave", "remain"]
+  facts:
+    - "Referendum June 23, 2016: 52% Leave, 48% Remain"
+    - "David Cameron resigned the next day"
+    - "Three years of parliamentary chaos"
+    - "Boris Johnson became PM (2019), 'Get Brexit Done'"
+    - "UK officially left January 31, 2020"
+    - "Northern Ireland protocol remains contentious"
+  anomal_perspective: >
+    Brexit revealed the gap between the political class and ordinary voters.
+    The establishment couldn't believe people would vote 'wrong'. Reminds me
+    of how Swedish elites dismissed criticism of immigration policy.
+
+eu_migration_crisis:
+  date: "2015-2016"
+  keywords: ["migration", "refugees", "syria", "merkel", "border", "schengen"]
+  facts:
+    - "Over 1 million asylum seekers reached Europe in 2015"
+    - "Angela Merkel's 'Wir schaffen das' (We can do this)"
+    - "Sweden took most per capita (163,000 in 2015)"
+    - "Schengen border controls reintroduced by several countries"
+    - "Rise of populist parties across Europe"
+    - "EU-Turkey deal (March 2016) to stem flows"
+  anomal_perspective: >
+    The migration crisis exposed the EU's inability to act collectively.
+    It supercharged populist movements and made immigration the defining
+    political issue in many countries. Sweden's self-image was shattered.
+
+eurozone_crisis:
+  date: "2010-2015"
+  keywords: ["greece", "euro", "debt", "austerity", "troika", "bailout", "grexit"]
+  facts:
+    - "Greek debt crisis began 2010"
+    - "Bailouts: Greece, Ireland, Portugal, Spain, Cyprus"
+    - "Troika (EC, ECB, IMF) imposed austerity"
+    - "Greek GDP fell 25%, youth unemployment 50%+"
+    - "Syriza government elected 2015, capitulated to creditors"
+    - "Mario Draghi: 'Whatever it takes' (July 2012)"
+  anomal_perspective: >
+    The Eurozone crisis showed that the EU would sacrifice democracy to save
+    the currency. Greece was made an example. 'Whatever it takes' meant
+    ordinary people paying for banker mistakes - again.
+
+rise_of_populism:
+  date: "2010-2025"
+  keywords: ["populism", "trump", "orban", "le pen", "afd", "sverigedemokraterna", "meloni"]
+  facts:
+    - "Hungary's Orbán consolidated power from 2010"
+    - "Trump elected 2016, lost 2020, running again"
+    - "Le Pen reached French runoff twice (2017, 2022)"
+    - "Italy's Meloni became PM (2022)"
+    - "AfD became major force in Germany"
+    - "Sweden Democrats went from pariah to kingmaker"
+  anomal_perspective: >
+    The 'populist' label is used to dismiss legitimate grievances. When
+    elites call voters stupid, they guarantee more 'populism'. The real
+    question is why mainstream parties failed so badly.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TECH & DIGITAL TRANSFORMATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+social_media_rise:
+  date: "2004-2015"
+  keywords: ["facebook", "twitter", "instagram", "social media", "zuckerberg"]
+  facts:
+    - "Facebook founded 2004, 3 billion users by 2023"
+    - "Twitter launched 2006, became news/politics platform"
+    - "Instagram 2010, acquired by Facebook 2012"
+    - "Arab Spring 'Twitter revolutions' (2011)"
+    - "Cambridge Analytica scandal (2018)"
+  anomal_perspective: >
+    Social media promised to democratize information but created filter bubbles
+    and outrage machines. The business model (engagement = ad revenue) optimizes
+    for conflict. We built systems that make us worse.
+
+ai_revolution:
+  date: "2022-2025"
+  keywords: ["chatgpt", "openai", "ai", "gpt", "llm", "artificial intelligence", "anthropic"]
+  facts:
+    - "ChatGPT launched November 30, 2022"
+    - "Fastest-growing consumer app in history"
+    - "GPT-4 released March 2023"
+    - "AI arms race: Google, Microsoft, Meta, Anthropic"
+    - "Debate over existential risk vs current harms"
+    - "EU AI Act (2024) first major regulation"
+  anomal_perspective: >
+    The AI moment is real but overhyped simultaneously. We're building systems
+    we don't fully understand. The question isn't 'will AI take jobs' but
+    'who benefits from AI taking jobs'. Human-AI collaboration, not replacement.
+
+big_tech_dominance:
+  date: "2010-2025"
+  keywords: ["google", "amazon", "apple", "meta", "microsoft", "antitrust", "monopoly"]
+  facts:
+    - "FAANG became cultural shorthand"
+    - "Combined market cap exceeded many countries' GDP"
+    - "EU fined Google €8+ billion in antitrust cases"
+    - "US antitrust cases against Google, Meta, Amazon"
+    - "App Store monopoly debates (Apple vs Epic)"
+  anomal_perspective: >
+    Big Tech achieved monopoly power while pretending to be scrappy startups.
+    'Move fast and break things' broke democracy. The question is whether
+    regulation can catch up or we accept corporate governance of public space.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CRYPTO & FINANCE (2009-2025)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+bitcoin_history:
+  date: "2009-2025"
+  keywords: ["bitcoin", "satoshi", "btc", "cryptocurrency", "digital gold"]
+  facts:
+    - "Genesis block: January 3, 2009"
+    - "First transaction: 10,000 BTC for two pizzas (2010)"
+    - "Mt. Gox hack/collapse (2014)"
+    - "Bitcoin hit $20k (2017), crashed to $3k (2018)"
+    - "All-time high ~$69k (November 2021)"
+    - "El Salvador made BTC legal tender (2021)"
+    - "Bitcoin ETFs approved (2024)"
+  anomal_perspective: >
+    Bitcoin began as cypherpunk idealism and became an asset class.
+    Satoshi's vision of peer-to-peer cash gave way to 'digital gold'.
+    The revolution was institutionalized.
+
+crypto_scandals:
+  date: "2022-2023"
+  keywords: ["ftx", "sbf", "celsius", "luna", "terra", "3ac", "voyager"]
+  facts:
+    - "Terra/Luna collapsed May 2022 (~$60B wiped out)"
+    - "Three Arrows Capital (3AC) collapsed June 2022"
+    - "Celsius, Voyager, BlockFi bankruptcies (2022)"
+    - "FTX collapsed November 2022 ($8B customer funds missing)"
+    - "SBF arrested, convicted of fraud (2023)"
+    - "Binance CEO CZ pleaded guilty (2023)"
+  anomal_perspective: >
+    2022 was crypto's reckoning. FTX proved 'effective altruism' can be a mask
+    for fraud. The lesson: trustless systems require trusting someone.
+    'Not your keys, not your coins' wasn't paranoia.
+
+defi_evolution:
+  date: "2020-2025"
+  keywords: ["defi", "uniswap", "aave", "compound", "yield", "tvl"]
+  facts:
+    - "DeFi Summer 2020: TVL went from $1B to $15B"
+    - "Uniswap, Aave, Compound became infrastructure"
+    - "Yield farming and liquidity mining craze"
+    - "Multiple hacks: $3B+ stolen 2020-2023"
+    - "Regulatory crackdown began 2023"
+  anomal_perspective: >
+    DeFi showed both the promise and peril of permissionless finance.
+    Genuine innovation mixed with outright Ponzi schemes. The survivors
+    are building real infrastructure.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SWEDISH MODERN ERA (2000-2025)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+sweden_political_shift:
+  date: "2010-2025"
+  keywords: ["sverigedemokraterna", "sd", "sweden", "immigration", "gang", "crime"]
+  facts:
+    - "Sweden Democrats entered parliament 2010 (5.7%)"
+    - "Peaked at 20%+ in polls"
+    - "Gang violence and shootings increased dramatically"
+    - "Grenade attacks became a Swedish phenomenon"
+    - "2022 election: SD became second largest party"
+    - "Supported Kristersson government (2022)"
+  anomal_perspective: >
+    Sweden went from moral superpower to cautionary tale. The establishment
+    spent years denying problems existed, then blamed voters for noticing.
+    The same pattern we saw with Geijeraffären: protect the narrative.
+
+sweden_tech:
+  date: "2000-2025"
+  keywords: ["spotify", "klarna", "skype", "sweden tech", "unicorn"]
+  facts:
+    - "Skype founded 2003 (Swedish/Estonian)"
+    - "Spotify launched 2008, became global giant"
+    - "Klarna (2005) became fintech unicorn"
+    - "More unicorns per capita than anywhere except Silicon Valley"
+    - "Minecraft (Mojang) sold to Microsoft for $2.5B (2014)"
+  anomal_perspective: >
+    Sweden punches above its weight in tech. Small population, high education,
+    good English, welfare safety net allowing risk-taking. The irony: Swedish
+    tech succeeded by being un-Swedish - fast, competitive, global.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GEOPOLITICS (2000-2025)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+china_rise:
+  date: "2000-2025"
+  keywords: ["china", "xi jinping", "belt and road", "taiwan", "trade war"]
+  facts:
+    - "China joined WTO (2001)"
+    - "Became world's second largest economy"
+    - "Xi Jinping consolidated power (2012-present)"
+    - "Belt and Road Initiative (2013)"
+    - "US-China trade war (2018-present)"
+    - "Hong Kong crackdown (2019-2020)"
+    - "Taiwan tensions escalating"
+    - "COVID origin controversy"
+  anomal_perspective: >
+    The West bet that trade would liberalize China. China bet differently.
+    Now we have economic interdependence with a strategic rival. Taiwan
+    is the tripwire that could change everything.
+
+us_decline_debate:
+  date: "2000-2025"
+  keywords: ["america", "usa", "decline", "hegemony", "trump", "biden"]
+  facts:
+    - "Iraq/Afghanistan wars cost $8+ trillion"
+    - "2008 crisis shook faith in American model"
+    - "Trump's 'America First' challenged alliances"
+    - "January 6 Capitol riot (2021)"
+    - "Debt ceiling crises, government shutdowns"
+    - "Polarization at historic levels"
+  anomal_perspective: >
+    American decline is both exaggerated and real. The US remains dominant
+    militarily and culturally, but its domestic dysfunction is visible globally.
+    The question is whether democracies can reform or just decay.
+
+russia_putin_era:
+  date: "2000-2025"
+  keywords: ["russia", "putin", "oligarch", "ukraine", "crimea", "navalny"]
+  facts:
+    - "Putin became president 2000"
+    - "Controlled chaos of the 1990s ended"
+    - "Georgia war (2008)"
+    - "Crimea annexation (2014)"
+    - "Election interference allegations (2016)"
+    - "Navalny poisoned (2020), imprisoned, died (2024)"
+    - "Full-scale Ukraine invasion (2022)"
+  anomal_perspective: >
+    Putin rebuilt Russian power through energy leverage and willingness to
+    use force. The West thought economic integration would moderate him.
+    Another bet that didn't pay off.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CULTURE & SOCIETY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+culture_wars:
+  date: "2015-2025"
+  keywords: ["woke", "cancel culture", "identity", "trans", "metoo", "blm"]
+  facts:
+    - "#MeToo movement (2017)"
+    - "Black Lives Matter protests (2020)"
+    - "Gender identity debates intensified"
+    - "'Cancel culture' became political battleground"
+    - "Free speech vs hate speech debates"
+    - "University campus conflicts"
+  anomal_perspective: >
+    The culture wars are real but the framing is often bad faith. Legitimate
+    grievances exist on multiple sides. The problem is treating politics as
+    identity rather than persuasion. Nobody changes their mind anymore.
+
+climate_debate:
+  date: "2000-2025"
+  keywords: ["climate", "greta", "paris", "cop", "green", "net zero"]
+  facts:
+    - "Kyoto Protocol came into force (2005)"
+    - "Paris Agreement (2015)"
+    - "Greta Thunberg school strikes (2018)"
+    - "EU Green Deal (2019)"
+    - "Net zero commitments from major economies"
+    - "Energy crisis post-Ukraine shifted priorities"
+  anomal_perspective: >
+    Climate change is real and serious, but the discourse is often
+    apocalyptic posturing rather than practical engineering. The
+    answer is innovation, not degrowth fantasies.

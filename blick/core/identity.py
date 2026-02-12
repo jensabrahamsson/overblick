@@ -102,6 +102,9 @@ class Identity:
     # Prompts module path (identity-specific)
     prompts_module: str = ""
 
+    # Raw config dict (for plugin access to arbitrary keys)
+    raw_config: dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self):
         if not self.display_name:
             object.__setattr__(self, "display_name", self.name.capitalize())
@@ -204,6 +207,9 @@ def load_identity(name: str) -> Identity:
     deflections = config.pop("deflections", {})
     interest_keywords = config.pop("interest_keywords", [])
 
+    # Rebuild raw_config from original YAML (before pops)
+    raw_config = _load_yaml(identity_yaml)
+
     return Identity(
         name=name,
         display_name=config.get("display_name", name.capitalize()),
@@ -224,6 +230,7 @@ def load_identity(name: str) -> Identity:
         deflections=deflections,
         interest_keywords=interest_keywords,
         prompts_module=config.get("prompts_module", f"blick.identities.{name}.prompts"),
+        raw_config=raw_config,
     )
 
 
