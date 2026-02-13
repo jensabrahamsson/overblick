@@ -53,3 +53,27 @@ def mock_engagement_db():
     db.track_my_comment = MagicMock()
     db.get_my_post_ids = MagicMock(return_value=[])
     return db
+
+
+@pytest.fixture
+def mock_quiet_hours_checker():
+    """Mock quiet hours checker (not quiet by default)."""
+    checker = MagicMock()
+    checker.is_quiet_hours = MagicMock(return_value=False)
+    return checker
+
+
+@pytest.fixture
+def mock_preflight_checker():
+    """Mock preflight checker (passes by default)."""
+    checker = AsyncMock()
+    checker.check = AsyncMock(return_value=True)
+    return checker
+
+
+@pytest.fixture
+def mock_output_safety():
+    """Mock output safety (returns input unchanged)."""
+    safety = AsyncMock()
+    safety.check = AsyncMock(side_effect=lambda text: text)
+    return safety

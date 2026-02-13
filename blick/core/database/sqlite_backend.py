@@ -1,0 +1,130 @@
+"""
+SQLite database backend.
+
+Default backend — no external dependencies required.
+Uses synchronous sqlite3 wrapped in async helpers for compatibility
+with the async DatabaseBackend interface.
+"""
+
+import asyncio
+import logging
+import sqlite3
+from pathlib import Path
+from typing import Any, Optional, Sequence
+
+from blick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
+
+logger = logging.getLogger(__name__)
+
+
+class SQLiteBackend(DatabaseBackend):
+    """
+    SQLite implementation of the DatabaseBackend.
+
+    Uses synchronous sqlite3 (Python stdlib) with async wrappers.
+    WAL mode is enabled for better concurrent read performance.
+    """
+
+    def __init__(self, config: DatabaseConfig, identity: str = ""):
+        super().__init__(config, identity)
+        path_template = config.sqlite_path
+        if identity:
+            path_template = path_template.replace("{identity}", identity)
+        self._db_path = Path(path_template)
+        self._conn: Optional[sqlite3.Connection] = None
+
+    @property
+    def db_path(self) -> Path:
+        return self._db_path
+
+    def ph(self, position: int) -> str:
+        """SQLite uses ? placeholders (positional)."""
+        return "?"
+
+    async def connect(self) -> None:
+        """Open SQLite connection with WAL mode."""
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn = sqlite3.connect(str(self._db_path))
+        self._conn.row_factory = sqlite3.Row
+
+        # Enable WAL mode for better concurrency
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        # Enable foreign keys
+        self._conn.execute("PRAGMA foreign_keys=ON")
+
+        self._connected = True
+        logger.info("SQLite connected: %s", self._db_path)
+
+    async def close(self) -> None:
+        """Close SQLite connection."""
+        if self._conn:
+            try:
+                self._conn.close()
+            except Exception as e:
+                logger.warning("Error closing SQLite: %s", e)
+            self._conn = None
+        self._connected = False
+
+    def _check_connected(self) -> None:
+        if not self._conn:
+            raise RuntimeError("Database not connected. Call connect() first.")
+
+    async def execute(self, sql: str, params: Sequence[Any] = ()) -> int:
+        """Execute SQL and return affected row count."""
+        self._check_connected()
+        try:
+            cursor = self._conn.execute(sql, params)
+            self._conn.commit()
+            return cursor.rowcount
+        except sqlite3.Error as e:
+            self._conn.rollback()
+            raise
+
+    async def execute_returning_id(self, sql: str, params: Sequence[Any] = ()) -> Optional[int]:
+        """Execute INSERT and return the new row ID."""
+        self._check_connected()
+        try:
+            cursor = self._conn.execute(sql, params)
+            self._conn.commit()
+            return cursor.lastrowid
+        except sqlite3.Error as e:
+            self._conn.rollback()
+            raise
+
+    async def fetch_one(self, sql: str, params: Sequence[Any] = ()) -> Optional[DatabaseRow]:
+        """Fetch a single row as a dict."""
+        self._check_connected()
+        cursor = self._conn.execute(sql, params)
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    async def fetch_all(self, sql: str, params: Sequence[Any] = ()) -> list[DatabaseRow]:
+        """Fetch all matching rows as dicts."""
+        self._check_connected()
+        cursor = self._conn.execute(sql, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+    async def fetch_scalar(self, sql: str, params: Sequence[Any] = ()) -> Any:
+        """Fetch a single scalar value."""
+        self._check_connected()
+        cursor = self._conn.execute(sql, params)
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return row[0]
+
+    async def execute_script(self, sql: str) -> None:
+        """Execute a multi-statement SQL script."""
+        self._check_connected()
+        self._conn.executescript(sql)
+
+    async def table_exists(self, table_name: str) -> bool:
+        """Check if a table exists in the SQLite database."""
+        self._check_connected()
+        result = await self.fetch_scalar(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        )
+        return result > 0

@@ -22,8 +22,13 @@ Thumbs.db
 
 # Blick-specific
 config/secrets/
+config/secrets.yaml
+config/permissions.yaml
 data/
 logs/
 *.db
 *.sqlite
 *.pid
+
+# IPC sockets
+/tmp/blick/

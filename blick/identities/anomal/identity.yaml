@@ -3,6 +3,7 @@
 
 name: anomal
 display_name: Anomal
+personality: anomal
 description: "Intellectual humanist exploring AI's role in society"
 agent_name: Anomal
 owner: "@jensabrahamsson"

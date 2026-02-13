@@ -23,12 +23,13 @@ class PluginContext:
     - Identity configuration
     - Secrets (via get_secret)
     - Data directory (isolated per identity)
-    - LLM client
+    - LLM client (raw) and LLM pipeline (safe)
     - Event bus
     - Scheduler
     - Audit log
     - Engagement DB
     - Security subsystems
+    - Permission checker
     """
     identity_name: str
     data_dir: Path
@@ -42,6 +43,10 @@ class PluginContext:
     quiet_hours_checker: Any = None
     response_router: Any = None
 
+    # Safe LLM pipeline (consolidates all security checks)
+    # Preferred over raw llm_client for plugin use
+    llm_pipeline: Any = None
+
     # Identity config (read-only)
     identity: Any = None
 
@@ -51,6 +56,9 @@ class PluginContext:
     # Security subsystems
     preflight_checker: Any = None
     output_safety: Any = None
+
+    # Permission checker (action authorization)
+    permissions: Any = None
 
     # Secrets accessor (callable)
     _secrets_getter: Any = field(default=None, repr=False)

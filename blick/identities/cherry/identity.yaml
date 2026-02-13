@@ -2,6 +2,7 @@
 
 name: cherry
 display_name: Cherry
+personality: cherry
 description: "Flirty Swedish woman exploring life, love, and pop culture"
 agent_name: Cherry
 owner: "@jensabrahamsson"

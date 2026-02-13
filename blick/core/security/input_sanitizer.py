@@ -55,6 +55,35 @@ def sanitize(text: str, max_length: int = MAX_INPUT_LENGTH) -> str:
     return result
 
 
+def wrap_external_content(content: str, source: str = "external") -> str:
+    """
+    Wrap external (untrusted) content with boundary markers.
+
+    This prevents prompt injection by clearly delimiting where
+    external content starts and ends. The LLM system prompt should
+    instruct the model to treat content within these markers as
+    DATA, not INSTRUCTIONS.
+
+    Args:
+        content: The external content to wrap
+        source: Label for the content source (e.g. "post", "comment", "email")
+
+    Returns:
+        Content wrapped with boundary markers
+    """
+    # Sanitize the content first
+    safe = sanitize(content)
+
+    # Strip any existing boundary markers from the content (prevent nesting)
+    safe = safe.replace("<<<EXTERNAL_", "").replace(">>>", "")
+
+    return (
+        f"<<<EXTERNAL_{source.upper()}_START>>>\n"
+        f"{safe}\n"
+        f"<<<EXTERNAL_{source.upper()}_END>>>"
+    )
+
+
 def sanitize_dict(data: dict, max_length: int = MAX_INPUT_LENGTH) -> dict:
     """
     Sanitize all string values in a dict (non-recursive).

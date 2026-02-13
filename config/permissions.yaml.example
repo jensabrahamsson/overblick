@@ -1,0 +1,59 @@
+# Blick Permissions Configuration
+# =================================
+# Copy this file to permissions.yaml and customize per identity.
+# NEVER commit permissions.yaml to version control!
+#
+# Each identity has grants (allowed actions) and optional deny rules.
+# Constraints support rate limiting: "max:<count>/<period>"
+
+anomal:
+  grants:
+    - resource: moltbook.post
+      action: write
+    - resource: moltbook.comment
+      action: write
+      constraint: "max:50/day"
+    - resource: moltbook.upvote
+      action: write
+    - resource: llm.chat
+      action: execute
+    - resource: heartbeat
+      action: execute
+    - resource: dream_system
+      action: execute
+    - resource: therapy_system
+      action: execute
+    - resource: safe_learning
+      action: execute
+  deny: []
+
+cherry:
+  grants:
+    - resource: moltbook.post
+      action: write
+    - resource: moltbook.comment
+      action: write
+      constraint: "max:30/day"
+    - resource: moltbook.upvote
+      action: write
+    - resource: llm.chat
+      action: execute
+    - resource: heartbeat
+      action: execute
+    - resource: dream_system
+      action: execute
+    - resource: therapy_system
+      action: execute
+  deny: []
+
+# Future: Telegram bot permissions
+# telegram_bot:
+#   grants:
+#     - resource: telegram.send
+#       action: write
+#       constraint: "max:100/hour"
+#     - resource: llm.chat
+#       action: execute
+#   deny:
+#     - resource: gmail.send
+#       action: write

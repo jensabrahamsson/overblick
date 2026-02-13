@@ -30,6 +30,9 @@ blick = "blick.__main__:main"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "llm: tests that require a running Ollama LLM (use -m llm to run)",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["blick"]

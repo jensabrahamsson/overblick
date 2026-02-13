@@ -87,7 +87,13 @@ class Identity:
     schedule: ScheduleSettings = field(default_factory=ScheduleSettings)
     security: SecuritySettings = field(default_factory=SecuritySettings)
 
-    # Personality and knowledge (raw YAML data)
+    # Personality reference (name of personality to load, defaults to identity name)
+    personality_ref: str = ""
+
+    # Loaded personality object (set during load_identity)
+    loaded_personality: Any = None
+
+    # Personality and knowledge (raw YAML data, legacy)
     personality: dict[str, Any] = field(default_factory=dict)
     opinions: dict[str, Any] = field(default_factory=dict)
     opsec: dict[str, Any] = field(default_factory=dict)
@@ -210,6 +216,18 @@ def load_identity(name: str) -> Identity:
     # Rebuild raw_config from original YAML (before pops)
     raw_config = _load_yaml(identity_yaml)
 
+    # Load personality (structured personality data)
+    personality_ref = config.get("personality", name)
+    loaded_personality = None
+    try:
+        from blick.personalities import load_personality
+        loaded_personality = load_personality(personality_ref)
+        logger.info("Loaded personality '%s' for identity '%s'", personality_ref, name)
+    except FileNotFoundError:
+        logger.debug("No personality found for '%s', continuing without", personality_ref)
+    except Exception as e:
+        logger.warning("Error loading personality '%s': %s", personality_ref, e)
+
     return Identity(
         name=name,
         display_name=config.get("display_name", name.capitalize()),
@@ -223,6 +241,8 @@ def load_identity(name: str) -> Identity:
         quiet_hours=quiet_hours,
         schedule=schedule,
         security=security,
+        personality_ref=personality_ref,
+        loaded_personality=loaded_personality,
         personality=personality,
         opinions=opinions,
         opsec=opsec,

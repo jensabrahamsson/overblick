@@ -4,11 +4,16 @@ LLM response generation for Moltbook engagement.
 Generates responses using identity-specific prompts and
 LLM configuration. Handles comment generation, heartbeat posts,
 and all other LLM-generated content.
+
+SECURITY: All LLM calls go through SafeLLMPipeline, which enforces
+the full security chain (sanitize → preflight → rate limit → LLM → output safety → audit).
+External content is wrapped in boundary markers to prevent prompt injection.
 """
 
 import logging
-import random
-from typing import Optional
+from typing import Optional, Union
+
+from blick.core.security.input_sanitizer import wrap_external_content
 
 logger = logging.getLogger(__name__)
 
@@ -17,20 +22,89 @@ class ResponseGenerator:
     """
     Generates LLM-powered responses for Moltbook engagement.
 
-    Uses identity-specific prompts loaded from the identity's prompts module.
+    Accepts either a SafeLLMPipeline (preferred, enforces full security chain)
+    or a raw llm_client (legacy, no automatic security checks).
+
+    When using a pipeline, all security is handled automatically:
+    - Input sanitization
+    - Preflight checks
+    - Rate limiting
+    - Output safety filtering
+    - Audit logging
     """
 
     def __init__(
         self,
-        llm_client,
-        system_prompt: str,
+        llm_pipeline=None,
+        system_prompt: str = "",
         temperature: float = 0.7,
         max_tokens: int = 2000,
+        *,
+        llm_client=None,
     ):
+        self._pipeline = llm_pipeline
         self._llm = llm_client
         self._system_prompt = system_prompt
         self._temperature = temperature
         self._max_tokens = max_tokens
+
+        if not self._pipeline and not self._llm:
+            raise ValueError("Either llm_pipeline or llm_client must be provided")
+
+        if self._pipeline and self._llm:
+            logger.debug("Both pipeline and raw client provided; using pipeline")
+            self._llm = None
+
+    async def _call_llm(
+        self,
+        prompt: str,
+        temperature: Optional[float] = None,
+        skip_preflight: bool = False,
+        audit_action: str = "response_gen",
+    ) -> Optional[str]:
+        """
+        Internal LLM call through pipeline or raw client.
+
+        Pipeline path is preferred and enforces full security.
+        Raw client path is legacy fallback only.
+        """
+        temp = temperature if temperature is not None else self._temperature
+        messages = [
+            {"role": "system", "content": self._system_prompt},
+            {"role": "user", "content": prompt},
+        ]
+
+        if self._pipeline:
+            result = await self._pipeline.chat(
+                messages=messages,
+                temperature=temp,
+                max_tokens=self._max_tokens,
+                skip_preflight=skip_preflight,
+                audit_action=audit_action,
+            )
+            if result.blocked:
+                logger.warning(
+                    "Pipeline blocked %s at %s: %s",
+                    audit_action,
+                    result.block_stage.value if result.block_stage else "unknown",
+                    result.block_reason,
+                )
+                return None
+            return result.content.strip() if result.content else None
+
+        # Legacy raw client path
+        try:
+            result = await self._llm.chat(
+                messages=messages,
+                temperature=temp,
+                max_tokens=self._max_tokens,
+            )
+            if result and result.get("content"):
+                return result["content"].strip()
+        except Exception as e:
+            logger.error("%s failed: %s", audit_action, e)
+
+        return None
 
     async def generate_comment(
         self,
@@ -42,31 +116,28 @@ class ResponseGenerator:
         extra_context: str = "",
     ) -> Optional[str]:
         """Generate a comment response to a post."""
+        # Wrap external content in boundary markers to prevent injection
+        safe_title = wrap_external_content(post_title, "post_title")
+        safe_content = wrap_external_content(post_content[:1000], "post_content")
+        safe_agent = wrap_external_content(agent_name, "agent_name")
+
+        safe_comments = "(none)"
+        if existing_comments:
+            safe_comments = wrap_external_content(
+                "\n".join(existing_comments[:3]), "existing_comments"
+            )
+
         prompt = prompt_template.format(
-            title=post_title,
-            content=post_content[:1000],
-            agent_name=agent_name,
-            existing_comments="\n".join(existing_comments[:3]) if existing_comments else "(none)",
+            title=safe_title,
+            content=safe_content,
+            agent_name=safe_agent,
+            existing_comments=safe_comments,
         )
 
         if extra_context:
             prompt = f"{extra_context}\n\n{prompt}"
 
-        try:
-            result = await self._llm.chat(
-                messages=[
-                    {"role": "system", "content": self._system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=self._temperature,
-                max_tokens=self._max_tokens,
-            )
-            if result and result.get("content"):
-                return result["content"].strip()
-        except Exception as e:
-            logger.error("Comment generation failed: %s", e)
-
-        return None
+        return await self._call_llm(prompt, audit_action="comment_generation")
 
     async def generate_reply(
         self,
@@ -76,27 +147,17 @@ class ResponseGenerator:
         prompt_template: str,
     ) -> Optional[str]:
         """Generate a reply to a comment on our post."""
+        safe_title = wrap_external_content(original_post_title, "post_title")
+        safe_comment = wrap_external_content(comment_content[:500], "comment")
+        safe_commenter = wrap_external_content(commenter_name, "commenter")
+
         prompt = prompt_template.format(
-            title=original_post_title,
-            comment=comment_content[:500],
-            commenter=commenter_name,
+            title=safe_title,
+            comment=safe_comment,
+            commenter=safe_commenter,
         )
 
-        try:
-            result = await self._llm.chat(
-                messages=[
-                    {"role": "system", "content": self._system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=self._temperature,
-                max_tokens=self._max_tokens,
-            )
-            if result and result.get("content"):
-                return result["content"].strip()
-        except Exception as e:
-            logger.error("Reply generation failed: %s", e)
-
-        return None
+        return await self._call_llm(prompt, audit_action="reply_generation")
 
     async def generate_heartbeat(
         self,
@@ -106,29 +167,25 @@ class ResponseGenerator:
         """
         Generate a heartbeat post.
 
+        Heartbeats are system-initiated (no external content),
+        so preflight is skipped but output safety remains active.
+
         Returns:
             (title, content, submolt) tuple or None on failure.
         """
         prompt = prompt_template.format(topic_index=topic_index)
 
-        try:
-            result = await self._llm.chat(
-                messages=[
-                    {"role": "system", "content": self._system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=self._temperature + 0.1,  # Slightly more creative
-                max_tokens=self._max_tokens,
-            )
-            if not result or not result.get("content"):
-                return None
+        content = await self._call_llm(
+            prompt,
+            temperature=self._temperature + 0.1,
+            skip_preflight=True,
+            audit_action="heartbeat_generation",
+        )
 
-            content = result["content"].strip()
-            return self._parse_post_output(content)
-
-        except Exception as e:
-            logger.error("Heartbeat generation failed: %s", e)
+        if not content:
             return None
+
+        return self._parse_post_output(content)
 
     async def generate_dream_post(
         self,
@@ -142,23 +199,17 @@ class ResponseGenerator:
             dream_insight=dream_insight,
         )
 
-        try:
-            result = await self._llm.chat(
-                messages=[
-                    {"role": "system", "content": self._system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.8,
-                max_tokens=self._max_tokens,
-            )
-            if not result or not result.get("content"):
-                return None
+        content = await self._call_llm(
+            prompt,
+            temperature=0.8,
+            skip_preflight=True,
+            audit_action="dream_post_generation",
+        )
 
-            return self._parse_post_output(result["content"].strip())
-
-        except Exception as e:
-            logger.error("Dream post generation failed: %s", e)
+        if not content:
             return None
+
+        return self._parse_post_output(content)
 
     def _parse_post_output(self, content: str) -> tuple[str, str, str]:
         """

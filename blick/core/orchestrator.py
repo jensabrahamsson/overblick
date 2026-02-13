@@ -15,11 +15,16 @@ from typing import Optional
 
 from blick.core.event_bus import EventBus
 from blick.core.identity import Identity, load_identity
+from blick.core.llm.pipeline import SafeLLMPipeline
+from blick.core.permissions import PermissionChecker
 from blick.core.plugin_base import PluginBase, PluginContext
 from blick.core.plugin_registry import PluginRegistry
 from blick.core.quiet_hours import QuietHoursChecker
 from blick.core.scheduler import Scheduler
 from blick.core.security.audit_log import AuditLog
+from blick.core.security.output_safety import OutputSafety
+from blick.core.security.preflight import PreflightChecker
+from blick.core.security.rate_limiter import RateLimiter
 from blick.core.security.secrets_manager import SecretsManager
 
 logger = logging.getLogger(__name__)
@@ -63,6 +68,10 @@ class Orchestrator:
         self._secrets: Optional[SecretsManager] = None
         self._quiet_hours: Optional[QuietHoursChecker] = None
         self._llm_client: Optional[object] = None
+        self._llm_pipeline: Optional[SafeLLMPipeline] = None
+        self._preflight: Optional[PreflightChecker] = None
+        self._output_safety: Optional[OutputSafety] = None
+        self._rate_limiter: Optional[RateLimiter] = None
         self._plugins: list[PluginBase] = []
 
     @property
@@ -101,7 +110,25 @@ class Orchestrator:
         # 5. Initialize LLM client
         self._llm_client = await self._create_llm_client()
 
-        # 6. Load and setup plugins
+        # 6. Initialize security subsystems
+        self._preflight = self._create_preflight()
+        self._output_safety = self._create_output_safety()
+        self._rate_limiter = RateLimiter(max_tokens=10, refill_rate=0.5)
+
+        # 7. Create safe LLM pipeline
+        self._llm_pipeline = SafeLLMPipeline(
+            llm_client=self._llm_client,
+            audit_log=self._audit_log,
+            preflight_checker=self._preflight,
+            output_safety=self._output_safety,
+            rate_limiter=self._rate_limiter,
+            identity_name=self._identity_name,
+        )
+        logger.info("SafeLLMPipeline initialized with full security chain")
+
+        # 8. Load and setup plugins
+        permissions = PermissionChecker.from_identity(self._identity)
+
         for plugin_name in self._plugin_names:
             ctx = PluginContext(
                 identity_name=self._identity_name,
@@ -111,8 +138,12 @@ class Orchestrator:
                 event_bus=self._event_bus,
                 scheduler=self._scheduler,
                 audit_log=self._audit_log,
-                quiet_hours=self._quiet_hours,
+                quiet_hours_checker=self._quiet_hours,
+                llm_pipeline=self._llm_pipeline,
                 identity=self._identity,
+                preflight_checker=self._preflight,
+                output_safety=self._output_safety,
+                permissions=permissions,
                 _secrets_getter=lambda key, _id=self._identity_name: self._secrets.get(_id, key),
             )
 
@@ -233,3 +264,43 @@ class Orchestrator:
             logger.warning("LLM health check failed — agent may have limited functionality")
 
         return client
+
+    def _create_preflight(self) -> Optional[PreflightChecker]:
+        """Create preflight checker from identity security config."""
+        if not self._identity.security.enable_preflight:
+            logger.info("Preflight checker disabled by identity config")
+            return None
+
+        admin_ids = set(self._identity.security.admin_user_ids)
+        deflections = self._identity.deflections if isinstance(self._identity.deflections, dict) else {}
+
+        return PreflightChecker(
+            llm_client=self._llm_client,
+            admin_user_ids=admin_ids,
+            deflections=deflections,
+        )
+
+    def _create_output_safety(self) -> Optional[OutputSafety]:
+        """Create output safety filter from identity config."""
+        if not self._identity.security.enable_output_safety:
+            logger.info("Output safety disabled by identity config")
+            return None
+
+        # Get banned slang and replacements from personality
+        personality = self._identity.personality
+        banned_slang = []
+        slang_replacements = {}
+        if personality:
+            vocab = personality.get("vocabulary", {})
+            banned_slang = [rf"\b{w}\b" for w in vocab.get("banned_words", [])]
+            slang_replacements = vocab.get("slang_replacements", {})
+
+        deflections = self._identity.deflections
+        deflection_list = deflections if isinstance(deflections, list) else []
+
+        return OutputSafety(
+            identity_name=self._identity_name,
+            banned_slang_patterns=banned_slang,
+            slang_replacements=slang_replacements,
+            deflections=deflection_list if deflection_list else None,
+        )
