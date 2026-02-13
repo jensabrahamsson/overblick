@@ -1,0 +1,55 @@
+"""
+Entry point: python -m overblick.dashboard
+
+Starts the dashboard server on localhost.
+"""
+
+import argparse
+import logging
+import sys
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="overblick-dashboard",
+        description="Överblick Dashboard — Agent monitoring and onboarding",
+    )
+    parser.add_argument(
+        "--host", default="127.0.0.1",
+        help="Host to bind (default: 127.0.0.1, NEVER change for security)",
+    )
+    parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
+
+    args = parser.parse_args()
+
+    # Security: enforce localhost binding
+    if args.host not in ("127.0.0.1", "localhost", "::1"):
+        print("ERROR: Dashboard must bind to localhost only (127.0.0.1).")
+        print("This is a security requirement — the dashboard has no network-level auth.")
+        sys.exit(1)
+
+    level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
+    from .config import get_config
+    config = get_config()
+    config.port = args.port
+
+    from .app import create_app
+    app = create_app(config)
+
+    import uvicorn
+    uvicorn.run(
+        app,
+        host="127.0.0.1",  # Hardcoded, never from user input
+        port=config.port,
+        log_level="debug" if args.verbose else "info",
+    )
+
+
+if __name__ == "__main__":
+    main()

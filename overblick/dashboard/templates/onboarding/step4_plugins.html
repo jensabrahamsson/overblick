@@ -1,0 +1,48 @@
+{% extends "onboarding/layout.html" %}
+
+{% block wizard_content %}
+<h2 class="wizard-title">Plugins &amp; Capabilities</h2>
+<p class="wizard-desc">Select which connectors and capability bundles to enable.</p>
+
+{% if error %}
+<div class="flash flash-error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/onboard" class="wizard-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="step" value="4">
+
+    <div class="form-group">
+        <label class="form-label">Connectors</label>
+        <div class="checkbox-grid">
+            {% for plugin in available_plugins %}
+            {% if not plugin.endswith('_connector') %}
+            <label class="form-checkbox">
+                <input type="checkbox" name="plugins" value="{{ plugin }}"
+                       {% if plugin in wizard.get('plugins', []) %}checked{% endif %}>
+                <span>{{ plugin }}</span>
+            </label>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Capability Bundles</label>
+        <div class="checkbox-grid">
+            {% for bundle, caps in capability_bundles.items() %}
+            <label class="form-checkbox">
+                <input type="checkbox" name="capabilities" value="{{ bundle }}"
+                       {% if bundle in wizard.get('capabilities', []) %}checked{% endif %}>
+                <span>{{ bundle }} <span class="text-muted">({{ caps|join(', ') }})</span></span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="wizard-actions">
+        <a href="/onboard?step=3" class="btn btn-ghost">Back</a>
+        <button type="submit" class="btn btn-primary">Next: Secrets</button>
+    </div>
+</form>
+{% endblock %}

@@ -5,6 +5,7 @@ Usage:
     python -m overblick run anomal       # Run as Anomal
     python -m overblick run cherry       # Run as Cherry
     python -m overblick list             # List available identities
+    python -m overblick dashboard        # Start web dashboard
     python -m overblick secrets import anomal config/plaintext.yaml
 """
 
@@ -72,6 +73,17 @@ def cmd_list(args: argparse.Namespace) -> None:
         print(f"  - {name}")
 
 
+def cmd_dashboard(args: argparse.Namespace) -> None:
+    """Start the web dashboard."""
+    from overblick.dashboard.__main__ import main as dashboard_main
+    # Override sys.argv so dashboard's argparse picks up our args
+    import sys
+    sys.argv = ["overblick-dashboard", "--port", str(args.port)]
+    if args.verbose:
+        sys.argv.append("--verbose")
+    dashboard_main()
+
+
 def cmd_secrets_import(args: argparse.Namespace) -> None:
     """Import plaintext secrets for an identity."""
     import yaml
@@ -108,6 +120,12 @@ def main() -> None:
     # list
     list_parser = subparsers.add_parser("list", help="List available identities")
     list_parser.set_defaults(func=cmd_list)
+
+    # dashboard
+    dash_parser = subparsers.add_parser("dashboard", help="Start web dashboard")
+    dash_parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
+    dash_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
+    dash_parser.set_defaults(func=cmd_dashboard)
 
     # secrets import
     secrets_parser = subparsers.add_parser("secrets", help="Manage secrets")

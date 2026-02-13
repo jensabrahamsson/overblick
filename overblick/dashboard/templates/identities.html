@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Identities{% endblock %}
+
+{% block content %}
+<div class="identities-page">
+    <div class="section-header">
+        <h1 class="page-title">Identities</h1>
+        <a href="/onboard" class="btn btn-primary">Create New Identity</a>
+    </div>
+
+    <div class="identity-grid">
+        {% for identity in identities %}
+        <div class="card identity-card">
+            <div class="identity-card-header">
+                <h2 class="identity-card-name">
+                    <a href="/agent/{{ identity.name }}">{{ identity.display_name }}</a>
+                </h2>
+                <span class="identity-card-version">v{{ identity.version }}</span>
+            </div>
+            <p class="identity-card-desc">{{ identity.description }}</p>
+
+            <!-- LLM Info -->
+            <div class="identity-card-meta">
+                <span class="meta-item">
+                    <span class="meta-label">LLM</span>
+                    <span class="mono">{{ identity.llm.model }}</span>
+                </span>
+                <span class="meta-item">
+                    <span class="meta-label">Personality</span>
+                    {{ identity.personality_ref or identity.name }}
+                </span>
+            </div>
+
+            <!-- Connectors -->
+            <div class="tag-list mt-2">
+                {% for conn in identity.connectors %}
+                <span class="tag tag-connector">{{ conn }}</span>
+                {% endfor %}
+                {% for cap in identity.capability_names %}
+                <span class="tag tag-capability">{{ cap }}</span>
+                {% endfor %}
+            </div>
+
+            <!-- Personality Traits (compact) -->
+            {% if identity.personality_data and identity.personality_data.traits %}
+            <div class="trait-bars compact mt-2">
+                {% for trait_name, trait_value in identity.personality_data.traits.items() %}
+                {% if loop.index <= 5 %}
+                <div class="trait-bar">
+                    <span class="trait-name">{{ trait_name }}</span>
+                    <div class="trait-track">
+                        <div class="trait-fill" style="width: {{ (trait_value * 100)|int }}%"></div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Voice info -->
+            {% if identity.personality_data and identity.personality_data.voice %}
+            <div class="identity-card-voice mt-2">
+                {% if identity.personality_data.voice.base_tone %}
+                <span class="voice-label">Tone:</span>
+                <span class="voice-value">{{ identity.personality_data.voice.base_tone }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if not identities %}
+    <div class="empty-state">
+        <p>No identities found.</p>
+        <a href="/onboard" class="btn btn-primary">Create your first identity</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

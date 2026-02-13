@@ -1,0 +1,22 @@
+<div class="health-items">
+    <div class="health-item">
+        <span class="health-icon {% if supervisor_running %}health-ok{% else %}health-warn{% endif %}"></span>
+        <span class="health-label">Supervisor</span>
+        <span class="health-value">{{ 'Running' if supervisor_running else 'Stopped' }}</span>
+    </div>
+    <div class="health-item">
+        <span class="health-icon health-ok"></span>
+        <span class="health-label">Identities</span>
+        <span class="health-value">{{ total_identities }}</span>
+    </div>
+    <div class="health-item">
+        <span class="health-icon {% if total_agents > 0 %}health-ok{% else %}health-neutral{% endif %}"></span>
+        <span class="health-label">Active Agents</span>
+        <span class="health-value">{{ total_agents }}</span>
+    </div>
+    <div class="health-item">
+        <span class="health-icon health-neutral"></span>
+        <span class="health-label">Audit Events (24h)</span>
+        <span class="health-value">{{ audit_count_24h }}</span>
+    </div>
+</div>

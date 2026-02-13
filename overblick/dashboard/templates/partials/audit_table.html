@@ -1,0 +1,36 @@
+{% if entries %}
+<table class="audit-table">
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Identity</th>
+            <th>Action</th>
+            <th>Category</th>
+            <th>Plugin</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for entry in entries %}
+        <tr class="audit-row {% if not entry.success %}audit-row-error{% endif %}">
+            <td class="mono audit-time">{{ entry.timestamp|int }}</td>
+            <td>{{ entry.identity }}</td>
+            <td>{{ entry.action }}</td>
+            <td><span class="tag tag-sm">{{ entry.category }}</span></td>
+            <td>{{ entry.plugin or '—' }}</td>
+            <td>
+                {% if entry.success %}
+                <span class="status-badge status-running">OK</span>
+                {% else %}
+                <span class="status-badge status-stopped">FAIL</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <p>No audit entries found.</p>
+</div>
+{% endif %}
