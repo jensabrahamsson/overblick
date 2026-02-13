@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Överblick Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <div class="login-logo">
+            <img src="/static/img/overblick-logo.svg" alt="Överblick" class="login-logo-img">
+            <h1 class="login-title">Överblick</h1>
+            <p class="login-subtitle">Agent Framework Dashboard</p>
+        </div>
+
+        {% if error %}
+        <div class="flash flash-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/login" class="login-form">
+            <input type="hidden" name="csrf_token" value="">
+            <div class="form-group">
+                <label for="password" class="form-label">Dashboard Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    class="form-input"
+                    placeholder="Enter password"
+                    autofocus
+                    required
+                >
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+        </form>
+
+        <p class="login-note">
+            Localhost only (127.0.0.1). Read-only monitoring.
+        </p>
+    </div>
+</body>
+</html>

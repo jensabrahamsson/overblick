@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{{ identity.display_name }}{% endblock %}
+
+{% block content %}
+<div class="detail">
+    <div class="detail-header">
+        <div class="detail-title-row">
+            <h1 class="detail-name">{{ identity.display_name }}</h1>
+            <span class="status-badge status-{{ agent_status.get('state', 'stopped') }}">
+                {{ agent_status.get('state', 'stopped') }}
+            </span>
+        </div>
+        <p class="detail-description">{{ identity.description }}</p>
+    </div>
+
+    <div class="detail-grid">
+        <!-- Identity Info -->
+        <div class="card">
+            <h3 class="card-title">Identity</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Name</span>
+                    <span class="info-value">{{ identity.name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Version</span>
+                    <span class="info-value">{{ identity.version }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Personality</span>
+                    <span class="info-value">{{ identity.personality_ref or 'default' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">LLM Model</span>
+                    <span class="info-value mono">{{ identity.llm.model }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Temperature</span>
+                    <span class="info-value">{{ identity.llm.temperature }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Max Tokens</span>
+                    <span class="info-value">{{ identity.llm.max_tokens }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Runtime Status -->
+        <div class="card">
+            <h3 class="card-title">Runtime</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">State</span>
+                    <span class="info-value">
+                        <span class="status-dot status-{{ agent_status.get('state', 'stopped') }}"></span>
+                        {{ agent_status.get('state', 'stopped') }}
+                    </span>
+                </div>
+                {% if agent_status.get('pid') %}
+                <div class="info-item">
+                    <span class="info-label">PID</span>
+                    <span class="info-value mono">{{ agent_status.pid }}</span>
+                </div>
+                {% endif %}
+                <div class="info-item">
+                    <span class="info-label">Uptime</span>
+                    <span class="info-value">{{ _format_uptime(agent_status.get('uptime', 0)) }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Restarts</span>
+                    <span class="info-value">{{ agent_status.get('restart_count', 0) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connectors & Capabilities -->
+        <div class="card">
+            <h3 class="card-title">Connectors</h3>
+            <div class="tag-list">
+                {% for conn in identity.connectors %}
+                <span class="tag tag-connector">{{ conn }}</span>
+                {% endfor %}
+                {% if not identity.connectors %}
+                <span class="text-muted">No connectors configured</span>
+                {% endif %}
+            </div>
+
+            <h3 class="card-title mt-3">Capabilities</h3>
+            <div class="tag-list">
+                {% for cap in identity.capability_names %}
+                <span class="tag tag-capability">{{ cap }}</span>
+                {% endfor %}
+                {% if not identity.capability_names %}
+                <span class="text-muted">No capabilities configured</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Personality Traits -->
+        {% if personality and personality.traits %}
+        <div class="card">
+            <h3 class="card-title">Personality Traits</h3>
+            <div class="trait-bars">
+                {% for trait_name, trait_value in personality.traits.items() %}
+                <div class="trait-bar">
+                    <span class="trait-name">{{ trait_name }}</span>
+                    <div class="trait-track">
+                        <div class="trait-fill" style="width: {{ (trait_value * 100)|int }}%"></div>
+                    </div>
+                    <span class="trait-value">{{ "%.1f"|format(trait_value) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Audit Trail -->
+    <section class="section mt-4">
+        <h2 class="section-title">Recent Activity</h2>
+        {% with entries=audit_entries %}
+        {% include "partials/audit_table.html" %}
+        {% endwith %}
+    </section>
+
+    <a href="/" class="btn btn-ghost mt-3">Back to Dashboard</a>
+</div>
+{% endblock %}

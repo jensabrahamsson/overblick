@@ -1,0 +1,18 @@
+<div class="agent-card" id="agent-{{ card.name }}">
+    <div class="agent-card-header">
+        <span class="status-dot status-{{ card.state }}"></span>
+        <a href="/agent/{{ card.name }}" class="agent-card-name">{{ card.display_name }}</a>
+    </div>
+    <p class="agent-card-desc">{{ card.description|truncate(80) }}</p>
+    <div class="agent-card-meta">
+        <span class="meta-item mono">{{ card.llm_model }}</span>
+        {% if card.state == 'running' and card.uptime %}
+        <span class="meta-item">up {{ _format_uptime(card.uptime) }}</span>
+        {% endif %}
+    </div>
+    <div class="tag-list">
+        {% for conn in card.connectors %}
+        <span class="tag tag-sm tag-connector">{{ conn }}</span>
+        {% endfor %}
+    </div>
+</div>

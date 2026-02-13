@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}New Identity — Step {{ step }}{% endblock %}
+
+{% block content %}
+<div class="wizard">
+    <!-- Progress Bar -->
+    <div class="wizard-progress">
+        {% for s in steps %}
+        <div class="wizard-step {% if loop.index < step %}wizard-step-done{% elif loop.index == step %}wizard-step-active{% endif %}">
+            <div class="wizard-step-num">{{ loop.index }}</div>
+            <span class="wizard-step-label">{{ s|capitalize }}</span>
+        </div>
+        {% if not loop.last %}
+        <div class="wizard-connector {% if loop.index < step %}wizard-connector-done{% endif %}"></div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="wizard-content">
+        {% block wizard_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}

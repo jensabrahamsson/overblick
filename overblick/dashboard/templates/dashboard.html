@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- System Health Bar -->
+    <section class="health-bar"
+             hx-get="/partials/system-health"
+             hx-trigger="every {{ poll_interval }}s"
+             hx-swap="innerHTML">
+        {% include "partials/system_health.html" %}
+    </section>
+
+    <!-- Agent Cards Grid -->
+    <section class="section">
+        <h2 class="section-title">Agents</h2>
+        <div class="agent-grid"
+             hx-get="/partials/agent-cards"
+             hx-trigger="every {{ poll_interval }}s"
+             hx-swap="innerHTML">
+            {% include "partials/agent_cards.html" %}
+        </div>
+    </section>
+
+    <!-- Recent Audit Trail -->
+    <section class="section">
+        <div class="section-header">
+            <h2 class="section-title">Recent Activity</h2>
+            <a href="/audit" class="btn btn-ghost btn-sm">View All</a>
+        </div>
+        <div class="audit-container"
+             hx-get="/partials/audit-recent"
+             hx-trigger="every {{ poll_interval }}s"
+             hx-swap="innerHTML">
+            {% include "partials/audit_table.html" with context %}
+        </div>
+    </section>
+</div>
+{% endblock %}

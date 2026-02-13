@@ -1,0 +1,40 @@
+{% extends "onboarding/layout.html" %}
+
+{% block wizard_content %}
+<h2 class="wizard-title">Choose a Personality</h2>
+<p class="wizard-desc">Select an existing personality from the stable, or leave blank to start from scratch.</p>
+
+{% if error %}
+<div class="flash flash-error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/onboard" class="wizard-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="step" value="2">
+
+    <div class="form-group">
+        <label class="form-label">Personality</label>
+        <div class="radio-grid">
+            <label class="radio-card {% if not wizard.get('personality') %}radio-card-selected{% endif %}">
+                <input type="radio" name="personality" value=""
+                       {% if not wizard.get('personality') %}checked{% endif %}>
+                <span class="radio-card-title">None (start fresh)</span>
+                <span class="radio-card-desc">No personality template. Configure manually later.</span>
+            </label>
+            {% for p in available_personalities %}
+            <label class="radio-card {% if wizard.get('personality') == p %}radio-card-selected{% endif %}">
+                <input type="radio" name="personality" value="{{ p }}"
+                       {% if wizard.get('personality') == p %}checked{% endif %}>
+                <span class="radio-card-title">{{ p|capitalize }}</span>
+                <span class="radio-card-desc">Use the {{ p }} personality template.</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="wizard-actions">
+        <a href="/onboard?step=1" class="btn btn-ghost">Back</a>
+        <button type="submit" class="btn btn-primary">Next: LLM Settings</button>
+    </div>
+</form>
+{% endblock %}

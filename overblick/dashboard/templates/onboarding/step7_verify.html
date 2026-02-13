@@ -1,0 +1,46 @@
+{% extends "onboarding/layout.html" %}
+
+{% block wizard_content %}
+<h2 class="wizard-title">Identity Created</h2>
+
+{% if result and result.name %}
+<div class="verify-success">
+    <div class="verify-icon">&#10003;</div>
+    <p class="verify-msg">Identity <strong>{{ result.name }}</strong> has been created successfully.</p>
+</div>
+
+<div class="review-card">
+    <h3 class="review-section">Created Files</h3>
+    <ul class="file-list">
+        {% for f in result.get('created_files', []) %}
+        <li class="mono">{{ f }}</li>
+        {% endfor %}
+    </ul>
+
+    <h3 class="review-section">Directories</h3>
+    <ul class="file-list">
+        <li class="mono">{{ result.get('identity_dir', '') }}</li>
+        <li class="mono">{{ result.get('data_dir', '') }}</li>
+    </ul>
+</div>
+
+<div class="verify-next">
+    <h3>What's Next?</h3>
+    <ol class="next-steps">
+        <li>Customize the personality YAML in <code>overblick/identities/{{ result.name }}/personality.yaml</code></li>
+        <li>Run the agent: <code>python -m overblick run {{ result.name }}</code></li>
+        <li>Monitor it on the <a href="/">dashboard</a></li>
+    </ol>
+</div>
+
+{% else %}
+<div class="flash flash-error">
+    No creation result found. Something went wrong.
+</div>
+{% endif %}
+
+<div class="wizard-actions">
+    <a href="/agent/{{ result.name if result else '' }}" class="btn btn-primary">View Identity</a>
+    <a href="/" class="btn btn-ghost">Back to Dashboard</a>
+</div>
+{% endblock %}

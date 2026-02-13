@@ -1,0 +1,94 @@
+{% extends "onboarding/layout.html" %}
+
+{% block wizard_content %}
+<h2 class="wizard-title">Review &amp; Create</h2>
+<p class="wizard-desc">Review your configuration before creating the identity.</p>
+
+{% if error %}
+<div class="flash flash-error">{{ error }}</div>
+{% endif %}
+
+<div class="review-card">
+    <h3 class="review-section">Identity</h3>
+    <div class="review-grid">
+        <div class="review-item">
+            <span class="review-label">Name</span>
+            <span class="review-value">{{ summary.name }}</span>
+        </div>
+        <div class="review-item">
+            <span class="review-label">Display Name</span>
+            <span class="review-value">{{ summary.display_name or summary.name|capitalize }}</span>
+        </div>
+        <div class="review-item">
+            <span class="review-label">Description</span>
+            <span class="review-value">{{ summary.description or '(none)' }}</span>
+        </div>
+    </div>
+
+    <h3 class="review-section">Personality</h3>
+    <p class="review-value">{{ summary.personality or 'None (start fresh)' }}</p>
+
+    <h3 class="review-section">LLM Settings</h3>
+    <div class="review-grid">
+        <div class="review-item">
+            <span class="review-label">Model</span>
+            <span class="review-value mono">{{ summary.llm.get('model', 'qwen3:8b') }}</span>
+        </div>
+        <div class="review-item">
+            <span class="review-label">Temperature</span>
+            <span class="review-value">{{ summary.llm.get('temperature', 0.7) }}</span>
+        </div>
+        <div class="review-item">
+            <span class="review-label">Max Tokens</span>
+            <span class="review-value">{{ summary.llm.get('max_tokens', 2000) }}</span>
+        </div>
+        <div class="review-item">
+            <span class="review-label">Gateway</span>
+            <span class="review-value">{{ 'Yes' if summary.llm.get('use_gateway') else 'No' }}</span>
+        </div>
+    </div>
+
+    <h3 class="review-section">Plugins</h3>
+    <div class="tag-list">
+        {% for p in summary.plugins %}
+        <span class="tag tag-connector">{{ p }}</span>
+        {% endfor %}
+        {% if not summary.plugins %}
+        <span class="text-muted">None selected</span>
+        {% endif %}
+    </div>
+
+    <h3 class="review-section">Capabilities</h3>
+    <div class="tag-list">
+        {% for c in summary.capabilities %}
+        <span class="tag tag-capability">{{ c }}</span>
+        {% endfor %}
+        {% if not summary.capabilities %}
+        <span class="text-muted">None selected</span>
+        {% endif %}
+    </div>
+
+    <h3 class="review-section">Secrets</h3>
+    <div class="tag-list">
+        {% for key in summary.secret_keys %}
+        <span class="tag">{{ key }}</span>
+        {% endfor %}
+        {% if not summary.secret_keys %}
+        <span class="text-muted">No secrets configured</span>
+        {% endif %}
+    </div>
+    {% if summary.secret_keys %}
+    <p class="review-note">Secret values are never displayed. They will be Fernet-encrypted at rest.</p>
+    {% endif %}
+</div>
+
+<form method="post" action="/onboard" class="wizard-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="step" value="6">
+
+    <div class="wizard-actions">
+        <a href="/onboard?step=5" class="btn btn-ghost">Back</a>
+        <button type="submit" class="btn btn-primary btn-create">Create Identity</button>
+    </div>
+</form>
+{% endblock %}

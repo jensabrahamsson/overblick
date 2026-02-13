@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Överblick{% endblock %} — Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <script src="/static/js/htmx.min.js"></script>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'>
+    <nav class="nav">
+        <div class="nav-brand">
+            <a href="/">
+                <img src="/static/img/overblick-logo.svg" alt="Överblick" class="nav-logo">
+                <span class="nav-title">Överblick</span>
+            </a>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
+            <a href="/identities" class="nav-link {% if request.url.path == '/identities' %}active{% endif %}">Identities</a>
+            <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}">Audit</a>
+            <a href="/onboard" class="nav-link {% if request.url.path.startswith('/onboard') %}active{% endif %}">New Identity</a>
+            <a href="/logout" class="nav-link nav-link-logout">Logout</a>
+        </div>
+    </nav>
+
+    <main class="main">
+        {% block flash %}
+        {% if error %}
+        <div class="flash flash-error">{{ error }}</div>
+        {% endif %}
+        {% if success %}
+        <div class="flash flash-success">{{ success }}</div>
+        {% endif %}
+        {% endblock %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <span>Överblick Agent Framework</span>
+        <span class="footer-sep">|</span>
+        <span>Security-first. Read-only monitoring.</span>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{% for card in agent_cards %}
+<div class="agent-card" id="agent-{{ card.name }}">
+    <div class="agent-card-header">
+        <span class="status-dot status-{{ card.state }}"></span>
+        <a href="/agent/{{ card.name }}" class="agent-card-name">{{ card.display_name }}</a>
+    </div>
+    <p class="agent-card-desc">{{ card.description[:80] }}{% if card.description|length > 80 %}...{% endif %}</p>
+    <div class="agent-card-meta">
+        <span class="meta-item mono">{{ card.llm_model }}</span>
+        {% if card.state == 'running' and card.uptime %}
+        <span class="meta-item">up {{ card.uptime }}s</span>
+        {% endif %}
+    </div>
+    <div class="tag-list">
+        {% for conn in card.connectors %}
+        <span class="tag tag-sm tag-connector">{{ conn }}</span>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% if not agent_cards %}
+<div class="empty-state">
+    <p>No identities configured yet.</p>
+    <a href="/onboard" class="btn btn-primary btn-sm">Create your first identity</a>
+</div>
+{% endif %}
