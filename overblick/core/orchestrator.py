@@ -15,7 +15,7 @@ from typing import Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityRegistry
 from overblick.core.event_bus import EventBus
-from overblick.core.identity import Identity, load_identity
+from overblick.personalities import Personality as Identity, load_personality as load_identity
 from overblick.core.llm.pipeline import SafeLLMPipeline
 from overblick.core.permissions import PermissionChecker
 from overblick.core.plugin_base import PluginBase, PluginContext

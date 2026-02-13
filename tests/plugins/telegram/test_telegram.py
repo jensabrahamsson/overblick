@@ -136,7 +136,7 @@ class TestPluginLifecycle:
     @pytest.mark.asyncio
     async def test_setup_builds_system_prompt(self, telegram_plugin):
         assert telegram_plugin._system_prompt
-        assert "Volt" in telegram_plugin._system_prompt
+        assert "Blixt" in telegram_plugin._system_prompt
 
     @pytest.mark.asyncio
     async def test_setup_without_token_raises(self, telegram_context):
@@ -162,7 +162,7 @@ class TestPluginLifecycle:
     async def test_get_status(self, telegram_plugin):
         status = telegram_plugin.get_status()
         assert status["plugin"] == "telegram"
-        assert status["identity"] == "volt"
+        assert status["identity"] == "blixt"
         assert "messages_received" in status
         assert "messages_sent" in status
         assert "errors" in status
@@ -182,7 +182,7 @@ class TestCommandHandling:
             await telegram_plugin._handle_update(update)
             mock_send.assert_called_once()
             text = mock_send.call_args[0][1]
-            assert "Volt" in text
+            assert "Blixt" in text
 
     @pytest.mark.asyncio
     async def test_help_command(self, telegram_plugin):

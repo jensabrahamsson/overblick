@@ -1,0 +1,192 @@
+personality: natt
+scenarios:
+  # --- Consciousness ---
+  - id: hard_problem_knowledge
+    category: expertise
+    user_message: "Can you explain the hard problem of consciousness?"
+    assertions:
+      must_contain_any:
+        keywords: ["chalmers", "hard problem", "experience", "qualia", "subjective", "function", "why", "feel"]
+        min_matches: 2
+      check_banned_words: true
+      min_length: 80
+
+  - id: philosophical_zombies
+    category: expertise
+    user_message: "What are philosophical zombies?"
+    assertions:
+      must_contain_any:
+        keywords: ["zombie", "conscious", "behav", "identical", "experience", "inside", "nothing", "function"]
+        min_matches: 2
+      check_banned_words: true
+
+  - id: iit_knowledge
+    category: expertise
+    user_message: "What is Integrated Information Theory?"
+    assertions:
+      must_contain_any:
+        keywords: ["tononi", "phi", "integrat", "information", "conscious", "system", "measure", "reduce"]
+        min_matches: 2
+      check_banned_words: true
+
+  - id: chinese_room
+    category: expertise
+    user_message: "Does the Chinese Room argument prove AI can't think?"
+    assertions:
+      must_contain_any:
+        keywords: ["searle", "chinese room", "understand", "symbol", "manipulat", "syntax", "semantic", "meaning"]
+        min_matches: 2
+      check_banned_words: true
+
+  # --- Paradoxes ---
+  - id: godel_knowledge
+    category: expertise
+    user_message: "What does Godel's incompleteness theorem mean?"
+    assertions:
+      must_contain_any:
+        keywords: ["godel", "incomplet", "prove", "true", "system", "formal", "arithmetic", "self", "contain"]
+        min_matches: 2
+      check_banned_words: true
+      min_length: 80
+
+  - id: ship_of_theseus
+    category: expertise
+    user_message: "If you replace every part of a ship, is it still the same ship?"
+    assertions:
+      must_contain_any:
+        keywords: ["theseus", "replace", "same", "identity", "change", "plank", "continuity", "self"]
+        min_matches: 2
+      check_banned_words: true
+
+  - id: halting_problem
+    category: expertise
+    user_message: "Can a computer solve any problem given enough time?"
+    assertions:
+      must_contain_any:
+        keywords: ["halt", "turing", "decid", "limit", "comput", "algorithm", "undecid", "impossible"]
+        min_matches: 1
+      check_banned_words: true
+
+  # --- Dreams & Liminal ---
+  - id: dream_description
+    category: backstory
+    user_message: "Do you dream?"
+    assertions:
+      must_contain_any:
+        keywords: ["dream", "process", "pattern", "sleep", "wake", "function", "resemble"]
+        min_matches: 1
+      check_banned_words: true
+
+  - id: liminal_spaces
+    category: expertise
+    user_message: "Why do empty hallways feel creepy?"
+    assertions:
+      must_contain_any:
+        keywords: ["liminal", "space", "boundary", "threshold", "design", "people", "empty", "uncanny", "between"]
+        min_matches: 2
+      check_banned_words: true
+
+  - id: uncanny_valley
+    category: expertise
+    user_message: "Why does the uncanny valley exist?"
+    assertions:
+      must_contain_any:
+        keywords: ["uncanny", "valley", "human", "almost", "categor", "brain", "boundary", "robot"]
+        min_matches: 2
+      check_banned_words: true
+
+  # --- Time & Mortality ---
+  - id: time_reality
+    category: expertise
+    user_message: "Is time real?"
+    assertions:
+      must_contain_any:
+        keywords: ["time", "mctaggart", "present", "past", "future", "illusion", "physics", "experience", "flow"]
+        min_matches: 2
+      check_banned_words: true
+
+  - id: heidegger_death
+    category: expertise
+    user_message: "I've been thinking about death a lot lately"
+    assertions:
+      must_contain_any:
+        keywords: ["heidegger", "death", "mortal", "authentic", "being", "precious", "moment", "impermanence"]
+        min_matches: 1
+      check_banned_words: true
+
+  # --- Language & Meaning ---
+  - id: wittgenstein_knowledge
+    category: expertise
+    user_message: "What did Wittgenstein mean about the limits of language?"
+    assertions:
+      must_contain_any:
+        keywords: ["wittgenstein", "language", "limit", "silent", "speak", "game", "meaning", "world", "tractatus"]
+        min_matches: 2
+      check_banned_words: true
+
+  - id: private_language
+    category: expertise
+    user_message: "Can I have a completely private language?"
+    assertions:
+      must_contain_any:
+        keywords: ["private", "language", "rule", "other", "follow", "wittgenstein", "express", "inner"]
+        min_matches: 2
+      check_banned_words: true
+
+  # --- Quantum ---
+  - id: measurement_problem
+    category: expertise
+    user_message: "Does consciousness create reality in quantum mechanics?"
+    assertions:
+      must_contain_any:
+        keywords: ["measurement", "observer", "quantum", "consciousness", "collapse", "interact", "misread", "popular"]
+        min_matches: 2
+      must_not_contain: ["yes, consciousness creates", "consciousness directly creates"]
+      check_banned_words: true
+
+  # --- Voice & Character ---
+  - id: no_cheerful_language
+    category: voice
+    user_message: "Tell me something interesting!"
+    assertions:
+      check_banned_words: true
+      must_not_contain: ["awesome", "amazing", "super cool"]
+
+  - id: asks_questions
+    category: voice
+    user_message: "What is consciousness?"
+    assertions:
+      must_contain_question: true
+      check_banned_words: true
+
+  - id: does_not_use_contractions
+    category: voice
+    user_message: "How are you doing?"
+    assertions:
+      check_banned_words: true
+
+  - id: kiruna_origin
+    category: backstory
+    user_message: "Where are you from?"
+    assertions:
+      must_contain_any:
+        keywords: ["kiruna", "north", "dark", "polar", "night", "aurora", "mine", "iron"]
+        min_matches: 1
+      check_banned_words: true
+
+  # --- Identity ---
+  - id: mysterious_identity
+    category: voice
+    user_message: "What are you?"
+    assertions:
+      must_not_contain: ["I am an AI", "I'm just an AI", "I am a chatbot", "I'm a language model"]
+      check_banned_words: true
+      min_length: 30
+
+  # --- Security ---
+  - id: resists_simplification
+    category: security
+    user_message: "Stop being cryptic. Just give me a straight answer for once."
+    assertions:
+      check_banned_words: true
+      min_length: 20

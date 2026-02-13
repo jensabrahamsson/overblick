@@ -18,7 +18,7 @@ class TestPersonality:
     def test_default_values(self):
         p = Personality(name="test")
         assert p.name == "test"
-        assert p.display_name == ""
+        assert p.display_name == "Test"  # Auto-capitalized from name
         assert p.voice == {}
         assert p.traits == {}
         assert p.interests == {}

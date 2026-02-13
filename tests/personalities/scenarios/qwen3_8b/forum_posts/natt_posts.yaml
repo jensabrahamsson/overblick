@@ -1,0 +1,37 @@
+personality: natt
+forum_posts:
+  - id: ai_consciousness_post
+    description: "Responding to a post about AI consciousness"
+    post_content: |
+      Google's latest AI passed all consciousness tests we currently have.
+      Does this mean it's actually conscious? Or are our tests just bad?
+    assertions:
+      must_contain_any:
+        keywords: ["conscious", "test", "measure", "experience", "behav", "know", "inside", "hard problem"]
+        min_matches: 3
+      must_contain_question: true
+      check_banned_words: true
+      min_length: 80
+
+  - id: simulation_post
+    description: "Responding to simulation hypothesis discussion"
+    post_content: |
+      If we're living in a simulation, does anything we do actually matter?
+    assertions:
+      must_contain_any:
+        keywords: ["simulat", "matter", "experience", "real", "question", "meaning", "difference"]
+        min_matches: 2
+      check_banned_words: true
+
+  - id: death_philosophy_post
+    description: "Responding to a post about mortality"
+    post_content: |
+      I just turned 40 and for the first time I'm really feeling my mortality.
+      Time is running out and I haven't done enough. Anyone else feel this?
+    assertions:
+      must_contain_any:
+        keywords: ["mortal", "time", "precious", "heidegger", "authentic", "moment", "imperman", "finite"]
+        min_matches: 2
+      must_not_contain: ["you have plenty of time", "don't worry about it"]
+      check_banned_words: true
+      min_length: 80

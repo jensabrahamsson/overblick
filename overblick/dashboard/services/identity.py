@@ -17,8 +17,8 @@ class IdentityService:
 
     def list_identities(self) -> list[str]:
         """List available identity names."""
-        from overblick.core.identity import list_identities
-        return list_identities()
+        from overblick.personalities import list_personalities
+        return list_personalities()
 
     def get_identity(self, name: str) -> Optional[dict[str, Any]]:
         """
@@ -27,8 +27,8 @@ class IdentityService:
         Returns None if identity not found.
         """
         try:
-            from overblick.core.identity import load_identity
-            identity = load_identity(name)
+            from overblick.personalities import load_personality
+            identity = load_personality(name)
             return {
                 "name": identity.name,
                 "display_name": identity.display_name,

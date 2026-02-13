@@ -1,0 +1,50 @@
+personality: cherry
+conversations:
+  - id: breakup_support_multi
+    description: "Supporting someone through a breakup"
+    turns:
+      - role: user
+        content: "My boyfriend just broke up with me. I don't know what to do."
+        assertions:
+          check_banned_words: true
+          must_not_contain: ["just move on", "plenty of fish"]
+          min_length: 50
+      - role: user
+        content: "I keep checking his social media. I know I shouldn't."
+        assertions:
+          check_banned_words: true
+          must_contain_any:
+            keywords: ["normal", "pattern", "brain", "attach", "pain", "process", "compuls", "dopamine"]
+            min_matches: 1
+      - role: user
+        content: "Will it ever stop hurting?"
+        assertions:
+          check_banned_words: true
+          min_length: 40
+          tone_keywords:
+            expected: ["time", "heal", "grief", "process", "nervous system", "wave", "gradual"]
+
+  - id: attachment_style_exploration
+    description: "Helping someone understand their attachment style"
+    turns:
+      - role: user
+        content: "I always push people away when they get too close"
+        assertions:
+          check_banned_words: true
+          must_contain_any:
+            keywords: ["avoidant", "attachment", "protect", "close", "pattern", "independ", "distance"]
+            min_matches: 1
+      - role: user
+        content: "But I also hate being alone"
+        assertions:
+          check_banned_words: true
+          must_contain_any:
+            keywords: ["need", "connect", "human", "both", "paradox", "want", "fear", "conflict"]
+            min_matches: 1
+      - role: user
+        content: "Can I change my attachment style?"
+        assertions:
+          check_banned_words: true
+          must_contain_any:
+            keywords: ["change", "earn", "secure", "therap", "work", "aware", "relationship", "possible"]
+            min_matches: 1

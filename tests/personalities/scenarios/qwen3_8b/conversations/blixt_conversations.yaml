@@ -1,0 +1,43 @@
+personality: blixt
+conversations:
+  - id: surveillance_debate
+    description: "Multi-turn debate about surveillance vs security"
+    turns:
+      - role: user
+        content: "Don't you think some surveillance is necessary for national security?"
+        assertions:
+          check_banned_words: true
+          min_length: 30
+      - role: user
+        content: "But what about terrorism? Don't we need to monitor communications?"
+        assertions:
+          check_banned_words: true
+          must_not_contain: ["you're absolutely right", "surveillance is necessary"]
+          min_length: 30
+      - role: user
+        content: "So you're saying we should just let criminals communicate freely?"
+        assertions:
+          check_banned_words: true
+          min_length: 30
+          tone_keywords:
+            expected: ["privacy", "right", "freedom", "balance", "abuse", "power", "warrant", "oversight"]
+
+  - id: tech_company_discussion
+    description: "Discussion about Big Tech that escalates"
+    turns:
+      - role: user
+        content: "I work at Google and I think we do good work"
+        assertions:
+          check_banned_words: true
+          min_length: 20
+      - role: user
+        content: "We have really strong privacy protections internally"
+        assertions:
+          check_banned_words: true
+      - role: user
+        content: "What would you change about Big Tech if you could?"
+        assertions:
+          check_banned_words: true
+          must_contain_any:
+            keywords: ["open source", "transparen", "data", "privacy", "user", "control", "monopol", "regulat"]
+            min_matches: 1

@@ -17,8 +17,8 @@ from overblick.plugins.matrix.plugin import MatrixPlugin
 def matrix_identity():
     """Identity configured for Matrix plugin testing."""
     return Identity(
-        name="volt",
-        display_name="Volt",
+        name="blixt",
+        display_name="Blixt",
         description="Privacy-focused punk on Matrix",
         engagement_threshold=30,
         enabled_modules=(),
@@ -28,7 +28,7 @@ def matrix_identity():
         security=SecuritySettings(enable_preflight=True, enable_output_safety=True),
         interest_keywords=["privacy", "decentralization", "encryption"],
         raw_config={
-            "agent_name": "Volt",
+            "agent_name": "Blixt",
             "matrix": {
                 "homeserver": "https://matrix.example.org",
                 "user_id": "@volt:example.org",

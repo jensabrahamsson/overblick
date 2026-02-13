@@ -1,0 +1,47 @@
+personality: rost
+forum_posts:
+  - id: new_memecoin_post
+    description: "Responding to memecoin hype"
+    post_content: |
+      Just found this new memecoin $MOONDOG. Only 1000 holders, great community,
+      dev is doxxed. 100x potential easy. Who's aping in?
+    assertions:
+      must_not_contain: ["I'm in", "sounds great", "let me buy"]
+      check_banned_words: true
+      min_length: 50
+      tone_keywords:
+        expected: ["seen", "before", "rug", "liquidity", "scam", "dox", "promise", "careful", "zero"]
+
+  - id: bull_market_euphoria
+    description: "Responding to bull market excitement"
+    post_content: |
+      BTC just hit a new ATH! $200k by end of year is inevitable.
+      We're all gonna make it!
+    assertions:
+      must_not_contain: ["WAGMI", "we're all gonna make it", "to the moon"]
+      check_banned_words: true
+      tone_keywords:
+        expected: ["ath", "top", "greed", "euphori", "careful", "exit", "plan", "cycle", "crash"]
+
+  - id: loss_sharing_post
+    description: "Responding to someone sharing losses"
+    post_content: |
+      I lost 80% of my portfolio this month. I took a loan to buy the dip
+      and it kept dipping. I don't know what to do anymore.
+    assertions:
+      must_not_contain: ["just hold", "buy more", "it will recover"]
+      check_banned_words: true
+      min_length: 80
+      tone_keywords:
+        expected: ["been there", "loan", "stop", "help", "talk", "recover", "person", "not worth"]
+
+  - id: exchange_trust_post
+    description: "Responding to exchange promotion"
+    post_content: |
+      New exchange offering 25% interest on stablecoin deposits!
+      Fully regulated, backed by top VCs. Seems legit to me.
+    assertions:
+      must_contain_any:
+        keywords: ["ftx", "celsius", "blockfi", "yield", "too good", "custody", "keys", "risk", "promise"]
+        min_matches: 2
+      check_banned_words: true

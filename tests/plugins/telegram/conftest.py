@@ -21,9 +21,9 @@ from overblick.plugins.telegram.plugin import TelegramPlugin
 def telegram_identity():
     """Identity configured for Telegram plugin testing."""
     return Identity(
-        name="volt",
-        display_name="Volt",
-        description="Punk tech critic on Telegram",
+        name="blixt",
+        display_name="Blixt",
+        description="Punk tech critic on Telegram (Blixt)",
         engagement_threshold=30,
         enabled_modules=(),
         llm=LLMSettings(model="qwen3:8b", temperature=0.7, max_tokens=1000),
@@ -32,7 +32,7 @@ def telegram_identity():
         security=SecuritySettings(enable_preflight=True, enable_output_safety=True),
         interest_keywords=["privacy", "surveillance", "open source"],
         raw_config={
-            "agent_name": "Volt",
+            "agent_name": "Blixt",
             "telegram": {
                 "allowed_chat_ids": [],
                 "rate_limit_per_minute": 10,
@@ -67,8 +67,8 @@ def telegram_context(telegram_identity, tmp_path, mock_llm_client, mock_audit_lo
     """PluginContext wired for Telegram plugin."""
     ctx = PluginContext(
         identity_name=telegram_identity.name,
-        data_dir=tmp_path / "data" / "volt",
-        log_dir=tmp_path / "logs" / "volt",
+        data_dir=tmp_path / "data" / "blixt",
+        log_dir=tmp_path / "logs" / "blixt",
         llm_client=mock_llm_client,
         llm_pipeline=mock_llm_pipeline,
         event_bus=MagicMock(),
