@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from blick.core.capability import CapabilityBase, CapabilityContext
-from blick.plugins.moltbook.knowledge_loader import KnowledgeLoader
+from blick.capabilities.knowledge.knowledge_loader import KnowledgeLoader
 
 logger = logging.getLogger(__name__)
 

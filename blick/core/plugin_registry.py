@@ -13,9 +13,23 @@ from blick.core.plugin_base import PluginBase, PluginContext
 
 logger = logging.getLogger(__name__)
 
-# Registry of known plugins (name -> module path + class name)
+# Registry of known plugins/connectors (name -> module path + class name)
 _KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
     "moltbook": ("blick.plugins.moltbook.plugin", "MoltbookPlugin"),
+    "telegram": ("blick.plugins.telegram.plugin", "TelegramPlugin"),
+    "gmail": ("blick.plugins.gmail.plugin", "GmailPlugin"),
+    "discord": ("blick.plugins.discord.plugin", "DiscordPlugin"),
+    "matrix": ("blick.plugins.matrix.plugin", "MatrixPlugin"),
+    "rss": ("blick.plugins.rss.plugin", "RSSPlugin"),
+    "webhook": ("blick.plugins.webhook.plugin", "WebhookPlugin"),
+    # Connector aliases (same classes, new names)
+    "moltbook_connector": ("blick.plugins.moltbook.plugin", "MoltbookPlugin"),
+    "telegram_connector": ("blick.plugins.telegram.plugin", "TelegramPlugin"),
+    "gmail_connector": ("blick.plugins.gmail.plugin", "GmailPlugin"),
+    "discord_connector": ("blick.plugins.discord.plugin", "DiscordPlugin"),
+    "matrix_connector": ("blick.plugins.matrix.plugin", "MatrixPlugin"),
+    "rss_connector": ("blick.plugins.rss.plugin", "RSSPlugin"),
+    "webhook_connector": ("blick.plugins.webhook.plugin", "WebhookPlugin"),
 }
 
 
@@ -91,3 +105,7 @@ class PluginRegistry:
     def available_plugins() -> list[str]:
         """List all known plugin names."""
         return sorted(_KNOWN_PLUGINS.keys())
+
+
+# Connector alias — new naming convention (backward-compatible)
+ConnectorRegistry = PluginRegistry

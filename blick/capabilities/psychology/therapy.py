@@ -8,7 +8,7 @@ import logging
 from typing import Optional
 
 from blick.core.capability import CapabilityBase, CapabilityContext
-from blick.plugins.moltbook.therapy_system import TherapySystem, TherapySession
+from blick.capabilities.psychology.therapy_system import TherapySystem, TherapySession
 
 logger = logging.getLogger(__name__)
 

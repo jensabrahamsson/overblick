@@ -62,6 +62,9 @@ class PluginContext(BaseModel):
     # Permission checker (action authorization)
     permissions: Any = None
 
+    # Shared capabilities (populated by orchestrator)
+    capabilities: dict[str, Any] = {}
+
     # Secrets accessor (callable)
     _secrets_getter: Any = PrivateAttr(default=None)
 
@@ -133,3 +136,8 @@ class PluginBase(ABC):
 
     def __repr__(self) -> str:
         return f"<{self._name} identity={self.ctx.identity_name}>"
+
+
+# Connector aliases — new naming convention (backward-compatible)
+ConnectorBase = PluginBase
+AgentContext = PluginContext

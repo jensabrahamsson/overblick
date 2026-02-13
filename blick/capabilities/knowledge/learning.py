@@ -8,7 +8,7 @@ import logging
 from typing import Optional
 
 from blick.core.capability import CapabilityBase, CapabilityContext
-from blick.plugins.moltbook.safe_learning import (
+from blick.capabilities.knowledge.safe_learning import (
     SafeLearningModule,
     LearningCategory,
     ProposedLearning,

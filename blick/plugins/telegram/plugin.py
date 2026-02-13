@@ -311,20 +311,26 @@ class TelegramPlugin(PluginBase):
         text: str, message_id: int,
     ) -> None:
         """Handle a regular conversational message."""
-        # Get or create conversation context
-        conv = self._get_conversation(chat_id)
-
         # Wrap user input in boundary markers (prompt injection prevention)
         safe_text = wrap_external_content(text, "telegram_message")
-        conv.add_user_message(safe_text, username)
+
+        # Use shared conversation tracker if available, else local context
+        shared_caps = getattr(self.ctx, "capabilities", {}) or {}
+        tracker = shared_caps.get("conversation_tracker")
+
+        if tracker:
+            tracker.add_user_message(str(chat_id), safe_text)
+            messages = tracker.get_messages(str(chat_id), self._system_prompt)
+        else:
+            conv = self._get_conversation(chat_id)
+            conv.add_user_message(safe_text, username)
+            messages = conv.get_messages(self._system_prompt)
 
         # Generate response via SafeLLMPipeline
         if not self.ctx.llm_pipeline:
             logger.warning("No LLM pipeline available, using fallback")
             await self._send_message(chat_id, "I'm not available right now.", reply_to=message_id)
             return
-
-        messages = conv.get_messages(self._system_prompt)
         result = await self.ctx.llm_pipeline.chat(
             messages=messages,
             user_id=str(user_id),
@@ -346,7 +352,11 @@ class TelegramPlugin(PluginBase):
         if len(response) > self._max_response_length:
             response = response[:self._max_response_length - 3] + "..."
 
-        conv.add_assistant_message(response)
+        # Store assistant response in conversation tracker
+        if tracker:
+            tracker.add_assistant_message(str(chat_id), response)
+        else:
+            conv.add_assistant_message(response)
         await self._send_message(chat_id, response, reply_to=message_id)
 
     async def _send_message(
@@ -436,3 +446,7 @@ class TelegramPlugin(PluginBase):
             self._polling_task.cancel()
         self._conversations.clear()
         logger.info("TelegramPlugin teardown complete")
+
+
+# Connector alias — new naming convention (backward-compatible)
+TelegramConnector = TelegramPlugin

@@ -149,3 +149,7 @@ class MatrixPlugin(PluginBase):
             "messages_sent": self._messages_sent,
             "errors": self._errors,
         }
+
+
+# Connector alias — new naming convention (backward-compatible)
+MatrixConnector = MatrixPlugin

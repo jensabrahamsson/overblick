@@ -8,7 +8,7 @@ import logging
 from typing import Any, Optional
 
 from blick.core.capability import CapabilityBase, CapabilityContext
-from blick.plugins.moltbook.dream_system import DreamSystem
+from blick.capabilities.psychology.dream_system import DreamSystem
 
 logger = logging.getLogger(__name__)
 

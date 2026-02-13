@@ -13,6 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from blick.core.capability import CapabilityBase, CapabilityRegistry
 from blick.core.event_bus import EventBus
 from blick.core.identity import Identity, load_identity
 from blick.core.llm.pipeline import SafeLLMPipeline
@@ -75,6 +76,7 @@ class Orchestrator:
         self._output_safety: Optional[OutputSafety] = None
         self._rate_limiter: Optional[RateLimiter] = None
         self._plugins: list[PluginBase] = []
+        self._capabilities: dict[str, CapabilityBase] = {}
 
     @property
     def state(self) -> OrchestratorState:
@@ -128,10 +130,16 @@ class Orchestrator:
         )
         logger.info("SafeLLMPipeline initialized with full security chain")
 
-        # 8. Load and setup plugins
+        # 8. Create shared capabilities (orchestrator-level)
+        await self._setup_capabilities()
+
+        # 9. Load and setup plugins/connectors
         permissions = PermissionChecker.from_identity(self._identity)
 
-        for plugin_name in self._plugin_names:
+        # Use connectors from identity if specified, otherwise fall back to constructor arg
+        connector_names = list(self._identity.connectors) if self._identity.connectors else self._plugin_names
+
+        for plugin_name in connector_names:
             ctx = PluginContext(
                 identity_name=self._identity_name,
                 data_dir=data_dir / plugin_name,
@@ -146,6 +154,7 @@ class Orchestrator:
                 preflight_checker=self._preflight,
                 output_safety=self._output_safety,
                 permissions=permissions,
+                capabilities=self._capabilities,
             )
             ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
 
@@ -258,6 +267,81 @@ class Orchestrator:
 
         self._state = OrchestratorState.STOPPED
         logger.info("Orchestrator stopped cleanly")
+
+    async def _setup_capabilities(self) -> None:
+        """Create shared capabilities at the orchestrator level."""
+        # Determine which capabilities to create
+        cap_names = list(self._identity.capability_names) if self._identity.capability_names else []
+
+        # Fall back to enabled_modules if no explicit capabilities
+        if not cap_names and self._identity.enabled_modules:
+            cap_names = list(self._identity.enabled_modules)
+
+        if not cap_names:
+            logger.debug("No capabilities configured for %s", self._identity_name)
+            return
+
+        try:
+            registry = CapabilityRegistry.default()
+        except Exception as e:
+            logger.warning("Could not load capability registry: %s", e)
+            return
+
+        # Build per-capability configs from identity
+        system_prompt = f"You are {self._identity.display_name}."
+        configs = {
+            "dream_system": {
+                "dream_templates": self._identity.raw_config.get("dream_templates"),
+            },
+            "therapy_system": {
+                "therapy_day": self._identity.raw_config.get("therapy_day", 6),
+                "system_prompt": system_prompt,
+            },
+            "safe_learning": {
+                "ethos_text": self._identity.raw_config.get("ethos_text", ""),
+            },
+            "emotional_state": {},
+            "analyzer": {
+                "interest_keywords": self._identity.interest_keywords,
+                "engagement_threshold": self._identity.engagement_threshold,
+                "agent_name": self._identity.raw_config.get("agent_name", self._identity.name),
+            },
+            "composer": {
+                "system_prompt": system_prompt,
+                "temperature": self._identity.llm.temperature,
+                "max_tokens": self._identity.llm.max_tokens,
+            },
+            "conversation_tracker": {},
+            "summarizer": {},
+        }
+
+        # Create a temporary PluginContext for capability creation
+        # (capabilities need a context but aren't plugin-specific)
+        data_dir = self._base_dir / "data" / self._identity_name
+        temp_ctx = PluginContext(
+            identity_name=self._identity_name,
+            data_dir=data_dir,
+            log_dir=self._base_dir / "logs" / self._identity_name,
+            llm_client=self._llm_client,
+            event_bus=self._event_bus,
+            audit_log=self._audit_log,
+            quiet_hours_checker=self._quiet_hours,
+            llm_pipeline=self._llm_pipeline,
+            identity=self._identity,
+        )
+
+        resolved = registry.resolve(cap_names)
+        for name in resolved:
+            cap = registry.create(name, temp_ctx, config=configs.get(name, {}))
+            if cap:
+                try:
+                    await cap.setup()
+                    self._capabilities[cap.name] = cap
+                    logger.info("Orchestrator capability '%s' created", cap.name)
+                except Exception as e:
+                    logger.warning("Capability '%s' setup failed: %s", name, e)
+
+        logger.info("Orchestrator created %d shared capabilities", len(self._capabilities))
 
     async def _create_llm_client(self) -> object:
         """Create the appropriate LLM client based on identity config."""

@@ -62,7 +62,18 @@ security:
   output_safety_enabled: true
   max_response_length: 2000
 
-# Enabled optional modules
+# Connectors (thin I/O adapters)
+connectors:
+  - moltbook
+
+# Capabilities (composable Lego blocks)
+capabilities:
+  - psychology
+  - knowledge
+  - social
+  - engagement
+
+# Enabled optional modules (legacy, kept for backward compatibility)
 enabled_modules:
   - dream_system
   - therapy_system

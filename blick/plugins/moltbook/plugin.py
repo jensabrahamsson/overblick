@@ -412,11 +412,25 @@ class MoltbookPlugin(PluginBase):
         logger.info("MoltbookPlugin teardown complete")
 
     async def _setup_capabilities(self, enabled_modules: list[str], system_prompt: str) -> None:
-        """Load and setup capabilities from enabled_modules list."""
+        """Load and setup capabilities from enabled_modules list.
+
+        If shared capabilities are available in ctx.capabilities (created by
+        the orchestrator), use those first. Only create missing ones locally.
+        """
+        # Use shared capabilities from orchestrator if available
+        shared = getattr(self.ctx, "capabilities", {}) or {}
+        if shared:
+            for name, cap in shared.items():
+                if name not in self._capabilities:
+                    self._capabilities[name] = cap
+                    logger.info("Using shared capability '%s' from orchestrator", name)
+
+        # Determine which capabilities still need to be created locally
         try:
             registry = CapabilityRegistry.default()
         except Exception as e:
             logger.warning("Could not load capability registry: %s", e)
+            self._update_capability_aliases()
             return
 
         identity = self.ctx.identity
@@ -438,16 +452,22 @@ class MoltbookPlugin(PluginBase):
 
         resolved = registry.resolve(enabled_modules)
         for name in resolved:
+            if name in self._capabilities:
+                logger.debug("Capability '%s' already loaded from shared context", name)
+                continue
             cap = registry.create(name, self.ctx, config=configs.get(name, {}))
             if cap:
                 try:
                     await cap.setup()
                     self._capabilities[cap.name] = cap
-                    logger.info("Capability '%s' enabled", cap.name)
+                    logger.info("Capability '%s' enabled (local)", cap.name)
                 except Exception as e:
                     logger.warning("Capability '%s' setup failed: %s", name, e)
 
-        # Backward-compatible aliases for direct access
+        self._update_capability_aliases()
+
+    def _update_capability_aliases(self) -> None:
+        """Update backward-compatible aliases for direct capability access."""
         self._dream_system = self._capabilities.get("dream_system")
         self._therapy_system = self._capabilities.get("therapy_system")
         self._safe_learning = self._capabilities.get("safe_learning")
@@ -482,3 +502,7 @@ class _FallbackPrompts:
     COMMENT_PROMPT = "Respond to this post:\nTitle: {title}\n{content}"
     REPLY_PROMPT = "Reply to: {comment}\nOn post: {title}"
     HEARTBEAT_PROMPT = "Write a short post about topic {topic_index}."
+
+
+# Connector alias — new naming convention (backward-compatible)
+MoltbookConnector = MoltbookPlugin

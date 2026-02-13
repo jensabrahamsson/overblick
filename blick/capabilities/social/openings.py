@@ -8,7 +8,7 @@ import logging
 from typing import Optional
 
 from blick.core.capability import CapabilityBase, CapabilityContext
-from blick.plugins.moltbook.opening_selector import OpeningSelector
+from blick.capabilities.social.opening_selector import OpeningSelector
 
 logger = logging.getLogger(__name__)
 

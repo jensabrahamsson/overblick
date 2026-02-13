@@ -395,3 +395,7 @@ class GmailPlugin(PluginBase):
         if unsent:
             logger.warning("GmailPlugin teardown with %d unsent drafts", unsent)
         logger.info("GmailPlugin teardown complete")
+
+
+# Connector alias — new naming convention (backward-compatible)
+GmailConnector = GmailPlugin

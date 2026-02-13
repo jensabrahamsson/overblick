@@ -133,3 +133,7 @@ class RSSPlugin(PluginBase):
             "seen_items": len(self._seen_guids),
             "errors": self._errors,
         }
+
+
+# Connector alias — new naming convention (backward-compatible)
+RSSConnector = RSSPlugin

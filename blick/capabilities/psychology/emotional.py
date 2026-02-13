@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 
 from blick.core.capability import CapabilityBase, CapabilityContext
-from blick.core.emotional_state import EmotionalState
+from blick.capabilities.psychology.emotional_state import EmotionalState
 
 logger = logging.getLogger(__name__)
 

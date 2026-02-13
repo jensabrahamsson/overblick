@@ -83,8 +83,14 @@ class Identity(BaseModel):
     engagement_threshold: int = 35
     comment_cooldown_hours: int = 24
 
-    # Enabled modules (conditional features)
+    # Enabled modules (conditional features, legacy)
     enabled_modules: tuple[str, ...] = ()
+
+    # Connectors to load (new naming, falls back to plugin_names)
+    connectors: tuple[str, ...] = ()
+
+    # Capabilities to enable (new naming, falls back to enabled_modules)
+    capability_names: tuple[str, ...] = ()
 
     # Sub-settings
     llm: LLMSettings = LLMSettings()
@@ -205,6 +211,8 @@ def load_identity(name: str) -> Identity:
 
     # Pydantic auto-coerces list to tuple for tuple[str, ...] fields
     enabled_modules = config.pop("enabled_modules", [])
+    connectors = config.pop("connectors", [])
+    capability_names = config.pop("capabilities", [])
 
     deflections = config.pop("deflections", {})
     interest_keywords = config.pop("interest_keywords", [])
@@ -233,6 +241,8 @@ def load_identity(name: str) -> Identity:
         engagement_threshold=config.get("engagement_threshold", 35),
         comment_cooldown_hours=config.get("comment_cooldown_hours", 24),
         enabled_modules=enabled_modules,
+        connectors=connectors,
+        capability_names=capability_names,
         llm=llm,
         quiet_hours=quiet_hours,
         schedule=schedule,

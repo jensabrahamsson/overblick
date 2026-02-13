@@ -113,3 +113,7 @@ class WebhookPlugin(PluginBase):
             "webhooks_processed": self._webhooks_processed,
             "errors": self._errors,
         }
+
+
+# Connector alias — new naming convention (backward-compatible)
+WebhookConnector = WebhookPlugin
