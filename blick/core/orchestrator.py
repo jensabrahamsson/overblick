@@ -59,6 +59,8 @@ class Orchestrator:
         self._plugin_names = plugins or ["moltbook"]
         self._state = OrchestratorState.INIT
 
+        self._shutdown_event = asyncio.Event()
+
         # Framework components (initialized in setup)
         self._identity: Optional[Identity] = None
         self._event_bus = EventBus()
@@ -179,10 +181,10 @@ class Orchestrator:
         await self.setup()
         self._state = OrchestratorState.RUNNING
 
-        # Register signal handlers for graceful shutdown
+        # Register signal handlers — only set a flag (signal-safe)
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, lambda: asyncio.create_task(self.stop()))
+            loop.add_signal_handler(sig, self._shutdown_event.set)
 
         self._audit_log.log("orchestrator_started", category="lifecycle")
         logger.info(f"Blick orchestrator running as '{self._identity.display_name}'")
@@ -198,8 +200,20 @@ class Orchestrator:
                     run_immediately=True,
                 )
 
-            # Run scheduler (blocks until stop)
-            await self._scheduler.start()
+            # Run scheduler and shutdown event concurrently — first to complete wins
+            scheduler_task = asyncio.create_task(self._scheduler.start())
+            shutdown_task = asyncio.create_task(self._shutdown_event.wait())
+
+            done, pending = await asyncio.wait(
+                {scheduler_task, shutdown_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
 
         except asyncio.CancelledError:
             logger.info("Orchestrator cancelled")

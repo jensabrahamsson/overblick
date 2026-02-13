@@ -6,7 +6,8 @@ and managed agent processes. JSON-based message protocol.
 
 SECURITY: Messages include an auth_token field. The server validates
 the token before processing any message. Tokens are generated at
-supervisor startup and shared with child processes via environment.
+supervisor startup and shared with child processes via a token file
+(mode 0o600) in the socket directory — never via environment variables.
 """
 
 import asyncio
@@ -27,6 +28,9 @@ logger = logging.getLogger(__name__)
 
 # Default socket directory
 _SOCKET_DIR = Path(tempfile.gettempdir()) / "blick"
+
+# Maximum IPC message size (1 MB) — prevents OOM via oversized messages
+_MAX_MESSAGE_SIZE = 1024 * 1024
 
 
 def generate_ipc_token() -> str:
@@ -139,6 +143,11 @@ class IPCServer:
         """Register a handler for a message type."""
         self._handlers[msg_type] = handler
 
+    @property
+    def token_path(self) -> Path:
+        """Path to the auth token file (for sharing with child processes)."""
+        return self._socket_dir / f"blick-{self._name}.token"
+
     async def start(self) -> None:
         """Start listening for connections."""
         self._socket_dir.mkdir(parents=True, exist_ok=True)
@@ -146,6 +155,11 @@ class IPCServer:
         # Remove stale socket
         if self._socket_path.exists():
             self._socket_path.unlink()
+
+        # Write auth token to file for child processes (secure: mode 0o600)
+        if self._auth_token:
+            self.token_path.write_text(self._auth_token)
+            os.chmod(str(self.token_path), 0o600)
 
         self._server = await asyncio.start_unix_server(
             self._handle_connection,
@@ -158,13 +172,17 @@ class IPCServer:
         logger.info("IPC server listening on %s", self._socket_path)
 
     async def stop(self) -> None:
-        """Stop the server and cleanup socket."""
+        """Stop the server and cleanup socket + token file."""
         if self._server:
             self._server.close()
             await self._server.wait_closed()
 
         if self._socket_path.exists():
             self._socket_path.unlink()
+
+        # Clean up token file
+        if self.token_path.exists():
+            self.token_path.unlink()
 
         logger.info("IPC server stopped")
 
@@ -183,6 +201,10 @@ class IPCServer:
         try:
             data = await reader.readline()
             if not data:
+                return
+
+            if len(data) > _MAX_MESSAGE_SIZE:
+                logger.warning("IPC message too large (%d bytes), rejecting", len(data))
                 return
 
             msg = IPCMessage.from_json(data.decode().strip())
@@ -254,19 +276,20 @@ class IPCClient:
                 timeout=timeout,
             )
 
-            writer.write((message.to_json() + "\n").encode())
-            await writer.drain()
-
-            # Wait for response
             try:
-                data = await asyncio.wait_for(reader.readline(), timeout=timeout)
-                if data:
-                    return IPCMessage.from_json(data.decode().strip())
-            except asyncio.TimeoutError:
-                pass
+                writer.write((message.to_json() + "\n").encode())
+                await writer.drain()
 
-            writer.close()
-            await writer.wait_closed()
+                # Wait for response
+                try:
+                    data = await asyncio.wait_for(reader.readline(), timeout=timeout)
+                    if data:
+                        return IPCMessage.from_json(data.decode().strip())
+                except asyncio.TimeoutError:
+                    logger.warning("IPC timeout waiting for response to %s", message.msg_type)
+            finally:
+                writer.close()
+                await writer.wait_closed()
 
         except FileNotFoundError:
             logger.debug("IPC socket not found: %s", self._socket_path)

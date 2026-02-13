@@ -19,7 +19,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from blick.supervisor.ipc import IPCMessage, IPCServer
+from blick.supervisor.ipc import IPCMessage, IPCServer, generate_ipc_token
 from blick.supervisor.process import AgentProcess, ProcessState
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,10 @@ class Supervisor:
         self._auto_restart = auto_restart
         self._state = SupervisorState.INIT
         self._agents: dict[str, AgentProcess] = {}
-        self._ipc = IPCServer(name="supervisor", socket_dir=socket_dir)
+        self._auth_token = generate_ipc_token()
+        self._ipc = IPCServer(
+            name="supervisor", socket_dir=socket_dir, auth_token=self._auth_token,
+        )
         self._monitor_tasks: dict[str, asyncio.Task] = {}
         self._shutdown_event = asyncio.Event()
 
@@ -158,9 +161,10 @@ class Supervisor:
         """
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, lambda: asyncio.create_task(self.stop()))
+            loop.add_signal_handler(sig, self._shutdown_event.set)
 
         await self._shutdown_event.wait()
+        await self.stop()
 
     def get_status(self) -> dict:
         """Get status of all managed agents."""
@@ -241,5 +245,5 @@ class Supervisor:
     async def _handle_shutdown(self, msg: IPCMessage) -> Optional[IPCMessage]:
         """Handle shutdown request."""
         logger.info("Shutdown requested by '%s'", msg.sender)
-        asyncio.create_task(self.stop())
+        self._shutdown_event.set()
         return IPCMessage(msg_type="ack", sender="supervisor")

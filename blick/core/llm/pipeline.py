@@ -143,6 +143,8 @@ class SafeLLMPipeline:
                 result.stages_passed = stages
                 self._audit_blocked(result, audit_action, audit_details)
                 return result
+        else:
+            self._audit_skip("preflight", user_id, audit_action)
         stages.append(PipelineStage.PREFLIGHT)
 
         # Stage 3: Rate limit
@@ -218,7 +220,7 @@ class SafeLLMPipeline:
                     # Content was modified (e.g. slang replaced)
                     content = safe_text
         else:
-            self._warn_missing("output_safety (skipped)")
+            self._audit_skip("output_safety", user_id, audit_action)
         stages.append(PipelineStage.OUTPUT_SAFETY)
         stages.append(PipelineStage.COMPLETE)
 
@@ -355,6 +357,15 @@ class SafeLLMPipeline:
             success=False,
             error=error,
         )
+
+    def _audit_skip(self, stage: str, user_id: str, action: str) -> None:
+        """Audit when a security stage is explicitly skipped."""
+        if self._audit:
+            self._audit.log(
+                action=f"{stage}_skipped",
+                category="security",
+                details={"caller": user_id, "audit_action": action},
+            )
 
     def _warn_missing(self, component: str) -> None:
         """Warn about missing optional component (once per component)."""

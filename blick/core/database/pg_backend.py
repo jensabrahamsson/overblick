@@ -8,6 +8,7 @@ Uses async connection pooling for high-performance concurrent access.
 """
 
 import logging
+import re
 from typing import Any, Optional, Sequence
 
 from blick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
@@ -21,6 +22,9 @@ try:
 except ImportError:
     asyncpg = None
     HAS_ASYNCPG = False
+
+# Schema names must be simple identifiers — no SQL injection via schema
+_SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")
 
 
 class PostgreSQLBackend(DatabaseBackend):
@@ -63,9 +67,15 @@ class PostgreSQLBackend(DatabaseBackend):
 
         # Set schema if not public
         if self._config.pg_schema != "public":
+            schema = self._config.pg_schema
+            if not _SAFE_IDENTIFIER_RE.match(schema):
+                raise ValueError(
+                    f"Unsafe PostgreSQL schema name: {schema!r}. "
+                    "Schema names must be alphanumeric identifiers (a-z, 0-9, _)."
+                )
             async with self._pool.acquire() as conn:
                 await conn.execute(
-                    f"SET search_path TO {self._config.pg_schema}, public"
+                    f"SET search_path TO {schema}, public"
                 )
 
         self._connected = True

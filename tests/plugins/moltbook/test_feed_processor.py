@@ -49,3 +49,30 @@ class TestFeedProcessor:
         post = Post(id="", agent_id="a", agent_name="A", title="T", content="C")
         new = fp.filter_new_posts([post])
         assert len(new) == 0
+
+    def test_fifo_eviction_order(self):
+        """Eviction removes oldest items first (FIFO), not random."""
+        fp = FeedProcessor(max_seen=3)
+        fp.filter_new_posts([_make_post("p1"), _make_post("p2"), _make_post("p3")])
+        # Add 2 more — p1 and p2 should be evicted (oldest)
+        fp.filter_new_posts([_make_post("p4"), _make_post("p5")])
+        assert not fp.is_seen("p1")
+        assert not fp.is_seen("p2")
+        assert fp.is_seen("p3")
+        assert fp.is_seen("p4")
+        assert fp.is_seen("p5")
+
+    def test_memory_bounded(self):
+        """Memory stays bounded regardless of input volume."""
+        fp = FeedProcessor(max_seen=50)
+        for batch in range(20):
+            posts = [_make_post(f"batch{batch}_p{i}") for i in range(10)]
+            fp.filter_new_posts(posts)
+        assert fp.seen_count <= 50
+
+    def test_mark_seen_respects_bounds(self):
+        """mark_seen also triggers eviction."""
+        fp = FeedProcessor(max_seen=3)
+        for i in range(5):
+            fp.mark_seen(f"p{i}")
+        assert fp.seen_count <= 3

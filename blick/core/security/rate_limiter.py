@@ -3,10 +3,13 @@ Generic token bucket rate limiter.
 
 Provides per-key rate limiting with configurable burst and refill rates.
 Used at framework level (LLM calls) and by plugins (API calls).
+
+Memory-bounded: uses LRU eviction when max_buckets is reached.
 """
 
 import logging
 import time
+from collections import OrderedDict
 
 from pydantic import BaseModel
 
@@ -23,7 +26,7 @@ class _Bucket(BaseModel):
 
 class RateLimiter:
     """
-    Token bucket rate limiter.
+    Token bucket rate limiter with LRU-bounded memory.
 
     Usage:
         limiter = RateLimiter(max_tokens=10, refill_rate=1.0)
@@ -37,15 +40,18 @@ class RateLimiter:
         self,
         max_tokens: float = 10,
         refill_rate: float = 1.0,
+        max_buckets: int = 10_000,
     ):
         """
         Args:
             max_tokens: Maximum burst capacity
             refill_rate: Tokens added per second
+            max_buckets: Maximum tracked keys (LRU eviction when exceeded)
         """
         self._max_tokens = max_tokens
         self._refill_rate = refill_rate
-        self._buckets: dict[str, _Bucket] = {}
+        self._buckets: OrderedDict[str, _Bucket] = OrderedDict()
+        self._max_buckets = max_buckets
 
     def allow(self, key: str = "default", cost: float = 1.0) -> bool:
         """
@@ -88,15 +94,24 @@ class RateLimiter:
         return needed / bucket.refill_rate
 
     def _get_bucket(self, key: str) -> _Bucket:
-        """Get or create bucket for key."""
-        if key not in self._buckets:
-            self._buckets[key] = _Bucket(
-                tokens=self._max_tokens,
-                last_refill=time.monotonic(),
-                max_tokens=self._max_tokens,
-                refill_rate=self._refill_rate,
-            )
-        return self._buckets[key]
+        """Get or create bucket for key, with LRU eviction."""
+        if key in self._buckets:
+            self._buckets.move_to_end(key)
+            return self._buckets[key]
+
+        # Evict least-recently-used buckets if at capacity
+        while len(self._buckets) >= self._max_buckets:
+            evicted_key, _ = self._buckets.popitem(last=False)
+            logger.debug("Rate limiter evicted bucket: %s", evicted_key)
+
+        bucket = _Bucket(
+            tokens=self._max_tokens,
+            last_refill=time.monotonic(),
+            max_tokens=self._max_tokens,
+            refill_rate=self._refill_rate,
+        )
+        self._buckets[key] = bucket
+        return bucket
 
     def _refill(self, bucket: _Bucket) -> None:
         """Refill bucket based on elapsed time."""

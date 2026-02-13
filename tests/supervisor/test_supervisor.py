@@ -219,7 +219,10 @@ class TestSupervisor:
         await sup.start()
 
         try:
-            client = IPCClient(target="supervisor", socket_dir=short_tmp)
+            client = IPCClient(
+                target="supervisor", socket_dir=short_tmp,
+                auth_token=sup._auth_token,
+            )
             status = await client.request_status(sender="test")
             assert status is not None
             assert status["supervisor_state"] == "running"
@@ -233,7 +236,10 @@ class TestSupervisor:
         await sup.start()
 
         try:
-            client = IPCClient(target="supervisor", socket_dir=short_tmp)
+            client = IPCClient(
+                target="supervisor", socket_dir=short_tmp,
+                auth_token=sup._auth_token,
+            )
             granted = await client.request_permission(
                 resource="moltbook.comment", action="write",
                 reason="test comment", sender="anomal",

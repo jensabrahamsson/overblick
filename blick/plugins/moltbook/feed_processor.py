@@ -1,11 +1,12 @@
 """
 Feed processor — polls Moltbook feed and deduplicates items.
 
-Tracks seen post IDs to avoid re-processing. Coordinates with
-DecisionEngine and EngagementDB for engagement decisions.
+Tracks seen post IDs to avoid re-processing. Uses a deque alongside
+a set for O(1) lookup + guaranteed FIFO eviction order.
 """
 
 import logging
+from collections import deque
 from typing import Optional
 
 from .models import Post, FeedItem
@@ -16,11 +17,24 @@ logger = logging.getLogger(__name__)
 class FeedProcessor:
     """
     Processes the Moltbook feed, deduplicating and scoring items.
+
+    Memory-bounded: evicts oldest seen IDs when max_seen is exceeded.
     """
 
     def __init__(self, max_seen: int = 5000):
         self._seen_post_ids: set[str] = set()
+        self._seen_order: deque[str] = deque()
         self._max_seen = max_seen
+
+    def _track_seen(self, item_id: str) -> None:
+        """Track an item as seen, evicting oldest if over capacity."""
+        self._seen_post_ids.add(item_id)
+        self._seen_order.append(item_id)
+
+        # Evict oldest items (FIFO) to stay within memory bounds
+        while len(self._seen_post_ids) > self._max_seen:
+            oldest = self._seen_order.popleft()
+            self._seen_post_ids.discard(oldest)
 
     def filter_new_posts(self, posts: list[Post]) -> list[Post]:
         """Filter to only posts we haven't seen yet."""
@@ -28,15 +42,7 @@ class FeedProcessor:
         for post in posts:
             if post.id and post.id not in self._seen_post_ids:
                 new_posts.append(post)
-                self._seen_post_ids.add(post.id)
-
-        # Evict oldest if set grows too large
-        if len(self._seen_post_ids) > self._max_seen:
-            excess = len(self._seen_post_ids) - self._max_seen
-            # Remove arbitrary items (set has no ordering, but this prevents unbounded growth)
-            to_remove = list(self._seen_post_ids)[:excess]
-            for item in to_remove:
-                self._seen_post_ids.discard(item)
+                self._track_seen(post.id)
 
         if new_posts:
             logger.debug("Feed: %d new posts (of %d total)", len(new_posts), len(posts))
@@ -50,19 +56,14 @@ class FeedProcessor:
             item_id = item.post_id or item.id
             if item_id and item_id not in self._seen_post_ids:
                 new_items.append(item)
-                self._seen_post_ids.add(item_id)
-
-        if len(self._seen_post_ids) > self._max_seen:
-            excess = len(self._seen_post_ids) - self._max_seen
-            to_remove = list(self._seen_post_ids)[:excess]
-            for item in to_remove:
-                self._seen_post_ids.discard(item)
+                self._track_seen(item_id)
 
         return new_items
 
     def mark_seen(self, post_id: str) -> None:
         """Manually mark a post as seen."""
-        self._seen_post_ids.add(post_id)
+        if post_id not in self._seen_post_ids:
+            self._track_seen(post_id)
 
     def is_seen(self, post_id: str) -> bool:
         """Check if a post has been seen."""
