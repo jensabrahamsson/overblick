@@ -144,8 +144,8 @@ class Orchestrator:
                 preflight_checker=self._preflight,
                 output_safety=self._output_safety,
                 permissions=permissions,
-                _secrets_getter=lambda key, _id=self._identity_name: self._secrets.get(_id, key),
             )
+            ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
 
             try:
                 plugin = self._registry.load(plugin_name, ctx)

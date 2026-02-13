@@ -53,7 +53,7 @@ def webhook_pipeline():
 @pytest.fixture
 def webhook_context(webhook_identity, tmp_path, mock_llm_client, mock_audit_log, webhook_pipeline):
     """PluginContext wired for Webhook plugin."""
-    return PluginContext(
+    ctx = PluginContext(
         identity_name=webhook_identity.name,
         data_dir=tmp_path / "data" / "prism",
         log_dir=tmp_path / "logs" / "prism",
@@ -64,10 +64,11 @@ def webhook_context(webhook_identity, tmp_path, mock_llm_client, mock_audit_log,
         audit_log=mock_audit_log,
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=webhook_identity,
-        _secrets_getter=lambda key: {
-            "webhook_hmac_secret": "test-hmac-secret-xyz",
-        }.get(key),
     )
+    ctx._secrets_getter = lambda key: {
+        "webhook_hmac_secret": "test-hmac-secret-xyz",
+    }.get(key)
+    return ctx
 
 
 @pytest.fixture

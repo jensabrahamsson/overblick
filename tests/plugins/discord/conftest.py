@@ -52,7 +52,7 @@ def discord_pipeline():
 @pytest.fixture
 def discord_context(discord_identity, tmp_path, mock_llm_client, mock_audit_log, discord_pipeline):
     """PluginContext wired for Discord plugin."""
-    return PluginContext(
+    ctx = PluginContext(
         identity_name=discord_identity.name,
         data_dir=tmp_path / "data" / "volt",
         log_dir=tmp_path / "logs" / "volt",
@@ -63,10 +63,11 @@ def discord_context(discord_identity, tmp_path, mock_llm_client, mock_audit_log,
         audit_log=mock_audit_log,
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=discord_identity,
-        _secrets_getter=lambda key: {
-            "discord_bot_token": "test-discord-token-abc",
-        }.get(key),
     )
+    ctx._secrets_getter = lambda key: {
+        "discord_bot_token": "test-discord-token-abc",
+    }.get(key)
+    return ctx
 
 
 @pytest.fixture

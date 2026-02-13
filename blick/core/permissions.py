@@ -29,9 +29,10 @@ Usage:
 
 import logging
 import time
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +51,7 @@ class PermissionAction(Enum):
     API_CALL = "api_call"
 
 
-@dataclass(frozen=True)
-class PermissionRule:
+class PermissionRule(BaseModel):
     """
     Single permission rule for an action.
 
@@ -62,6 +62,8 @@ class PermissionRule:
         requires_approval: Whether boss-agent approval is needed
         cooldown_seconds: Minimum time between consecutive actions
     """
+    model_config = ConfigDict(frozen=True)
+
     action: str
     allowed: bool = True
     max_per_hour: int = 0
@@ -69,14 +71,13 @@ class PermissionRule:
     cooldown_seconds: int = 0
 
 
-@dataclass
-class PermissionSet:
+class PermissionSet(BaseModel):
     """
     Complete permission configuration for an identity.
 
     Holds all permission rules and provides lookup.
     """
-    rules: dict[str, PermissionRule] = field(default_factory=dict)
+    rules: dict[str, PermissionRule] = {}
 
     # Default policy when an action has no explicit rule.
     # SECURITY: Default deny — actions must be explicitly permitted.
@@ -124,10 +125,9 @@ class PermissionSet:
         return cls(rules=rules, default_allowed=default_allowed)
 
 
-@dataclass
-class _ActionTracker:
+class _ActionTracker(BaseModel):
     """Tracks action invocations for rate limiting."""
-    timestamps: list[float] = field(default_factory=list)
+    timestamps: list[float] = []
     last_action: float = 0.0
 
 

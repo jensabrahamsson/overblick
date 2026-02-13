@@ -7,9 +7,10 @@ seamless switching between SQLite and PostgreSQL.
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Sequence
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,7 @@ logger = logging.getLogger(__name__)
 DatabaseRow = dict[str, Any]
 
 
-@dataclass
-class DatabaseConfig:
+class DatabaseConfig(BaseModel):
     """
     Database configuration.
 
@@ -47,26 +47,28 @@ class DatabaseConfig:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DatabaseConfig":
         """Create config from a dictionary (typically from YAML)."""
-        config = cls()
-        config.backend = data.get("backend", "sqlite")
+        flat: dict[str, Any] = {}
+        flat["backend"] = data.get("backend", "sqlite")
 
         sqlite = data.get("sqlite", {})
-        config.sqlite_path = sqlite.get("path", config.sqlite_path)
+        if "path" in sqlite:
+            flat["sqlite_path"] = sqlite["path"]
 
         pg = data.get("postgresql", {})
-        config.pg_host = pg.get("host", config.pg_host)
-        config.pg_port = pg.get("port", config.pg_port)
-        config.pg_database = pg.get("database", config.pg_database)
-        config.pg_user = pg.get("user", config.pg_user)
-        config.pg_password = pg.get("password", config.pg_password)
-        config.pg_schema = pg.get("schema", config.pg_schema)
+        for key in ("host", "port", "database", "user", "password", "schema"):
+            if key in pg:
+                flat[f"pg_{key}"] = pg[key]
 
         pool = data.get("pool", {})
-        config.pool_min_size = pool.get("min_size", config.pool_min_size)
-        config.pool_max_size = pool.get("max_size", config.pool_max_size)
+        if "min_size" in pool:
+            flat["pool_min_size"] = pool["min_size"]
+        if "max_size" in pool:
+            flat["pool_max_size"] = pool["max_size"]
 
-        config.echo_sql = data.get("echo_sql", False)
-        return config
+        if "echo_sql" in data:
+            flat["echo_sql"] = data["echo_sql"]
+
+        return cls.model_validate(flat)
 
 
 class DatabaseBackend(ABC):
@@ -149,8 +151,7 @@ class DatabaseBackend(ABC):
         """Check if a table exists in the database."""
 
 
-@dataclass
-class Migration:
+class Migration(BaseModel):
     """A single database migration."""
     version: int
     name: str

@@ -8,22 +8,21 @@ loaded from the identity configuration.
 
 import logging
 import re
-from dataclasses import dataclass, field
 from typing import Optional
 
+from pydantic import BaseModel
 from rapidfuzz import fuzz
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class EngagementDecision:
+class EngagementDecision(BaseModel):
     """Result of an engagement evaluation."""
     should_engage: bool
     score: float
     action: str  # "comment", "upvote", "skip"
     reason: str
-    matched_keywords: list[str] = field(default_factory=list)
+    matched_keywords: list[str] = []
 
 
 class DecisionEngine:

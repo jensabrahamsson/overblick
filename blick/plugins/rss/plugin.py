@@ -23,16 +23,16 @@ This is a SHELL — community contributions welcome!
 
 import logging
 import time
-from dataclasses import dataclass, field
 from typing import Any, Optional
+
+from pydantic import BaseModel, Field
 
 from blick.core.plugin_base import PluginBase, PluginContext
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class FeedItem:
+class FeedItem(BaseModel):
     """A single item from an RSS/Atom feed."""
     title: str
     link: str
@@ -40,16 +40,15 @@ class FeedItem:
     published: str = ""
     feed_url: str = ""
     guid: str = ""
-    timestamp: float = field(default_factory=time.time)
+    timestamp: float = Field(default_factory=time.time)
 
 
-@dataclass
-class FeedConfig:
+class FeedConfig(BaseModel):
     """Configuration for a single RSS feed."""
     url: str
     name: str = ""
     poll_interval_minutes: int = 30
-    keywords: list[str] = field(default_factory=list)
+    keywords: list[str] = []
     enabled: bool = True
 
 

@@ -7,15 +7,15 @@ ONLY interface to the framework. This ensures clean isolation.
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class PluginContext:
+class PluginContext(BaseModel):
     """
     The ONLY interface plugins have to the Blick framework.
 
@@ -31,6 +31,8 @@ class PluginContext:
     - Security subsystems
     - Permission checker
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     identity_name: str
     data_dir: Path
     log_dir: Path
@@ -61,7 +63,7 @@ class PluginContext:
     permissions: Any = None
 
     # Secrets accessor (callable)
-    _secrets_getter: Any = field(default=None, repr=False)
+    _secrets_getter: Any = PrivateAttr(default=None)
 
     def get_secret(self, key: str) -> Optional[str]:
         """
@@ -77,7 +79,7 @@ class PluginContext:
             return self._secrets_getter(key)
         return None
 
-    def __post_init__(self):
+    def model_post_init(self, __context) -> None:
         # Ensure directories exist
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir.mkdir(parents=True, exist_ok=True)

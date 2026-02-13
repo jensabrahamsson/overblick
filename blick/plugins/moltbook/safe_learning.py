@@ -6,10 +6,11 @@ All proposed learnings go through ethical LLM review before acceptance.
 """
 
 import logging
-from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +30,13 @@ class ReviewResult(Enum):
     PENDING = "pending"
 
 
-@dataclass
-class ProposedLearning:
+class ProposedLearning(BaseModel):
     id: Optional[int] = None
     category: LearningCategory = LearningCategory.FACTUAL
     content: str = ""
     source_context: str = ""
     source_agent: str = ""
-    proposed_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    proposed_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     review_result: ReviewResult = ReviewResult.PENDING
     review_reason: str = ""
     reviewed_at: Optional[str] = None

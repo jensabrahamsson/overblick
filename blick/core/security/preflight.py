@@ -15,9 +15,10 @@ import logging
 import re
 import time
 import unicodedata
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -58,18 +59,16 @@ class ThreatType(Enum):
     EXTRACTION = "extraction"
 
 
-@dataclass
-class SecurityContext:
+class SecurityContext(BaseModel):
     """Per-user security tracking for multi-message attack detection."""
     user_id: str
     suspicion_score: float = 0.0
-    last_interaction: float = field(default_factory=time.time)
+    last_interaction: float = Field(default_factory=time.time)
     escalation_count: int = 0
     blocked_until: float = 0.0
 
 
-@dataclass
-class PreflightResult:
+class PreflightResult(BaseModel):
     """Result of preflight security check."""
     allowed: bool
     threat_level: ThreatLevel

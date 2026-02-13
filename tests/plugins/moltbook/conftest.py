@@ -152,7 +152,7 @@ def _make_plugin_context(
     mock_llm_pipeline=None,
 ):
     """Build a PluginContext with all mocks wired."""
-    return PluginContext(
+    ctx = PluginContext(
         identity_name=identity.name,
         data_dir=tmp_path / "data" / identity.name,
         log_dir=tmp_path / "logs" / identity.name,
@@ -166,8 +166,9 @@ def _make_plugin_context(
         engagement_db=mock_engagement_db,
         preflight_checker=mock_preflight_checker,
         output_safety=mock_output_safety,
-        _secrets_getter=lambda key: {"moltbook_api_key": "test-key", "moltbook_agent_id": "agent-001"}.get(key),
     )
+    ctx._secrets_getter = lambda key: {"moltbook_api_key": "test-key", "moltbook_agent_id": "agent-001"}.get(key)
+    return ctx
 
 
 @pytest.fixture

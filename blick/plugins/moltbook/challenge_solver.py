@@ -13,8 +13,9 @@ Uses pure algorithmic solving — no LLM needed (<1ms vs 5-15s).
 
 import logging
 import re
-from dataclasses import dataclass
 from typing import Optional
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +56,7 @@ TOPIC_WORDS = {
 }
 
 
-@dataclass
-class ChallengeSpec:
+class ChallengeSpec(BaseModel):
     """Parsed MoltCaptcha challenge specification."""
     topic: str
     format_type: str  # "haiku", "prose", "poem"

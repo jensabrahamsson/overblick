@@ -21,11 +21,11 @@ Usage:
 """
 
 import logging
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml
+from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,7 @@ _IDENTITIES_DIR = Path(__file__).parent.parent / "identities"
 _PERSONALITIES_DIR = Path(__file__).parent
 
 
-@dataclass(frozen=True)
-class Personality:
+class Personality(BaseModel):
     """
     Immutable personality configuration.
 
@@ -52,25 +51,27 @@ class Personality:
     - examples: Example conversations for prompt engineering
     - backstory: Origin story and journey
     """
+    model_config = ConfigDict(frozen=True)
+
     name: str
     display_name: str = ""
     version: str = "1.0"
 
     # Core sections (raw dicts from YAML)
-    identity_info: dict[str, Any] = field(default_factory=dict)
-    backstory: dict[str, Any] = field(default_factory=dict)
-    voice: dict[str, Any] = field(default_factory=dict)
-    traits: dict[str, float] = field(default_factory=dict)
-    interests: dict[str, Any] = field(default_factory=dict)
-    vocabulary: dict[str, Any] = field(default_factory=dict)
-    signature_phrases: dict[str, list[str]] = field(default_factory=dict)
-    ethos: dict[str, Any] = field(default_factory=dict)
-    examples: dict[str, Any] = field(default_factory=dict)
-    parallel_examples: dict[str, Any] = field(default_factory=dict)
+    identity_info: dict[str, Any] = {}
+    backstory: dict[str, Any] = {}
+    voice: dict[str, Any] = {}
+    traits: dict[str, float] = {}
+    interests: dict[str, Any] = {}
+    vocabulary: dict[str, Any] = {}
+    signature_phrases: dict[str, list[str]] = {}
+    ethos: dict[str, Any] | list[str] = {}
+    examples: dict[str, Any] = {}
+    parallel_examples: dict[str, Any] = {}
     moltbook_bio: str = ""
 
     # Raw config for arbitrary access
-    raw: dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = {}
 
     def get_example(self, name: str) -> Optional[dict[str, str]]:
         """Get a specific example conversation by name."""

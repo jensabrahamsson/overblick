@@ -26,8 +26,9 @@ Usage:
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
+
+from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from blick.core.plugin_base import PluginContext
@@ -35,14 +36,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class CapabilityContext:
+class CapabilityContext(BaseModel):
     """
     Lightweight context passed to capabilities.
 
     A subset of PluginContext — capabilities get only what they need.
     This prevents capabilities from depending on plugin-specific state.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     identity_name: str
     data_dir: Any  # Path
     llm_client: Any = None
@@ -55,7 +57,7 @@ class CapabilityContext:
     llm_pipeline: Any = None
 
     # Capability-specific config from identity YAML
-    config: dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = {}
 
     @classmethod
     def from_plugin_context(

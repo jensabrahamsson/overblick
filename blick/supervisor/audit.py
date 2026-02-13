@@ -14,9 +14,10 @@ behave well and improving their prompts over time.
 
 import logging
 import time
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +38,7 @@ class AuditCategory(Enum):
     RATE_LIMIT = "rate_limit"
 
 
-@dataclass
-class AuditFinding:
+class AuditFinding(BaseModel):
     """A single finding from an agent audit."""
     agent: str
     category: AuditCategory
@@ -48,7 +48,7 @@ class AuditFinding:
     metric_value: float = 0.0
     threshold: float = 0.0
     recommendation: str = ""
-    timestamp: float = field(default_factory=time.time)
+    timestamp: float = Field(default_factory=time.time)
 
     def to_dict(self) -> dict:
         return {
@@ -64,14 +64,13 @@ class AuditFinding:
         }
 
 
-@dataclass
-class AuditReport:
+class AuditReport(BaseModel):
     """Complete audit report for one agent."""
     agent: str
-    timestamp: float = field(default_factory=time.time)
-    findings: list[AuditFinding] = field(default_factory=list)
-    status_snapshot: dict[str, Any] = field(default_factory=dict)
-    prompt_tweaks: list[dict[str, str]] = field(default_factory=list)
+    timestamp: float = Field(default_factory=time.time)
+    findings: list[AuditFinding] = []
+    status_snapshot: dict[str, Any] = {}
+    prompt_tweaks: list[dict[str, str]] = []
 
     @property
     def has_critical(self) -> bool:
@@ -99,8 +98,7 @@ class AuditReport:
         }
 
 
-@dataclass
-class AuditThresholds:
+class AuditThresholds(BaseModel):
     """Configurable thresholds for audit checks."""
     max_error_rate: float = 0.1          # 10% error rate triggers warning
     max_error_rate_critical: float = 0.25 # 25% triggers critical

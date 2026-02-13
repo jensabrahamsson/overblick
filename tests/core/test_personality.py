@@ -4,6 +4,7 @@ import pytest
 from pathlib import Path
 
 import yaml
+from pydantic import ValidationError
 
 from blick.personalities import (
     Personality,
@@ -57,7 +58,7 @@ class TestPersonality:
 
     def test_frozen(self):
         p = Personality(name="test")
-        with pytest.raises(AttributeError):
+        with pytest.raises(ValidationError):
             p.name = "other"
 
 

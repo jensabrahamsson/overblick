@@ -65,7 +65,7 @@ def gmail_llm_pipeline():
 @pytest.fixture
 def gmail_context(gmail_identity, tmp_path, mock_llm_client, mock_audit_log, gmail_llm_pipeline):
     """PluginContext wired for Gmail plugin."""
-    return PluginContext(
+    ctx = PluginContext(
         identity_name=gmail_identity.name,
         data_dir=tmp_path / "data" / "birch",
         log_dir=tmp_path / "logs" / "birch",
@@ -76,11 +76,12 @@ def gmail_context(gmail_identity, tmp_path, mock_llm_client, mock_audit_log, gma
         audit_log=mock_audit_log,
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=gmail_identity,
-        _secrets_getter=lambda key: {
-            "gmail_oauth_credentials": '{"client_id": "test"}',
-            "gmail_email_address": "birch@example.com",
-        }.get(key),
     )
+    ctx._secrets_getter = lambda key: {
+        "gmail_oauth_credentials": '{"client_id": "test"}',
+        "gmail_email_address": "birch@example.com",
+    }.get(key)
+    return ctx
 
 
 # ---------------------------------------------------------------------------

@@ -11,9 +11,10 @@ import os
 import signal
 import sys
 import time
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 logger = logging.getLogger(__name__)
 
@@ -28,24 +29,24 @@ class ProcessState(Enum):
     CRASHED = "crashed"
 
 
-@dataclass
-class AgentProcess:
+class AgentProcess(BaseModel):
     """
     Wrapper around a subprocess running a Blick agent.
 
     Manages the lifecycle of a single agent identity running
     in its own process via `python -m blick run <identity>`.
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     identity: str
-    plugins: list[str] = field(default_factory=lambda: ["moltbook"])
+    plugins: list[str] = ["moltbook"]
     state: ProcessState = ProcessState.PENDING
     pid: Optional[int] = None
     started_at: Optional[float] = None
     stopped_at: Optional[float] = None
     restart_count: int = 0
     max_restarts: int = 3
-    _process: Optional[asyncio.subprocess.Process] = field(default=None, repr=False)
+    _process: Optional[asyncio.subprocess.Process] = PrivateAttr(default=None)
 
     async def start(self) -> bool:
         """Start the agent subprocess."""

@@ -23,8 +23,9 @@ Security:
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
 from typing import Any, Optional
+
+from pydantic import BaseModel, Field
 
 from blick.core.plugin_base import PluginBase, PluginContext
 from blick.core.security.input_sanitizer import wrap_external_content
@@ -32,8 +33,7 @@ from blick.core.security.input_sanitizer import wrap_external_content
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class TelegramMessage:
+class TelegramMessage(BaseModel):
     """Represents an incoming Telegram message."""
     chat_id: int
     user_id: int
@@ -41,15 +41,14 @@ class TelegramMessage:
     text: str = ""
     message_id: int = 0
     reply_to_message_id: Optional[int] = None
-    timestamp: float = field(default_factory=time.time)
+    timestamp: float = Field(default_factory=time.time)
 
 
-@dataclass
-class ConversationContext:
+class ConversationContext(BaseModel):
     """Tracks conversation history per chat for context-aware responses."""
     chat_id: int
-    messages: list[dict[str, str]] = field(default_factory=list)
-    last_active: float = field(default_factory=time.time)
+    messages: list[dict[str, str]] = []
+    last_active: float = Field(default_factory=time.time)
     max_history: int = 10
 
     def add_user_message(self, text: str, username: str = "") -> None:
@@ -75,11 +74,10 @@ class ConversationContext:
         return (time.time() - self.last_active) > 3600
 
 
-@dataclass
-class UserRateLimit:
+class UserRateLimit(BaseModel):
     """Per-user rate limiting."""
     user_id: int
-    message_timestamps: list[float] = field(default_factory=list)
+    message_timestamps: list[float] = []
     max_per_minute: int = 10
     max_per_hour: int = 60
 

@@ -19,9 +19,10 @@ Usage:
 
 import logging
 import time
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
+
+from pydantic import BaseModel
 
 from blick.core.security.input_sanitizer import sanitize as sanitize_input
 
@@ -38,8 +39,7 @@ class PipelineStage(Enum):
     COMPLETE = "complete"
 
 
-@dataclass
-class PipelineResult:
+class PipelineResult(BaseModel):
     """
     Result of a pipeline execution.
 
@@ -52,7 +52,7 @@ class PipelineResult:
     block_stage: Optional[PipelineStage] = None
     raw_response: Optional[dict] = None
     duration_ms: float = 0.0
-    stages_passed: list[PipelineStage] = field(default_factory=list)
+    stages_passed: list[PipelineStage] = []
 
     # Deflection text to send back when blocked
     deflection: Optional[str] = None

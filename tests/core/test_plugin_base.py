@@ -22,8 +22,8 @@ class TestPluginContext:
             identity_name="test",
             data_dir=tmp_path / "data",
             log_dir=tmp_path / "logs",
-            _secrets_getter=lambda k: secrets.get(k),
         )
+        ctx._secrets_getter = lambda k: secrets.get(k)
         assert ctx.get_secret("api_key") == "sk-123"
         assert ctx.get_secret("missing") is None
 

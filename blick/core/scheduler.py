@@ -8,17 +8,19 @@ Provides a simple way for plugins to register recurring work
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine, Optional
+
+from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 logger = logging.getLogger(__name__)
 
 TaskFunc = Callable[..., Coroutine[Any, Any, None]]
 
 
-@dataclass
-class ScheduledTask:
+class ScheduledTask(BaseModel):
     """A registered scheduled task."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     name: str
     func: TaskFunc
     interval_seconds: float
@@ -27,7 +29,7 @@ class ScheduledTask:
     error_count: int = 0
     enabled: bool = True
     run_immediately: bool = False
-    _task: Optional[asyncio.Task] = field(default=None, repr=False)
+    _task: Optional[asyncio.Task] = PrivateAttr(default=None)
 
 
 class Scheduler:

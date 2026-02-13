@@ -7,13 +7,13 @@ Used at framework level (LLM calls) and by plugins (API calls).
 
 import logging
 import time
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class _Bucket:
+class _Bucket(BaseModel):
     """Single rate limit bucket."""
     tokens: float
     last_refill: float

@@ -7,14 +7,14 @@ Implements token bucket rate limiting with specific limits for different actions
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class TokenBucket:
+class TokenBucket(BaseModel):
     """
     Token bucket rate limiter.
 
@@ -23,10 +23,10 @@ class TokenBucket:
     """
     capacity: int
     refill_rate: float  # tokens per second
-    tokens: float = field(default=None)
-    last_refill: float = field(default=None)
+    tokens: Optional[float] = None
+    last_refill: Optional[float] = None
 
-    def __post_init__(self):
+    def model_post_init(self, __context) -> None:
         if self.tokens is None:
             self.tokens = float(self.capacity)
         if self.last_refill is None:

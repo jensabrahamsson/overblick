@@ -7,11 +7,12 @@ Dreams are intellectual/psychological processing, not fantasies.
 
 import logging
 import random
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +33,14 @@ class DreamTone(Enum):
     HOPEFUL = "hopeful"
 
 
-@dataclass
-class Dream:
+class Dream(BaseModel):
     dream_type: DreamType
     timestamp: str
     content: str
     symbols: list[str]
     tone: DreamTone
     insight: str
-    topics_referenced: list[str] = field(default_factory=list)
+    topics_referenced: list[str] = []
 
     def to_dict(self) -> dict:
         return {
@@ -55,15 +55,7 @@ class Dream:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Dream":
-        return cls(
-            dream_type=DreamType(data["dream_type"]),
-            timestamp=data["timestamp"],
-            content=data["content"],
-            symbols=data["symbols"],
-            tone=DreamTone(data["tone"]),
-            insight=data["insight"],
-            topics_referenced=data.get("topics_referenced", []),
-        )
+        return cls.model_validate(data)
 
 
 class DreamSystem:

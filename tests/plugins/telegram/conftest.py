@@ -65,7 +65,7 @@ def mock_llm_pipeline():
 @pytest.fixture
 def telegram_context(telegram_identity, tmp_path, mock_llm_client, mock_audit_log, mock_llm_pipeline):
     """PluginContext wired for Telegram plugin."""
-    return PluginContext(
+    ctx = PluginContext(
         identity_name=telegram_identity.name,
         data_dir=tmp_path / "data" / "volt",
         log_dir=tmp_path / "logs" / "volt",
@@ -76,10 +76,11 @@ def telegram_context(telegram_identity, tmp_path, mock_llm_client, mock_audit_lo
         audit_log=mock_audit_log,
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=telegram_identity,
-        _secrets_getter=lambda key: {
-            "telegram_bot_token": "test-bot-token-123",
-        }.get(key),
     )
+    ctx._secrets_getter = lambda key: {
+        "telegram_bot_token": "test-bot-token-123",
+    }.get(key)
+    return ctx
 
 
 # ---------------------------------------------------------------------------

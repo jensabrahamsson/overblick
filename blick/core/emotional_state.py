@@ -8,8 +8,9 @@ Conditionally enabled per identity (enabled_modules: ["emotional_state"]).
 import logging
 import random
 import time
-from dataclasses import dataclass, field
 from enum import Enum
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,7 @@ class Mood(Enum):
     INSPIRED = "inspired"
 
 
-@dataclass
-class EmotionalState:
+class EmotionalState(BaseModel):
     """
     Tracks the agent's emotional state.
 
@@ -34,7 +34,7 @@ class EmotionalState:
     """
     current_mood: Mood = Mood.NEUTRAL
     mood_intensity: float = 0.5  # 0.0 to 1.0
-    last_change: float = field(default_factory=time.time)
+    last_change: float = Field(default_factory=time.time)
 
     # Interaction counters (reset periodically)
     positive_interactions: int = 0

@@ -26,9 +26,10 @@ Usage by plugins:
 
 import logging
 import time
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -42,16 +43,15 @@ class RouteStatus(Enum):
     EXPIRED = "expired"
 
 
-@dataclass
-class RoutedMessage:
+class RoutedMessage(BaseModel):
     """A message being routed between agents."""
     message_id: str
     source_agent: str
     target_agent: str
     message_type: str
-    payload: dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = {}
     status: RouteStatus = RouteStatus.PENDING
-    created_at: float = field(default_factory=time.time)
+    created_at: float = Field(default_factory=time.time)
     delivered_at: Optional[float] = None
     response: Optional[dict[str, Any]] = None
     error: Optional[str] = None
@@ -75,11 +75,10 @@ class RoutedMessage:
         }
 
 
-@dataclass
-class AgentCapabilities:
+class AgentCapabilities(BaseModel):
     """Declares what message types an agent accepts."""
     identity: str
-    accepted_types: set[str] = field(default_factory=set)
+    accepted_types: set[str] = set()
     max_queue_size: int = 100
 
     def accepts(self, message_type: str) -> bool:

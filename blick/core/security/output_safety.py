@@ -8,14 +8,14 @@ Identity-driven: persona patterns and banned slang loaded from identity config.
 import logging
 import random
 import re
-from dataclasses import dataclass
 from typing import Optional
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class OutputSafetyResult:
+class OutputSafetyResult(BaseModel):
     """Result of output safety filtering."""
     text: str
     blocked: bool

@@ -17,10 +17,11 @@ import logging
 import os
 import secrets
 import tempfile
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Optional
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +34,12 @@ def generate_ipc_token() -> str:
     return secrets.token_hex(32)
 
 
-@dataclass
-class IPCMessage:
+class IPCMessage(BaseModel):
     """A message in the IPC protocol."""
     msg_type: str
-    payload: dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = {}
     sender: str = ""
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
     request_id: str = ""
     auth_token: str = ""
 

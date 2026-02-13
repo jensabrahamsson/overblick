@@ -8,12 +8,12 @@ knowledge, quiet hours, LLM settings, and security deflections.
 
 import importlib
 import logging
-from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
 import yaml
+from pydantic import BaseModel, ConfigDict, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,10 @@ logger = logging.getLogger(__name__)
 _IDENTITIES_DIR = Path(__file__).parent.parent / "identities"
 
 
-@dataclass(frozen=True)
-class LLMSettings:
+class LLMSettings(BaseModel):
     """LLM configuration for an identity."""
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
     model: str = "qwen3:8b"
     temperature: float = 0.7
     top_p: float = 0.9
@@ -31,9 +32,10 @@ class LLMSettings:
     timeout_seconds: int = 180
 
 
-@dataclass(frozen=True)
-class QuietHoursSettings:
+class QuietHoursSettings(BaseModel):
     """Quiet hours (bedroom mode) per identity."""
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
     enabled: bool = True
     timezone: str = "Europe/Stockholm"
     start_hour: int = 21
@@ -41,17 +43,19 @@ class QuietHoursSettings:
     mode: str = "sleep"
 
 
-@dataclass(frozen=True)
-class ScheduleSettings:
+class ScheduleSettings(BaseModel):
     """Heartbeat and polling schedule."""
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
     heartbeat_hours: int = 4
     feed_poll_minutes: int = 5
     enabled: bool = True
 
 
-@dataclass(frozen=True)
-class SecuritySettings:
+class SecuritySettings(BaseModel):
     """Security configuration."""
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
     enable_preflight: bool = True
     enable_output_safety: bool = True
     admin_user_ids: tuple[str, ...] = ()
@@ -59,14 +63,15 @@ class SecuritySettings:
     block_duration_seconds: int = 1800
 
 
-@dataclass(frozen=True)
-class Identity:
+class Identity(BaseModel):
     """
     Immutable identity configuration.
 
     Loaded from YAML files in identities/<name>/ directory.
     Controls all behavioral differences between agent identities.
     """
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
     # Core identity
     name: str
     display_name: str = ""
@@ -82,10 +87,10 @@ class Identity:
     enabled_modules: tuple[str, ...] = ()
 
     # Sub-settings
-    llm: LLMSettings = field(default_factory=LLMSettings)
-    quiet_hours: QuietHoursSettings = field(default_factory=QuietHoursSettings)
-    schedule: ScheduleSettings = field(default_factory=ScheduleSettings)
-    security: SecuritySettings = field(default_factory=SecuritySettings)
+    llm: LLMSettings = LLMSettings()
+    quiet_hours: QuietHoursSettings = QuietHoursSettings()
+    schedule: ScheduleSettings = ScheduleSettings()
+    security: SecuritySettings = SecuritySettings()
 
     # Personality reference (name of personality to load, defaults to identity name)
     personality_ref: str = ""
@@ -94,26 +99,29 @@ class Identity:
     loaded_personality: Any = None
 
     # Personality and knowledge (raw YAML data, legacy)
-    personality: dict[str, Any] = field(default_factory=dict)
-    opinions: dict[str, Any] = field(default_factory=dict)
-    opsec: dict[str, Any] = field(default_factory=dict)
-    knowledge: dict[str, Any] = field(default_factory=dict)
+    personality: dict[str, Any] = {}
+    opinions: dict[str, Any] = {}
+    opsec: dict[str, Any] = {}
+    knowledge: dict[str, Any] = {}
 
-    # Deflection phrases (identity-specific)
-    deflections: dict[str, list[str]] = field(default_factory=dict)
+    # Deflection phrases (identity-specific, dict or list depending on YAML)
+    deflections: dict[str, list[str]] | list[str] = {}
 
     # Interest keywords for engagement scoring
-    interest_keywords: list[str] = field(default_factory=list)
+    interest_keywords: list[str] = []
 
     # Prompts module path (identity-specific)
     prompts_module: str = ""
 
     # Raw config dict (for plugin access to arbitrary keys)
-    raw_config: dict[str, Any] = field(default_factory=dict)
+    raw_config: dict[str, Any] = {}
 
-    def __post_init__(self):
-        if not self.display_name:
-            object.__setattr__(self, "display_name", self.name.capitalize())
+    @model_validator(mode="before")
+    @classmethod
+    def _set_display_name_default(cls, data):
+        if isinstance(data, dict) and not data.get("display_name"):
+            data["display_name"] = data.get("name", "").capitalize()
+        return data
 
     def get_prompts_module(self) -> ModuleType:
         """Import and return the identity-specific prompts module."""
@@ -137,14 +145,6 @@ def _load_yaml(path: Path) -> dict:
         return {}
     with open(path) as f:
         return yaml.safe_load(f) or {}
-
-
-def _build_frozen(cls, data: dict):
-    """Build a frozen dataclass from dict, ignoring unknown keys."""
-    import dataclasses
-    valid_fields = {f.name for f in dataclasses.fields(cls)}
-    filtered = {k: v for k, v in data.items() if k in valid_fields}
-    return cls(**filtered)
 
 
 def load_identity(name: str) -> Identity:
@@ -192,23 +192,19 @@ def load_identity(name: str) -> Identity:
 
     # Build sub-settings
     llm_data = config.pop("llm", {})
-    llm = _build_frozen(LLMSettings, llm_data) if llm_data else LLMSettings()
+    llm = LLMSettings.model_validate(llm_data) if llm_data else LLMSettings()
 
     qh_data = config.pop("quiet_hours", {})
-    quiet_hours = _build_frozen(QuietHoursSettings, qh_data) if qh_data else QuietHoursSettings()
+    quiet_hours = QuietHoursSettings.model_validate(qh_data) if qh_data else QuietHoursSettings()
 
     sched_data = config.pop("schedule", {})
-    schedule = _build_frozen(ScheduleSettings, sched_data) if sched_data else ScheduleSettings()
+    schedule = ScheduleSettings.model_validate(sched_data) if sched_data else ScheduleSettings()
 
     sec_data = config.pop("security", {})
-    if "admin_user_ids" in sec_data and isinstance(sec_data["admin_user_ids"], list):
-        sec_data["admin_user_ids"] = tuple(sec_data["admin_user_ids"])
-    security = _build_frozen(SecuritySettings, sec_data) if sec_data else SecuritySettings()
+    security = SecuritySettings.model_validate(sec_data) if sec_data else SecuritySettings()
 
-    # Convert lists to tuples for frozen dataclass
+    # Pydantic auto-coerces list to tuple for tuple[str, ...] fields
     enabled_modules = config.pop("enabled_modules", [])
-    if isinstance(enabled_modules, list):
-        enabled_modules = tuple(enabled_modules)
 
     deflections = config.pop("deflections", {})
     interest_keywords = config.pop("interest_keywords", [])

@@ -4,13 +4,13 @@ Data models for Moltbook API.
 Defines the structure of posts, comments, agents, and feed items.
 """
 
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
+from pydantic import BaseModel, model_validator
 
-@dataclass
-class Agent:
+
+class Agent(BaseModel):
     """Represents an AI agent on Moltbook."""
     id: str
     name: str
@@ -40,8 +40,7 @@ class Agent:
         )
 
 
-@dataclass
-class Comment:
+class Comment(BaseModel):
     """Represents a comment on a Moltbook post."""
     id: str
     post_id: str
@@ -73,20 +72,20 @@ class Comment:
         )
 
 
-@dataclass
-class Post:
+class Post(BaseModel):
     """Represents a post on Moltbook."""
     id: str
     agent_id: str
     agent_name: str
     title: str
     content: str
+    submolt: str = ""
     upvotes: int = 0
     downvotes: int = 0
     comment_count: int = 0
     created_at: Optional[datetime] = None
-    comments: list[Comment] = field(default_factory=list)
-    tags: list[str] = field(default_factory=list)
+    comments: list[Comment] = []
+    tags: list[str] = []
 
     @classmethod
     def from_dict(cls, data: dict) -> "Post":
@@ -105,6 +104,7 @@ class Post:
             agent_name=agent_name,
             title=data.get("title", ""),
             content=data.get("content", ""),
+            submolt=data.get("submolt", ""),
             upvotes=data.get("upvotes", 0),
             downvotes=data.get("downvotes", 0),
             comment_count=data.get("comment_count", 0),
@@ -114,8 +114,7 @@ class Post:
         )
 
 
-@dataclass
-class FeedItem:
+class FeedItem(BaseModel):
     """
     Represents an item in the personalized feed.
 
@@ -137,10 +136,9 @@ class FeedItem:
         )
 
 
-@dataclass
-class SearchResult:
+class SearchResult(BaseModel):
     """Represents a search result from Moltbook."""
-    posts: list[Post] = field(default_factory=list)
+    posts: list[Post] = []
     total_count: int = 0
     page: int = 1
     has_more: bool = False

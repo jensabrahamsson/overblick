@@ -62,7 +62,7 @@ def rss_pipeline():
 @pytest.fixture
 def rss_context(rss_identity, tmp_path, mock_llm_client, mock_audit_log, rss_pipeline):
     """PluginContext wired for RSS plugin."""
-    return PluginContext(
+    ctx = PluginContext(
         identity_name=rss_identity.name,
         data_dir=tmp_path / "data" / "birch",
         log_dir=tmp_path / "logs" / "birch",
@@ -73,8 +73,9 @@ def rss_context(rss_identity, tmp_path, mock_llm_client, mock_audit_log, rss_pip
         audit_log=mock_audit_log,
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=rss_identity,
-        _secrets_getter=lambda key: None,
     )
+    ctx._secrets_getter = lambda key: None
+    return ctx
 
 
 @pytest.fixture

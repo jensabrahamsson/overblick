@@ -21,9 +21,10 @@ Security:
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
+
+from pydantic import BaseModel, Field
 
 from blick.core.plugin_base import PluginBase, PluginContext
 from blick.core.security.input_sanitizer import wrap_external_content
@@ -41,8 +42,7 @@ class EmailAction(Enum):
     ARCHIVE = "archive"
 
 
-@dataclass
-class EmailMessage:
+class EmailMessage(BaseModel):
     """Represents an email message."""
     message_id: str
     thread_id: str
@@ -51,8 +51,8 @@ class EmailMessage:
     recipient: str = ""
     body: str = ""
     snippet: str = ""
-    labels: list[str] = field(default_factory=list)
-    timestamp: float = field(default_factory=time.time)
+    labels: list[str] = []
+    timestamp: float = Field(default_factory=time.time)
     is_unread: bool = False
 
     @property
@@ -61,24 +61,22 @@ class EmailMessage:
         return self.subject.lower().startswith("re:")
 
 
-@dataclass
-class EmailDraft:
+class EmailDraft(BaseModel):
     """A draft email pending approval."""
     to: str
     subject: str
     body: str
     thread_id: Optional[str] = None
     in_reply_to: Optional[str] = None
-    created_at: float = field(default_factory=time.time)
+    created_at: float = Field(default_factory=time.time)
     approved: bool = False
     sent: bool = False
 
 
-@dataclass
-class RecipientRateLimit:
+class RecipientRateLimit(BaseModel):
     """Per-recipient rate limiting."""
     email: str
-    send_timestamps: list[float] = field(default_factory=list)
+    send_timestamps: list[float] = []
     max_per_hour: int = 5
     max_per_day: int = 20
 

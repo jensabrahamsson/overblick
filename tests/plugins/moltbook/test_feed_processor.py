@@ -44,8 +44,8 @@ class TestFeedProcessor:
         fp.filter_new_posts([_make_post(f"p{i}") for i in range(5)])
         assert fp.seen_count <= 3
 
-    def test_none_id_skipped(self):
+    def test_empty_id_skipped(self):
         fp = FeedProcessor()
-        post = Post(id=None, agent_id="a", agent_name="A", title="T", content="C")
+        post = Post(id="", agent_id="a", agent_name="A", title="T", content="C")
         new = fp.filter_new_posts([post])
         assert len(new) == 0

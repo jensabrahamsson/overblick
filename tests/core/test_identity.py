@@ -1,9 +1,10 @@
 """Tests for identity loading."""
 
 import pytest
+from pydantic import ValidationError
 from blick.core.identity import (
     Identity, LLMSettings, QuietHoursSettings, ScheduleSettings,
-    SecuritySettings, load_identity, list_identities, _load_yaml, _build_frozen,
+    SecuritySettings, load_identity, list_identities, _load_yaml,
 )
 
 
@@ -16,7 +17,7 @@ class TestLLMSettings:
 
     def test_frozen(self):
         s = LLMSettings()
-        with pytest.raises(AttributeError):
+        with pytest.raises(ValidationError):
             s.model = "other"
 
 
@@ -37,7 +38,7 @@ class TestIdentity:
 
     def test_frozen(self):
         i = Identity(name="test")
-        with pytest.raises(AttributeError):
+        with pytest.raises(ValidationError):
             i.name = "other"
 
     def test_has_module(self):
@@ -88,13 +89,13 @@ class TestLoadIdentity:
         assert identity.identity_dir.name == "anomal"
 
 
-class TestBuildFrozen:
+class TestModelValidate:
     def test_ignores_unknown_keys(self):
-        result = _build_frozen(LLMSettings, {"model": "test", "unknown_key": 42})
+        result = LLMSettings.model_validate({"model": "test", "unknown_key": 42})
         assert result.model == "test"
 
     def test_empty_dict(self):
-        result = _build_frozen(LLMSettings, {})
+        result = LLMSettings.model_validate({})
         assert result.model == "qwen3:8b"
 
 

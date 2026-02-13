@@ -56,7 +56,7 @@ def matrix_pipeline():
 @pytest.fixture
 def matrix_context(matrix_identity, tmp_path, mock_llm_client, mock_audit_log, matrix_pipeline):
     """PluginContext wired for Matrix plugin."""
-    return PluginContext(
+    ctx = PluginContext(
         identity_name=matrix_identity.name,
         data_dir=tmp_path / "data" / "volt",
         log_dir=tmp_path / "logs" / "volt",
@@ -67,10 +67,11 @@ def matrix_context(matrix_identity, tmp_path, mock_llm_client, mock_audit_log, m
         audit_log=mock_audit_log,
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=matrix_identity,
-        _secrets_getter=lambda key: {
-            "matrix_access_token": "syt_test_token_abc123",
-        }.get(key),
     )
+    ctx._secrets_getter = lambda key: {
+        "matrix_access_token": "syt_test_token_abc123",
+    }.get(key)
+    return ctx
 
 
 @pytest.fixture

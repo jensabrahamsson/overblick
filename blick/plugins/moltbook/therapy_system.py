@@ -7,25 +7,25 @@ generates philosophical synthesis for public reflection.
 """
 
 import logging
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional, Any
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class TherapySession:
+class TherapySession(BaseModel):
     """Complete weekly therapy session."""
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = Field(default_factory=datetime.now)
     week_number: int = 0
     dreams_processed: int = 0
     learnings_processed: int = 0
-    dream_themes: List[str] = field(default_factory=list)
-    learning_themes: List[str] = field(default_factory=list)
-    synthesis_insights: List[str] = field(default_factory=list)
-    shadow_patterns: List[str] = field(default_factory=list)
-    archetype_encounters: List[str] = field(default_factory=list)
+    dream_themes: List[str] = []
+    learning_themes: List[str] = []
+    synthesis_insights: List[str] = []
+    shadow_patterns: List[str] = []
+    archetype_encounters: List[str] = []
     individuation_progress: str = ""
     session_summary: str = ""
     post_title: Optional[str] = None

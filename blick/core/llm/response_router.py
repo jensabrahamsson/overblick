@@ -14,9 +14,10 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,7 @@ class ResponseVerdict(Enum):
     ERROR = "error"
 
 
-@dataclass
-class RouterResult:
+class RouterResult(BaseModel):
     """Result of response inspection."""
     verdict: ResponseVerdict
     confidence: float = 1.0
