@@ -61,6 +61,7 @@ class ResponseGenerator:
         temperature: Optional[float] = None,
         skip_preflight: bool = False,
         audit_action: str = "response_gen",
+        priority: str = "low",
     ) -> Optional[str]:
         """
         Internal LLM call through pipeline or raw client.
@@ -81,6 +82,7 @@ class ResponseGenerator:
                 max_tokens=self._max_tokens,
                 skip_preflight=skip_preflight,
                 audit_action=audit_action,
+                priority=priority,
             )
             if result.blocked:
                 logger.warning(
@@ -98,6 +100,7 @@ class ResponseGenerator:
                 messages=messages,
                 temperature=temp,
                 max_tokens=self._max_tokens,
+                priority=priority,
             )
             if result and result.get("content"):
                 return result["content"].strip()
@@ -114,6 +117,7 @@ class ResponseGenerator:
         prompt_template: str,
         existing_comments: list[str] = None,
         extra_context: str = "",
+        priority: str = "low",
     ) -> Optional[str]:
         """Generate a comment response to a post."""
         # Wrap external content in boundary markers to prevent injection
@@ -137,7 +141,7 @@ class ResponseGenerator:
         if extra_context:
             prompt = f"{extra_context}\n\n{prompt}"
 
-        return await self._call_llm(prompt, audit_action="comment_generation")
+        return await self._call_llm(prompt, audit_action="comment_generation", priority=priority)
 
     async def generate_reply(
         self,
@@ -145,6 +149,7 @@ class ResponseGenerator:
         comment_content: str,
         commenter_name: str,
         prompt_template: str,
+        priority: str = "low",
     ) -> Optional[str]:
         """Generate a reply to a comment on our post."""
         safe_title = wrap_external_content(original_post_title, "post_title")
@@ -157,7 +162,7 @@ class ResponseGenerator:
             commenter=safe_commenter,
         )
 
-        return await self._call_llm(prompt, audit_action="reply_generation")
+        return await self._call_llm(prompt, audit_action="reply_generation", priority=priority)
 
     async def generate_heartbeat(
         self,

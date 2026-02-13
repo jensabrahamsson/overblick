@@ -108,6 +108,7 @@ class SafeLLMPipeline:
         skip_output_safety: bool = False,
         audit_action: str = "llm_chat",
         audit_details: Optional[dict[str, Any]] = None,
+        priority: str = "low",
     ) -> PipelineResult:
         """
         Send a chat request through the full security pipeline.
@@ -123,6 +124,7 @@ class SafeLLMPipeline:
             skip_output_safety: Skip output safety (for internal queries)
             audit_action: Action name for audit log
             audit_details: Extra audit details
+            priority: Request priority ("high" or "low") for gateway queue ordering
 
         Returns:
             PipelineResult with safe content or block information
@@ -171,6 +173,7 @@ class SafeLLMPipeline:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 top_p=top_p,
+                priority=priority,
             )
         except Exception as e:
             logger.error("LLM call failed: %s", e)

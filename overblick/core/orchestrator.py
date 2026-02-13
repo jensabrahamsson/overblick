@@ -344,20 +344,41 @@ class Orchestrator:
         logger.info("Orchestrator created %d shared capabilities", len(self._capabilities))
 
     async def _create_llm_client(self) -> object:
-        """Create the appropriate LLM client based on identity config."""
-        from overblick.core.llm.ollama_client import OllamaClient
+        """Create the appropriate LLM client based on identity config.
 
-        client = OllamaClient(
-            model=self._identity.llm.model,
-            temperature=self._identity.llm.temperature,
-            top_p=self._identity.llm.top_p,
-            max_tokens=self._identity.llm.max_tokens,
-            timeout_seconds=self._identity.llm.timeout_seconds,
-        )
+        When use_gateway=True, uses GatewayClient which routes through the
+        priority queue (HIGH for interactive, LOW for background). Otherwise
+        connects directly to Ollama.
+        """
+        llm_cfg = self._identity.llm
+
+        if llm_cfg.use_gateway:
+            from overblick.core.llm.gateway_client import GatewayClient
+
+            client = GatewayClient(
+                base_url=llm_cfg.gateway_url,
+                model=llm_cfg.model,
+                default_priority="low",
+                max_tokens=llm_cfg.max_tokens,
+                temperature=llm_cfg.temperature,
+                top_p=llm_cfg.top_p,
+                timeout_seconds=llm_cfg.timeout_seconds,
+            )
+            logger.info("Using LLM Gateway at %s (priority queue enabled)", llm_cfg.gateway_url)
+        else:
+            from overblick.core.llm.ollama_client import OllamaClient
+
+            client = OllamaClient(
+                model=llm_cfg.model,
+                temperature=llm_cfg.temperature,
+                top_p=llm_cfg.top_p,
+                max_tokens=llm_cfg.max_tokens,
+                timeout_seconds=llm_cfg.timeout_seconds,
+            )
 
         # Health check
         if await client.health_check():
-            logger.info(f"LLM client ready: {self._identity.llm.model}")
+            logger.info("LLM client ready: %s", llm_cfg.model)
         else:
             logger.warning("LLM health check failed — agent may have limited functionality")
 

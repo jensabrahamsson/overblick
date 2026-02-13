@@ -60,8 +60,9 @@ class OllamaClient(LLMClient):
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
+        priority: str = "low",
     ) -> Optional[dict]:
-        """Send a chat completion request to Ollama."""
+        """Send a chat completion request to Ollama. Priority is ignored (no queue)."""
         await self._ensure_session()
 
         temp = temperature if temperature is not None else self.temperature

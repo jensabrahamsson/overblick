@@ -11,9 +11,15 @@ git clone https://github.com/jensabrahamsson/overblick.git
 cd overblick
 python3.13 -m venv venv
 source venv/bin/activate
+
+# Option A: Install as editable package (recommended for development)
 pip install -e ".[dev]"
 
-# Run tests (499 unit + scenario tests)
+# Option B: Install dependencies only
+pip install -r requirements.txt        # core only
+pip install -r requirements-dev.txt    # core + test/dev tools
+
+# Run tests (796 unit + scenario tests)
 pytest tests/ -v
 
 # Run LLM personality tests (requires Ollama with qwen3:8b)
@@ -246,7 +252,7 @@ Both backends share the same migration system and API.
 ## Testing
 
 ```bash
-# All unit + scenario tests (499)
+# All unit + scenario tests (796)
 pytest tests/ -v
 
 # LLM personality tests (requires Ollama + qwen3:8b)
@@ -328,7 +334,7 @@ overblick/
     audit.py                # Agent audit system
 config/
   overblick.yaml            # Global framework config
-tests/                      # 499+ unit + scenario + LLM tests
+tests/                      # 796+ unit + scenario + LLM tests
 ```
 
 ## Configuration
@@ -338,6 +344,19 @@ tests/                      # 499+ unit + scenario + LLM tests
 **`config/permissions.yaml`** — Default-deny permission grants (gitignored)
 
 Template files (`*.yaml.example`) are checked into the repo.
+
+## Claude Code Skills
+
+Överblick ships with four Claude Code skills in `.claude/skills/` that accelerate framework development:
+
+| Skill | Triggers | Purpose |
+|-------|----------|---------|
+| **overblick-skill-compiler** | "compile skill", "build from spec", "generate plugin" | Compile specs into full production-grade plugins, capabilities, and personalities with tests and registry wiring |
+| **overblick-plugin-helper** | "create plugin", "review plugin", "debug plugin" | Interactive guidance for plugin development, security checklist, PluginBase/PluginContext API |
+| **overblick-capability-helper** | "create capability", "add capability", "review capability" | Interactive guidance for composable behavioral blocks, bundles, CapabilityBase/Registry API |
+| **overblick-personality-helper** | "create personality", "design character", "review personality" | Interactive guidance for YAML-driven characters with psychological trait models, voice design |
+
+Each skill includes reference documentation covering the full API, real examples, and checklists. The **skill compiler** automates end-to-end component generation; the helpers provide interactive guidance. Skills are loaded automatically by Claude Code when matching triggers are detected.
 
 ## Contributing
 

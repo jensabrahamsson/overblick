@@ -351,3 +351,28 @@ class TestSafeLLMPipeline:
         assert result.blocked
         assert result.block_stage == PipelineStage.OUTPUT_SAFETY
         assert "unavailable" in result.block_reason.lower()
+
+    @pytest.mark.asyncio
+    async def test_priority_passed_to_llm_client(self, mock_llm):
+        """Priority parameter flows from pipeline.chat() to llm_client.chat()."""
+        pipeline = SafeLLMPipeline(llm_client=mock_llm)
+
+        await pipeline.chat(
+            messages=[{"role": "user", "content": "Urgent!"}],
+            priority="high",
+        )
+
+        call_kwargs = mock_llm.chat.call_args.kwargs
+        assert call_kwargs["priority"] == "high"
+
+    @pytest.mark.asyncio
+    async def test_priority_defaults_to_low(self, mock_llm):
+        """Priority defaults to 'low' when not specified."""
+        pipeline = SafeLLMPipeline(llm_client=mock_llm)
+
+        await pipeline.chat(
+            messages=[{"role": "user", "content": "Regular task"}],
+        )
+
+        call_kwargs = mock_llm.chat.call_args.kwargs
+        assert call_kwargs["priority"] == "low"

@@ -126,7 +126,7 @@ class PerContentChallengeHandler:
         llm_timeout = max(llm_timeout, 10)
 
         try:
-            result = await self._llm.chat(messages=messages, temperature=0.3, max_tokens=200)
+            result = await self._llm.chat(messages=messages, temperature=0.3, max_tokens=200, priority="high")
         except Exception as e:
             logger.error("CHALLENGE: LLM error: %s", e, exc_info=True)
             self._stats["challenges_failed"] += 1
