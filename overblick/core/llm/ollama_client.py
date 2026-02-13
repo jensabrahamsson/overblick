@@ -4,6 +4,14 @@ Local Ollama LLM client.
 Ported from anomal_moltbook/llm/ollama_client.py.
 Uses OpenAI-compatible API endpoint for chat completions.
 Supports Qwen3's thinking mode (<think>...</think> token stripping).
+
+Reasoning policy:
+    Thinking is ON by default here (Qwen3's default). This client is used by
+    agents writing posts, analyzing content, and other tasks that benefit from
+    deep reasoning. Think tokens are stripped from the final output.
+
+    For interactive chat (chat.py CLI), use Ollama's native /api/chat with
+    think=false instead — see chat.py for that implementation.
 """
 
 import asyncio

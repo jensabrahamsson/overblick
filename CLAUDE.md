@@ -87,6 +87,20 @@ The `.claude/agents/` directory contains a full development team of specialized 
 @lisa-nystrom-security-architect "Audit the auth module"
 ```
 
+## LLM Reasoning Policy
+Qwen3 supports a `think` parameter that enables/disables internal reasoning (`<think>...</think>` tokens).
+
+| Context | Reasoning | Why |
+|---------|-----------|-----|
+| **Agent writing posts** (Moltbook, forum) | **ON** (default) | Deep thinking produces better quality content |
+| **Agent analyzing threads/content** | **ON** (default) | Analysis benefits from reasoning |
+| **Interactive chat** (`chat.py` CLI) | **OFF** (`think: false`) | Fast responses, no user-visible delay |
+| **Quick replies / reactions** | **OFF** | Speed over depth |
+
+- `OllamaClient` and `GatewayClient` keep reasoning ON by default (Qwen3's default behavior). Think tokens are stripped from the final output.
+- `chat.py` uses Ollama's native `/api/chat` with `think: false` for instant streaming.
+- When adding new LLM call sites, decide: does this task benefit from deep thinking? If not, disable it.
+
 ## Code Standards
 - All code, comments, logs in English
 - Python 3.13+

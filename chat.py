@@ -3,6 +3,7 @@
 Interactive chat CLI for Överblick personalities.
 
 Chat with any personality from the stable using local Ollama.
+Streams responses token-by-token. Thinking mode is disabled for fast responses.
 
 Usage:
     python chat.py                  # Pick from a menu
@@ -20,20 +21,23 @@ Commands during chat:
 
 import argparse
 import asyncio
+import json
 import sys
+import time
 from pathlib import Path
+
+import aiohttp
 
 # Ensure the project root is importable
 sys.path.insert(0, str(Path(__file__).parent))
 
-from overblick.core.llm.ollama_client import OllamaClient
 from overblick.personalities import (
     build_system_prompt,
     list_personalities,
     load_personality,
 )
 
-# Terminal colors
+# Terminal codes
 BOLD = "\033[1m"
 DIM = "\033[2m"
 CYAN = "\033[36m"
@@ -97,40 +101,118 @@ def pick_personality() -> str:
         print(f"{RED}  Unknown choice. Try again.{RESET}")
 
 
-async def check_ollama(client: OllamaClient) -> bool:
-    """Check that Ollama is reachable."""
-    ok = await client.health_check()
-    if not ok:
-        print(f"{RED}Ollama is not running or model not found.{RESET}")
+async def check_ollama(base_url: str, model: str) -> bool:
+    """Check that Ollama is reachable and model is available."""
+    api_url = f"{base_url}/api/tags"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status != 200:
+                    print(f"{RED}Ollama is not running (status {resp.status}).{RESET}")
+                    return False
+                data = await resp.json()
+                models = [m.get("name") for m in data.get("models", [])]
+                model_base = model.split(":")[0]
+                if not any(model_base in m for m in models):
+                    print(f"{RED}Model '{model}' not found. Available: {models}{RESET}")
+                    return False
+                return True
+    except Exception:
+        print(f"{RED}Ollama is not running or not reachable.{RESET}")
         print(f"{DIM}Start it with: ollama serve{RESET}")
-        print(f"{DIM}Pull model with: ollama pull qwen3:8b{RESET}")
-    return ok
+        print(f"{DIM}Pull model with: ollama pull {model}{RESET}")
+        return False
+
+
+async def stream_response(
+    session: aiohttp.ClientSession,
+    base_url: str,
+    model: str,
+    messages: list[dict],
+    temperature: float,
+    max_tokens: int,
+) -> str | None:
+    """Stream a chat response token-by-token using Ollama native API.
+
+    Uses think=false to disable Qwen3 reasoning for instant responses.
+    """
+    url = f"{base_url}/api/chat"
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+        "think": False,
+        "options": {
+            "temperature": temperature,
+            "num_predict": max_tokens,
+        },
+    }
+
+    full_content = ""
+    start_time = time.monotonic()
+
+    try:
+        async with session.post(
+            url,
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=300),
+        ) as resp:
+            if resp.status != 200:
+                error_text = await resp.text()
+                print(f"{RED}(API error {resp.status}: {error_text[:200]}){RESET}")
+                return None
+
+            # Ollama native streaming: one JSON object per line
+            async for line in resp.content:
+                text = line.decode("utf-8", errors="replace").strip()
+                if not text:
+                    continue
+
+                try:
+                    chunk = json.loads(text)
+                except json.JSONDecodeError:
+                    continue
+
+                # Native API: {"message": {"content": "token"}, "done": false}
+                token = chunk.get("message", {}).get("content", "")
+                if token:
+                    sys.stdout.write(token)
+                    sys.stdout.flush()
+                    full_content += token
+
+                if chunk.get("done", False):
+                    break
+
+    except asyncio.TimeoutError:
+        print(f"\n{RED}(timeout after 300s){RESET}")
+        return None
+    except aiohttp.ClientError as e:
+        print(f"\n{RED}(connection error: {e}){RESET}")
+        return None
+
+    elapsed = time.monotonic() - start_time
+    print(f"\n{DIM}  [{elapsed:.1f}s]{RESET}\n")
+    return full_content.strip()
 
 
 async def chat_loop(
     personality_name: str,
     model: str,
+    base_url: str,
     temperature: float,
     max_tokens: int,
 ) -> None:
-    """Main chat loop."""
+    """Main chat loop with streaming responses."""
     personality = load_personality(personality_name)
     system_prompt = build_system_prompt(personality, platform="CLI")
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
 
-    client = OllamaClient(
-        model=model,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        timeout_seconds=300,
-    )
-
-    if not await check_ollama(client):
-        await client.close()
+    if not await check_ollama(base_url, model):
         return
 
     print_banner(personality.name, personality.display_name)
 
+    session = aiohttp.ClientSession()
     try:
         while True:
             try:
@@ -197,22 +279,22 @@ async def chat_loop(
 
             print(f"\n{BOLD}{MAGENTA}{personality.display_name}:{RESET} ", end="", flush=True)
 
-            result = await client.chat(messages=messages)
+            content = await stream_response(
+                session, base_url, model, messages,
+                temperature, max_tokens,
+            )
 
-            if result is None:
-                print(f"{RED}(no response — LLM error){RESET}\n")
+            if content is None:
+                print(f"{RED}(no response){RESET}\n")
                 messages.pop()  # Remove failed user message
                 continue
-
-            content = result["content"]
-            print(f"{content}\n")
 
             messages.append({"role": "assistant", "content": content})
 
     except KeyboardInterrupt:
         print(f"\n{DIM}Interrupted.{RESET}")
     finally:
-        await client.close()
+        await session.close()
 
     print(f"\n{DIM}Goodbye.{RESET}")
 
@@ -237,6 +319,11 @@ def main() -> None:
         "--model", "-m",
         default="qwen3:8b",
         help="Ollama model name (default: qwen3:8b)",
+    )
+    parser.add_argument(
+        "--url",
+        default="http://localhost:11434",
+        help="Ollama base URL (default: http://localhost:11434)",
     )
     parser.add_argument(
         "--temperature", "-t",
@@ -269,7 +356,7 @@ def main() -> None:
         print_personas()
         sys.exit(1)
 
-    asyncio.run(chat_loop(name, args.model, args.temperature, args.max_tokens))
+    asyncio.run(chat_loop(name, args.model, args.url, args.temperature, args.max_tokens))
 
 
 if __name__ == "__main__":
