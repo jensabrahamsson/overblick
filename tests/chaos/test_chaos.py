@@ -19,14 +19,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from blick.core.event_bus import EventBus
-from blick.core.llm.pipeline import PipelineResult, PipelineStage, SafeLLMPipeline
-from blick.core.permissions import PermissionChecker, PermissionSet
-from blick.core.security.input_sanitizer import sanitize, wrap_external_content
-from blick.plugins.gmail.plugin import RecipientRateLimit
-from blick.plugins.telegram.plugin import ConversationContext, UserRateLimit
-from blick.supervisor.audit import AgentAuditor, AuditSeverity, AuditThresholds
-from blick.supervisor.routing import MessageRouter, RouteStatus
+from overblick.core.event_bus import EventBus
+from overblick.core.llm.pipeline import PipelineResult, PipelineStage, SafeLLMPipeline
+from overblick.core.permissions import PermissionChecker, PermissionSet
+from overblick.core.security.input_sanitizer import sanitize, wrap_external_content
+from overblick.plugins.gmail.plugin import RecipientRateLimit
+from overblick.plugins.telegram.plugin import ConversationContext, UserRateLimit
+from overblick.supervisor.audit import AgentAuditor, AuditSeverity, AuditThresholds
+from overblick.supervisor.routing import MessageRouter, RouteStatus
 
 
 # ---------------------------------------------------------------------------

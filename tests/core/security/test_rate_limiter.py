@@ -1,6 +1,6 @@
 """Tests for rate limiter."""
 
-from blick.core.security.rate_limiter import RateLimiter
+from overblick.core.security.rate_limiter import RateLimiter
 
 
 class TestRateLimiter:

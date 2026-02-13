@@ -20,7 +20,7 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Blick-specific
+# Överblick-specific
 config/secrets/
 config/secrets.yaml
 config/permissions.yaml
@@ -31,4 +31,4 @@ logs/
 *.pid
 
 # IPC sockets
-/tmp/blick/
+/tmp/overblick/

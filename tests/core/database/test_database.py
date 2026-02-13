@@ -3,15 +3,15 @@
 import pytest
 from pathlib import Path
 
-from blick.core.database.base import (
+from overblick.core.database.base import (
     DatabaseConfig,
     DatabaseRow,
     Migration,
     MigrationManager,
 )
-from blick.core.database.sqlite_backend import SQLiteBackend
-from blick.core.database.factory import create_backend
-from blick.core.database.migrations import MIGRATIONS
+from overblick.core.database.sqlite_backend import SQLiteBackend
+from overblick.core.database.factory import create_backend
+from overblick.core.database.migrations import MIGRATIONS
 
 
 # ---------------------------------------------------------------------------
@@ -193,10 +193,10 @@ class TestSQLiteBackend:
 
     @pytest.mark.asyncio
     async def test_identity_path_template(self, tmp_path):
-        config = DatabaseConfig(sqlite_path=str(tmp_path / "{identity}" / "blick.db"))
+        config = DatabaseConfig(sqlite_path=str(tmp_path / "{identity}" / "overblick.db"))
         backend = SQLiteBackend(config, identity="anomal")
         await backend.connect()
-        assert backend.db_path == tmp_path / "anomal" / "blick.db"
+        assert backend.db_path == tmp_path / "anomal" / "overblick.db"
         assert backend.db_path.exists()
         await backend.close()
 

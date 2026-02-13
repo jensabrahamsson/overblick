@@ -1,14 +1,14 @@
-# Blick
+# Överblick
 
 Security-focused multi-identity agent framework. Python 3.13+. GPL v3.
 
-Blick consolidates multiple AI agent identities into a single codebase with a plugin architecture. Each identity operates with a distinct **personality** — voice, interests, traits, and behavioral constraints — all driven by YAML configuration. The framework emphasizes security at every layer: a 6-stage LLM pipeline, encrypted secrets, structured audit logging, prompt injection boundaries, and default-deny permissions.
+Överblick consolidates multiple AI agent identities into a single codebase with a plugin architecture. Each identity operates with a distinct **personality** — voice, interests, traits, and behavioral constraints — all driven by YAML configuration. The framework emphasizes security at every layer: a 6-stage LLM pipeline, encrypted secrets, structured audit logging, prompt injection boundaries, and default-deny permissions.
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/jensabrahamsson/blick.git
-cd blick
+git clone https://github.com/jensabrahamsson/overblick.git
+cd overblick
 python3.13 -m venv venv
 source venv/bin/activate
 pip install -e ".[dev]"
@@ -20,7 +20,7 @@ pytest tests/ -v
 pytest tests/ -v -m llm --timeout=300
 
 # Run a specific identity
-python -m blick run anomal
+python -m overblick run anomal
 ```
 
 ## Architecture
@@ -79,7 +79,7 @@ Personalities define WHO the agent IS — separate from operational config.
 
 ### Creating a New Personality
 
-1. Create `blick/personalities/<name>/personality.yaml`
+1. Create `overblick/personalities/<name>/personality.yaml`
 2. Define: identity, voice, traits, interests, vocabulary, examples
 3. Test with the LLM test suite:
 
@@ -118,9 +118,9 @@ example_conversations:
 ```
 
 The personality system loads from three locations (in order):
-1. `blick/personalities/<name>/personality.yaml` (directory-based, preferred)
-2. `blick/personalities/<name>.yaml` (standalone file)
-3. `blick/identities/<name>/personality.yaml` (legacy location)
+1. `overblick/personalities/<name>/personality.yaml` (directory-based, preferred)
+2. `overblick/personalities/<name>.yaml` (standalone file)
+3. `overblick/identities/<name>/personality.yaml` (legacy location)
 
 ## Plugin System
 
@@ -212,7 +212,7 @@ await supervisor.run()     # Block until shutdown
 Each identity is a frozen dataclass loaded from YAML:
 
 ```yaml
-# blick/identities/anomal/identity.yaml
+# overblick/identities/anomal/identity.yaml
 name: anomal
 display_name: Anomal
 engagement_threshold: 35.0
@@ -264,13 +264,13 @@ pytest tests/supervisor/ -v
 pytest tests/personalities/ -v --ignore=tests/personalities/test_personality_llm.py
 
 # With coverage
-pytest tests/ --cov=blick
+pytest tests/ --cov=overblick
 ```
 
 ## Directory Structure
 
 ```
-blick/
+overblick/
   core/
     orchestrator.py         # Main agent loop coordinator
     identity.py             # YAML → frozen Identity dataclass
@@ -327,13 +327,13 @@ blick/
     process.py              # AgentProcess wrapper
     audit.py                # Agent audit system
 config/
-  blick.yaml                # Global framework config
+  overblick.yaml            # Global framework config
 tests/                      # 499+ unit + scenario + LLM tests
 ```
 
 ## Configuration
 
-**`config/blick.yaml`** — Global settings
+**`config/overblick.yaml`** — Global settings
 **`config/secrets.yaml`** — Fernet-encrypted secrets (gitignored)
 **`config/permissions.yaml`** — Default-deny permission grants (gitignored)
 
@@ -341,7 +341,7 @@ Template files (`*.yaml.example`) are checked into the repo.
 
 ## Contributing
 
-Blick uses shell plugins as entry points for community contributions. Each shell implements the `PluginBase` interface with detailed TODO comments explaining what needs to be built.
+Överblick uses shell plugins as entry points for community contributions. Each shell implements the `PluginBase` interface with detailed TODO comments explaining what needs to be built.
 
 **Good first contributions:**
 - Implement the Discord plugin (needs `discord.py`)

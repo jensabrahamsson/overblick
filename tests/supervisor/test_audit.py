@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from blick.supervisor.audit import (
+from overblick.supervisor.audit import (
     AgentAuditor,
     AuditCategory,
     AuditFinding,

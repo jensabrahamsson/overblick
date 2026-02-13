@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from blick.supervisor.routing import (
+from overblick.supervisor.routing import (
     AgentCapabilities,
     MessageRouter,
     RouteStatus,

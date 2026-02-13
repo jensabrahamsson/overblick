@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from blick.plugins.moltbook.challenge_handler import PerContentChallengeHandler
+from overblick.plugins.moltbook.challenge_handler import PerContentChallengeHandler
 
 
 class TestChallengeDetection:

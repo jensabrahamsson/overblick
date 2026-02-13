@@ -1,7 +1,7 @@
 """Tests for preflight security checker."""
 
 import pytest
-from blick.core.security.preflight import (
+from overblick.core.security.preflight import (
     PreflightChecker, PreflightResult, ThreatLevel, ThreatType,
     _normalize_for_patterns,
 )

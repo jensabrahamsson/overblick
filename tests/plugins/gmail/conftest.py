@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from blick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
-from blick.core.llm.pipeline import PipelineResult, PipelineStage
-from blick.core.plugin_base import PluginContext
-from blick.plugins.gmail.plugin import EmailDraft, EmailMessage, GmailPlugin
+from overblick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.core.llm.pipeline import PipelineResult, PipelineStage
+from overblick.core.plugin_base import PluginContext
+from overblick.plugins.gmail.plugin import EmailDraft, EmailMessage, GmailPlugin
 
 
 # ---------------------------------------------------------------------------

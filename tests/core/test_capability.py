@@ -4,8 +4,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from blick.core.capability import CapabilityBase, CapabilityContext
-from blick.core.plugin_base import PluginContext
+from overblick.core.capability import CapabilityBase, CapabilityContext
+from overblick.core.plugin_base import PluginContext
 
 
 class ConcreteCapability(CapabilityBase):

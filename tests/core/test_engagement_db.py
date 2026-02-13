@@ -1,7 +1,7 @@
 """Tests for engagement database."""
 
 import pytest
-from blick.core.db.engagement_db import EngagementDB
+from overblick.core.db.engagement_db import EngagementDB
 
 
 class TestEngagementDB:

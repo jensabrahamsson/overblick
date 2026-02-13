@@ -1,10 +1,10 @@
-# CLAUDE.md — Blick Agent Framework
+# CLAUDE.md — Överblick Agent Framework
 
 ## Quality Standard
 **PERFECTION IS THE STANDARD.** Every file, every test, every prompt, every line of code must be production-grade. No shortcuts. No "good enough." No TODO comments left behind. If it's worth building, it's worth building right.
 
 ## Overview
-Blick is a security-focused multi-identity agent framework with a personality stable. It consolidates multiple agent identities (Anomal, Cherry, Volt, Birch, Prism, Rust, Nyx) into ONE codebase with a plugin architecture.
+Överblick is a security-focused multi-identity agent framework with a personality stable. It consolidates multiple agent identities (Anomal, Cherry, Volt, Birch, Prism, Rust, Nyx) into ONE codebase with a plugin architecture.
 
 ## Architecture
 - **Core:** Orchestrator, identity system, plugin registry, event bus, scheduler, capability system, permission system
@@ -19,8 +19,8 @@ Blick is a security-focused multi-identity agent framework with a personality st
 ## Running
 ```bash
 # Run with specific identity
-python -m blick run anomal
-python -m blick run cherry
+python -m overblick run anomal
+python -m overblick run cherry
 
 # Run tests (fast — excludes LLM tests)
 ./venv/bin/python3 -m pytest tests/ -v -m "not llm"
@@ -32,9 +32,9 @@ python -m blick run cherry
 ./venv/bin/python3 -m pytest tests/ -v
 
 # Manager script
-./scripts/blick_manager.sh start anomal
-./scripts/blick_manager.sh stop anomal
-./scripts/blick_manager.sh status
+./scripts/overblick_manager.sh start anomal
+./scripts/overblick_manager.sh stop anomal
+./scripts/overblick_manager.sh status
 ```
 
 ## Key Principles

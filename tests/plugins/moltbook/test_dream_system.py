@@ -1,6 +1,6 @@
 """Tests for dream system."""
 
-from blick.plugins.moltbook.dream_system import (
+from overblick.plugins.moltbook.dream_system import (
     DreamSystem, DreamType, DreamTone, Dream,
 )
 

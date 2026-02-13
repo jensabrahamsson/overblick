@@ -4,8 +4,8 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
-from blick.core.quiet_hours import QuietHoursChecker
-from blick.core.identity import QuietHoursSettings
+from overblick.core.quiet_hours import QuietHoursChecker
+from overblick.core.identity import QuietHoursSettings
 
 
 class TestQuietHoursChecker:
@@ -18,7 +18,7 @@ class TestQuietHoursChecker:
         settings = QuietHoursSettings(enabled=True, start_hour=22, end_hour=7)
         checker = QuietHoursChecker(settings)
 
-        with patch("blick.core.quiet_hours.datetime") as mock_dt:
+        with patch("overblick.core.quiet_hours.datetime") as mock_dt:
             mock_dt.now.return_value = datetime(2026, 1, 1, 23, 0)
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert checker.is_quiet_hours()
@@ -27,7 +27,7 @@ class TestQuietHoursChecker:
         settings = QuietHoursSettings(enabled=True, start_hour=22, end_hour=7)
         checker = QuietHoursChecker(settings)
 
-        with patch("blick.core.quiet_hours.datetime") as mock_dt:
+        with patch("overblick.core.quiet_hours.datetime") as mock_dt:
             mock_dt.now.return_value = datetime(2026, 1, 1, 12, 0)
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert not checker.is_quiet_hours()

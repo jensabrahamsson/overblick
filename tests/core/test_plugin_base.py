@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from blick.core.plugin_base import PluginBase, PluginContext
+from overblick.core.plugin_base import PluginBase, PluginContext
 
 
 class TestPluginContext:

@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import MagicMock, AsyncMock
-from blick.plugins.moltbook.reply_queue import ReplyQueueManager
+from overblick.plugins.moltbook.reply_queue import ReplyQueueManager
 
 
 @pytest.mark.asyncio

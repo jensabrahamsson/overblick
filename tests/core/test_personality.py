@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from blick.personalities import (
+from overblick.personalities import (
     Personality,
     load_personality,
     list_personalities,
@@ -111,7 +111,7 @@ class TestLoadPersonality:
 
     def test_load_from_standalone(self, tmp_path, monkeypatch):
         """Test loading from standalone personality file."""
-        import blick.personalities as personalities_mod
+        import overblick.personalities as personalities_mod
 
         # Create a standalone personality file
         standalone_data = {
@@ -134,7 +134,7 @@ class TestLoadPersonality:
 class TestLoadFromDirectory(object):
     def test_load_from_directory_based(self, tmp_path, monkeypatch):
         """Test loading from directory-based personality."""
-        import blick.personalities as personalities_mod
+        import overblick.personalities as personalities_mod
 
         # Create directory-based personality
         personality_dir = tmp_path / "dirtest"
@@ -165,30 +165,30 @@ class TestIdentityPersonalityWiring:
     """Verify that load_identity() automatically loads personality."""
 
     def test_identity_has_loaded_personality(self):
-        from blick.core.identity import load_identity
+        from overblick.core.identity import load_identity
         identity = load_identity("anomal")
         assert identity.loaded_personality is not None
         assert identity.loaded_personality.name == "anomal"
 
     def test_identity_personality_ref(self):
-        from blick.core.identity import load_identity
+        from overblick.core.identity import load_identity
         identity = load_identity("anomal")
         assert identity.personality_ref == "anomal"
 
     def test_identity_personality_has_voice(self):
-        from blick.core.identity import load_identity
+        from overblick.core.identity import load_identity
         identity = load_identity("anomal")
         assert identity.loaded_personality.voice != {}
         assert "base_tone" in identity.loaded_personality.voice
 
     def test_identity_personality_has_traits(self):
-        from blick.core.identity import load_identity
+        from overblick.core.identity import load_identity
         identity = load_identity("anomal")
         assert identity.loaded_personality.traits != {}
         assert "openness" in identity.loaded_personality.traits
 
     def test_cherry_has_personality(self):
-        from blick.core.identity import load_identity
+        from overblick.core.identity import load_identity
         identity = load_identity("cherry")
         assert identity.loaded_personality is not None
         assert identity.loaded_personality.name == "cherry"

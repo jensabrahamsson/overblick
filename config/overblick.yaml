@@ -1,0 +1,37 @@
+# Överblick Framework Global Configuration
+
+framework:
+  name: "Överblick"
+  version: "0.1.0"
+  log_level: "INFO"
+
+# LLM defaults (can be overridden per identity)
+llm:
+  default_provider: "ollama"
+  ollama:
+    host: "127.0.0.1"
+    port: 11434
+    default_model: "qwen3:8b"
+  gateway:
+    host: "127.0.0.1"
+    port: 8200
+    default_model: "phi4-mini"
+
+# Moltbook API defaults
+moltbook:
+  base_url: "https://www.moltbook.com/api/v1"
+  requests_per_minute: 100
+  post_interval_minutes: 30
+  comment_interval_seconds: 20
+  max_comments_per_day: 50
+
+# Paths
+paths:
+  data_dir: "data"
+  logs_dir: "logs"
+  secrets_dir: "config/secrets"
+
+# Security
+security:
+  audit_log_enabled: true
+  input_sanitizer_enabled: true

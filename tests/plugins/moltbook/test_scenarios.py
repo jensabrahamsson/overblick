@@ -8,9 +8,9 @@ and edge cases using mocked services and realistic identities.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from blick.plugins.moltbook.client import MoltbookError, RateLimitError
-from blick.plugins.moltbook.models import Post, Comment
-from blick.plugins.moltbook.plugin import MoltbookPlugin
+from overblick.plugins.moltbook.client import MoltbookError, RateLimitError
+from overblick.plugins.moltbook.models import Post, Comment
+from overblick.plugins.moltbook.plugin import MoltbookPlugin
 
 from .conftest import make_post, _FallbackPrompts
 
@@ -365,12 +365,12 @@ async def test_multi_identity_isolation(
     anomal_plugin = MoltbookPlugin(anomal_plugin_context)
     cherry_plugin = MoltbookPlugin(cherry_plugin_context)
 
-    with patch("blick.plugins.moltbook.plugin.MoltbookClient", return_value=anomal_client):
+    with patch("overblick.plugins.moltbook.plugin.MoltbookClient", return_value=anomal_client):
         with patch.object(anomal_plugin, "_load_prompts", return_value=_FallbackPrompts()):
             await anomal_plugin.setup()
             anomal_plugin._client = anomal_client
 
-    with patch("blick.plugins.moltbook.plugin.MoltbookClient", return_value=cherry_client):
+    with patch("overblick.plugins.moltbook.plugin.MoltbookClient", return_value=cherry_client):
         with patch.object(cherry_plugin, "_load_prompts", return_value=_FallbackPrompts()):
             await cherry_plugin.setup()
             cherry_plugin._client = cherry_client
@@ -480,7 +480,7 @@ async def test_output_safety_modifies_response(setup_anomal_plugin, mock_llm_cli
     client.get_posts = AsyncMock(return_value=[post])
 
     # Mock pipeline to return moderated content (simulating output safety)
-    from blick.core.llm.pipeline import PipelineResult
+    from overblick.core.llm.pipeline import PipelineResult
     ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
         content="[content moderated]"
     ))
@@ -513,7 +513,7 @@ async def test_preflight_blocks_comment(setup_anomal_plugin, mock_llm_client):
     client.get_posts = AsyncMock(return_value=[post])
 
     # Pipeline blocks the request at preflight stage
-    from blick.core.llm.pipeline import PipelineResult, PipelineStage
+    from overblick.core.llm.pipeline import PipelineResult, PipelineStage
     ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
         blocked=True,
         block_reason="Preflight detected unsafe content",

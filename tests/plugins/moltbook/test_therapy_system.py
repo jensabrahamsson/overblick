@@ -1,7 +1,7 @@
 """Tests for therapy system."""
 
 from datetime import datetime
-from blick.plugins.moltbook.therapy_system import TherapySystem, TherapySession
+from overblick.plugins.moltbook.therapy_system import TherapySystem, TherapySession
 
 
 class TestTherapySystem:

@@ -11,9 +11,9 @@ Tests cover:
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from blick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
-from blick.core.plugin_base import PluginContext
-from blick.plugins.webhook.plugin import WebhookPlugin
+from overblick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.core.plugin_base import PluginContext
+from overblick.plugins.webhook.plugin import WebhookPlugin
 
 
 # ---------------------------------------------------------------------------

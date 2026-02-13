@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from blick.core.llm.pipeline import PipelineResult
-from blick.plugins.gmail.plugin import (
+from overblick.core.llm.pipeline import PipelineResult
+from overblick.plugins.gmail.plugin import (
     EmailAction,
     EmailDraft,
     EmailMessage,

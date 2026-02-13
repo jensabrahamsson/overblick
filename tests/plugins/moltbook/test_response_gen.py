@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import AsyncMock
 
-from blick.plugins.moltbook.response_gen import ResponseGenerator
+from overblick.plugins.moltbook.response_gen import ResponseGenerator
 
 
 class TestResponseGenerator:

@@ -1,6 +1,6 @@
 """Tests for input sanitizer."""
 
-from blick.core.security.input_sanitizer import sanitize, wrap_external_content
+from overblick.core.security.input_sanitizer import sanitize, wrap_external_content
 
 
 class TestSanitize:
