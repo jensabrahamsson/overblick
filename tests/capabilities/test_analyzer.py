@@ -6,8 +6,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-from blick.core.capability import CapabilityContext
-from blick.capabilities.engagement.analyzer import AnalyzerCapability
+from overblick.core.capability import CapabilityContext
+from overblick.capabilities.engagement.analyzer import AnalyzerCapability
 
 
 def make_ctx(**overrides) -> CapabilityContext:

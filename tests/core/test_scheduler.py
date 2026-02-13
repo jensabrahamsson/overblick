@@ -2,7 +2,7 @@
 
 import asyncio
 import pytest
-from blick.core.scheduler import Scheduler, ScheduledTask
+from overblick.core.scheduler import Scheduler, ScheduledTask
 
 
 class TestScheduler:

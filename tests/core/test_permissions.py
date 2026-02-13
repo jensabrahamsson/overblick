@@ -4,7 +4,7 @@ import time
 import pytest
 from unittest.mock import MagicMock
 
-from blick.core.permissions import (
+from overblick.core.permissions import (
     PermissionAction,
     PermissionChecker,
     PermissionRule,

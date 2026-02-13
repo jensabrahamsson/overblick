@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from blick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
-from blick.core.llm.pipeline import PipelineResult
-from blick.core.plugin_base import PluginContext
-from blick.plugins.discord.plugin import DiscordPlugin
+from overblick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.core.llm.pipeline import PipelineResult
+from overblick.core.plugin_base import PluginContext
+from overblick.plugins.discord.plugin import DiscordPlugin
 
 
 @pytest.fixture

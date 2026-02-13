@@ -7,8 +7,8 @@ import time
 import pytest
 from pathlib import Path
 
-from blick.core.capability import CapabilityContext
-from blick.capabilities.conversation.tracker import ConversationCapability, ConversationEntry
+from overblick.core.capability import CapabilityContext
+from overblick.capabilities.conversation.tracker import ConversationCapability, ConversationEntry
 
 
 def make_ctx(**overrides) -> CapabilityContext:

@@ -1,7 +1,7 @@
 """Tests for audit log."""
 
 import pytest
-from blick.core.security.audit_log import AuditLog
+from overblick.core.security.audit_log import AuditLog
 
 
 class TestAuditLog:

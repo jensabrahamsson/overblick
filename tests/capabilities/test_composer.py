@@ -6,9 +6,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-from blick.core.capability import CapabilityContext
-from blick.core.llm.pipeline import PipelineResult
-from blick.capabilities.engagement.composer import ComposerCapability
+from overblick.core.capability import CapabilityContext
+from overblick.core.llm.pipeline import PipelineResult
+from overblick.capabilities.engagement.composer import ComposerCapability
 
 
 def make_ctx(**overrides) -> CapabilityContext:

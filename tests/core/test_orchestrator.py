@@ -1,7 +1,7 @@
 """Tests for orchestrator state machine."""
 
 import pytest
-from blick.core.orchestrator import Orchestrator, OrchestratorState
+from overblick.core.orchestrator import Orchestrator, OrchestratorState
 
 
 class TestOrchestratorState:

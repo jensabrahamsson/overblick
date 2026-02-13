@@ -1,7 +1,7 @@
 """Tests for event bus."""
 
 import pytest
-from blick.core.event_bus import EventBus
+from overblick.core.event_bus import EventBus
 
 
 @pytest.mark.asyncio

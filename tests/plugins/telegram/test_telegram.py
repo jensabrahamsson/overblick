@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from blick.core.llm.pipeline import PipelineResult, PipelineStage
-from blick.plugins.telegram.plugin import (
+from overblick.core.llm.pipeline import PipelineResult, PipelineStage
+from overblick.plugins.telegram.plugin import (
     COMMANDS,
     ConversationContext,
     TelegramMessage,

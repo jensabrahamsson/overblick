@@ -13,8 +13,8 @@ import logging
 
 import pytest
 
-from blick.core.llm.ollama_client import OllamaClient
-from blick.personalities import build_system_prompt, load_personality, list_personalities
+from overblick.core.llm.ollama_client import OllamaClient
+from overblick.personalities import build_system_prompt, load_personality, list_personalities
 
 logger = logging.getLogger(__name__)
 

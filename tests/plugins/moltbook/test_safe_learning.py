@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import AsyncMock
-from blick.plugins.moltbook.safe_learning import (
+from overblick.plugins.moltbook.safe_learning import (
     SafeLearningModule, LearningCategory, ReviewResult,
     ProposedLearning, extract_potential_learnings,
 )

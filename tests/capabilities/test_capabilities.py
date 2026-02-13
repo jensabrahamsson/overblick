@@ -9,8 +9,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-from blick.core.capability import CapabilityBase, CapabilityContext, CapabilityRegistry
-from blick.capabilities import (
+from overblick.core.capability import CapabilityBase, CapabilityContext, CapabilityRegistry
+from overblick.capabilities import (
     CAPABILITY_REGISTRY,
     CAPABILITY_BUNDLES,
     resolve_capabilities,
@@ -272,7 +272,7 @@ class TestLearningCapability:
 
     @pytest.mark.asyncio
     async def test_propose_learning(self):
-        from blick.plugins.moltbook.safe_learning import LearningCategory
+        from overblick.plugins.moltbook.safe_learning import LearningCategory
         ctx = make_ctx(config={"ethos_text": "Be ethical"})
         cap = LearningCapability(ctx)
         await cap.setup()

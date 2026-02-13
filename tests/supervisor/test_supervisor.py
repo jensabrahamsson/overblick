@@ -9,9 +9,9 @@ import tempfile
 import pytest
 from pathlib import Path
 
-from blick.supervisor.supervisor import Supervisor, SupervisorState
-from blick.supervisor.process import AgentProcess, ProcessState
-from blick.supervisor.ipc import IPCServer, IPCClient, IPCMessage
+from overblick.supervisor.supervisor import Supervisor, SupervisorState
+from overblick.supervisor.process import AgentProcess, ProcessState
+from overblick.supervisor.ipc import IPCServer, IPCClient, IPCMessage
 
 
 @pytest.fixture

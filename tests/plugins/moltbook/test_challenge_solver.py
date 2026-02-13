@@ -1,6 +1,6 @@
 """Tests for MoltCaptcha solver."""
 
-from blick.plugins.moltbook.challenge_solver import MoltCaptchaSolver
+from overblick.plugins.moltbook.challenge_solver import MoltCaptchaSolver
 
 
 class TestMoltCaptchaSolver:

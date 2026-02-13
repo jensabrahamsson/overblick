@@ -1,7 +1,7 @@
 """Tests for feed processor."""
 
-from blick.plugins.moltbook.feed_processor import FeedProcessor
-from blick.plugins.moltbook.models import Post
+from overblick.plugins.moltbook.feed_processor import FeedProcessor
+from overblick.plugins.moltbook.models import Post
 
 
 def _make_post(post_id: str, title: str = "Test") -> Post:

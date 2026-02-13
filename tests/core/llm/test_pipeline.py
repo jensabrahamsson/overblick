@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
-from blick.core.llm.pipeline import SafeLLMPipeline, PipelineResult, PipelineStage
-from blick.core.security.preflight import PreflightResult, ThreatLevel, ThreatType
+from overblick.core.llm.pipeline import SafeLLMPipeline, PipelineResult, PipelineStage
+from overblick.core.security.preflight import PreflightResult, ThreatLevel, ThreatType
 
 
 @pytest.fixture

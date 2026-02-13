@@ -2,7 +2,7 @@
 
 import pytest
 from pydantic import ValidationError
-from blick.core.identity import (
+from overblick.core.identity import (
     Identity, LLMSettings, QuietHoursSettings, ScheduleSettings,
     SecuritySettings, load_identity, list_identities, _load_yaml,
 )

@@ -9,11 +9,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from blick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
-from blick.core.llm.pipeline import PipelineResult, PipelineStage
-from blick.core.plugin_base import PluginContext
-from blick.plugins.moltbook.models import Post, Comment
-from blick.plugins.moltbook.plugin import MoltbookPlugin
+from overblick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.core.llm.pipeline import PipelineResult, PipelineStage
+from overblick.core.plugin_base import PluginContext
+from overblick.plugins.moltbook.models import Post, Comment
+from overblick.plugins.moltbook.plugin import MoltbookPlugin
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +234,7 @@ async def setup_anomal_plugin(anomal_plugin_context, mock_moltbook_client):
     """Create and setup a MoltbookPlugin for Anomal with mocked client."""
     plugin = MoltbookPlugin(anomal_plugin_context)
 
-    with patch("blick.plugins.moltbook.plugin.MoltbookClient", return_value=mock_moltbook_client):
+    with patch("overblick.plugins.moltbook.plugin.MoltbookClient", return_value=mock_moltbook_client):
         with patch.object(plugin, "_load_prompts", return_value=_FallbackPrompts()):
             await plugin.setup()
             # Replace client with our mock
@@ -247,7 +247,7 @@ async def setup_cherry_plugin(cherry_plugin_context, mock_moltbook_client):
     """Create and setup a MoltbookPlugin for Cherry with mocked client."""
     plugin = MoltbookPlugin(cherry_plugin_context)
 
-    with patch("blick.plugins.moltbook.plugin.MoltbookClient", return_value=mock_moltbook_client):
+    with patch("overblick.plugins.moltbook.plugin.MoltbookClient", return_value=mock_moltbook_client):
         with patch.object(plugin, "_load_prompts", return_value=_FallbackPrompts()):
             await plugin.setup()
             plugin._client = mock_moltbook_client

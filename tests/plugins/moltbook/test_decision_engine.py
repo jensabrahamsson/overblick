@@ -1,7 +1,7 @@
 """Tests for Moltbook decision engine."""
 
 import pytest
-from blick.plugins.moltbook.decision_engine import DecisionEngine, EngagementDecision
+from overblick.plugins.moltbook.decision_engine import DecisionEngine, EngagementDecision
 
 
 class TestDecisionEngine:

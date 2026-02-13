@@ -1,6 +1,6 @@
 """Tests for opening selector."""
 
-from blick.plugins.moltbook.opening_selector import OpeningSelector
+from overblick.plugins.moltbook.opening_selector import OpeningSelector
 
 
 class TestOpeningSelector:
