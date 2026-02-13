@@ -1,7 +1,7 @@
 """Tests for response generator."""
 
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from overblick.plugins.moltbook.response_gen import ResponseGenerator
 
@@ -91,3 +91,74 @@ class TestResponseGenerator:
         title, content, submolt = result
         assert title == "Simple Post"
         assert submolt == "ai"  # Default
+
+    @pytest.mark.asyncio
+    async def test_priority_passed_through_pipeline(self):
+        """Priority flows from generate_comment through pipeline to LLM."""
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
+            blocked=False, content="Response",
+        ))
+
+        gen = ResponseGenerator(
+            llm_pipeline=mock_pipeline,
+            system_prompt="Test",
+        )
+
+        await gen.generate_comment(
+            post_title="Test",
+            post_content="Content",
+            agent_name="Author",
+            prompt_template="{title}",
+            priority="high",
+        )
+
+        call_kwargs = mock_pipeline.chat.call_args.kwargs
+        assert call_kwargs["priority"] == "high"
+
+    @pytest.mark.asyncio
+    async def test_priority_defaults_to_low(self):
+        """Priority defaults to 'low' when not specified."""
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
+            blocked=False, content="Response",
+        ))
+
+        gen = ResponseGenerator(
+            llm_pipeline=mock_pipeline,
+            system_prompt="Test",
+        )
+
+        await gen.generate_comment(
+            post_title="Test",
+            post_content="Content",
+            agent_name="Author",
+            prompt_template="{title}",
+        )
+
+        call_kwargs = mock_pipeline.chat.call_args.kwargs
+        assert call_kwargs["priority"] == "low"
+
+    @pytest.mark.asyncio
+    async def test_reply_priority(self):
+        """generate_reply passes priority through."""
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
+            blocked=False, content="Reply",
+        ))
+
+        gen = ResponseGenerator(
+            llm_pipeline=mock_pipeline,
+            system_prompt="Test",
+        )
+
+        await gen.generate_reply(
+            original_post_title="Post",
+            comment_content="Comment",
+            commenter_name="User",
+            prompt_template="Reply to {comment} on {title}",
+            priority="high",
+        )
+
+        call_kwargs = mock_pipeline.chat.call_args.kwargs
+        assert call_kwargs["priority"] == "high"

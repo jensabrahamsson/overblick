@@ -31,6 +31,10 @@ class LLMSettings(BaseModel):
     max_tokens: int = 2000
     timeout_seconds: int = 180
 
+    # Gateway mode: use the LLM Gateway priority queue instead of direct Ollama
+    use_gateway: bool = False
+    gateway_url: str = "http://127.0.0.1:8200"
+
 
 class QuietHoursSettings(BaseModel):
     """Quiet hours (bedroom mode) per identity."""

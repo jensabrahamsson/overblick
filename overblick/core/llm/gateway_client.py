@@ -30,7 +30,7 @@ class GatewayClient(LLMClient):
         self,
         base_url: str = "http://127.0.0.1:8200",
         model: str = "qwen3:8b",
-        priority: str = "high",
+        default_priority: str = "low",
         max_tokens: int = 2000,
         temperature: float = 0.7,
         top_p: float = 0.9,
@@ -38,14 +38,14 @@ class GatewayClient(LLMClient):
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
-        self.priority = priority
+        self.default_priority = default_priority
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.top_p = top_p
         self.timeout_seconds = timeout_seconds
         self._session: Optional[aiohttp.ClientSession] = None
 
-        logger.info(f"GatewayClient: {base_url}, priority={priority}, model={model}")
+        logger.info(f"GatewayClient: {base_url}, default_priority={default_priority}, model={model}")
 
     async def _ensure_session(self) -> None:
         if self._session is None or self._session.closed:
@@ -57,11 +57,13 @@ class GatewayClient(LLMClient):
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
+        priority: str = "",
     ) -> Optional[dict]:
-        """Send chat completion through the gateway."""
+        """Send chat completion through the gateway with per-request priority."""
         await self._ensure_session()
 
-        url = f"{self.base_url}/v1/chat/completions?priority={self.priority}"
+        prio = priority if priority else self.default_priority
+        url = f"{self.base_url}/v1/chat/completions?priority={prio}"
         payload = {
             "model": self.model,
             "messages": messages,

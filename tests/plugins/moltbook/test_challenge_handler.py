@@ -93,3 +93,17 @@ class TestChallengeSolving:
         stats = handler.get_stats()
         assert "challenges_detected" in stats
         assert stats["challenges_solved"] == 0
+
+    async def test_solve_uses_high_priority(self):
+        """Challenge solving MUST use high priority to beat background tasks."""
+        llm = AsyncMock()
+        llm.chat = AsyncMock(return_value={"content": "42"})
+
+        handler = PerContentChallengeHandler(llm_client=llm)
+        await handler.solve({
+            "question": "What is 6*7?",
+            "nonce": "test",
+        })
+
+        call_kwargs = llm.chat.call_args.kwargs
+        assert call_kwargs["priority"] == "high"

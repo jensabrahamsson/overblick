@@ -8,6 +8,8 @@ Bundles:
     engagement  = [analyzer, composer]
     conversation = [conversation_tracker]
     content     = [summarizer]
+    speech      = [stt, tts]
+    vision      = [vision]
 """
 
 from overblick.capabilities.psychology.dream import DreamCapability
@@ -20,6 +22,9 @@ from overblick.capabilities.engagement.analyzer import AnalyzerCapability
 from overblick.capabilities.engagement.composer import ComposerCapability
 from overblick.capabilities.conversation.tracker import ConversationCapability
 from overblick.capabilities.content.summarizer import SummarizerCapability
+from overblick.capabilities.speech.stt import SpeechToTextCapability
+from overblick.capabilities.speech.tts import TextToSpeechCapability
+from overblick.capabilities.vision.analyzer import VisionCapability
 
 # Name -> class mapping for registry
 CAPABILITY_REGISTRY: dict[str, type] = {
@@ -33,6 +38,9 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "composer": ComposerCapability,
     "conversation_tracker": ConversationCapability,
     "summarizer": SummarizerCapability,
+    "stt": SpeechToTextCapability,
+    "tts": TextToSpeechCapability,
+    "vision": VisionCapability,
 }
 
 # Bundle -> capability names
@@ -43,6 +51,8 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "engagement": ["analyzer", "composer"],
     "conversation": ["conversation_tracker"],
     "content": ["summarizer"],
+    "speech": ["stt", "tts"],
+    "vision": ["vision"],
 }
 
 
@@ -71,6 +81,9 @@ __all__ = [
     "ComposerCapability",
     "ConversationCapability",
     "SummarizerCapability",
+    "SpeechToTextCapability",
+    "TextToSpeechCapability",
+    "VisionCapability",
     "CAPABILITY_REGISTRY",
     "CAPABILITY_BUNDLES",
     "resolve_capabilities",

@@ -19,6 +19,7 @@ class LLMClient(ABC):
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
+        priority: str = "low",
     ) -> Optional[dict]:
         """
         Send a chat completion request.
@@ -28,6 +29,8 @@ class LLMClient(ABC):
             temperature: Override default temperature
             max_tokens: Override default max tokens
             top_p: Override default top_p
+            priority: Request priority ("high" or "low"). Used by GatewayClient
+                      for queue ordering. OllamaClient ignores this parameter.
 
         Returns:
             Dict with 'content' key containing the response, or None on error
