@@ -39,7 +39,7 @@ class TestDiscordLifecycle:
     @pytest.mark.asyncio
     async def test_setup_builds_system_prompt(self, discord_plugin):
         assert len(discord_plugin._system_prompt) > 50
-        assert "Volt" in discord_plugin._system_prompt
+        assert "Blixt" in discord_plugin._system_prompt
 
     @pytest.mark.asyncio
     async def test_setup_logs_audit_event(self, discord_plugin):
@@ -72,8 +72,8 @@ class TestDiscordConfig:
     async def test_empty_guild_ids(self, discord_context):
         """Plugin handles empty guild list gracefully."""
         discord_context.identity = Identity(
-            name="volt",
-            display_name="Volt",
+            name="blixt",
+            display_name="Blixt",
             description="Test",
             engagement_threshold=30,
             enabled_modules=(),
@@ -93,8 +93,8 @@ class TestDiscordConfig:
     async def test_no_discord_config_section(self, discord_context):
         """Plugin handles missing discord config section."""
         discord_context.identity = Identity(
-            name="volt",
-            display_name="Volt",
+            name="blixt",
+            display_name="Blixt",
             description="Test",
             engagement_threshold=30,
             enabled_modules=(),
@@ -168,7 +168,7 @@ class TestDiscordStatus:
     async def test_status_structure(self, discord_plugin):
         status = discord_plugin.get_status()
         assert status["plugin"] == "discord"
-        assert status["identity"] == "volt"
+        assert status["identity"] == "blixt"
         assert status["guilds"] == 2
         assert status["messages_received"] == 0
         assert status["messages_sent"] == 0

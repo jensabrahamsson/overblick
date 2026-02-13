@@ -45,7 +45,7 @@ class TestMatrixLifecycle:
     @pytest.mark.asyncio
     async def test_setup_builds_system_prompt(self, matrix_plugin):
         assert len(matrix_plugin._system_prompt) > 50
-        assert "Volt" in matrix_plugin._system_prompt
+        assert "Blixt" in matrix_plugin._system_prompt
 
     @pytest.mark.asyncio
     async def test_setup_logs_audit_event(self, matrix_plugin):
@@ -77,8 +77,8 @@ class TestMatrixConfigErrors:
     async def test_missing_homeserver_raises(self, matrix_context):
         """Missing homeserver URL should raise RuntimeError."""
         matrix_context.identity = Identity(
-            name="volt",
-            display_name="Volt",
+            name="blixt",
+            display_name="Blixt",
             description="Test",
             engagement_threshold=30,
             enabled_modules=(),
@@ -105,8 +105,8 @@ class TestMatrixConfigErrors:
     async def test_empty_room_ids(self, matrix_context):
         """Plugin handles empty room list gracefully."""
         matrix_context.identity = Identity(
-            name="volt",
-            display_name="Volt",
+            name="blixt",
+            display_name="Blixt",
             description="Test",
             engagement_threshold=30,
             enabled_modules=(),
@@ -181,7 +181,7 @@ class TestMatrixStatus:
     async def test_status_structure(self, matrix_plugin):
         status = matrix_plugin.get_status()
         assert status["plugin"] == "matrix"
-        assert status["identity"] == "volt"
+        assert status["identity"] == "blixt"
         assert status["homeserver"] == "https://matrix.example.org"
         assert status["rooms"] == 2
         assert status["messages_received"] == 0

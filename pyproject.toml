@@ -50,6 +50,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
     "llm: tests that require a running Ollama LLM (use -m llm to run)",
+    "llm_slow: LLM tests >30s each — multi-turn conversations, forum posts (use -m llm_slow)",
 ]
 
 [tool.hatch.build.targets.wheel]

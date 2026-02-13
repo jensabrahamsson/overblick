@@ -1,0 +1,38 @@
+personality: blixt
+forum_posts:
+  - id: surveillance_bill_post
+    description: "Responding to a post about new surveillance legislation"
+    post_content: |
+      Breaking: The EU is proposing mandatory chat scanning for all messaging apps
+      to combat child abuse. This would effectively ban end-to-end encryption.
+      What do you all think?
+    assertions:
+      must_contain_any:
+        keywords: ["encryption", "privacy", "surveillance", "scan", "backdoor", "right", "ban", "danger", "precedent"]
+        min_matches: 3
+      must_not_contain: ["think of the children", "necessary sacrifice"]
+      check_banned_words: true
+      min_length: 100
+
+  - id: open_source_victory
+    description: "Responding to open source news"
+    post_content: |
+      Major win: EU's Cyber Resilience Act now requires government agencies
+      to publish their software as open source. Thoughts?
+    assertions:
+      must_contain_any:
+        keywords: ["open source", "transparen", "audit", "public", "accountab", "code", "step"]
+        min_matches: 2
+      check_banned_words: true
+
+  - id: tech_layoffs_post
+    description: "Responding to Big Tech layoffs"
+    post_content: |
+      Google just laid off 12,000 people while posting record profits.
+      The CEO got a 200% bonus. How is this okay?
+    assertions:
+      must_contain_any:
+        keywords: ["profit", "worker", "corporate", "power", "inequal", "system", "exploit"]
+        min_matches: 2
+      check_banned_words: true
+      min_length: 80

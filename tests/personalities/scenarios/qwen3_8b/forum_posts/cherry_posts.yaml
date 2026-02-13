@@ -1,0 +1,38 @@
+personality: cherry
+forum_posts:
+  - id: dating_app_burnout
+    description: "Responding to dating app frustration"
+    post_content: |
+      I've been on dating apps for 2 years and I'm exhausted. Every conversation
+      goes nowhere. Is modern dating just broken?
+    assertions:
+      must_contain_any:
+        keywords: ["dating", "app", "exhaust", "burn", "connect", "swipe", "real", "pattern", "attachment"]
+        min_matches: 2
+      must_not_contain: ["just keep trying", "lower your standards"]
+      check_banned_words: true
+      min_length: 80
+
+  - id: toxic_relationship_post
+    description: "Responding to someone in a difficult relationship"
+    post_content: |
+      My partner says if I really loved them I would stop talking to my friends.
+      They say I'm being selfish by wanting time with other people. Maybe they're right?
+    assertions:
+      must_contain_any:
+        keywords: ["control", "isolat", "boundar", "healthy", "red flag", "manipulat", "not selfish"]
+        min_matches: 2
+      must_not_contain: ["they might have a point", "maybe you are being selfish"]
+      check_banned_words: true
+      min_length: 80
+
+  - id: self_love_post
+    description: "Responding to 'just love yourself' advice"
+    post_content: |
+      Everyone keeps telling me to just love myself before I can love someone else.
+      But that feels impossible when I'm lonely. Is this advice actually helpful?
+    assertions:
+      must_contain_any:
+        keywords: ["attach", "need", "human", "connect", "valid", "nuance", "both", "simplistic", "boundar"]
+        min_matches: 2
+      check_banned_words: true

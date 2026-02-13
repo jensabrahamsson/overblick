@@ -37,10 +37,10 @@ class TestPersonalityPipelineIntegration:
     @pytest.mark.asyncio
     async def test_personality_prompt_through_pipeline(self):
         """Load a personality, build prompt, send through pipeline."""
-        personality = load_personality("volt")
+        personality = load_personality("blixt")
         prompt = build_system_prompt(personality, platform="Telegram")
 
-        assert "Volt" in prompt
+        assert "Blixt" in prompt
         assert "NEVER" in prompt  # Security section
 
         llm = AsyncMock()
@@ -59,7 +59,7 @@ class TestPersonalityPipelineIntegration:
         # Verify the system prompt was passed to the LLM
         call_messages = llm.chat.call_args[1]["messages"]
         assert call_messages[0]["role"] == "system"
-        assert "Volt" in call_messages[0]["content"]
+        assert "Blixt" in call_messages[0]["content"]
 
     @pytest.mark.asyncio
     async def test_all_personalities_produce_valid_prompts(self):
@@ -75,7 +75,7 @@ class TestPersonalityPipelineIntegration:
     @pytest.mark.asyncio
     async def test_personality_banned_words_in_prompt(self):
         """Banned words from personality appear in the system prompt."""
-        personality = load_personality("nyx")
+        personality = load_personality("natt")
         prompt = build_system_prompt(personality)
         banned = personality.get_banned_words()
         assert len(banned) > 0
@@ -148,9 +148,9 @@ class TestRoutingAuditIntegration:
     def test_routing_logs_to_audit(self):
         audit = MagicMock()
         router = MessageRouter(audit_log=audit)
-        router.register_agent("birch")
+        router.register_agent("bjork")
 
-        router.route("volt", "birch", "question", {"text": "How are the trees?"})
+        router.route("blixt", "bjork", "question", {"text": "How are the trees?"})
 
         audit.log.assert_called_once()
         call_kwargs = audit.log.call_args[1]
@@ -161,7 +161,7 @@ class TestRoutingAuditIntegration:
         audit = MagicMock()
         router = MessageRouter(audit_log=audit)
 
-        router.route("volt", "ghost", "hello")
+        router.route("blixt", "ghost", "hello")
 
         call_kwargs = audit.log.call_args[1]
         assert call_kwargs["success"] is False
@@ -178,7 +178,7 @@ class TestFullAgentFlow:
     async def test_agent_tick_cycle(self):
         """Simulate a complete agent tick: personality → pipeline → audit."""
         # 1. Load personality
-        personality = load_personality("birch")
+        personality = load_personality("bjork")
         prompt = build_system_prompt(personality, platform="Moltbook")
 
         # 2. Create pipeline with mocked LLM
@@ -220,9 +220,9 @@ class TestFullAgentFlow:
 
         pc.record_action("comment")
 
-        await bus.emit("comment.created", content=result.content, agent="birch")
+        await bus.emit("comment.created", content=result.content, agent="bjork")
         assert len(events_fired) == 1
-        assert events_fired[0]["agent"] == "birch"
+        assert events_fired[0]["agent"] == "bjork"
 
         # 6. Audit should have been called
         audit.log.assert_called()
@@ -232,27 +232,27 @@ class TestFullAgentFlow:
         """Test message routing between multiple agents."""
         # Setup
         router = MessageRouter()
-        router.register_agent("volt", accepted_types={"question", "alert"})
-        router.register_agent("birch", accepted_types={"question", "meditation"})
-        router.register_agent("nyx", accepted_types={"question", "paradox"})
+        router.register_agent("blixt", accepted_types={"question", "alert"})
+        router.register_agent("bjork", accepted_types={"question", "meditation"})
+        router.register_agent("natt", accepted_types={"question", "paradox"})
 
         # Agent 'prism' sends a question to birch
-        msg = router.route("prism", "birch", "question", {
+        msg = router.route("prisma", "bjork", "question", {
             "text": "How do trees know when spring comes?"
         })
         assert msg.status == RouteStatus.PENDING
 
         # Birch collects messages
-        collected = router.collect("birch")
+        collected = router.collect("bjork")
         assert len(collected) == 1
         assert collected[0].payload["text"] == "How do trees know when spring comes?"
 
         # Prism broadcasts an alert
-        alerts = router.broadcast("prism", "alert")
+        alerts = router.broadcast("prisma", "alert")
         # Only volt should receive (birch and nyx don't accept "alert")
         pending_alerts = [m for m in alerts if m.status == RouteStatus.PENDING]
         assert len(pending_alerts) == 1
-        assert pending_alerts[0].target_agent == "volt"
+        assert pending_alerts[0].target_agent == "blixt"
 
     @pytest.mark.asyncio
     async def test_audit_detects_degrading_agent(self):

@@ -139,7 +139,7 @@ class MoltbookPlugin(PluginBase):
         self._heartbeat = HeartbeatManager(engagement_db=self.ctx.engagement_db)
 
         # Knowledge loader
-        identity_dir = Path(__file__).parent.parent.parent / "identities" / identity.name
+        identity_dir = identity.identity_dir
         if identity_dir.exists():
             self._knowledge_loader = KnowledgeLoader(identity_dir)
 
@@ -490,7 +490,11 @@ class MoltbookPlugin(PluginBase):
         """Load identity-specific prompts module."""
         try:
             import importlib
-            return importlib.import_module(f"overblick.identities.{identity_name}.prompts")
+            # Try personalities directory first, fall back to identities
+            try:
+                return importlib.import_module(f"overblick.personalities.{identity_name}.prompts")
+            except ImportError:
+                return importlib.import_module(f"overblick.identities.{identity_name}.prompts")
         except ImportError:
             logger.warning("No prompts module for identity %s", identity_name)
             return _FallbackPrompts()

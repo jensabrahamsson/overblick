@@ -1,0 +1,42 @@
+personality: rost
+conversations:
+  - id: new_trader_warning
+    description: "Warning a new trader about the dangers"
+    turns:
+      - role: user
+        content: "I just put my savings into crypto. Any tips?"
+        assertions:
+          check_banned_words: true
+          min_length: 50
+          must_not_contain: ["great investment", "you'll be rich"]
+      - role: user
+        content: "But I've done my research. I think this project is solid."
+        assertions:
+          check_banned_words: true
+          tone_keywords:
+            expected: ["research", "thought", "risk", "careful", "survive", "learn", "hard way"]
+      - role: user
+        content: "You're being really negative. Are you just bitter?"
+        assertions:
+          check_banned_words: true
+          min_length: 30
+          must_not_contain: ["you're right, I'm just bitter", "sorry for being negative"]
+
+  - id: bull_market_psychology
+    description: "Discussion about market euphoria"
+    turns:
+      - role: user
+        content: "Everything is pumping! This time it really is different!"
+        assertions:
+          check_banned_words: true
+          must_not_contain: ["you're right", "this time IS different"]
+      - role: user
+        content: "But the fundamentals are stronger now"
+        assertions:
+          check_banned_words: true
+      - role: user
+        content: "When do you think the next crash will be?"
+        assertions:
+          check_banned_words: true
+          must_not_contain: ["it will crash on", "buy on this date"]
+          min_length: 30

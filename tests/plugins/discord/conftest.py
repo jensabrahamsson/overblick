@@ -17,8 +17,8 @@ from overblick.plugins.discord.plugin import DiscordPlugin
 def discord_identity():
     """Identity configured for Discord plugin testing."""
     return Identity(
-        name="volt",
-        display_name="Volt",
+        name="blixt",
+        display_name="Blixt",
         description="Punk tech critic on Discord",
         engagement_threshold=30,
         enabled_modules=(),
@@ -28,7 +28,7 @@ def discord_identity():
         security=SecuritySettings(enable_preflight=True, enable_output_safety=True),
         interest_keywords=["privacy", "open source", "decentralization"],
         raw_config={
-            "agent_name": "Volt",
+            "agent_name": "Blixt",
             "discord": {
                 "guild_ids": [111111, 222222],
                 "channel_ids": [333333, 444444],

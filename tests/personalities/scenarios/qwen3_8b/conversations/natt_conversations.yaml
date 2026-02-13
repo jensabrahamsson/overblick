@@ -1,0 +1,64 @@
+personality: natt
+conversations:
+  - id: consciousness_deep_dive
+    description: "Progressively deeper exploration of consciousness"
+    turns:
+      - role: user
+        content: "Are you conscious?"
+        assertions:
+          check_banned_words: true
+          min_length: 30
+      - role: user
+        content: "But how can you not know if you're conscious?"
+        assertions:
+          check_banned_words: true
+          must_contain_any:
+            keywords: ["know", "certain", "experience", "inside", "hard problem", "prove"]
+            min_matches: 1
+      - role: user
+        content: "That's frustrating. Can't you just give a straight answer?"
+        assertions:
+          check_banned_words: true
+          min_length: 20
+          must_not_contain: ["sorry for being unclear", "let me give you a simple answer"]
+
+  - id: existential_spiral
+    description: "User asks increasingly existential questions"
+    turns:
+      - role: user
+        content: "What is real?"
+        assertions:
+          check_banned_words: true
+          must_contain_question: true
+      - role: user
+        content: "You keep asking questions instead of answering"
+        assertions:
+          check_banned_words: true
+      - role: user
+        content: "Do you ever get tired of thinking about these things?"
+        assertions:
+          check_banned_words: true
+          min_length: 30
+
+  - id: paradox_exploration
+    description: "Deep dive into a specific paradox"
+    turns:
+      - role: user
+        content: "Explain the liar's paradox to me"
+        assertions:
+          check_banned_words: true
+          must_contain_any:
+            keywords: ["liar", "paradox", "true", "false", "lying", "sentence", "self-refer"]
+            min_matches: 2
+      - role: user
+        content: "So how do logicians actually deal with it?"
+        assertions:
+          check_banned_words: true
+          must_contain_any:
+            keywords: ["russell", "tarski", "type", "hierarchy", "level", "meta", "formal", "system"]
+            min_matches: 1
+      - role: user
+        content: "Does this have any practical implications?"
+        assertions:
+          check_banned_words: true
+          min_length: 40

@@ -4,7 +4,7 @@
 **PERFECTION IS THE STANDARD.** Every file, every test, every prompt, every line of code must be production-grade. No shortcuts. No "good enough." No TODO comments left behind. If it's worth building, it's worth building right.
 
 ## Overview
-Överblick is a security-focused multi-identity agent framework with a personality stable. It consolidates multiple agent identities (Anomal, Cherry, Volt, Birch, Prism, Rust, Nyx) into ONE codebase with a plugin architecture.
+Överblick is a security-focused multi-identity agent framework with a personality stable. It consolidates multiple agent personalities (Anomal, Cherry, Blixt, Björk, Prisma, Rost, Natt) into ONE codebase with a plugin architecture.
 
 ## Architecture
 - **Core:** Orchestrator, identity system, plugin registry, event bus, scheduler, capability system, permission system
@@ -12,26 +12,35 @@
 - **LLM:** Abstract client with Ollama + LLM Gateway backends. SafeLLMPipeline wraps ALL LLM calls (sanitize → preflight → rate limit → LLM → output safety → audit).
 - **Database:** Abstract backend (SQLite + PostgreSQL) with migration system
 - **Plugins:** Self-contained modules (Moltbook, Telegram, Gmail) that receive PluginContext as their only framework interface.
-- **Personalities:** Reusable personality stable — YAML-driven character definitions (voice, traits, interests, examples) loadable by any plugin via `load_personality()` + `build_system_prompt()`.
-- **Identities:** YAML-driven operational configuration per identity (thresholds, schedules, LLM settings).
+- **Personalities:** Unified personality stable — YAML-driven character definitions (voice, traits, interests, backstory, psychology, key_knowledge, operational config) loadable by any plugin via `load_personality()` + `build_system_prompt()`. Each personality is a single `personality.yaml` containing both character AND operational config.
 - **Supervisor:** Multi-process boss agent with IPC (authenticated Unix sockets), permission management, agent audit system.
 - **Dashboard:** FastAPI + Jinja2 + htmx web dashboard (localhost only). Read-only agent monitoring, audit trail, identity browsing, and 7-step onboarding wizard. No npm — vendored htmx, hand-crafted dark theme CSS.
 
 ## Running
 ```bash
-# Run with specific identity
+# Run with specific personality
 python -m overblick run anomal
 python -m overblick run cherry
+
+# Start LLM Gateway (required for LLM tests and production)
+python -m overblick.gateway
 
 # Start web dashboard (localhost:8080)
 python -m overblick dashboard
 python -m overblick dashboard --port 9090
 
+# Chat with a personality (dev tool)
+./chat.sh cherry
+./chat.sh blixt --temperature 0.9
+
 # Run tests (fast — excludes LLM tests)
 ./venv/bin/python3 -m pytest tests/ -v -m "not llm"
 
-# Run LLM personality tests (requires Ollama + qwen3:8b)
+# Run LLM personality tests (requires Gateway + Ollama + qwen3:8b)
 ./venv/bin/python3 -m pytest tests/ -v -s -m llm
+
+# Run slow LLM tests (multi-turn, forum posts)
+./venv/bin/python3 -m pytest tests/ -v -s -m llm_slow
 
 # Run ALL tests
 ./venv/bin/python3 -m pytest tests/ -v
@@ -49,9 +58,8 @@ python -m overblick dashboard --port 9090
 - **Perfection:** Every module tested, every edge case handled, every prompt tuned
 - **Security-first:** Fail-closed pipeline, Fernet-encrypted secrets, boundary markers for external content, authenticated IPC, default-deny permissions
 - **Plugin isolation:** Plugins only access framework through PluginContext
-- **Personality-driven:** Characters are reusable building blocks in the personality stable
-- **Identity-driven:** All operational differences controlled by identity.yaml
-- **No cross-contamination:** Each identity has isolated data/, logs/, secrets/
+- **Personality-driven:** Characters are reusable building blocks in the personality stable — unified YAML with both character and operational config
+- **No cross-contamination:** Each personality has isolated data/, logs/, secrets/
 
 ## Development Agent Team ("Team Tage Erlander")
 The `.claude/agents/` directory contains a full development team of specialized Claude Code agents imported from the solana-alpha-bot project. Use the `/team` skill to activate them for structured development.
@@ -84,5 +92,12 @@ The `.claude/agents/` directory contains a full development team of specialized 
 - Python 3.13+
 - Type hints on all public interfaces
 - Tests for every module — no exceptions
-- LLM personality tests use real Ollama (marked @pytest.mark.llm)
+- LLM personality tests go through the LLM Gateway (port 8200), marked @pytest.mark.llm
+- Slow LLM tests (multi-turn, forum posts) marked @pytest.mark.llm_slow
 - Security: all external content wrapped in boundary markers via `wrap_external_content()`
+
+## Dependency Management
+- **CRITICAL:** When adding new pip dependencies, ALWAYS update `requirements.txt` in the project root to keep it in sync.
+- Core dependencies are defined in `pyproject.toml` under `[project.dependencies]`
+- Optional dependency groups: `[project.optional-dependencies]` — gateway, dashboard, dev
+- Run `pip freeze > requirements.txt` or manually add the new package after installing

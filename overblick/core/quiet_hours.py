@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from overblick.core.identity import QuietHoursSettings
+from overblick.personalities import QuietHoursSettings
 
 logger = logging.getLogger(__name__)
 

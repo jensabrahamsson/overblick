@@ -8,7 +8,7 @@ from overblick.plugins.moltbook.knowledge_loader import KnowledgeLoader
 class TestKnowledgeLoader:
     def test_load_from_identity_dir(self):
         # Use the real Anomal identity directory
-        identity_dir = Path(__file__).parent.parent.parent.parent / "overblick" / "identities" / "anomal"
+        identity_dir = Path(__file__).parent.parent.parent.parent / "overblick" / "personalities" / "anomal"
         if not identity_dir.exists():
             pytest.skip("Anomal identity dir not found")
 
@@ -17,7 +17,7 @@ class TestKnowledgeLoader:
         assert len(loader.categories) > 0
 
     def test_format_for_prompt(self):
-        identity_dir = Path(__file__).parent.parent.parent.parent / "overblick" / "identities" / "anomal"
+        identity_dir = Path(__file__).parent.parent.parent.parent / "overblick" / "personalities" / "anomal"
         if not identity_dir.exists():
             pytest.skip("Anomal identity dir not found")
 
