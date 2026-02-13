@@ -3,6 +3,12 @@ Abstract LLM client interface.
 
 All LLM backends (Ollama, Gateway, future providers) implement this interface.
 Plugins interact with LLMs exclusively through this abstraction.
+
+Reasoning policy:
+    Production clients (OllamaClient, GatewayClient) keep Qwen3 reasoning ON
+    by default — agents writing posts and analyzing content benefit from deep
+    thinking. For interactive chat where speed matters, use think=false via
+    Ollama's native API (see chat.py).
 """
 
 from abc import ABC, abstractmethod

@@ -3,6 +3,14 @@ LLM Gateway client — connects to the priority queue gateway on port 8200.
 
 The gateway provides HIGH/LOW priority queuing for local Ollama inference.
 HIGH priority (interactive) preempts LOW priority (background tasks).
+
+Reasoning policy:
+    Thinking is ON by default (Qwen3's default). The gateway forwards requests
+    to Ollama which runs with reasoning enabled. This is intentional — agents
+    writing posts and analyzing content benefit from deep thinking.
+
+    For interactive chat (chat.py CLI), use Ollama's native /api/chat with
+    think=false instead — see chat.py for that implementation.
 """
 
 import asyncio
