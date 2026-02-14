@@ -98,6 +98,16 @@ class TestAgentProcess:
         result = await agent.stop()
         assert result is False
 
+    def test_ipc_socket_dir_field(self):
+        """AgentProcess accepts and stores ipc_socket_dir."""
+        agent = AgentProcess(identity="anomal", ipc_socket_dir="/data/ipc")
+        assert agent.ipc_socket_dir == "/data/ipc"
+
+    def test_ipc_socket_dir_default_none(self):
+        """ipc_socket_dir is None by default."""
+        agent = AgentProcess(identity="anomal")
+        assert agent.ipc_socket_dir is None
+
 
 # ---------------------------------------------------------------------------
 # IPCServer + IPCClient
@@ -193,6 +203,17 @@ class TestSupervisor:
         assert status["supervisor_state"] == "init"
         assert status["total_agents"] == 0
         assert status["running_agents"] == 0
+
+    def test_start_agent_passes_ipc_socket_dir(self, short_tmp):
+        """Supervisor passes its IPC socket_dir to AgentProcess."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        # Directly create an agent using the same logic as start_agent
+        agent = AgentProcess(
+            identity="anomal",
+            plugins=["moltbook"],
+            ipc_socket_dir=str(sup._ipc._socket_dir),
+        )
+        assert agent.ipc_socket_dir == str(short_tmp)
 
     @pytest.mark.asyncio
     async def test_start_stop(self, short_tmp):

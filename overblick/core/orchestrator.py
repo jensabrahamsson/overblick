@@ -410,20 +410,41 @@ class Orchestrator:
         """
         Create an IPC client if a supervisor token file exists.
 
-        When running under the supervisor, a token file is written to
-        the socket directory. If found, we create an IPCClient that
-        plugins can use for inter-agent communication.
+        Searches for the supervisor token in priority order:
+        1. OVERBLICK_IPC_DIR env var (set by supervisor for child processes)
+        2. Project-based path: <base_dir>/data/ipc/
+        3. System temp: /tmp/overblick/ (legacy default)
 
         Returns:
             IPCClient if supervisor token exists, None otherwise.
         """
+        import os
         import tempfile
-        from pathlib import Path
 
-        socket_dir = Path(tempfile.gettempdir()) / "overblick"
-        token_path = socket_dir / "overblick-supervisor.token"
+        token_name = "overblick-supervisor.token"
 
-        if not token_path.exists():
+        # Build search paths in priority order
+        search_dirs: list[Path] = []
+
+        env_dir = os.environ.get("OVERBLICK_IPC_DIR")
+        if env_dir:
+            search_dirs.append(Path(env_dir))
+
+        search_dirs.append(self._base_dir / "data" / "ipc")
+        search_dirs.append(Path(tempfile.gettempdir()) / "overblick")
+
+        # Find first directory containing the supervisor token
+        socket_dir = None
+        token_path = None
+        for candidate in search_dirs:
+            tp = candidate / token_name
+            if tp.exists():
+                socket_dir = candidate
+                token_path = tp
+                logger.debug("Supervisor token found at %s", tp)
+                break
+
+        if not token_path:
             logger.debug("No supervisor token found — running in standalone mode")
             return None
 
