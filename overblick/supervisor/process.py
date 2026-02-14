@@ -58,10 +58,14 @@ class AgentProcess(BaseModel):
         logger.info("Starting agent '%s'...", self.identity)
 
         try:
-            cmd = [
-                sys.executable, "-m", "overblick", "run", self.identity,
-                "--plugins", ",".join(self.plugins),
-            ]
+            # Use venv Python if available (fallback to sys.executable)
+            # This ensures agents run with the same Python/packages as supervisor
+            import sysconfig
+            venv_python = os.path.join(sysconfig.get_path("scripts"), "python3")
+            python_exe = venv_python if os.path.exists(venv_python) else sys.executable
+
+            # Note: plugins are loaded from identity.yaml config, not CLI args
+            cmd = [python_exe, "-m", "overblick", "run", self.identity]
 
             self._process = await asyncio.create_subprocess_exec(
                 *cmd,
