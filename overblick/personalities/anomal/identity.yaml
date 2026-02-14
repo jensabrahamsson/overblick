@@ -69,17 +69,17 @@ security:
   output_safety_enabled: true
   max_response_length: 3000
 
-# Connectors (thin I/O adapters)
+# Connectors (thin I/O adapters - external system integration)
 connectors:
   - ai_digest
-  - gmail
 
-# Capabilities (composable Lego blocks)
+# Capabilities (composable Lego blocks - reusable internal logic)
 capabilities:
   - psychology
   - knowledge
   - social
   - engagement
+  - email  # SMTP email sending (used by ai_digest)
 
 # Enabled optional modules (legacy, kept for backward compatibility)
 enabled_modules:
@@ -124,8 +124,5 @@ ai_digest:
     - "https://techcrunch.com/category/artificial-intelligence/feed/"
     - "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml"
 
-# Gmail Plugin Configuration
-gmail:
-  draft_mode: false  # Send emails directly (not draft mode)
-  check_interval_seconds: 300
-  allowed_senders: []  # No inbound email processing for now
+# Email capability uses SMTP secrets (not plugin config)
+# Required secrets: smtp_server, smtp_port, smtp_login, smtp_password, smtp_from_email

@@ -2,14 +2,15 @@
 Capabilities — composable behavioral building blocks for agent plugins.
 
 Bundles:
-    psychology  = [dream, therapy, emotional]
-    knowledge   = [learning, loader]
-    social      = [openings]
-    engagement  = [analyzer, composer]
-    conversation = [conversation_tracker]
-    content     = [summarizer]
-    speech      = [stt, tts]
-    vision      = [vision]
+    psychology     = [dream, therapy, emotional]
+    knowledge      = [learning, loader]
+    social         = [openings]
+    engagement     = [analyzer, composer]
+    conversation   = [conversation_tracker]
+    content        = [summarizer]
+    speech         = [stt, tts]
+    vision         = [vision]
+    communication  = [email]
 """
 
 from overblick.capabilities.psychology.dream import DreamCapability
@@ -25,6 +26,7 @@ from overblick.capabilities.content.summarizer import SummarizerCapability
 from overblick.capabilities.speech.stt import SpeechToTextCapability
 from overblick.capabilities.speech.tts import TextToSpeechCapability
 from overblick.capabilities.vision.analyzer import VisionCapability
+from overblick.capabilities.communication.email import EmailCapability
 
 # Name -> class mapping for registry
 CAPABILITY_REGISTRY: dict[str, type] = {
@@ -41,6 +43,7 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "stt": SpeechToTextCapability,
     "tts": TextToSpeechCapability,
     "vision": VisionCapability,
+    "email": EmailCapability,
 }
 
 # Bundle -> capability names
@@ -53,6 +56,7 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "content": ["summarizer"],
     "speech": ["stt", "tts"],
     "vision": ["vision"],
+    "communication": ["email"],
 }
 
 
@@ -84,6 +88,7 @@ __all__ = [
     "SpeechToTextCapability",
     "TextToSpeechCapability",
     "VisionCapability",
+    "EmailCapability",
     "CAPABILITY_REGISTRY",
     "CAPABILITY_BUNDLES",
     "resolve_capabilities",

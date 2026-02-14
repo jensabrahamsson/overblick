@@ -29,6 +29,7 @@
     --red-dim: #da3633;
     --amber: #d29922;
     --amber-dim: #9e6a03;
+    --orange: #ff8c42;
     --purple: #bc8cff;
 
     /* Spacing */
@@ -274,7 +275,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 }
 .tag-sm { padding: 1px 8px; font-size: 0.75rem; }
 .tag-connector { border-color: var(--accent); color: var(--accent); }
-.tag-capability { border-color: var(--purple); color: var(--purple); }
+.tag-capability { border-color: var(--orange); color: var(--orange); }
 
 /* --- Info Grid --- */
 .info-grid {
