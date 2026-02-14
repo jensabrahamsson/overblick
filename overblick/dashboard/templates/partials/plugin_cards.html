@@ -1,0 +1,33 @@
+{% for card in plugin_cards %}
+<div class="agent-card" id="plugin-{{ card.name }}">
+    <div class="agent-card-header">
+        <span class="status-dot status-{{ 'running' if card.running_count > 0 else 'stopped' }}"></span>
+        <h3 class="agent-card-name">{{ card.display_name }}</h3>
+    </div>
+    <p class="agent-card-desc">
+        {{ card.agent_count }} agent{{ 's' if card.agent_count != 1 else '' }} using this plugin
+        {% if card.running_count > 0 %}
+        ({{ card.running_count }} running)
+        {% endif %}
+    </p>
+    <div class="agent-card-meta">
+        <span class="meta-item mono">{{ card.name }}</span>
+    </div>
+
+    <!-- List agents using this plugin -->
+    <div class="tag-list">
+        {% for agent in card.agents %}
+        <a href="/agent/{{ agent.name }}" class="tag tag-sm tag-agent status-{{ agent.state }}"
+           title="{{ agent.display_name }} ({{ agent.state }})">
+            {{ agent.display_name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% if not plugin_cards %}
+<div class="empty-state">
+    <p>No plugins configured yet.</p>
+    <a href="/onboard" class="btn btn-primary btn-sm">Create your first identity</a>
+</div>
+{% endif %}

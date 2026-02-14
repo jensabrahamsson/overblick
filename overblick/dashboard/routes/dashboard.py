@@ -30,13 +30,13 @@ async def dashboard_page(request: Request):
     recent_audit = audit_svc.query(limit=20)
     audit_count_24h = audit_svc.count(since_hours=24)
 
-    # Build agent cards with status info
-    agent_cards = _build_agent_cards(identities, agents)
+    # Build plugin cards (showing which agents use each plugin)
+    plugin_cards = _build_plugin_cards(identities, agents)
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "csrf_token": request.state.session.get("csrf_token", ""),
-        "agent_cards": agent_cards,
+        "plugin_cards": plugin_cards,
         "supervisor_running": supervisor_status is not None,
         "supervisor_status": supervisor_status or {},
         "recent_audit": recent_audit,
@@ -47,9 +47,9 @@ async def dashboard_page(request: Request):
     })
 
 
-@router.get("/partials/agent-cards", response_class=HTMLResponse)
-async def agent_cards_partial(request: Request):
-    """htmx partial: refreshed agent cards."""
+@router.get("/partials/plugin-cards", response_class=HTMLResponse)
+async def plugin_cards_partial(request: Request):
+    """htmx partial: refreshed plugin cards."""
     templates = request.app.state.templates
 
     identity_svc = request.app.state.identity_service
@@ -57,11 +57,11 @@ async def agent_cards_partial(request: Request):
 
     identities = identity_svc.get_all_identities()
     agents = await supervisor_svc.get_agents()
-    agent_cards = _build_agent_cards(identities, agents)
+    plugin_cards = _build_plugin_cards(identities, agents)
 
-    return templates.TemplateResponse("partials/agent_cards.html", {
+    return templates.TemplateResponse("partials/plugin_cards.html", {
         "request": request,
-        "agent_cards": agent_cards,
+        "plugin_cards": plugin_cards,
     })
 
 
@@ -99,6 +99,49 @@ async def audit_recent_partial(request: Request):
         "request": request,
         "entries": recent_audit,
     })
+
+
+def _build_plugin_cards(
+    identities: list[dict], agents: list[dict],
+) -> list[dict]:
+    """Build plugin cards showing which agents use each plugin."""
+    # Build status lookup from supervisor
+    agent_status = {a.get("name", ""): a for a in agents}
+
+    # Group agents by plugin (connector)
+    plugin_map: dict[str, list[dict]] = {}
+
+    for identity in identities:
+        name = identity["name"]
+        status = agent_status.get(name, {})
+        connectors = identity.get("connectors", [])
+
+        agent_info = {
+            "name": name,
+            "display_name": identity.get("display_name", name.capitalize()),
+            "state": status.get("state", "stopped"),
+            "personality_ref": identity.get("personality_ref", ""),
+        }
+
+        for connector in connectors:
+            if connector not in plugin_map:
+                plugin_map[connector] = []
+            plugin_map[connector].append(agent_info)
+
+    # Build plugin cards
+    cards = []
+    for plugin_name, plugin_agents in sorted(plugin_map.items()):
+        running_count = sum(1 for a in plugin_agents if a["state"] == "running")
+
+        cards.append({
+            "name": plugin_name,
+            "display_name": plugin_name.replace("_", " ").title(),
+            "agent_count": len(plugin_agents),
+            "running_count": running_count,
+            "agents": plugin_agents,
+        })
+
+    return cards
 
 
 def _build_agent_cards(

@@ -281,6 +281,23 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
     border-color: #6b2d6b;
     color: #b794f6;
 }
+.tag-agent {
+    border-color: var(--green);
+    color: var(--green);
+    text-decoration: none;
+    transition: all 0.15s;
+}
+.tag-agent:hover {
+    background-color: rgba(63, 185, 80, 0.1);
+    text-decoration: none;
+}
+.tag-agent.status-stopped {
+    border-color: var(--text-muted);
+    color: var(--text-muted);
+}
+.tag-agent.status-stopped:hover {
+    background-color: rgba(72, 79, 88, 0.1);
+}
 
 /* --- Info Grid --- */
 .info-grid {
