@@ -38,6 +38,7 @@ class PersonalityService:
                 "signature_phrases": {k: list(v) for k, v in p.signature_phrases.items()},
                 "ethos": p.ethos if isinstance(p.ethos, list) else dict(p.ethos) if p.ethos else {},
                 "moltbook_bio": p.moltbook_bio,
+                "raw": dict(p.raw) if p.raw else {},
             }
         except FileNotFoundError:
             logger.debug("Personality not found: %s", name)

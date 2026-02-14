@@ -16,18 +16,17 @@ def main() -> None:
     )
     parser.add_argument(
         "--host", default="127.0.0.1",
-        help="Host to bind (default: 127.0.0.1, NEVER change for security)",
+        help="Host to bind (default: 127.0.0.1, use 0.0.0.0 for LAN access)",
     )
     parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
 
     args = parser.parse_args()
 
-    # Security: enforce localhost binding
+    # Security: warn about non-localhost binding
     if args.host not in ("127.0.0.1", "localhost", "::1"):
-        print("ERROR: Dashboard must bind to localhost only (127.0.0.1).")
-        print("This is a security requirement — the dashboard has no network-level auth.")
-        sys.exit(1)
+        print(f"WARNING: Binding to {args.host} — dashboard will be accessible on the network.")
+        print("Ensure password auth is configured (OVERBLICK_DASH_PASSWORD).")
 
     level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
@@ -42,10 +41,12 @@ def main() -> None:
     from .app import create_app
     app = create_app(config)
 
+    config.host = args.host
+
     import uvicorn
     uvicorn.run(
         app,
-        host="127.0.0.1",  # Hardcoded, never from user input
+        host=args.host,
         port=config.port,
         log_level="debug" if args.verbose else "info",
     )
