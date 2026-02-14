@@ -78,7 +78,7 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
     from overblick.dashboard.__main__ import main as dashboard_main
     # Override sys.argv so dashboard's argparse picks up our args
     import sys
-    sys.argv = ["overblick-dashboard", "--port", str(args.port)]
+    sys.argv = ["overblick-dashboard", "--port", str(args.port), "--host", args.host]
     if args.verbose:
         sys.argv.append("--verbose")
     dashboard_main()
@@ -155,6 +155,7 @@ def main() -> None:
 
     # dashboard
     dash_parser = subparsers.add_parser("dashboard", help="Start web dashboard")
+    dash_parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
     dash_parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
     dash_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
     dash_parser.set_defaults(func=cmd_dashboard)
