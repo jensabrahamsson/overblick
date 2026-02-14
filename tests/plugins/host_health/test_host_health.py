@@ -26,7 +26,7 @@ class TestHostHealthPluginSetup:
         plugin = HostHealthPlugin(natt_plugin_context)
         await plugin.setup()
 
-        state_dir = natt_plugin_context.data_dir / "host_health"
+        state_dir = natt_plugin_context.data_dir
         assert state_dir.exists()
 
     @pytest.mark.asyncio
@@ -40,7 +40,7 @@ class TestHostHealthPluginSetup:
     @pytest.mark.asyncio
     async def test_setup_loads_existing_state(self, natt_plugin_context):
         """setup() loads existing conversation history from disk."""
-        state_dir = natt_plugin_context.data_dir / "host_health"
+        state_dir = natt_plugin_context.data_dir
         state_dir.mkdir(parents=True, exist_ok=True)
         state_file = state_dir / "host_health_state.json"
         state_file.write_text(json.dumps({
@@ -172,7 +172,7 @@ class TestHostHealthStatePersistence:
 
         await plugin.tick()
 
-        state_file = natt_plugin_context.data_dir / "host_health" / "host_health_state.json"
+        state_file = natt_plugin_context.data_dir / "host_health_state.json"
         assert state_file.exists()
 
         data = json.loads(state_file.read_text())
