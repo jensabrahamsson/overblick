@@ -19,14 +19,10 @@ router = APIRouter()
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Render login page."""
-    # If already authenticated, redirect to dashboard
-    if get_session(request):
-        return RedirectResponse("/", status_code=302)
-
     config = request.app.state.config
     templates = request.app.state.templates
 
-    # If no password configured, auto-login
+    # If no password configured, auto-login (always create fresh session)
     if not config.password:
         session_mgr: SessionManager = request.app.state.session_manager
         cookie_value, csrf_token = session_mgr.create_session()
@@ -38,7 +34,12 @@ async def login_page(request: Request):
             samesite="strict",
             max_age=config.session_hours * 3600,
         )
+        logger.info("Auto-login: no password configured, creating session")
         return response
+
+    # If already authenticated with valid session, redirect to dashboard
+    if get_session(request):
+        return RedirectResponse("/", status_code=302)
 
     return templates.TemplateResponse("login.html", {
         "request": request,
