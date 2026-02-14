@@ -28,7 +28,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 if TYPE_CHECKING:
     from overblick.core.plugin_base import PluginContext
@@ -59,6 +59,20 @@ class CapabilityContext(BaseModel):
     # Capability-specific config from identity YAML
     config: dict[str, Any] = {}
 
+    # Secrets getter (callable that returns secret value by key)
+    _secrets_getter: Any = PrivateAttr(default=None)
+
+    def get_secret(self, key: str) -> str:
+        """
+        Get a secret value by key.
+
+        Raises:
+            KeyError: If secret not found or secrets_getter not configured
+        """
+        if not self._secrets_getter:
+            raise KeyError(f"Secrets not available in capability context (key={key})")
+        return self._secrets_getter(key)
+
     @classmethod
     def from_plugin_context(
         cls,
@@ -66,7 +80,7 @@ class CapabilityContext(BaseModel):
         config: Optional[dict[str, Any]] = None,
     ) -> "CapabilityContext":
         """Create a CapabilityContext from a PluginContext."""
-        return cls(
+        cap_ctx = cls(
             identity_name=ctx.identity_name,
             data_dir=ctx.data_dir,
             llm_client=ctx.llm_client,
@@ -77,6 +91,9 @@ class CapabilityContext(BaseModel):
             llm_pipeline=getattr(ctx, "llm_pipeline", None),
             config=config or {},
         )
+        # Set private attributes after creation
+        cap_ctx._secrets_getter = getattr(ctx, "_secrets_getter", None)
+        return cap_ctx
 
 
 class CapabilityBase(ABC):

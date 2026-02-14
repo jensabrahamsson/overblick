@@ -329,6 +329,8 @@ class Orchestrator:
             llm_pipeline=self._llm_pipeline,
             identity=self._identity,
         )
+        # Attach secrets getter (capabilities like 'email' need it)
+        temp_ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
 
         resolved = registry.resolve(cap_names)
         for name in resolved:

@@ -2,14 +2,16 @@
 AiDigestPlugin — Daily AI news digest delivered by email.
 
 Fetches AI news from configured RSS feeds every morning, ranks articles
-by relevance, and generates a personality-driven summary. The digest is
-sent via the event bus to the Gmail plugin for delivery.
+by relevance, and generates a personality-driven summary.
 
 Schedule: Runs once per day at a configurable hour (default 07:00 CET).
 Personality: Uses Anomal's voice (or configured personality) via
     build_system_prompt() for the summary.
-Delivery: Emits 'email.send_request' on the event bus — the Gmail
-    plugin (or any subscriber) handles actual sending.
+Delivery: Uses the 'email' capability for SMTP sending.
+
+Dependencies:
+    - Requires 'email' capability (SMTP configuration in secrets)
+    - Requires LLM pipeline for ranking and generation
 
 SECURITY: All RSS feed content is wrapped in boundary markers via
 wrap_external_content(). LLM calls go through SafeLLMPipeline.
@@ -313,30 +315,30 @@ class AiDigestPlugin(PluginBase):
         return result.content
 
     async def _send_digest(self, digest_content: str, article_count: int) -> None:
-        """Emit an email send request on the event bus."""
-        event_bus = self.ctx.event_bus
-        if not event_bus:
-            logger.warning("No event bus available, cannot send digest email")
+        """Send digest email using the email capability."""
+        email_cap = self.ctx.get_capability("email")
+        if not email_cap:
+            logger.error("Email capability not available, cannot send digest")
             return
 
         today = datetime.now(ZoneInfo(self._timezone)).strftime("%Y-%m-%d")
         subject = f"AI News Digest — {today}"
 
-        await event_bus.emit(
-            "email.send_request",
+        success = await email_cap.send(
             to=self._recipient,
             subject=subject,
             body=digest_content,
-            plugin=self.name,
+            html=False,
         )
 
-        self.ctx.audit_log.log(
-            action="ai_digest_sent",
-            details={
-                "recipient": self._recipient,
-                "article_count": article_count,
-                "content_length": len(digest_content),
-            },
+        if success:
+            self.ctx.audit_log.log(
+                action="ai_digest_sent",
+                details={
+                    "recipient": self._recipient,
+                    "article_count": article_count,
+                    "content_length": len(digest_content),
+                },
         )
 
         logger.info(
