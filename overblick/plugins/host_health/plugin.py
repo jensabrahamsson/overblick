@@ -67,10 +67,9 @@ class HostHealthPlugin(PluginBase):
         interval_hours = raw.get("host_health_interval_hours", _DEFAULT_INTERVAL_HOURS)
         self._interval_seconds = interval_hours * 3600
 
-        # State persistence
-        state_dir = self.ctx.data_dir / "host_health"
-        state_dir.mkdir(parents=True, exist_ok=True)
-        self._state_file = state_dir / "host_health_state.json"
+        # State persistence (ctx.data_dir is already data/<identity>/host_health/)
+        self.ctx.data_dir.mkdir(parents=True, exist_ok=True)
+        self._state_file = self.ctx.data_dir / "host_health_state.json"
 
         # Load existing conversation history
         self._load_state()
