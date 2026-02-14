@@ -19,6 +19,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from overblick.core.security.audit_log import AuditLog
+from overblick.supervisor.health_handler import HealthInquiryHandler
 from overblick.supervisor.ipc import IPCMessage, IPCServer, generate_ipc_token
 from overblick.supervisor.process import AgentProcess, ProcessState
 
@@ -48,6 +50,7 @@ class Supervisor:
         plugins: Optional[list[str]] = None,
         socket_dir: Optional[Path] = None,
         auto_restart: bool = True,
+        base_dir: Optional[Path] = None,
     ):
         self._identities = identities or []
         self._default_plugins = plugins or ["moltbook"]
@@ -60,6 +63,15 @@ class Supervisor:
         )
         self._monitor_tasks: dict[str, asyncio.Task] = {}
         self._shutdown_event = asyncio.Event()
+
+        # Supervisor's own audit log (human owner audits the supervisor)
+        self._base_dir = base_dir or Path(__file__).parent.parent.parent
+        audit_dir = self._base_dir / "data" / "supervisor"
+        audit_dir.mkdir(parents=True, exist_ok=True)
+        self._audit_log = AuditLog(audit_dir / "audit.db", identity="supervisor")
+
+        # Health inquiry handler (lazy LLM initialization)
+        self._health_handler = HealthInquiryHandler(audit_log=self._audit_log)
 
     @property
     def state(self) -> SupervisorState:
@@ -77,7 +89,10 @@ class Supervisor:
         # Register IPC handlers
         self._ipc.on("status_request", self._handle_status_request)
         self._ipc.on("permission_request", self._handle_permission_request)
+        self._ipc.on("health_inquiry", self._handle_health_inquiry)
         self._ipc.on("shutdown", self._handle_shutdown)
+
+        self._audit_log.log("supervisor_starting", category="lifecycle")
 
         # Start IPC server
         await self._ipc.start()
@@ -148,6 +163,11 @@ class Supervisor:
         for task in self._monitor_tasks.values():
             task.cancel()
         self._monitor_tasks.clear()
+
+        # Close audit log
+        if self._audit_log:
+            self._audit_log.log("supervisor_stopped", category="lifecycle")
+            self._audit_log.close()
 
         self._state = SupervisorState.STOPPED
         self._shutdown_event.set()
@@ -241,6 +261,10 @@ class Supervisor:
             reason="auto-approved (stage 1)",
             sender="supervisor",
         )
+
+    async def _handle_health_inquiry(self, msg: IPCMessage) -> Optional[IPCMessage]:
+        """Handle a health inquiry from an agent."""
+        return await self._health_handler.handle(msg)
 
     async def _handle_shutdown(self, msg: IPCMessage) -> Optional[IPCMessage]:
         """Handle shutdown request."""

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Conversations{% endblock %}
+
+{% block content %}
+<div class="conversations-page">
+    <h1 class="page-title">Agent Conversations</h1>
+    <p class="page-subtitle" style="color: var(--text-muted); margin-bottom: 1.5rem;">
+        Inter-agent communication log. Read-only monitoring of IPC exchanges.
+    </p>
+
+    {% if not conversations %}
+    <div class="empty-state" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+        <p>No agent conversations recorded yet.</p>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+            Conversations appear when agents communicate via IPC (e.g. health inquiries).
+        </p>
+    </div>
+    {% else %}
+
+    <!-- Filter -->
+    <div class="filter-bar" style="margin-bottom: 1.5rem;">
+        <select name="identity" class="form-select"
+                onchange="window.location.href='/conversations?identity=' + this.value">
+            <option value="">All Agents</option>
+            {% for ident in identities %}
+            <option value="{{ ident }}" {% if selected_identity == ident %}selected{% endif %}>{{ ident }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Chat timeline -->
+    <div class="conversation-timeline">
+        {% for conv in conversations %}
+        <div class="conversation-entry" style="margin-bottom: 2rem; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card, #1a1a2e);">
+            <!-- Header: timestamp + health grade -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
+                <span style="color: var(--text-muted); font-size: 0.8rem;">
+                    {{ conv.timestamp[:19].replace('T', ' ') }}
+                </span>
+                <span class="badge badge-{{ conv.health_grade }}" style="
+                    padding: 0.2rem 0.6rem;
+                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    {% if conv.health_grade == 'good' %}
+                    background: #0d4b2e; color: #4ade80;
+                    {% elif conv.health_grade == 'fair' %}
+                    background: #4b3d0d; color: #facc15;
+                    {% elif conv.health_grade == 'poor' %}
+                    background: #4b0d0d; color: #f87171;
+                    {% else %}
+                    background: #2a2a3e; color: #94a3b8;
+                    {% endif %}
+                ">{{ conv.health_grade }}</span>
+            </div>
+
+            <!-- Inquiry (left-aligned) -->
+            <div style="display: flex; margin-bottom: 0.75rem;">
+                <div style="max-width: 80%; background: var(--bg-input, #252540); padding: 0.75rem 1rem; border-radius: 12px 12px 12px 2px;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                        {{ conv.sender }}
+                    </div>
+                    <div style="color: var(--text); line-height: 1.5;">
+                        {{ conv.motivation }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Response (right-aligned) -->
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="max-width: 80%; background: var(--accent-bg, #1e3a5f); padding: 0.75rem 1rem; border-radius: 12px 12px 2px 12px;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.5px; text-align: right;">
+                        {{ conv.responder }}
+                    </div>
+                    <div style="color: var(--text); line-height: 1.5;">
+                        {{ conv.response }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

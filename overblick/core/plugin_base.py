@@ -62,6 +62,9 @@ class PluginContext(BaseModel):
     # Permission checker (action authorization)
     permissions: Any = None
 
+    # IPC client (for inter-agent communication via supervisor)
+    ipc_client: Any = None
+
     # Shared capabilities (populated by orchestrator)
     capabilities: dict[str, Any] = {}
 

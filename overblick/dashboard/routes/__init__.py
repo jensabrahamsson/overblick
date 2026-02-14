@@ -16,11 +16,13 @@ def register_routes(app: FastAPI) -> None:
     from .identities import router as identities_router
     from .onboarding import router as onboarding_router
     from .api import router as api_router
+    from .conversations import router as conversations_router
 
     app.include_router(auth_router)
     app.include_router(dashboard_router)
     app.include_router(agents_router)
     app.include_router(audit_router)
+    app.include_router(conversations_router)
     app.include_router(identities_router)
     app.include_router(onboarding_router)
     app.include_router(api_router)
