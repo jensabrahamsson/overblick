@@ -88,12 +88,21 @@
             <h3 class="card-title mt-3">Capabilities</h3>
             <div class="tag-list">
                 {% for cap in identity.capability_names %}
+                {% if cap not in ['dream_system', 'therapy_system', 'emotional_state'] %}
                 <span class="tag tag-capability">{{ cap }}</span>
+                {% endif %}
                 {% endfor %}
                 {% if not identity.capability_names %}
                 <span class="text-muted">No capabilities configured</span>
                 {% endif %}
             </div>
+            {% if 'dream_system' in identity.capability_names or
+                 'therapy_system' in identity.capability_names or
+                 'emotional_state' in identity.capability_names %}
+            <p class="text-muted mt-2" style="font-size: 0.85em;">
+                <em>Note: Psychology capabilities are now configured via Psychological Framework (see below).</em>
+            </p>
+            {% endif %}
         </div>
 
         <!-- Personality Traits -->
@@ -111,6 +120,51 @@
                 </div>
                 {% endfor %}
             </div>
+        </div>
+        {% endif %}
+
+        <!-- Psychological Framework -->
+        {% if personality and personality.raw.get('psychological_framework') %}
+        <div class="card">
+            <h3 class="card-title">Psychological Framework</h3>
+            {% set psych = personality.raw.get('psychological_framework') %}
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Primary Framework</span>
+                    <span class="info-value">{{ psych.get('primary', 'None').replace('_', ' ').title() }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Self-Reflection Style</span>
+                    <span class="info-value">{{ psych.get('self_reflection_style', 'N/A').replace('_', ' ') }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Dream Interpretation</span>
+                    <span class="info-value">{{ 'Yes' if psych.get('dream_interpretation') else 'No' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Therapeutic Approach</span>
+                    <span class="info-value">{{ psych.get('therapeutic_approach', 'N/A').replace('_', ' ') }}</span>
+                </div>
+            </div>
+
+            {% if psych.get('domains') %}
+            <h4 class="mt-2" style="font-size: 0.9rem; color: var(--text-secondary);">Domains</h4>
+            <div class="tag-list">
+                {% for domain in psych.get('domains', []) %}
+                <span class="tag tag-psychology">{{ domain.replace('_', ' ') }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if psych.get('key_concepts') %}
+            <h4 class="mt-2" style="font-size: 0.9rem; color: var(--text-secondary);">Key Concepts</h4>
+            <ul style="margin-top: 0.5rem; padding-left: 1.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+                {% for concept in psych.get('key_concepts', []) %}
+                <li>{{ concept }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
         </div>
         {% endif %}
     </div>

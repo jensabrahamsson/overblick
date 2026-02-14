@@ -1,6 +1,30 @@
-# Psychology Capabilities
+# Psychology Capabilities (DEPRECATED)
 
-## Overview
+⚠️ **DEPRECATED**: As of v1.1, psychology is configured as personality traits via `psychological_framework` in personality.yaml, NOT as capabilities.
+
+**Why**: Psychology describes HOW a character THINKS (Jungian archetypes, stoic acceptance), not WHAT the system CAN DO (send emails, analyze images).
+
+**Migration**:
+```yaml
+# OLD (deprecated):
+capabilities:
+  - psychology
+
+# NEW:
+psychological_framework:
+  primary: "jungian"
+  domains: [archetypes, shadow_work]
+  dream_interpretation: true
+```
+
+These modules still exist for backward compatibility:
+- dream_system, therapy_system, emotional_state
+
+**For new personalities**: Use `psychological_framework` instead. See GETTING_STARTED.md and PERSONALITIES.md.
+
+---
+
+## Overview (Legacy Documentation)
 
 The **psychology** bundle provides emotional tracking, dream generation, and weekly therapy reflection capabilities for agent plugins. It enables agents to have dynamic emotional states that respond to interactions, generate morning dream reflections grounded in recent activity, and conduct weekly Jungian/Freudian psychological analysis sessions.
 

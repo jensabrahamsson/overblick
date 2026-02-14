@@ -414,7 +414,7 @@ CAPABILITY_REGISTRY = {
 }
 
 CAPABILITY_BUNDLES = {
-    "psychology":    ["dream_system", "therapy_system", "emotional_state"],
+    "psychology":    ["dream_system", "therapy_system", "emotional_state"],  # DEPRECATED
     "knowledge":     ["safe_learning", "knowledge_loader"],
     "social":        ["openings"],
     "engagement":    ["analyzer", "composer"],
@@ -425,6 +425,12 @@ CAPABILITY_BUNDLES = {
 ```
 
 When an identity configures `capabilities: [psychology, engagement]`, the registry resolves the bundles into individual capabilities: `dream_system`, `therapy_system`, `emotional_state`, `analyzer`, `composer`.
+
+**DEPRECATED BUNDLE**: The `psychology` bundle (dream_system, therapy_system, emotional_state) is now configured as personality traits via `psychological_framework` in personality.yaml instead of capabilities.
+
+**Why**: Capabilities are WHAT the system CAN DO (send emails, load knowledge, analyze images). Psychology is HOW a character THINKS (Jungian archetypes, attachment patterns). The distinction matters architecturally. Jungian dream interpretation is Anomal's CHARACTER, not a SYSTEM FEATURE.
+
+**Active Capabilities**: knowledge, social, engagement, conversation, content, speech, vision, communication (email)
 
 ### How Plugins Use Capabilities
 

@@ -239,6 +239,36 @@ Detta kör hela AI Digest workflow:
 - **Anomal personality**: Intellektuell humanist, James May-röst, filosofisk
 - **Anomal identity**: Använder ai_digest + gmail, qwen3:8b, skickar kl 07:00
 
+### Psychological Frameworks (Optional)
+
+If your personality has a specific way of thinking about their inner world (Jungian, Stoic, Attachment Theory, Existential), configure it as a trait:
+
+```yaml
+# personality.yaml
+psychological_framework:
+  primary: "jungian"  # or "attachment_theory", "stoic", "existential"
+  domains:
+    - archetypes
+    - shadow_work
+  dream_interpretation: true
+  self_reflection_style: "archetypal_analysis"
+  key_concepts:
+    - "The shadow is not evil — it's denied."
+```
+
+**When to use:**
+- Character does Jungian dream interpretation (Anomal)
+- Character analyzes through attachment theory (Cherry)
+- Character has stoic acceptance philosophy (Björk)
+- Character lives in existential paradoxes (Natt)
+
+**When NOT to use:**
+- Most personalities don't need this
+- Regular emotional depth = traits + backstory + voice
+- Only for characters with EXPLICIT named frameworks
+
+**Do NOT add "psychology" to capabilities** — that's deprecated. Psychology is CHARACTER (how they think), not FUNCTIONALITY (what system can do).
+
 ### Plugins (Connectors)
 
 **Vad:** Self-contained moduler som får access till framework via `PluginContext`.

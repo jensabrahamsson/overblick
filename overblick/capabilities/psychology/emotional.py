@@ -30,6 +30,11 @@ class EmotionalCapability(CapabilityBase):
         self._state: Optional[EmotionalState] = None
 
     async def setup(self) -> None:
+        logger.warning(
+            "DEPRECATED: EmotionalCapability is deprecated as of v1.1. "
+            "Psychology is now configured via 'psychological_framework' in personality.yaml. "
+            "See GETTING_STARTED.md for migration guidance."
+        )
         self._state = EmotionalState()
         logger.info("EmotionalCapability initialized for %s", self.ctx.identity_name)
 
