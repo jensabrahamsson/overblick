@@ -76,17 +76,41 @@ app = FastAPI(
 
 @app.get("/health")
 async def health_check() -> dict:
-    """Health check endpoint. Returns status of gateway and Ollama backend."""
+    """
+    Health check endpoint with GPU starvation risk assessment.
+
+    Returns status of gateway, Ollama backend, queue metrics, and starvation risk.
+
+    Starvation risk levels:
+    - low: queue_size < 3 (normal operation)
+    - medium: queue_size 3-7 (requests backing up, but manageable)
+    - high: queue_size >= 8 (GPU saturated, delays expected)
+    """
     qm = get_queue_manager()
     ollama_healthy = await qm.client.health_check()
 
     status = "healthy" if ollama_healthy else "degraded"
+    queue_size = qm.queue_size
+
+    # Calculate GPU starvation risk based on queue depth
+    if queue_size < 3:
+        starvation_risk = "low"
+    elif queue_size < 8:
+        starvation_risk = "medium"
+    else:
+        starvation_risk = "high"
+
+    # Get response time stats
+    stats = qm.get_stats()
 
     return {
         "status": status,
         "gateway": "running" if qm.is_running else "stopped",
         "ollama": "connected" if ollama_healthy else "disconnected",
-        "queue_size": qm.queue_size,
+        "queue_size": queue_size,
+        "gpu_starvation_risk": starvation_risk,
+        "avg_response_time_ms": stats.avg_response_time_ms,
+        "active_requests": 1 if stats.is_processing else 0,
     }
 
 

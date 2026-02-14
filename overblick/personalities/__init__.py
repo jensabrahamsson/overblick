@@ -201,6 +201,49 @@ class Personality(BaseModel):
                 data["personality_ref"] = data.get("name", "")
         return data
 
+    @model_validator(mode="after")
+    def _validate_traits(self):
+        """
+        Validate personality traits.
+
+        Big Five traits (openness, conscientiousness, extraversion,
+        agreeableness, neuroticism) should be in 0-1 range and ideally
+        sum to a balanced total (around 2.5-3.5 for 5 traits averaging 0.5-0.7).
+
+        This is a warning-level check, not a hard requirement, to catch
+        accidentally unbalanced trait definitions.
+        """
+        if not self.traits:
+            return self
+
+        big_five = ["openness", "conscientiousness", "extraversion",
+                    "agreeableness", "neuroticism"]
+        big_five_traits = {k: v for k, v in self.traits.items() if k in big_five}
+
+        # Check range (0-1)
+        for trait_name, value in self.traits.items():
+            if not (0 <= value <= 1):
+                logger.warning(
+                    "Personality '%s' trait '%s' = %.2f is outside valid range [0, 1]",
+                    self.name, trait_name, value
+                )
+
+        # Check Big Five balance (should sum to ~2.5-3.5 for balanced personality)
+        if len(big_five_traits) >= 3:
+            trait_sum = sum(big_five_traits.values())
+            expected_min = 0.3 * len(big_five_traits)
+            expected_max = 0.85 * len(big_five_traits)
+
+            if not (expected_min <= trait_sum <= expected_max):
+                logger.warning(
+                    "Personality '%s' Big Five traits sum to %.2f (expected ~%.1f-%.1f for %d traits). "
+                    "Traits: %s",
+                    self.name, trait_sum, expected_min, expected_max,
+                    len(big_five_traits), big_five_traits
+                )
+
+        return self
+
     # --- Character accessors ---
 
     def get_example(self, name: str) -> Optional[dict[str, str]]:

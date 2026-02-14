@@ -116,11 +116,19 @@ def _build_plugin_cards(
         status = agent_status.get(name, {})
         connectors = identity.get("connectors", [])
 
+        # Get Big Five traits for emotion radar chart (if available)
+        traits = identity.get("traits", {})
+        big_five = {k: v for k, v in traits.items() if k in [
+            "openness", "conscientiousness", "extraversion",
+            "agreeableness", "neuroticism"
+        ]}
+
         agent_info = {
             "name": name,
             "display_name": identity.get("display_name", name.capitalize()),
             "state": status.get("state", "stopped"),
             "personality_ref": identity.get("personality_ref", ""),
+            "traits": big_five,
         }
 
         for connector in connectors:

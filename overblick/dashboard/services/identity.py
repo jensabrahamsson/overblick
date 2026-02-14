@@ -37,6 +37,7 @@ class IdentityService:
                 "engagement_threshold": identity.engagement_threshold,
                 "connectors": list(identity.connectors),
                 "capability_names": list(identity.capability_names),
+                "traits": dict(identity.traits),  # Big Five personality traits
                 "llm": {
                     "model": identity.llm.model,
                     "temperature": identity.llm.temperature,
