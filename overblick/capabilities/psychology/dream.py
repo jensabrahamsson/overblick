@@ -28,6 +28,11 @@ class DreamCapability(CapabilityBase):
         self._dream_system: Optional[DreamSystem] = None
 
     async def setup(self) -> None:
+        logger.warning(
+            "DEPRECATED: DreamCapability is deprecated as of v1.1. "
+            "Psychology is now configured via 'psychological_framework' in personality.yaml. "
+            "See GETTING_STARTED.md for migration guidance."
+        )
         templates = self.ctx.config.get("dream_templates", None)
         self._dream_system = DreamSystem(dream_templates=templates)
         logger.info("DreamCapability initialized for %s", self.ctx.identity_name)

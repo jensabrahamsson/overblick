@@ -2,7 +2,7 @@
 Capabilities — composable behavioral building blocks for agent plugins.
 
 Bundles:
-    psychology     = [dream, therapy, emotional]
+    psychology     = [dream, therapy, emotional] — DEPRECATED: Use psychological_framework in personality.yaml
     knowledge      = [learning, loader]
     social         = [openings]
     engagement     = [analyzer, composer]
@@ -47,8 +47,9 @@ CAPABILITY_REGISTRY: dict[str, type] = {
 }
 
 # Bundle -> capability names
+# NOTE: "psychology" bundle is DEPRECATED as of v1.1. Use psychological_framework in personality.yaml instead.
 CAPABILITY_BUNDLES: dict[str, list[str]] = {
-    "psychology": ["dream_system", "therapy_system", "emotional_state"],
+    "psychology": ["dream_system", "therapy_system", "emotional_state"],  # DEPRECATED
     "knowledge": ["safe_learning", "knowledge_loader"],
     "social": ["openings"],
     "engagement": ["analyzer", "composer"],

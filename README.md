@@ -71,7 +71,7 @@ Pipeline is **fail-closed**: if any security stage crashes, the request is block
 
 ## Personality Stable
 
-Personalities define WHO the agent IS — separate from operational config.
+Personalities define WHO the agent IS — separate from operational config. Each personality can optionally have a psychological framework (Jungian, Attachment Theory, Stoic, Existential) that shapes how they think, not just what they can do.
 
 | Personality | Voice | Style |
 |-------------|-------|-------|
