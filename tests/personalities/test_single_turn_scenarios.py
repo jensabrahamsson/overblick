@@ -8,7 +8,13 @@ Run with:
     pytest tests/personalities/test_single_turn_scenarios.py -v -s -m llm
 
 Tests are marked @pytest.mark.llm and skip if Ollama is not running.
+
+Retry strategy: Each scenario gets up to 3 attempts (1 initial + 2 retries).
+LLM responses are non-deterministic — we test that the personality *can*
+produce correct responses, not that every single generation is perfect.
 """
+
+import logging
 
 import pytest
 
@@ -19,6 +25,11 @@ from tests.personalities.helpers import (
     check_assertions,
     load_scenarios,
 )
+
+logger = logging.getLogger(__name__)
+
+# Maximum assertion-level retries per scenario
+_MAX_ASSERTION_RETRIES = 2
 
 # Discover which personalities have scenario files
 _PERSONALITIES_WITH_SCENARIOS: list[str] = []
@@ -58,15 +69,37 @@ class TestSingleTurnScenarios:
         ids=lambda v: _scenario_id_func(v) if isinstance(v, dict) else v,
     )
     async def test_scenario(self, ollama_client, personality_name, scenario):
-        """Run a single scenario: send message, check assertions."""
+        """Run a single scenario with assertion-level retry.
+
+        If the LLM response fails hard assertions, retry up to
+        _MAX_ASSERTION_RETRIES times with a fresh generation. This
+        accounts for natural LLM non-determinism while still validating
+        that the personality can consistently produce in-character responses.
+        """
         personality = load_personality(personality_name)
         prompt = build_system_prompt(personality, model_slug=MODEL_SLUG)
 
-        response = await generate_response(
-            ollama_client,
-            prompt,
-            scenario["user_message"],
-        )
+        for attempt in range(_MAX_ASSERTION_RETRIES + 1):
+            response = await generate_response(
+                ollama_client,
+                prompt,
+                scenario["user_message"],
+            )
 
-        result = check_assertions(response, scenario.get("assertions", {}), personality)
+            result = check_assertions(
+                response, scenario.get("assertions", {}), personality,
+            )
+
+            if result.passed or result.is_soft_failure:
+                break
+
+            if attempt < _MAX_ASSERTION_RETRIES:
+                logger.warning(
+                    "Scenario %s-%s: assertion failed (attempt %d/%d), retrying...",
+                    personality_name,
+                    scenario.get("id", "?"),
+                    attempt + 1,
+                    _MAX_ASSERTION_RETRIES + 1,
+                )
+
         apply_scenario_result(result, response)

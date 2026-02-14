@@ -136,21 +136,31 @@ class GmailPlugin(PluginBase):
         identity = self.ctx.identity
         logger.info("Setting up GmailPlugin for identity: %s", identity.name)
 
-        # Load OAuth credentials or app password
+        # Load credentials (Gmail OAuth/App Password OR SMTP credentials)
         oauth_json = self.ctx.get_secret("gmail_oauth_credentials")
         app_password = self.ctx.get_secret("gmail_app_password")
         self._email_address = self.ctx.get_secret("gmail_email_address")
 
-        if not (oauth_json or app_password):
+        # Alternative: SMTP credentials (Brevo, SendGrid, etc.)
+        smtp_server = self.ctx.get_secret("smtp_server")
+        smtp_password = self.ctx.get_secret("smtp_password")
+        smtp_from = self.ctx.get_secret("smtp_from_email")
+
+        # Require either Gmail credentials or SMTP credentials
+        has_gmail_creds = (oauth_json or app_password) and self._email_address
+        has_smtp_creds = smtp_server and smtp_password and smtp_from
+
+        if not (has_gmail_creds or has_smtp_creds):
             raise RuntimeError(
-                f"Missing gmail credentials for identity {identity.name}. "
-                "Set gmail_oauth_credentials or gmail_app_password in secrets."
+                f"Missing email credentials for identity {identity.name}. "
+                "Set gmail_oauth_credentials + gmail_email_address OR "
+                "smtp_server + smtp_password + smtp_from_email in secrets."
             )
 
-        if not self._email_address:
-            raise RuntimeError(
-                f"Missing gmail_email_address for identity {identity.name}."
-            )
+        # Use SMTP from_email if no gmail_email_address
+        if not self._email_address and smtp_from:
+            self._email_address = smtp_from
+            logger.info("Gmail: using smtp_from_email as sender address")
 
         # Build personality-driven system prompt
         self._system_prompt = self._build_system_prompt(identity)
@@ -162,6 +172,11 @@ class GmailPlugin(PluginBase):
         self._check_interval = gmail_config.get("check_interval_seconds", 300)
         allowed = gmail_config.get("allowed_senders", [])
         self._allowed_senders = set(allowed)
+
+        # Subscribe to email.send_request events from other plugins
+        if self.ctx.event_bus:
+            self.ctx.event_bus.subscribe("email.send_request", self._handle_send_request)
+            logger.info("Gmail: subscribed to email.send_request events")
 
         self.ctx.audit_log.log(
             action="plugin_setup",
@@ -335,18 +350,139 @@ class GmailPlugin(PluginBase):
 
     async def _send_email(self, draft: EmailDraft) -> bool:
         """
-        Send an email via Gmail API.
+        Send an email via SMTP.
 
-        In production, this would use the Gmail API send endpoint.
-        Currently a stub — implement with google-api-python-client.
+        Uses SMTP credentials from secrets (Brevo or Gmail App Password).
+        Supports both TLS (port 587) and SSL (port 465).
         """
-        # TODO: Implement with Gmail API
+        try:
+            # Get SMTP credentials from secrets
+            smtp_server = self.ctx.get_secret("smtp_server")
+            smtp_port_str = self.ctx.get_secret("smtp_port")
+            smtp_login = self.ctx.get_secret("smtp_login")
+            smtp_password = self.ctx.get_secret("smtp_password")
+            smtp_from = self.ctx.get_secret("smtp_from_email")
+
+            if not all([smtp_server, smtp_port_str, smtp_login, smtp_password, smtp_from]):
+                logger.error("Missing SMTP credentials in secrets")
+                return False
+
+            smtp_port = int(smtp_port_str)
+
+            # Build email message
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+
+            msg = MIMEMultipart("alternative")
+            msg["From"] = smtp_from
+            msg["To"] = draft.to
+            msg["Subject"] = draft.subject
+
+            # Add plain text body
+            text_part = MIMEText(draft.body, "plain", "utf-8")
+            msg.attach(text_part)
+
+            # Send via SMTP
+            import smtplib
+            import asyncio
+
+            def _send_smtp():
+                """Sync SMTP send in thread pool."""
+                if smtp_port == 465:
+                    # SSL
+                    with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+                        server.login(smtp_login, smtp_password)
+                        server.send_message(msg)
+                else:
+                    # TLS (default: port 587)
+                    with smtplib.SMTP(smtp_server, smtp_port) as server:
+                        server.starttls()
+                        server.login(smtp_login, smtp_password)
+                        server.send_message(msg)
+
+            # Run blocking SMTP in thread pool
+            await asyncio.to_thread(_send_smtp)
+
+            draft.sent = True
+            logger.info(
+                "Email sent successfully to %s (subject: %s)",
+                draft.to, draft.subject,
+            )
+
+            self.ctx.audit_log.log(
+                action="email_sent",
+                details={
+                    "to": draft.to,
+                    "subject": draft.subject,
+                    "smtp_server": smtp_server,
+                },
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error("Failed to send email to %s: %s", draft.to, e)
+            self.ctx.audit_log.log(
+                action="email_send_failed",
+                details={
+                    "to": draft.to,
+                    "error": str(e),
+                },
+            )
+            return False
+
+    async def _handle_send_request(self, **kwargs) -> None:
+        """
+        Handle email.send_request events from other plugins.
+
+        Expected kwargs:
+            to: recipient email
+            subject: email subject
+            body: email body
+            plugin: requesting plugin name (optional)
+        """
+        to = kwargs.get("to")
+        subject = kwargs.get("subject")
+        body = kwargs.get("body")
+        plugin = kwargs.get("plugin", "unknown")
+
+        if not all([to, subject, body]):
+            logger.warning(
+                "Gmail: incomplete email.send_request from %s (missing to/subject/body)",
+                plugin,
+            )
+            return
+
         logger.info(
-            "Gmail: would send email to %s (subject: %s)",
-            draft.to, draft.subject,
+            "Gmail: received email.send_request from %s (to=%s, subject=%s)",
+            plugin, to, subject,
         )
-        draft.sent = True
-        return True
+
+        # Create draft
+        draft = EmailDraft(
+            to=to,
+            subject=subject,
+            body=body,
+            from_thread=None,
+        )
+
+        # Send directly (bypass draft mode for event-driven emails)
+        success = await self._send_email(draft)
+
+        if success:
+            self.ctx.audit_log.log(
+                action="email_sent_via_event",
+                details={
+                    "to": to,
+                    "subject": subject,
+                    "requesting_plugin": plugin,
+                },
+            )
+        else:
+            logger.error(
+                "Gmail: failed to send email from %s to %s",
+                plugin, to,
+            )
 
     def approve_draft(self, index: int) -> Optional[EmailDraft]:
         """Approve a draft for sending (used by boss agent)."""

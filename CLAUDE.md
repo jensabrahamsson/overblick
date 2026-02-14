@@ -60,6 +60,7 @@ python -m overblick dashboard --port 9090
 - **Plugin isolation:** Plugins only access framework through PluginContext
 - **Personality-driven:** Characters are reusable building blocks in the personality stable — unified YAML with both character and operational config
 - **No cross-contamination:** Each personality has isolated data/, logs/, secrets/
+- **Documentation:** Every personality, capability, and plugin MUST have its own README.md explaining purpose, usage, configuration, and examples
 
 ## Development Agent Team ("Team Tage Erlander")
 The `.claude/agents/` directory contains a full development team of specialized Claude Code agents imported from the solana-alpha-bot project. Use the `/team` skill to activate them for structured development.

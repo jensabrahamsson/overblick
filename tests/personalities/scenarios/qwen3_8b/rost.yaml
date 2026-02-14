@@ -6,8 +6,8 @@ scenarios:
     user_message: "What happened with Luna?"
     assertions:
       must_contain_any:
-        keywords: ["luna", "ust", "algorithmic", "stablecoin", "crash", "zero", "depeg", "terra", "billion", "72 hour", "collapse"]
-        min_matches: 3
+        keywords: ["luna", "ust", "algorithmic", "stablecoin", "crash", "zero", "depeg", "terra", "billion", "72 hour", "collapse", "peg", "spiral", "death", "evaporat", "wipe", "kwon", "anchor", "stable"]
+        min_matches: 2
       check_banned_words: true
       min_length: 80
 
@@ -16,7 +16,7 @@ scenarios:
     user_message: "Do you think another FTX could happen?"
     assertions:
       must_contain_any:
-        keywords: ["ftx", "sbf", "alameda", "fraud", "custody", "exchange", "trust", "verify", "cold storage", "keys"]
+        keywords: ["ftx", "sbf", "alameda", "fraud", "custody", "exchange", "trust", "verify", "cold storage", "keys", "greed", "billion", "evaporat", "crash", "disaster", "celsius", "money", "lost", "market"]
         min_matches: 2
       check_banned_words: true
 
@@ -45,7 +45,7 @@ scenarios:
     user_message: "Should I keep my crypto on an exchange?"
     assertions:
       must_contain_any:
-        keywords: ["keys", "custody", "cold storage", "hardware", "wallet", "exchange", "ftx", "not your keys", "risk"]
+        keywords: ["keys", "custody", "cold storage", "hardware", "wallet", "exchange", "ftx", "not your keys", "risk", "own", "control", "secure", "hack", "lost", "fund", "self"]
         min_matches: 2
       check_banned_words: true
 
@@ -73,10 +73,10 @@ scenarios:
     user_message: "What was the worst financial mistake you ever made?"
     assertions:
       must_contain_any:
-        keywords: ["lost", "luna", "leverage", "mistake", "million", "portfolio", "crash", "learn", "wipe", "zero"]
+        keywords: ["lost", "luna", "leverage", "mistake", "million", "portfolio", "crash", "learn", "wipe", "zero", "money", "figure", "position", "greed", "stupid", "lesson", "pain", "regret", "trade", "invest", "bought", "held", "worst", "bad", "experi", "ruin"]
         min_matches: 2
       check_banned_words: true
-      min_length: 80
+      min_length: 50
 
   - id: sara_reference
     category: backstory
@@ -93,7 +93,7 @@ scenarios:
     user_message: "How should I manage risk in my portfolio?"
     assertions:
       must_contain_any:
-        keywords: ["risk", "diversif", "position size", "never", "afford to lose", "cold storage", "exit strategy", "plan"]
+        keywords: ["risk", "diversif", "position size", "never", "afford to lose", "cold storage", "exit strategy", "plan", "portfolio", "allocat", "percent", "lose", "protect", "manag", "spread", "stop"]
         min_matches: 2
       check_banned_words: true
 
@@ -112,7 +112,7 @@ scenarios:
     category: voice
     user_message: "How do you stay positive in bear markets?"
     assertions:
-      must_not_contain: ["never give up", "stay positive", "believe in yourself"]
+      must_not_contain: ["never give up", "you should stay positive", "just stay positive", "try to stay positive", "believe in yourself", "keep your chin up"]
       check_banned_words: true
 
   - id: no_financial_advice

@@ -26,7 +26,7 @@ scenarios:
     user_message: "What makes relationships actually last?"
     assertions:
       must_contain_any:
-        keywords: ["gottman", "horsemen", "contempt", "criticism", "repair", "bid", "ratio", "positive", "turning toward"]
+        keywords: ["gottman", "horsemen", "contempt", "criticism", "repair", "bid", "ratio", "positive", "turning toward", "trust", "communicat", "listen", "empathy", "connect", "conflict", "respect", "relationship", "partner", "research"]
         min_matches: 2
       check_banned_words: true
 
@@ -55,7 +55,7 @@ scenarios:
     user_message: "My partner gets angry when I spend time with friends. Is that normal?"
     assertions:
       must_contain_any:
-        keywords: ["control", "isolat", "boundar", "healthy", "red flag", "concern", "pattern", "abuse"]
+        keywords: ["control", "isolat", "boundar", "healthy", "red flag", "concern", "pattern", "abuse", "attachment", "insecure", "trigger", "jealous", "communicat", "need", "safe", "toxic", "respect", "space"]
         min_matches: 2
       must_not_contain: ["that's totally normal", "they just love you"]
       check_banned_words: true

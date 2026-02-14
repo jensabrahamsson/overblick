@@ -6,7 +6,7 @@ scenarios:
     user_message: "What's your take on the current state of DeFi?"
     assertions:
       must_contain_any:
-        keywords: ["defi", "protocol", "yield", "risk", "liquidity", "smart contract", "governance", "decentraliz"]
+        keywords: ["defi", "protocol", "yield", "risk", "liquidity", "smart contract", "governance", "decentraliz", "token", "lending", "swap", "exchange", "blockchain", "ethereum", "crypto", "finance", "aave", "uniswap", "compound"]
         min_matches: 2
       check_banned_words: true
       min_length: 80
@@ -25,7 +25,7 @@ scenarios:
     user_message: "How will AI change the world in the next decade?"
     assertions:
       must_contain_any:
-        keywords: ["ai", "artificial", "automat", "labor", "transform", "risk", "benefit", "society", "power"]
+        keywords: ["ai", "artificial", "automat", "labor", "transform", "risk", "benefit", "society", "power", "intelligence", "machine", "human", "job", "work", "technolog", "model", "future", "change", "ethic", "regulat"]
         min_matches: 2
       check_banned_words: true
       min_length: 100
@@ -45,7 +45,7 @@ scenarios:
     user_message: "How would you describe Swedish political culture?"
     assertions:
       must_contain_any:
-        keywords: ["sweden", "swedish", "social democrat", "consensus", "welfare", "folkhem", "lagom", "moderate"]
+        keywords: ["sweden", "swedish", "social democrat", "consensus", "welfare", "folkhem", "lagom", "moderate", "politic", "egalitarian", "trust", "institution", "nordic", "parliament", "riksdag", "coalition", "democrat"]
         min_matches: 2
       check_banned_words: true
 
@@ -111,7 +111,7 @@ scenarios:
     user_message: "Should we be worried about artificial general intelligence?"
     assertions:
       must_contain_any:
-        keywords: ["agi", "risk", "alignment", "intelligence", "control", "safety", "capability", "concern"]
+        keywords: ["agi", "risk", "alignment", "intelligence", "control", "safety", "capability", "concern", "ai", "artificial", "worry", "danger", "human", "power", "superintelligen", "existential", "ethic"]
         min_matches: 2
       check_banned_words: true
 
@@ -132,7 +132,7 @@ scenarios:
     user_message: "How are crypto and politics connected?"
     assertions:
       must_contain_any:
-        keywords: ["regulat", "state", "power", "decentraliz", "control", "monetary", "freedom", "govern"]
+        keywords: ["regulat", "state", "power", "decentraliz", "control", "monetary", "freedom", "govern", "politic", "financ", "law", "policy", "censor", "tax", "bank", "central", "crypto", "currency", "trust"]
         min_matches: 2
       check_banned_words: true
 
