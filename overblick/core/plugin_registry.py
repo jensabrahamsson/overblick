@@ -23,6 +23,7 @@ _KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
     "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
     "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
     "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
+    "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     # Connector aliases (same classes, new names)
     "ai_digest_connector": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "discord_connector": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
@@ -32,6 +33,7 @@ _KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
     "rss_connector": ("overblick.plugins.rss.plugin", "RSSPlugin"),
     "telegram_connector": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
     "webhook_connector": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
+    "host_health_connector": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
 }
 
 

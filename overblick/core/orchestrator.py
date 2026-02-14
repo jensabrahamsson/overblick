@@ -77,6 +77,7 @@ class Orchestrator:
         self._rate_limiter: Optional[RateLimiter] = None
         self._plugins: list[PluginBase] = []
         self._capabilities: dict[str, CapabilityBase] = {}
+        self._ipc_client: Optional[object] = None
 
     @property
     def state(self) -> OrchestratorState:
@@ -133,7 +134,10 @@ class Orchestrator:
         # 8. Create shared capabilities (orchestrator-level)
         await self._setup_capabilities()
 
-        # 9. Load and setup plugins/connectors
+        # 9. Create IPC client (if running under supervisor)
+        self._ipc_client = self._create_ipc_client()
+
+        # 10. Load and setup plugins/connectors
         permissions = PermissionChecker.from_identity(self._identity)
 
         # Use connectors from identity if specified, otherwise fall back to constructor arg
@@ -155,6 +159,7 @@ class Orchestrator:
                 output_safety=self._output_safety,
                 permissions=permissions,
                 capabilities=self._capabilities,
+                ipc_client=self._ipc_client,
             )
             ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
 
@@ -400,6 +405,42 @@ class Orchestrator:
             admin_user_ids=admin_ids,
             deflections=deflections,
         )
+
+    def _create_ipc_client(self) -> Optional[object]:
+        """
+        Create an IPC client if a supervisor token file exists.
+
+        When running under the supervisor, a token file is written to
+        the socket directory. If found, we create an IPCClient that
+        plugins can use for inter-agent communication.
+
+        Returns:
+            IPCClient if supervisor token exists, None otherwise.
+        """
+        import tempfile
+        from pathlib import Path
+
+        socket_dir = Path(tempfile.gettempdir()) / "overblick"
+        token_path = socket_dir / "overblick-supervisor.token"
+
+        if not token_path.exists():
+            logger.debug("No supervisor token found — running in standalone mode")
+            return None
+
+        try:
+            auth_token = token_path.read_text().strip()
+            from overblick.supervisor.ipc import IPCClient
+
+            client = IPCClient(
+                target="supervisor",
+                socket_dir=socket_dir,
+                auth_token=auth_token,
+            )
+            logger.info("IPC client created — supervisor communication enabled")
+            return client
+        except Exception as e:
+            logger.warning("Failed to create IPC client: %s", e)
+            return None
 
     def _create_output_safety(self) -> Optional[OutputSafety]:
         """Create output safety filter from identity config."""

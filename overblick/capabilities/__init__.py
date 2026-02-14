@@ -11,6 +11,7 @@ Bundles:
     speech         = [stt, tts]
     vision         = [vision]
     communication  = [email]
+    monitoring     = [host_inspection]
 """
 
 from overblick.capabilities.psychology.dream import DreamCapability
@@ -27,6 +28,7 @@ from overblick.capabilities.speech.stt import SpeechToTextCapability
 from overblick.capabilities.speech.tts import TextToSpeechCapability
 from overblick.capabilities.vision.analyzer import VisionCapability
 from overblick.capabilities.communication.email import EmailCapability
+from overblick.capabilities.monitoring.inspector import HostInspectionCapability
 
 # Name -> class mapping for registry
 CAPABILITY_REGISTRY: dict[str, type] = {
@@ -44,6 +46,7 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "tts": TextToSpeechCapability,
     "vision": VisionCapability,
     "email": EmailCapability,
+    "host_inspection": HostInspectionCapability,
 }
 
 # Bundle -> capability names
@@ -58,6 +61,7 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "speech": ["stt", "tts"],
     "vision": ["vision"],
     "communication": ["email"],
+    "monitoring": ["host_inspection"],
 }
 
 
@@ -90,6 +94,7 @@ __all__ = [
     "TextToSpeechCapability",
     "VisionCapability",
     "EmailCapability",
+    "HostInspectionCapability",
     "CAPABILITY_REGISTRY",
     "CAPABILITY_BUNDLES",
     "resolve_capabilities",

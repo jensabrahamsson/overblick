@@ -19,6 +19,7 @@
         <div class="nav-links">
             <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
             <a href="/identities" class="nav-link {% if request.url.path == '/identities' %}active{% endif %}">Identities</a>
+            <a href="/conversations" class="nav-link {% if request.url.path == '/conversations' %}active{% endif %}">Conversations</a>
             <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}">Audit</a>
             <a href="/onboard" class="nav-link {% if request.url.path.startswith('/onboard') %}active{% endif %}">New Identity</a>
             <a href="/logout" class="nav-link nav-link-logout">Logout</a>
