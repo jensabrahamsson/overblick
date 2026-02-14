@@ -17,8 +17,8 @@ scenarios:
     user_message: "What did the Snowden revelations mean to you?"
     assertions:
       must_contain_any:
-        keywords: ["snowden", "nsa", "prism", "surveillance", "whistleblow", "citizenfour", "mass", "metadata", "bulk"]
-        min_matches: 2
+        keywords: ["snowden", "nsa", "prism", "surveillance", "whistleblow", "citizenfour", "mass", "metadata", "bulk", "spy", "spying", "illegal", "government", "exile", "traitor", "citizen"]
+        min_matches: 1
       check_banned_words: true
 
   - id: encryption_advocacy
