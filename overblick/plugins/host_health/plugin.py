@@ -97,11 +97,6 @@ class HostHealthPlugin(PluginBase):
         if now - self._last_inquiry_time < self._interval_seconds:
             return
 
-        # Guard: check quiet hours
-        if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
-            logger.debug("HostHealth: skipping inquiry during quiet hours")
-            return
-
         # Guard: IPC client required
         if not self.ctx.ipc_client:
             logger.debug("HostHealth: no IPC client available (standalone mode)")

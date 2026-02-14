@@ -71,19 +71,6 @@ class TestHostHealthPluginTick:
         natt_plugin_context.ipc_client.send.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_tick_skips_during_quiet_hours(self, natt_plugin_context):
-        """tick() respects quiet hours."""
-        plugin = HostHealthPlugin(natt_plugin_context)
-        await plugin.setup()
-        plugin._last_inquiry_time = 0  # Force interval elapsed
-
-        natt_plugin_context.quiet_hours_checker.is_quiet_hours.return_value = True
-
-        await plugin.tick()
-
-        natt_plugin_context.ipc_client.send.assert_not_called()
-
-    @pytest.mark.asyncio
     async def test_tick_skips_without_ipc(self, natt_context_no_ipc):
         """tick() gracefully skips when no IPC client (standalone mode)."""
         plugin = HostHealthPlugin(natt_context_no_ipc)
