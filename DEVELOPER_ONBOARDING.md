@@ -1039,7 +1039,6 @@ python -m overblick.gateway             # Start LLM Gateway (port 8200)
 |------|---------|
 | 8080 | Web Dashboard |
 | 8200 | LLM Gateway |
-| 27017 | MongoDB (if used) |
 | **5000-5001** | **BLOCKED** (macOS AirPlay — never use!) |
 
 ---
