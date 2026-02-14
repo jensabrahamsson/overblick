@@ -689,7 +689,6 @@ operational:
   security:
     enable_preflight: true
     enable_output_safety: true
-  connectors: ["moltbook"]
   capabilities: ["social", "engagement"]
   engagement_threshold: 30
   interest_keywords:

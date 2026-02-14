@@ -24,16 +24,24 @@ async def init_services(app: FastAPI, config: DashboardConfig) -> None:
     from .system import SystemService
     from .onboarding import OnboardingService
 
-    base_dir = Path(config.base_dir) if config.base_dir else Path(__file__).parent.parent.parent
+    # Determine base_dir (project root, not package root)
+    if config.base_dir:
+        base_dir = Path(config.base_dir)
+    else:
+        # __file__ = .../overblick/dashboard/services/__init__.py
+        # Project root is 3 levels up from package, then 1 more up
+        base_dir = Path(__file__).parent.parent.parent.parent
+
+    socket_dir = base_dir / "data" / "ipc"
 
     app.state.identity_service = IdentityService(base_dir)
     app.state.personality_service = PersonalityService()
     app.state.audit_service = AuditService(base_dir)
-    app.state.supervisor_service = SupervisorService()
+    app.state.supervisor_service = SupervisorService(socket_dir=socket_dir)
     app.state.system_service = SystemService(base_dir)
     app.state.onboarding_service = OnboardingService(base_dir)
 
-    logger.info("Dashboard services initialized (base_dir=%s)", base_dir)
+    logger.info("Dashboard services initialized (base_dir=%s, socket_dir=%s)", base_dir, socket_dir)
 
 
 async def cleanup_services(app: FastAPI) -> None:
