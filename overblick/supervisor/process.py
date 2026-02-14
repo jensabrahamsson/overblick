@@ -40,6 +40,7 @@ class AgentProcess(BaseModel):
 
     identity: str
     plugins: list[str] = ["moltbook"]
+    ipc_socket_dir: Optional[str] = None
     state: ProcessState = ProcessState.PENDING
     pid: Optional[int] = None
     started_at: Optional[float] = None
@@ -67,10 +68,16 @@ class AgentProcess(BaseModel):
             # Note: plugins are loaded from identity.yaml config, not CLI args
             cmd = [python_exe, "-m", "overblick", "run", self.identity]
 
+            # Propagate IPC socket directory so child finds the supervisor token
+            env = os.environ.copy()
+            if self.ipc_socket_dir:
+                env["OVERBLICK_IPC_DIR"] = str(self.ipc_socket_dir)
+
             self._process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=env,
             )
 
             self.pid = self._process.pid

@@ -117,6 +117,7 @@ class Supervisor:
         agent = AgentProcess(
             identity=identity,
             plugins=plugins or self._default_plugins,
+            ipc_socket_dir=str(self._ipc._socket_dir),
         )
 
         success = await agent.start()
@@ -146,7 +147,7 @@ class Supervisor:
 
     async def stop(self) -> None:
         """Gracefully stop all agents and the supervisor."""
-        if self._state == SupervisorState.STOPPING:
+        if self._state in (SupervisorState.STOPPING, SupervisorState.STOPPED):
             return
 
         self._state = SupervisorState.STOPPING
