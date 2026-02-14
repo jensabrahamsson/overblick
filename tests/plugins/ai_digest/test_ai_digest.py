@@ -91,14 +91,6 @@ class TestTick:
     """Test the main work cycle."""
 
     @pytest.mark.asyncio
-    async def test_tick_quiet_hours(self, ai_digest_context_quiet):
-        """Plugin skips tick during quiet hours."""
-        plugin = AiDigestPlugin(ai_digest_context_quiet)
-        await plugin.setup()
-        await plugin.tick()
-        ai_digest_context_quiet.llm_pipeline.chat.assert_not_called()
-
-    @pytest.mark.asyncio
     async def test_tick_increments_counter(self, ai_digest_context):
         """Tick counter increments."""
         plugin = AiDigestPlugin(ai_digest_context)

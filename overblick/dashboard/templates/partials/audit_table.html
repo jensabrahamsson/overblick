@@ -13,7 +13,7 @@
     <tbody>
         {% for entry in entries %}
         <tr class="audit-row {% if not entry.success %}audit-row-error{% endif %}">
-            <td class="mono audit-time">{{ entry.timestamp|int }}</td>
+            <td class="mono audit-time">{{ entry.timestamp|epoch_to_datetime }}</td>
             <td>{{ entry.identity }}</td>
             <td>{{ entry.action }}</td>
             <td><span class="tag tag-sm">{{ entry.category }}</span></td>

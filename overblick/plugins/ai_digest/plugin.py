@@ -128,9 +128,6 @@ class AiDigestPlugin(PluginBase):
 
     async def tick(self) -> None:
         """Check if it's time to send the digest; if so, run the full pipeline."""
-        if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
-            return
-
         self._tick_count += 1
 
         if not self._is_digest_time():

@@ -46,6 +46,17 @@ def _format_uptime(seconds: int | float) -> str:
     return f"{days}d {remaining_hrs}h"
 
 
+def _format_epoch(value: int | float) -> str:
+    """Format epoch timestamp to human-readable local time."""
+    from datetime import datetime
+
+    try:
+        dt = datetime.fromtimestamp(float(value))
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError, OSError):
+        return str(value)
+
+
 def _create_templates() -> Jinja2Templates:
     """Create Jinja2 templates with autoescape enabled and global functions."""
     from jinja2 import Environment, FileSystemLoader
@@ -56,6 +67,9 @@ def _create_templates() -> Jinja2Templates:
     )
     # Register global template functions
     env.globals["_format_uptime"] = _format_uptime
+
+    # Register filters
+    env.filters["epoch_to_datetime"] = _format_epoch
 
     templates = Jinja2Templates(env=env)
     return templates
