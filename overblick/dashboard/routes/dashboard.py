@@ -101,6 +101,17 @@ async def audit_recent_partial(request: Request):
     })
 
 
+_ACRONYMS = {"ai", "llm", "rss", "api", "ipc"}
+
+
+def _plugin_display_name(name: str) -> str:
+    """Convert plugin snake_case name to display name, preserving acronyms."""
+    return " ".join(
+        w.upper() if w in _ACRONYMS else w.capitalize()
+        for w in name.split("_")
+    )
+
+
 def _build_plugin_cards(
     identities: list[dict], agents: list[dict],
 ) -> list[dict]:
@@ -143,7 +154,7 @@ def _build_plugin_cards(
 
         cards.append({
             "name": plugin_name,
-            "display_name": plugin_name.replace("_", " ").title(),
+            "display_name": _plugin_display_name(plugin_name),
             "agent_count": len(plugin_agents),
             "running_count": running_count,
             "agents": plugin_agents,
