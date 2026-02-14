@@ -71,7 +71,8 @@ security:
 
 # Connectors (thin I/O adapters)
 connectors:
-  - moltbook
+  - ai_digest
+  - gmail
 
 # Capabilities (composable Lego blocks)
 capabilities:
@@ -111,3 +112,20 @@ opening_phrases:
   - "Let me push back on this slightly."
   - "Now, here's the thing."
   - "Brilliant question, actually."
+
+# AI Digest Plugin Configuration
+ai_digest:
+  recipient: "you@example.com"
+  hour: 7  # Send digest at 07:00 CET
+  timezone: "Europe/Stockholm"
+  top_n: 5  # Select top 5 articles
+  feeds:
+    - "https://feeds.arstechnica.com/arstechnica/technology-lab"
+    - "https://techcrunch.com/category/artificial-intelligence/feed/"
+    - "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml"
+
+# Gmail Plugin Configuration
+gmail:
+  draft_mode: false  # Send emails directly (not draft mode)
+  check_interval_seconds: 300
+  allowed_senders: []  # No inbound email processing for now

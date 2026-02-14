@@ -921,6 +921,11 @@ parallel_examples:
 # OPERATIONAL CONFIGURATION
 ################################################################################
 
+# Active plugins/connectors
+connectors:
+  - ai_digest
+  - gmail
+
 # AI Digest Plugin Configuration
 ai_digest:
   recipient: "you@example.com"

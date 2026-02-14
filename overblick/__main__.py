@@ -104,6 +104,38 @@ def cmd_secrets_import(args: argparse.Namespace) -> None:
     print(f"Imported {len(data)} secrets for '{args.identity}'")
 
 
+def cmd_supervisor(args: argparse.Namespace) -> None:
+    """Start the supervisor (boss agent) managing multiple identities."""
+    from overblick.supervisor.supervisor import Supervisor
+
+    base_dir = Path(__file__).parent.parent
+    log_dir = base_dir / "logs" / "supervisor"
+
+    setup_logging("supervisor", log_dir, verbose=args.verbose)
+
+    logger = logging.getLogger("overblick.supervisor")
+    logger.info(f"Starting Överblick Supervisor with identities: {', '.join(args.identities)}")
+
+    supervisor = Supervisor(
+        identities=args.identities,
+        socket_dir=base_dir / "data" / "ipc",
+        auto_restart=not args.no_restart,
+    )
+
+    async def run_supervisor():
+        """Start and run the supervisor."""
+        await supervisor.start()
+        await supervisor.run()
+
+    try:
+        asyncio.run(run_supervisor())
+    except KeyboardInterrupt:
+        logger.info("Received keyboard interrupt")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}", exc_info=True)
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="overblick",
@@ -134,6 +166,13 @@ def main() -> None:
     import_parser.add_argument("identity", help="Identity name")
     import_parser.add_argument("file", help="Path to plaintext YAML file")
     import_parser.set_defaults(func=cmd_secrets_import)
+
+    # supervisor
+    sup_parser = subparsers.add_parser("supervisor", help="Start supervisor (boss agent)")
+    sup_parser.add_argument("identities", nargs="+", help="Identity names (e.g. anomal cherry)")
+    sup_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
+    sup_parser.add_argument("--no-restart", action="store_true", help="Disable auto-restart")
+    sup_parser.set_defaults(func=cmd_supervisor)
 
     args = parser.parse_args()
     args.func(args)
