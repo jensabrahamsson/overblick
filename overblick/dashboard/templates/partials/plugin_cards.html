@@ -14,13 +14,22 @@
         <span class="meta-item mono">{{ card.name }}</span>
     </div>
 
-    <!-- List agents using this plugin -->
-    <div class="tag-list">
+    <!-- List agents using this plugin with mini radar charts -->
+    <div class="agent-list">
         {% for agent in card.agents %}
-        <a href="/agent/{{ agent.name }}" class="tag tag-sm tag-agent status-{{ agent.state }}"
-           title="{{ agent.display_name }} ({{ agent.state }})">
-            {{ agent.display_name }}
-        </a>
+        <div class="agent-mini">
+            <a href="/agent/{{ agent.name }}" class="agent-mini-link">
+                <span class="status-dot status-{{ agent.state }}"></span>
+                <span class="agent-mini-name">{{ agent.display_name }}</span>
+            </a>
+            {% if agent.traits %}
+            <canvas class="radar-mini" width="60" height="60"
+                    data-radar-chart
+                    data-traits='{{ agent.traits | tojson }}'
+                    title="Personality: {{ agent.traits | tojson }}">
+            </canvas>
+            {% endif %}
+        </div>
         {% endfor %}
     </div>
 </div>

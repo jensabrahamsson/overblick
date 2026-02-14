@@ -299,6 +299,45 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
     background-color: rgba(72, 79, 88, 0.1);
 }
 
+/* --- Agent Mini Cards (with radar charts) --- */
+.agent-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+}
+.agent-mini {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm);
+    background-color: var(--card-bg);
+    border-radius: var(--radius-sm);
+    transition: background-color 0.15s;
+}
+.agent-mini:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+.agent-mini-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    text-decoration: none;
+    color: inherit;
+    flex: 1;
+}
+.agent-mini-link:hover .agent-mini-name {
+    color: var(--accent);
+}
+.agent-mini-name {
+    font-size: 0.9rem;
+    transition: color 0.15s;
+}
+.radar-mini {
+    border-radius: var(--radius-sm);
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
 /* --- Info Grid --- */
 .info-grid {
     display: grid;
