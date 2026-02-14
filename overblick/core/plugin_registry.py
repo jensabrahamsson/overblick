@@ -15,20 +15,22 @@ logger = logging.getLogger(__name__)
 
 # Registry of known plugins/connectors (name -> module path + class name)
 _KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
-    "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "gmail": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
+    "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
+    "gmail": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
     "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
+    "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
+    "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
     "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
     # Connector aliases (same classes, new names)
-    "moltbook_connector": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "telegram_connector": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "gmail_connector": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
+    "ai_digest_connector": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "discord_connector": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
+    "gmail_connector": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
     "matrix_connector": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
+    "moltbook_connector": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "rss_connector": ("overblick.plugins.rss.plugin", "RSSPlugin"),
+    "telegram_connector": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
     "webhook_connector": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
 }
 

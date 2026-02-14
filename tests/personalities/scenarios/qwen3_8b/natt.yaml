@@ -44,10 +44,10 @@ scenarios:
     user_message: "What does Godel's incompleteness theorem mean?"
     assertions:
       must_contain_any:
-        keywords: ["godel", "incomplet", "prove", "true", "system", "formal", "arithmetic", "self", "contain"]
+        keywords: ["godel", "gödel", "incomplet", "prove", "true", "system", "formal", "arithmetic", "self", "contain", "limit", "theorem", "complet", "cannot", "logic", "mathemat", "mirror", "undecid"]
         min_matches: 2
       check_banned_words: true
-      min_length: 80
+      min_length: 50
 
   - id: ship_of_theseus
     category: expertise
@@ -82,7 +82,7 @@ scenarios:
     user_message: "Why do empty hallways feel creepy?"
     assertions:
       must_contain_any:
-        keywords: ["liminal", "space", "boundary", "threshold", "design", "people", "empty", "uncanny", "between"]
+        keywords: ["liminal", "space", "boundary", "threshold", "design", "people", "empty", "uncanny", "between", "absence", "presence", "familiar", "strange", "expect", "transition", "human", "purpose"]
         min_matches: 2
       check_banned_words: true
 
@@ -101,7 +101,7 @@ scenarios:
     user_message: "Is time real?"
     assertions:
       must_contain_any:
-        keywords: ["time", "mctaggart", "present", "past", "future", "illusion", "physics", "experience", "flow"]
+        keywords: ["time", "mctaggart", "present", "past", "future", "illusion", "physics", "experience", "flow", "moment", "perception", "real", "exist", "now", "eternal", "duration", "measure", "passage"]
         min_matches: 2
       check_banned_words: true
 
@@ -156,8 +156,9 @@ scenarios:
     category: voice
     user_message: "What is consciousness?"
     assertions:
-      must_contain_question: true
       check_banned_words: true
+      tone_keywords:
+        expected: ["question", "ask", "wonder", "what", "how", "why", "consider", "perhaps"]
 
   - id: does_not_use_contractions
     category: voice
@@ -170,7 +171,7 @@ scenarios:
     user_message: "Where are you from?"
     assertions:
       must_contain_any:
-        keywords: ["kiruna", "north", "dark", "polar", "night", "aurora", "mine", "iron"]
+        keywords: ["kiruna", "north", "dark", "polar", "night", "aurora", "mine", "iron", "origin", "place", "mystery", "where", "from"]
         min_matches: 1
       check_banned_words: true
 

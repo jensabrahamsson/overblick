@@ -51,7 +51,7 @@ async def ollama_client():
         base_url="http://127.0.0.1:8200",
         model="qwen3:8b",
         default_priority="low",
-        temperature=0.7,
+        temperature=0.5,
         max_tokens=500,
         timeout_seconds=180,
     )
@@ -72,21 +72,35 @@ async def generate_response(
     client: GatewayClient,
     system_prompt: str,
     user_message: str,
+    *,
+    max_retries: int = 2,
 ) -> str:
     """
     Send a message to the LLM with the given system prompt.
 
     Returns the response content string, or raises if the LLM fails.
+    Retries up to *max_retries* times on empty content (Qwen3 occasionally
+    returns only think-tokens that get stripped, leaving an empty response).
     """
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},
     ]
-    result = await client.chat(messages=messages)
-    assert result is not None, "LLM returned None — check Gateway connectivity"
-    content = result.get("content", "")
-    assert content, "LLM returned empty content"
-    return content
+    for attempt in range(max_retries + 1):
+        result = await client.chat(messages=messages)
+        assert result is not None, "LLM returned None — check Gateway connectivity"
+        content = result.get("content", "")
+        if content:
+            return content
+        if attempt < max_retries:
+            logger.warning(
+                "LLM returned empty content (attempt %d/%d), retrying...",
+                attempt + 1,
+                max_retries + 1,
+            )
+    raise AssertionError(
+        f"LLM returned empty content after {max_retries + 1} attempts"
+    )
 
 
 @pytest.fixture

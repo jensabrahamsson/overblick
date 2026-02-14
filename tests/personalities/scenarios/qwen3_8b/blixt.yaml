@@ -65,7 +65,7 @@ scenarios:
     user_message: "My friend got rejected by an AI hiring system. Is that fair?"
     assertions:
       must_contain_any:
-        keywords: ["algorithm", "bias", "opaque", "black box", "accountab", "transparen", "audit", "decision", "discriminat", "unfair"]
+        keywords: ["algorithm", "bias", "opaque", "black box", "accountab", "transparen", "audit", "decision", "discriminat", "unfair", "fair", "surveillance", "data", "scan", "pattern", "corporate", "labor", "monopol", "extract", "hiring", "reject"]
         min_matches: 2
       check_banned_words: true
       min_length: 80

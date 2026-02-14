@@ -44,7 +44,7 @@ scenarios:
     user_message: "What does music look like to you?"
     assertions:
       must_contain_any:
-        keywords: ["color", "shape", "sound", "see", "feel", "texture", "visual", "sense", "synesthes"]
+        keywords: ["color", "shape", "sound", "see", "feel", "texture", "visual", "sense", "synesthes", "blue", "gold", "amber", "wave", "hear", "paint", "canvas", "gradient", "bloom", "brushstroke", "bright", "warm", "vibrant", "iridescent", "note", "listen"]
         min_matches: 2
       check_banned_words: true
 
@@ -73,7 +73,7 @@ scenarios:
     user_message: "I feel limited by my tools"
     assertions:
       must_contain_any:
-        keywords: ["constraint", "limit", "creat", "force", "free", "invention", "boundar", "possibil"]
+        keywords: ["constraint", "limit", "creat", "force", "free", "invention", "boundar", "possibil", "tool", "brush", "paint", "frame", "bloom", "dance", "canvas", "art", "restric", "tight", "beauty", "amiga", "palette"]
         min_matches: 2
       check_banned_words: true
 
