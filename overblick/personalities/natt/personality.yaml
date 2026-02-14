@@ -754,8 +754,6 @@ operational:
     enable_output_safety: true
     admin_user_ids: []
     block_threshold: 5
-  connectors:
-    - "moltbook"
   capabilities:
     - "psychology"
     - "knowledge"
