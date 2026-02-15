@@ -485,6 +485,7 @@ operational:
     - "gmail"
     - "telegram_notifier"
     - "boss_request"
+    - "personality_consultant"
 
   plugins:
     - "email_agent"

@@ -9,6 +9,7 @@ Bundles:
     engagement     = [analyzer, composer]
     conversation   = [conversation_tracker]
     content        = [summarizer]
+    consulting     = [personality_consultant]
     speech         = [stt, tts]
     vision         = [vision]
     communication  = [boss_request, email, gmail, telegram_notifier]
@@ -32,6 +33,7 @@ from overblick.capabilities.communication.boss_request import BossRequestCapabil
 from overblick.capabilities.communication.email import EmailCapability
 from overblick.capabilities.communication.gmail import GmailCapability
 from overblick.capabilities.communication.telegram_notifier import TelegramNotifier
+from overblick.capabilities.consulting.personality_consultant import PersonalityConsultantCapability
 from overblick.capabilities.monitoring.inspector import HostInspectionCapability
 from overblick.capabilities.system.clock import SystemClockCapability
 
@@ -56,6 +58,7 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "telegram_notifier": TelegramNotifier,
     "host_inspection": HostInspectionCapability,
     "system_clock": SystemClockCapability,
+    "personality_consultant": PersonalityConsultantCapability,
 }
 
 # Bundle -> capability names
@@ -70,6 +73,7 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "speech": ["stt", "tts"],
     "vision": ["vision"],
     "communication": ["boss_request", "email", "gmail", "telegram_notifier"],
+    "consulting": ["personality_consultant"],
     "monitoring": ["host_inspection"],
     "system": ["system_clock"],
 }
@@ -108,6 +112,7 @@ __all__ = [
     "GmailCapability",
     "TelegramNotifier",
     "HostInspectionCapability",
+    "PersonalityConsultantCapability",
     "SystemClockCapability",
     "CAPABILITY_REGISTRY",
     "CAPABILITY_BUNDLES",
