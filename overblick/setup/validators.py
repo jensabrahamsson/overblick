@@ -84,15 +84,15 @@ class CommunicationData(BaseModel):
         return v
 
 
-class CharacterSelection(BaseModel):
-    """Step 5: Character selection."""
-    selected_characters: list[str]
+class UseCaseSelection(BaseModel):
+    """Step 5: Use case selection."""
+    selected_use_cases: list[str]
 
-    @field_validator("selected_characters")
+    @field_validator("selected_use_cases")
     @classmethod
     def at_least_one(cls, v: list[str]) -> list[str]:
         if not v:
-            raise ValueError("Select at least one character")
+            raise ValueError("Select at least one use case")
         return v
 
 

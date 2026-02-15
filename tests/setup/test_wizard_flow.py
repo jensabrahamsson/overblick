@@ -112,25 +112,21 @@ class TestCommunicationStep:
         assert resp.status_code == 303
 
 
-class TestCharacterSelectStep:
-    """Step 5: Character selection."""
+class TestUseCaseStep:
+    """Step 5: Use case selection."""
 
     async def test_step5_renders(self, client: AsyncClient):
         resp = await client.get("/step/5")
         assert resp.status_code == 200
-        assert "Choose Your Agents" in resp.text
-        # Should contain character data JSON
-        assert "character-data" in resp.text
-
-    async def test_step5_loads_personalities(self, client: AsyncClient):
-        resp = await client.get("/step/5")
-        # Check that at least some known characters appear in the JSON
-        assert "anomal" in resp.text.lower() or "cherry" in resp.text.lower()
+        assert "What Should Your Agents Do?" in resp.text
+        # Should list use cases
+        assert "Social Media" in resp.text
+        assert "Email Management" in resp.text
 
     async def test_step5_valid_selection(self, client: AsyncClient):
         resp = await client.post(
             "/step/5",
-            data={"selected_characters": ["anomal", "cherry"]},
+            data={"selected_use_cases": ["social_media", "email"]},
             follow_redirects=False,
         )
         assert resp.status_code == 303
@@ -142,22 +138,75 @@ class TestCharacterSelectStep:
             data={},
         )
         assert resp.status_code == 200
-        assert "Choose Your Agents" in resp.text
+        assert "What Should Your Agents Do?" in resp.text
+
+    async def test_step5_single_selection(self, client: AsyncClient):
+        resp = await client.post(
+            "/step/5",
+            data={"selected_use_cases": ["research"]},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/step/6"
 
 
-class TestAgentConfigStep:
-    """Step 6: Agent configuration."""
+class TestAssignmentStep:
+    """Step 6: Agent assignment."""
 
     async def test_step6_renders(self, client: AsyncClient):
-        # First select some characters
+        # First select some use cases
         await client.post(
             "/step/5",
-            data={"selected_characters": ["anomal"]},
+            data={"selected_use_cases": ["social_media"]},
             follow_redirects=False,
         )
         resp = await client.get("/step/6")
         assert resp.status_code == 200
-        assert "Configure Your Agents" in resp.text
+        assert "Who Handles What?" in resp.text
+
+    async def test_step6_shows_personality_options(self, client: AsyncClient):
+        """Social media should show multiple personality options."""
+        await client.post(
+            "/step/5",
+            data={"selected_use_cases": ["social_media"]},
+            follow_redirects=False,
+        )
+        resp = await client.get("/step/6")
+        assert resp.status_code == 200
+        # Should show personality grid for social media (multiple options)
+        assert "personality-grid" in resp.text or "personality-option" in resp.text
+
+    async def test_step6_auto_assigns_single_personality(self, client: AsyncClient):
+        """Email should auto-assign Stal (only compatible personality)."""
+        await client.post(
+            "/step/5",
+            data={"selected_use_cases": ["email"]},
+            follow_redirects=False,
+        )
+        resp = await client.get("/step/6")
+        assert resp.status_code == 200
+        assert "Auto-assigned" in resp.text
+
+    async def test_step6_post_redirects(self, client: AsyncClient):
+        """Submitting step 6 should redirect to review."""
+        await client.post(
+            "/step/5",
+            data={"selected_use_cases": ["social_media"]},
+            follow_redirects=False,
+        )
+        resp = await client.post(
+            "/step/6",
+            data={
+                "social_media_personality": "cherry",
+                "social_media_temperature": "0.8",
+                "social_media_max_tokens": "2000",
+                "social_media_heartbeat_hours": "4",
+                "social_media_quiet_hours": "on",
+            },
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/step/7"
 
 
 class TestReviewStep:
@@ -181,13 +230,20 @@ class TestReviewStep:
         }, follow_redirects=False)
         await client.post("/step/4", data={}, follow_redirects=False)
         await client.post("/step/5", data={
-            "selected_characters": ["anomal"],
+            "selected_use_cases": ["social_media"],
+        }, follow_redirects=False)
+        await client.post("/step/6", data={
+            "social_media_personality": "cherry",
+            "social_media_temperature": "0.8",
+            "social_media_max_tokens": "2000",
+            "social_media_heartbeat_hours": "4",
         }, follow_redirects=False)
 
         resp = await client.get("/step/7")
         assert resp.status_code == 200
         assert "Review" in resp.text
         assert "Test User" in resp.text
+        assert "Agent Assignments" in resp.text
 
 
 class TestCompleteStep:

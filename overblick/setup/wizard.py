@@ -9,8 +9,8 @@ Steps:
 2. Principal Identity
 3. LLM Configuration
 4. Communication Channels
-5. Character Select
-6. Agent Configuration
+5. Use Cases — What should your agents do?
+6. Assign Agents — Who handles what?
 7. Review
 8. Complete
 """
@@ -27,9 +27,11 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from jinja2 import Environment, FileSystemLoader
 
+from pydantic import ValidationError
+
 from .validators import (
     AgentConfig,
-    CharacterSelection,
+    UseCaseSelection,
     CommunicationData,
     LLMData,
     PrincipalData,
@@ -45,45 +47,72 @@ _DEFAULT_STATE: dict[str, Any] = {
     "principal": {},
     "llm": {},
     "communication": {},
-    "selected_characters": [],
-    "agent_configs": {},
+    "selected_use_cases": [],
+    "assignments": {},  # use_case_id -> {personality, temperature, ...}
+    "selected_characters": [],  # derived from assignments (for provisioner)
+    "agent_configs": {},  # derived from assignments (for provisioner)
     "completed": False,
     "created_files": [],
 }
 
-# Plugin compatibility mapping per personality
-PERSONALITY_PLUGINS: dict[str, dict[str, str]] = {
-    "anomal": {
-        "moltbook": "great",
-        "telegram": "good",
-        "ai_digest": "great",
+# Use cases — what agents can do for the user
+USE_CASES: list[dict[str, Any]] = [
+    {
+        "id": "social_media",
+        "name": "Social Media",
+        "description": "Post to forums and social platforms with personality-driven content",
+        "icon": "\U0001F4AC",
+        "plugins": ["moltbook"],
+        "compatible_personalities": [
+            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt",
+        ],
+        "recommended": "cherry",
     },
-    "cherry": {
-        "moltbook": "great",
-        "consulting": "good",
+    {
+        "id": "email",
+        "name": "Email Management",
+        "description": "Read, triage, draft replies, and send emails on your behalf",
+        "icon": "\u2709\uFE0F",
+        "plugins": ["email_agent", "gmail"],
+        "compatible_personalities": ["stal"],
+        "recommended": "stal",
     },
-    "blixt": {
-        "moltbook": "great",
-        "discord": "good",
+    {
+        "id": "notifications",
+        "name": "Notifications",
+        "description": "Send alerts and updates via Telegram based on agent activity",
+        "icon": "\U0001F514",
+        "plugins": ["telegram_notifier"],
+        "compatible_personalities": ["anomal", "stal"],
+        "recommended": "stal",
     },
-    "bjork": {
-        "moltbook": "great",
+    {
+        "id": "research",
+        "name": "News & Research",
+        "description": "AI-curated digests of news, feeds, and topics you care about",
+        "icon": "\U0001F50D",
+        "plugins": ["ai_digest"],
+        "compatible_personalities": ["anomal"],
+        "recommended": "anomal",
     },
-    "prisma": {
-        "moltbook": "great",
-    },
-    "rost": {
-        "moltbook": "great",
-    },
-    "natt": {
-        "moltbook": "great",
-    },
-    "stal": {
-        "email_agent": "great",
-        "gmail": "great",
-        "telegram_notifier": "great",
-    },
-}
+]
+
+# Lookup: use_case_id -> use_case dict
+_USE_CASE_MAP: dict[str, dict[str, Any]] = {uc["id"]: uc for uc in USE_CASES}
+
+
+def _friendly_error(exc: Exception) -> str:
+    """Extract a user-friendly error message from a Pydantic ValidationError."""
+    if isinstance(exc, ValidationError):
+        messages = []
+        for err in exc.errors():
+            msg = err.get("msg", "Invalid input")
+            # Strip Pydantic prefix "Value error, "
+            if msg.startswith("Value error, "):
+                msg = msg[len("Value error, "):]
+            messages.append(msg)
+        return "; ".join(messages) if messages else "Please check your input."
+    return str(exc)
 
 
 def _create_templates() -> Environment:
@@ -140,7 +169,6 @@ def _load_personality_data(base_dir: Path) -> list[dict[str, Any]]:
                     "cherry_response", first_example.get(
                         "stal_response", ""))))
             if response:
-                # Take first ~120 chars
                 sample_quote = response.strip()[:120]
                 if len(response.strip()) > 120:
                     sample_quote += "..."
@@ -148,8 +176,6 @@ def _load_personality_data(base_dir: Path) -> list[dict[str, Any]]:
         # Top 3 traits by value
         sorted_traits = sorted(traits.items(), key=lambda x: x[1], reverse=True)
         top_traits = sorted_traits[:3] if sorted_traits else []
-
-        plugins = PERSONALITY_PLUGINS.get(pdir.name, {})
 
         characters.append({
             "name": pdir.name,
@@ -160,11 +186,100 @@ def _load_personality_data(base_dir: Path) -> list[dict[str, Any]]:
             "traits": {k: v for k, v in top_traits},
             "all_traits": traits,
             "sample_quote": sample_quote,
-            "plugins": plugins,
             "operational": data.get("operational", {}),
         })
 
     return characters
+
+
+def _build_assignment_data(
+    selected_use_cases: list[str],
+    all_characters: list[dict[str, Any]],
+    state: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Build use-case assignment data for step 6 template."""
+    char_by_name = {c["name"]: c for c in all_characters}
+    assignments = state.get("assignments", {})
+    result = []
+
+    for uc_id in selected_use_cases:
+        uc = _USE_CASE_MAP.get(uc_id)
+        if not uc:
+            continue
+
+        compatible = []
+        for p_name in uc["compatible_personalities"]:
+            if p_name in char_by_name:
+                compatible.append(char_by_name[p_name])
+
+        # Get previously saved assignment for this use case
+        prev = assignments.get(uc_id, {})
+
+        result.append({
+            "id": uc["id"],
+            "name": uc["name"],
+            "description": uc["description"],
+            "icon": uc["icon"],
+            "plugins": uc["plugins"],
+            "recommended": uc["recommended"],
+            "compatible": compatible,
+            "assigned_personality": prev.get("personality", uc["recommended"]),
+            "temperature": prev.get("temperature"),
+            "max_tokens": prev.get("max_tokens"),
+            "heartbeat_hours": prev.get("heartbeat_hours"),
+            "quiet_hours": prev.get("quiet_hours", True),
+        })
+
+    return result
+
+
+def _derive_provisioner_state(state: dict[str, Any]) -> None:
+    """Derive selected_characters and agent_configs from assignments.
+
+    The provisioner expects personality-centric data (selected_characters + agent_configs).
+    This function converts from use-case-centric assignments to that format, merging
+    plugins when multiple use cases share the same personality.
+    """
+    assignments = state.get("assignments", {})
+
+    # Group by personality
+    personality_plugins: dict[str, list[str]] = {}
+    personality_config: dict[str, dict[str, Any]] = {}
+
+    for uc_id, assignment in assignments.items():
+        uc = _USE_CASE_MAP.get(uc_id)
+        if not uc:
+            continue
+
+        personality = assignment.get("personality", "")
+        if not personality:
+            continue
+
+        # Collect plugins from the use case
+        if personality not in personality_plugins:
+            personality_plugins[personality] = []
+        personality_plugins[personality].extend(uc["plugins"])
+
+        # First assignment wins for config (subsequent use cases share settings)
+        if personality not in personality_config:
+            personality_config[personality] = {
+                "temperature": assignment.get("temperature", 0.7),
+                "max_tokens": assignment.get("max_tokens", 2000),
+                "heartbeat_hours": assignment.get("heartbeat_hours", 4),
+                "quiet_hours": assignment.get("quiet_hours", True),
+            }
+
+    # Deduplicate and build provisioner-compatible format
+    selected_characters = list(personality_plugins.keys())
+    agent_configs = {}
+    for p_name in selected_characters:
+        cfg = dict(personality_config.get(p_name, {}))
+        cfg["plugins"] = list(set(personality_plugins.get(p_name, [])))
+        cfg["capabilities"] = []
+        agent_configs[p_name] = cfg
+
+    state["selected_characters"] = selected_characters
+    state["agent_configs"] = agent_configs
 
 
 def _get_version(base_dir: Path) -> str:
@@ -234,7 +349,7 @@ def register_routes(app: FastAPI) -> None:
         except Exception as e:
             return _render(
                 "step2_principal.html", request,
-                error=str(e),
+                error=_friendly_error(e),
                 form_data={
                     "principal_name": principal_name,
                     "principal_email": principal_email,
@@ -276,7 +391,7 @@ def register_routes(app: FastAPI) -> None:
             state["llm"] = data.model_dump()
             return RedirectResponse("/step/4", status_code=303)
         except Exception as e:
-            return _render("step3_llm.html", request, error=str(e))
+            return _render("step3_llm.html", request, error=_friendly_error(e))
 
     # --- Step 4: Communication Channels ---
 
@@ -309,48 +424,56 @@ def register_routes(app: FastAPI) -> None:
             state["communication"] = data.model_dump()
             return RedirectResponse("/step/5", status_code=303)
         except Exception as e:
-            return _render("step4_communication.html", request, error=str(e))
+            return _render("step4_communication.html", request, error=_friendly_error(e))
 
-    # --- Step 5: Character Select ---
+    # --- Step 5: Use Cases ---
 
     @app.get("/step/5", response_class=HTMLResponse)
     async def step5_get(request: Request):
         state = _get_state(request.app)
         state["current_step"] = 5
-        characters = _load_personality_data(request.app.state.base_dir)
+        comm = state.get("communication", {})
         return _render(
-            "step5_characters.html", request,
-            characters=characters,
+            "step5_usecases.html", request,
+            use_cases=USE_CASES,
+            gmail_enabled=comm.get("gmail_enabled", False),
+            telegram_enabled=comm.get("telegram_enabled", False),
         )
 
     @app.post("/step/5", response_class=HTMLResponse)
     async def step5_post(request: Request):
         form = await request.form()
-        selected = form.getlist("selected_characters")
+        selected = form.getlist("selected_use_cases")
         state = _get_state(request.app)
         try:
-            data = CharacterSelection(selected_characters=selected)
-            state["selected_characters"] = data.selected_characters
+            data = UseCaseSelection(selected_use_cases=selected)
+            state["selected_use_cases"] = data.selected_use_cases
             return RedirectResponse("/step/6", status_code=303)
         except Exception as e:
-            characters = _load_personality_data(request.app.state.base_dir)
+            comm = state.get("communication", {})
             return _render(
-                "step5_characters.html", request,
-                characters=characters,
-                error=str(e),
+                "step5_usecases.html", request,
+                use_cases=USE_CASES,
+                gmail_enabled=comm.get("gmail_enabled", False),
+                telegram_enabled=comm.get("telegram_enabled", False),
+                error=_friendly_error(e),
             )
 
-    # --- Step 6: Agent Configuration ---
+    # --- Step 6: Assign Agents ---
 
     @app.get("/step/6", response_class=HTMLResponse)
     async def step6_get(request: Request):
         state = _get_state(request.app)
         state["current_step"] = 6
         characters = _load_personality_data(request.app.state.base_dir)
-        selected_chars = [c for c in characters if c["name"] in state.get("selected_characters", [])]
+        assignment_data = _build_assignment_data(
+            state.get("selected_use_cases", []),
+            characters,
+            state,
+        )
         return _render(
             "step6_agent_config.html", request,
-            selected_characters=selected_chars,
+            assignment_data=assignment_data,
         )
 
     @app.post("/step/6", response_class=HTMLResponse)
@@ -358,19 +481,30 @@ def register_routes(app: FastAPI) -> None:
         form = await request.form()
         state = _get_state(request.app)
 
-        # Parse per-agent configs from form data
-        agent_configs = {}
-        for char_name in state.get("selected_characters", []):
-            prefix = f"{char_name}_"
-            agent_configs[char_name] = {
-                "temperature": float(form.get(f"{prefix}temperature", 0.7)),
-                "max_tokens": int(form.get(f"{prefix}max_tokens", 2000)),
-                "heartbeat_hours": int(form.get(f"{prefix}heartbeat_hours", 4)),
-                "quiet_hours": form.get(f"{prefix}quiet_hours", "on") == "on",
-                "plugins": form.getlist(f"{prefix}plugins"),
-                "capabilities": form.getlist(f"{prefix}capabilities"),
+        # Parse per-use-case assignments from form data
+        assignments = {}
+        for uc_id in state.get("selected_use_cases", []):
+            uc = _USE_CASE_MAP.get(uc_id)
+            if not uc:
+                continue
+
+            personality = form.get(f"{uc_id}_personality", "")
+
+            # Server-side allowlist: personality must be compatible with the use case
+            allowed = uc["compatible_personalities"]
+            if personality not in allowed:
+                personality = uc["recommended"]
+
+            assignments[uc_id] = {
+                "personality": personality,
+                "temperature": float(form.get(f"{uc_id}_temperature", 0.7)),
+                "max_tokens": int(form.get(f"{uc_id}_max_tokens", 2000)),
+                "heartbeat_hours": int(form.get(f"{uc_id}_heartbeat_hours", 4)),
+                "quiet_hours": form.get(f"{uc_id}_quiet_hours", "off") == "on",
             }
-        state["agent_configs"] = agent_configs
+
+        state["assignments"] = assignments
+        _derive_provisioner_state(state)
         return RedirectResponse("/step/7", status_code=303)
 
     # --- Step 7: Review ---
@@ -380,10 +514,29 @@ def register_routes(app: FastAPI) -> None:
         state = _get_state(request.app)
         state["current_step"] = 7
         characters = _load_personality_data(request.app.state.base_dir)
-        selected_chars = [c for c in characters if c["name"] in state.get("selected_characters", [])]
+        char_by_name = {c["name"]: c for c in characters}
+
+        # Build review-friendly assignment list
+        review_assignments = []
+        for uc_id in state.get("selected_use_cases", []):
+            uc = _USE_CASE_MAP.get(uc_id, {})
+            assignment = state.get("assignments", {}).get(uc_id, {})
+            personality_name = assignment.get("personality", "")
+            char_data = char_by_name.get(personality_name, {})
+            review_assignments.append({
+                "use_case": uc.get("name", uc_id),
+                "use_case_icon": uc.get("icon", ""),
+                "plugins": uc.get("plugins", []),
+                "personality_name": personality_name,
+                "personality_display": char_data.get(
+                    "display_name", personality_name.capitalize()
+                ),
+                "personality_role": char_data.get("role", ""),
+            })
+
         return _render(
             "step7_review.html", request,
-            selected_characters=selected_chars,
+            review_assignments=review_assignments,
         )
 
     @app.post("/step/7", response_class=HTMLResponse)
@@ -401,10 +554,26 @@ def register_routes(app: FastAPI) -> None:
         except Exception as e:
             logger.error("Provisioning failed: %s", e, exc_info=True)
             characters = _load_personality_data(base_dir)
-            selected_chars = [c for c in characters if c["name"] in state.get("selected_characters", [])]
+            char_by_name = {c["name"]: c for c in characters}
+            review_assignments = []
+            for uc_id in state.get("selected_use_cases", []):
+                uc = _USE_CASE_MAP.get(uc_id, {})
+                assignment = state.get("assignments", {}).get(uc_id, {})
+                personality_name = assignment.get("personality", "")
+                char_data = char_by_name.get(personality_name, {})
+                review_assignments.append({
+                    "use_case": uc.get("name", uc_id),
+                    "use_case_icon": uc.get("icon", ""),
+                    "plugins": uc.get("plugins", []),
+                    "personality_name": personality_name,
+                    "personality_display": char_data.get(
+                        "display_name", personality_name.capitalize()
+                    ),
+                    "personality_role": char_data.get("role", ""),
+                })
             return _render(
                 "step7_review.html", request,
-                selected_characters=selected_chars,
+                review_assignments=review_assignments,
                 error=f"Setup failed: {e}",
             )
 

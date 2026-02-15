@@ -89,16 +89,23 @@
     </div>
 </div>
 
-<!-- Selected Agents -->
+<!-- Agent Assignments -->
 <div class="review-section">
     <div class="review-section-title">
-        Selected Agents
+        Agent Assignments
         <a href="/step/5" class="review-edit">edit</a>
     </div>
-    {% for char in selected_characters %}
+    {% for a in review_assignments %}
     <div class="review-item">
-        <span class="review-label">{{ char.display_name }}</span>
-        <span class="review-value">{{ char.role }}</span>
+        <span class="review-label">
+            <span aria-hidden="true">{{ a.use_case_icon }}</span> {{ a.use_case }}
+        </span>
+        <span class="review-value">
+            <strong>{{ a.personality_display }}</strong>
+            {% for plugin in a.plugins %}
+            <span class="badge badge-purple" style="margin-left: 4px;">{{ plugin | replace('_', ' ') | title }}</span>
+            {% endfor %}
+        </span>
     </div>
     {% endfor %}
 </div>

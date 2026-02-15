@@ -16,7 +16,7 @@
              aria-valuenow="{{ state.current_step }}" aria-valuemin="1" aria-valuemax="8"
              aria-label="Setup progress: step {{ state.current_step }} of 8"
              style="--progress-pct: {{ ((state.current_step - 1) / 7 * 100) | round }}%">
-            {% set step_names = {1: 'Welcome', 2: 'Identity', 3: 'AI Engine', 4: 'Channels', 5: 'Characters', 6: 'Configure', 7: 'Review', 8: 'Complete'} %}
+            {% set step_names = {1: 'Welcome', 2: 'Identity', 3: 'AI Engine', 4: 'Channels', 5: 'Use Cases', 6: 'Assign', 7: 'Review', 8: 'Complete'} %}
             {% for step in range(1, 9) %}
             <div class="progress-step {% if step == state.current_step %}active{% elif step < state.current_step %}completed{% endif %}"
                  aria-label="Step {{ step }}: {{ step_names[step] }}{% if step == state.current_step %} (current){% elif step < state.current_step %} (completed){% endif %}"
