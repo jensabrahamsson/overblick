@@ -21,10 +21,10 @@ from overblick.personalities import (
 
 @pytest.fixture
 def stal_identity():
-    """Realistic Stal identity for email_agent tests."""
+    """Realistic Stål identity for email_agent tests."""
     return Personality(
         name="stal",
-        display_name="Stal",
+        display_name="Stål",
         description="Executive secretary and email agent",
         engagement_threshold=25,
         llm=LLMSettings(model="qwen3:8b", temperature=0.4, max_tokens=1500),
@@ -92,7 +92,11 @@ def stal_plugin_context(
     stal_identity, tmp_path, mock_audit_log, mock_ipc_client_email,
     mock_llm_pipeline_classify, mock_event_bus, mock_telegram_notifier,
 ):
-    """PluginContext for Stal with all required services."""
+    """PluginContext for Stål with all required services."""
+    def _mock_secrets(key: str):
+        secrets = {"principal_name": "Test Principal"}
+        return secrets.get(key)
+
     ctx = PluginContext(
         identity_name="stal",
         data_dir=tmp_path / "data" / "stal",
@@ -106,6 +110,7 @@ def stal_plugin_context(
         ipc_client=mock_ipc_client_email,
         capabilities={"telegram_notifier": mock_telegram_notifier},
     )
+    ctx._secrets_getter = _mock_secrets
     return ctx
 
 
@@ -114,7 +119,11 @@ def stal_context_no_ipc(
     stal_identity, tmp_path, mock_audit_log, mock_llm_pipeline_classify,
     mock_event_bus,
 ):
-    """PluginContext for Stal WITHOUT IPC (standalone mode)."""
+    """PluginContext for Stål WITHOUT IPC (standalone mode)."""
+    def _mock_secrets(key: str):
+        secrets = {"principal_name": "Test Principal"}
+        return secrets.get(key)
+
     ctx = PluginContext(
         identity_name="stal",
         data_dir=tmp_path / "data" / "stal",
@@ -127,6 +136,7 @@ def stal_context_no_ipc(
         identity=stal_identity,
         ipc_client=None,
     )
+    ctx._secrets_getter = _mock_secrets
     return ctx
 
 
