@@ -197,6 +197,42 @@ def reply_prompt_with_research(
     ]
 
 
+def tone_consultation_prompt(
+    sender: str,
+    subject: str,
+    body: str,
+    sender_context: str = "",
+) -> str:
+    """
+    Build the tone consultation query for a personality consultant.
+
+    Returns a single query string (not messages) because the consultant
+    capability handles system prompt construction from the personality YAML.
+
+    The consultant should return JSON:
+    {"tone": "warm|professional", "guidance": "..."}
+    """
+    context_section = ""
+    if sender_context:
+        context_section = f"\nSender context: {sender_context}"
+
+    return (
+        "Analyze this incoming email and advise on the appropriate reply tone.\n\n"
+        f"From: {sender}\n"
+        f"Subject: {subject}\n"
+        f"Body:\n{body[:2000]}\n"
+        f"{context_section}\n\n"
+        "Based on the emotional tone of this email, the sender's apparent state, "
+        "and the nature of the request, should the reply be WARM (empathetic, "
+        "personal, caring) or PROFESSIONAL (formal, efficient, businesslike)?\n\n"
+        "If warm: provide specific guidance on how to convey warmth — what to "
+        "acknowledge, what emotional cues to respond to.\n"
+        "If professional: simply confirm a standard professional tone is appropriate.\n\n"
+        "Respond in JSON ONLY:\n"
+        '{"tone": "warm|professional", "guidance": "brief specific advice"}'
+    )
+
+
 def feedback_classification_prompt(
     feedback_text: str,
     original_notification: str,

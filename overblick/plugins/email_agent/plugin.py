@@ -43,6 +43,7 @@ from overblick.plugins.email_agent.prompts import (
     notification_prompt,
     reply_prompt,
     reply_prompt_with_research,
+    tone_consultation_prompt,
 )
 from overblick.supervisor.ipc import IPCMessage
 
@@ -493,6 +494,14 @@ class EmailAgentPlugin(PluginBase):
                     for r in history[:3]
                 )
 
+        # Consult Cherry for tone advice before generating the reply
+        tone_guidance = await self._consult_tone(sender, subject, body, sender_context)
+        if tone_guidance:
+            research_context = (
+                f"{research_context}\n\n{tone_guidance}" if research_context
+                else tone_guidance
+            )
+
         if research_context:
             messages = reply_prompt_with_research(
                 sender=sender,
@@ -545,6 +554,56 @@ class EmailAgentPlugin(PluginBase):
         except Exception as e:
             logger.error("EmailAgent: reply generation failed: %s", e)
             return False
+
+    async def _consult_tone(
+        self,
+        sender: str,
+        subject: str,
+        body: str,
+        sender_context: str,
+    ) -> Optional[str]:
+        """
+        Consult a personality (default: Cherry) for tone advice.
+
+        Returns tone guidance string to inject into the reply prompt,
+        or None if the capability is unavailable or consultation fails.
+        """
+        consultant = self.ctx.get_capability("personality_consultant")
+        if not consultant:
+            return None
+
+        query = tone_consultation_prompt(
+            sender=sender,
+            subject=subject,
+            body=body[:2000],
+            sender_context=sender_context,
+        )
+
+        try:
+            raw = await consultant.consult(query=query)
+            if not raw:
+                return None
+
+            # Parse JSON advice from consultant
+            advice = json.loads(
+                raw[raw.find("{"):raw.rfind("}") + 1] if "{" in raw else raw,
+            )
+            tone = advice.get("tone", "professional")
+            guidance = advice.get("guidance", "")
+
+            logger.info(
+                "EmailAgent: tone consultation result — tone=%s for email from %s",
+                tone, sender,
+            )
+
+            if tone == "warm" and guidance:
+                return f"TONE GUIDANCE (from personality consultation): {guidance}"
+
+            return None
+
+        except (json.JSONDecodeError, Exception) as e:
+            logger.debug("EmailAgent: tone consultation parse error: %s", e)
+            return None
 
     async def _consult_boss(
         self, email: dict[str, Any], classification: EmailClassification,
