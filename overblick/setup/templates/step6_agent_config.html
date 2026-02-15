@@ -4,7 +4,8 @@
 {% block content %}
 <h2 class="step-heading">Who Handles What?</h2>
 <p class="step-description">
-    Assign a personality to each use case. Each agent brings their unique voice and expertise.
+    Each agent needs a personality — the voice and style it uses.
+    Browse the carousel to find the right fit, or go with the recommended choice.
 </p>
 
 <form method="post" action="/step/6">
@@ -13,7 +14,7 @@
         <div class="assignment-header">
             <div class="assignment-header-icon" aria-hidden="true">{{ uc.icon }}</div>
             <div class="assignment-header-text">
-                <div class="assignment-header-name">{{ uc.name }}</div>
+                <div class="assignment-header-name">{{ uc.name }} Agent</div>
                 <div class="assignment-header-desc">{{ uc.description }}</div>
             </div>
         </div>
@@ -28,22 +29,27 @@
         </div>
 
         {% elif uc.compatible | length > 1 %}
-        <!-- Multiple options — pick one -->
-        <div class="personality-grid" role="radiogroup" aria-label="Choose personality for {{ uc.name }}">
-            {% for char in uc.compatible %}
-            <label class="personality-option" for="opt-{{ uc.id }}-{{ char.name }}">
-                <input type="radio" id="opt-{{ uc.id }}-{{ char.name }}"
-                       name="{{ uc.id }}_personality" value="{{ char.name }}"
-                       {{ 'checked' if char.name == uc.assigned_personality }}>
-                <div class="personality-option-inner">
-                    <div class="personality-option-name">{{ char.display_name }}</div>
-                    <div class="personality-option-role">{{ char.role }}</div>
-                    {% if char.name == uc.recommended %}
-                    <span class="badge badge-green">Recommended</span>
-                    {% endif %}
-                </div>
-            </label>
-            {% endfor %}
+        <!-- Multiple options — character carousel -->
+        <div class="carousel-instance"
+             data-input-name="{{ uc.id }}_personality"
+             data-instance-id="{{ uc.id }}"
+             data-preselected="{{ uc.assigned_personality }}"
+             data-recommended="{{ uc.recommended }}">
+
+            <script type="application/json" class="carousel-data">
+            {{ uc.compatible | tojson }}
+            </script>
+
+            <div class="carousel-container">
+                <button type="button" class="carousel-nav carousel-nav-prev"
+                        aria-label="Previous personality">&lsaquo;</button>
+                <div class="carousel-track"></div>
+                <button type="button" class="carousel-nav carousel-nav-next"
+                        aria-label="Next personality">&rsaquo;</button>
+            </div>
+
+            <input type="hidden" class="carousel-value"
+                   name="{{ uc.id }}_personality" value="{{ uc.assigned_personality }}">
         </div>
         {% endif %}
 
@@ -106,4 +112,8 @@
         <button type="submit" class="btn btn-primary">Next: Review</button>
     </div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/character-select.js"></script>
 {% endblock %}

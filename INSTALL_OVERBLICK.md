@@ -25,13 +25,29 @@ ollama pull qwen3:8b
 python -m overblick setup
 ```
 
+## Core Concepts
+
+Överblick uses three key concepts that work together:
+
+| Concept | What it is | Example |
+|---------|-----------|---------|
+| **Channel** | A communication pathway — how an agent connects to the outside world | Gmail, Telegram, Moltbook forum |
+| **Agent** | A specific task runner — what gets done. Each use case creates an agent. | Email Agent, Social Media Agent, Notifications Agent |
+| **Personality** | The voice and character that runs an agent — who does it | Anomal (sharp analyst), Cherry (warm storyteller), Stal (precise executor) |
+
+An agent is assigned exactly one personality. The personality determines the agent's writing style, tone, decision-making approach, and expertise areas. You pick the personality for each agent during setup using the character carousel.
+
+Multiple agents can share the same personality (e.g. both Notifications and Research could be run by Anomal), and a personality can be compatible with multiple agent types.
+
 The setup wizard opens in your browser and walks you through:
-1. **Your identity** — name, email, timezone
-2. **AI engine** — Ollama or LLM Gateway configuration
-3. **Communication** — Gmail and Telegram (both optional)
-4. **Characters** — choose which agent personalities to activate
-5. **Agent tuning** — per-agent LLM and schedule settings
-6. **Review & create** — generates all config files and encrypted secrets
+1. **Welcome** — overview and ambient music
+2. **Your identity** — name, email, timezone
+3. **AI engine** — Ollama or LLM Gateway configuration
+4. **Channels** — Gmail and Telegram (both optional)
+5. **Use cases** — what should your agents do?
+6. **Assign agents** — pick a personality for each agent via the character carousel
+7. **Review & create** — generates all config files and encrypted secrets
+8. **Complete** — you're ready to run
 
 ## What the Setup Wizard Creates
 

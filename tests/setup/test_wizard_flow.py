@@ -173,8 +173,8 @@ class TestAssignmentStep:
         )
         resp = await client.get("/step/6")
         assert resp.status_code == 200
-        # Should show personality grid for social media (multiple options)
-        assert "personality-grid" in resp.text or "personality-option" in resp.text
+        # Should show character carousel for social media (multiple options)
+        assert "carousel-instance" in resp.text or "carousel-track" in resp.text
 
     async def test_step6_auto_assigns_single_personality(self, client: AsyncClient):
         """Email should auto-assign Stal (only compatible personality)."""

@@ -21,7 +21,7 @@
                 <div class="use-case-desc">{{ uc.description }}</div>
                 <div class="use-case-plugins">
                     {% for plugin in uc.plugins %}
-                    <span class="badge badge-purple">{{ plugin | replace('_', ' ') | title }}</span>
+                    <span class="badge badge-purple">{{ plugin | replace('_', ' ') | title }} agent</span>
                     {% endfor %}
                 </div>
                 {% if uc.id == 'email' and not gmail_enabled %}

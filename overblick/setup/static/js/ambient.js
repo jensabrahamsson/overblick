@@ -5,14 +5,15 @@
  * Inspired by Klaus Wunderlich's space-age lounge organ recordings.
  *
  * Sound design:
- * - Hammond-style drawbar harmonics (fundamental + 2nd, 3rd, 4th partials)
+ * - Hammond-style drawbar harmonics (16', 8', 5 1/3', 4', 2 2/3', 1 3/5')
  * - Chorus detuning across 3 unison voices per note (6-10 cent spread)
- * - Leslie speaker simulation (slow pitch + amplitude modulation)
- * - Pseudo-reverb via feedback delay network
- * - Warm low-pass filtering with gentle resonance
- * - Slow evolving chord progression with long crossfades
+ * - Leslie speaker simulation (6 cent pitch wobble + 20% amplitude modulation)
+ * - Feedback delay network reverb (4 taps, wet 0.50)
+ * - Warm low-pass filtering (900Hz cutoff, Q 1.0)
+ * - 8-chord progression with 18s duration and 6s crossfades
  *
  * Features:
+ * - Autostart on first user interaction (click anywhere)
  * - Play/pause toggle with smooth fade-in/fade-out
  * - Volume slider (persisted in localStorage)
  * - Procedurally generated — no MP3 dependencies
@@ -24,8 +25,8 @@
 
     var STORAGE_KEY = 'overblick_setup_volume';
     var FADE_DURATION = 1500; // ms
-    var CHORD_DURATION = 14000; // ms — slow dreamy changes
-    var CROSSFADE_TIME = 4.0; // seconds overlap between chords
+    var CHORD_DURATION = 18000; // ms — slow dreamy changes
+    var CROSSFADE_TIME = 6.0; // seconds overlap between chords
 
     var audioCtx = null;
     var masterGain = null;
@@ -34,9 +35,9 @@
     var activeVoices = [];
     var chordTimer = null;
     var currentChordIndex = 0;
+    var hasAutostarted = false;
 
     // Rich jazz voicings — spread across octaves for Wunderlich's lush sound
-    // Lower notes provide warmth, upper notes shimmer
     var CHORDS = [
         // Cmaj9 — C2, G2, E3, B3, D4
         [65.41, 98.00, 164.81, 246.94, 293.66],
@@ -50,12 +51,15 @@
         [49.00, 123.47, 146.83, 185.00, 220.00],
         // Ebmaj9 — Eb2, Bb2, G3, D4, F4
         [77.78, 116.54, 196.00, 293.66, 349.23],
+        // Bbmaj9#11 — Bb1, F2, A2, D3, E3
+        [58.27, 87.31, 110.00, 146.83, 164.81],
+        // Abmaj7 — Ab1, Eb2, G2, C3, Bb3
+        [51.91, 77.78, 98.00, 130.81, 233.08],
     ];
 
-    // Hammond drawbar ratios — relative to fundamental
-    // Simulates 16', 8', 5 1/3', 4' drawbar registrations
-    var DRAWBAR_RATIOS = [0.5, 1.0, 1.5, 2.0];
-    var DRAWBAR_LEVELS = [0.3, 1.0, 0.25, 0.4]; // relative loudness per drawbar
+    // Hammond drawbar ratios — simulates 16', 8', 5 1/3', 4', 2 2/3', 1 3/5'
+    var DRAWBAR_RATIOS = [0.5, 1.0, 1.5, 2.0, 2.6667, 3.2];
+    var DRAWBAR_LEVELS = [0.3, 1.0, 0.25, 0.4, 0.15, 0.10];
 
     function init() {
         var playBtn = document.getElementById('music-toggle');
@@ -79,22 +83,33 @@
             });
         }
 
-        // Music enable button on welcome page
-        var enableBtn = document.getElementById('music-enable');
-        if (enableBtn) {
-            enableBtn.addEventListener('click', function () {
-                togglePlay();
-                enableBtn.textContent = isPlaying ? 'Music: ON' : 'Music: OFF';
-                enableBtn.classList.toggle('active', isPlaying);
-            });
-        }
-
         // Handle the <audio> element gracefully (not used — we synthesize)
         var audioEl = document.getElementById('ambient-audio');
         if (audioEl) {
             audioEl.removeAttribute('src');
             audioEl.style.display = 'none';
         }
+
+        // Autostart: begin playing on first user interaction (click anywhere)
+        document.addEventListener('click', autoStart, { once: true });
+    }
+
+    function autoStart() {
+        if (hasAutostarted || isPlaying) return;
+        hasAutostarted = true;
+
+        createAudioContext();
+
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        var vol = parseFloat(localStorage.getItem(STORAGE_KEY) || '0.3');
+        masterGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.8);
+
+        isPlaying = true;
+        updateButton();
+        startChordCycle();
     }
 
     function createAudioContext() {
@@ -107,20 +122,24 @@
         masterGain = audioCtx.createGain();
         masterGain.gain.value = 0;
 
-        // Create pseudo-reverb (feedback delay network)
+        // Create pseudo-reverb (4-tap feedback delay network)
         var reverbDelay1 = audioCtx.createDelay(1.0);
         reverbDelay1.delayTime.value = 0.12;
         var reverbDelay2 = audioCtx.createDelay(1.0);
         reverbDelay2.delayTime.value = 0.19;
         var reverbDelay3 = audioCtx.createDelay(1.0);
         reverbDelay3.delayTime.value = 0.27;
+        var reverbDelay4 = audioCtx.createDelay(1.0);
+        reverbDelay4.delayTime.value = 0.37;
 
         var feedback1 = audioCtx.createGain();
-        feedback1.gain.value = 0.35;
+        feedback1.gain.value = 0.38;
         var feedback2 = audioCtx.createGain();
-        feedback2.gain.value = 0.30;
+        feedback2.gain.value = 0.33;
         var feedback3 = audioCtx.createGain();
-        feedback3.gain.value = 0.25;
+        feedback3.gain.value = 0.28;
+        var feedback4 = audioCtx.createGain();
+        feedback4.gain.value = 0.22;
 
         // Reverb filter — darken the reverb tail
         var reverbFilter = audioCtx.createBiquadFilter();
@@ -128,14 +147,15 @@
         reverbFilter.frequency.value = 2000;
         reverbFilter.Q.value = 0.5;
 
-        // Reverb wet/dry
+        // Reverb wet/dry — wetter for that Wunderlich hall sound
         reverbGain = audioCtx.createGain();
-        reverbGain.gain.value = 0.35; // wet level
+        reverbGain.gain.value = 0.50;
 
-        // Wire up feedback delay network
+        // Wire up 4-tap feedback delay network
         masterGain.connect(reverbDelay1);
         masterGain.connect(reverbDelay2);
         masterGain.connect(reverbDelay3);
+        masterGain.connect(reverbDelay4);
 
         reverbDelay1.connect(feedback1);
         feedback1.connect(reverbDelay1);
@@ -143,10 +163,13 @@
         feedback2.connect(reverbDelay2);
         reverbDelay3.connect(feedback3);
         feedback3.connect(reverbDelay3);
+        reverbDelay4.connect(feedback4);
+        feedback4.connect(reverbDelay4);
 
         feedback1.connect(reverbFilter);
         feedback2.connect(reverbFilter);
         feedback3.connect(reverbFilter);
+        feedback4.connect(reverbFilter);
 
         reverbFilter.connect(reverbGain);
         reverbGain.connect(audioCtx.destination);
@@ -169,10 +192,10 @@
         outputGain.gain.value = 0;
         outputGain.gain.setTargetAtTime(voiceGain, now, attackTime);
 
-        // Leslie speaker simulation — slow pitch wobble + tremolo
+        // Leslie speaker simulation — deeper wobble for lush Wunderlich sound
         var leslieSpeed = 0.8 + Math.random() * 0.4; // ~0.8-1.2 Hz (slow Leslie)
-        var lesliePitchDepth = reducedMotion ? 0 : 3; // cents
-        var leslieTremoloDepth = reducedMotion ? 0 : voiceGain * 0.12;
+        var lesliePitchDepth = reducedMotion ? 0 : 6; // cents — deeper wobble
+        var leslieTremoloDepth = reducedMotion ? 0 : voiceGain * 0.20; // 20% tremolo
 
         // Tremolo LFO (amplitude modulation)
         var tremoloLFO = audioCtx.createOscillator();
@@ -185,11 +208,11 @@
         tremoloLFO.start(now);
         nodes.push(tremoloLFO);
 
-        // Warm low-pass filter for the voice
+        // Warm low-pass filter — lower cutoff for that vintage sound
         var voiceFilter = audioCtx.createBiquadFilter();
         voiceFilter.type = 'lowpass';
-        voiceFilter.frequency.value = 1200 + Math.random() * 400;
-        voiceFilter.Q.value = 0.7;
+        voiceFilter.frequency.value = 900 + Math.random() * 200;
+        voiceFilter.Q.value = 1.0;
         voiceFilter.connect(outputGain);
 
         // For each drawbar partial...
@@ -208,26 +231,27 @@
             detuneSpread.forEach(function (detuneCents, ci) {
                 var osc = audioCtx.createOscillator();
                 // Mix sine and triangle for organ character
-                osc.type = di < 2 ? 'sine' : 'triangle';
+                // Upper drawbars (2 2/3', 1 3/5') use sine for shimmer
+                osc.type = di < 2 ? 'sine' : (di >= 4 ? 'sine' : 'triangle');
                 osc.frequency.value = partialFreq;
                 osc.detune.value = detuneCents;
 
-                // Leslie pitch wobble via LFO → detune
+                // Leslie pitch wobble via LFO
                 if (!reducedMotion) {
                     var pitchLFO = audioCtx.createOscillator();
                     pitchLFO.type = 'sine';
                     pitchLFO.frequency.value = leslieSpeed + ci * 0.05;
-                    var pitchDepth = audioCtx.createGain();
-                    pitchDepth.gain.value = lesliePitchDepth;
-                    pitchLFO.connect(pitchDepth);
-                    pitchDepth.connect(osc.detune);
+                    var pitchDepthGain = audioCtx.createGain();
+                    pitchDepthGain.gain.value = lesliePitchDepth;
+                    pitchLFO.connect(pitchDepthGain);
+                    pitchDepthGain.connect(osc.detune);
                     pitchLFO.start(now);
                     nodes.push(pitchLFO);
                 }
 
                 // Per-partial gain
                 var partialGain = audioCtx.createGain();
-                partialGain.gain.value = level * chorusLevels[ci] * 0.12;
+                partialGain.gain.value = level * chorusLevels[ci] * 0.10;
 
                 osc.connect(partialGain);
                 partialGain.connect(voiceFilter);
