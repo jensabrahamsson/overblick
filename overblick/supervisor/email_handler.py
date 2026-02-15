@@ -1,7 +1,7 @@
 """
 Email consultation handler for the supervisor.
 
-Processes email_consultation IPC messages from the email agent (Stal).
+Processes email_consultation IPC messages from the email agent (Stål).
 Uses the supervisor's personality (Anomal) to provide guidance on
 how to handle uncertain emails.
 
@@ -48,12 +48,12 @@ class EmailConsultationHandler:
             self._system_prompt = (
                 f"{base_prompt}\n\n"
                 "=== ROLE: EMAIL CONSULTATION ADVISOR ===\n"
-                "An agent (Stal, the email secretary) is asking for guidance on how "
+                "An agent (Stål, the email secretary) is asking for guidance on how "
                 "to handle an email. Review the email context and advise which action "
                 "to take:\n"
                 "- ignore: Not relevant, spam, or automated\n"
-                "- notify: Important, but Jens should see it personally\n"
-                "- reply: Write a professional reply on Jens's behalf\n"
+                "- notify: Important, but the principal should see it personally\n"
+                "- reply: Write a professional reply on the principal's behalf\n"
                 "- ask_boss: Still unclear, escalate further\n\n"
                 "Respond in JSON: {\"advised_action\": \"...\", \"reasoning\": \"...\"}"
             )

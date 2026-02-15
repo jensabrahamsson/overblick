@@ -67,7 +67,7 @@ class EmailAgentPlugin(PluginBase):
     """
     Agentic email plugin — prompt-driven email classification and action.
 
-    Uses Stal's personality for reply generation. All decision-making
+    Uses Stål's personality for reply generation. All decision-making
     flows through the LLM pipeline (SafeLLMPipeline).
     """
 
@@ -87,6 +87,7 @@ class EmailAgentPlugin(PluginBase):
         self._allowed_senders: set[str] = set()
         self._blocked_senders: set[str] = set()
         self._profiles_dir: Optional[Path] = None
+        self._principal_name: str = ""
 
     async def setup(self) -> None:
         """Initialize the email agent: database, state, goals, prompt."""
@@ -129,6 +130,9 @@ class EmailAgentPlugin(PluginBase):
         # Sender profiles directory (GDPR-safe consolidated data)
         self._profiles_dir = self.ctx.data_dir / "sender_profiles"
         self._profiles_dir.mkdir(parents=True, exist_ok=True)
+
+        # Load principal name from secrets (injected at runtime — never hardcoded)
+        self._principal_name = self.ctx.get_secret("principal_name") or ""
 
         # Run GDPR cleanup on startup
         await self._db.purge_gdpr_data(self.GDPR_RETENTION_DAYS)
@@ -269,6 +273,8 @@ class EmailAgentPlugin(PluginBase):
             sender=sender,
             subject=subject,
             body=body,
+            principal_name=self._principal_name,
+            allowed_senders=", ".join(self._allowed_senders),
         )
 
         try:
@@ -354,7 +360,10 @@ class EmailAgentPlugin(PluginBase):
         subject = email.get("subject", "")
         body = email.get("body", "")
 
-        messages = notification_prompt(sender=sender, subject=subject, body=body[:1000])
+        messages = notification_prompt(
+            sender=sender, subject=subject, body=body[:1000],
+            principal_name=self._principal_name,
+        )
 
         try:
             result = await self.ctx.llm_pipeline.chat(
@@ -418,6 +427,7 @@ class EmailAgentPlugin(PluginBase):
             body=body[:3000],
             sender_context=sender_context,
             interaction_history=interaction_history,
+            principal_name=self._principal_name,
         )
 
         try:
@@ -598,15 +608,16 @@ class EmailAgentPlugin(PluginBase):
         return True
 
     def _build_system_prompt(self) -> str:
-        """Build system prompt from Stal's personality."""
+        """Build system prompt from Stål's personality."""
         from overblick.personalities import build_system_prompt, load_personality
 
         try:
             personality = load_personality("stal")
             return build_system_prompt(personality, platform="Email")
         except FileNotFoundError:
+            principal = self._principal_name or "the principal"
             return (
-                "You are Stal, Jens Abrahamsson's executive secretary. "
+                f"You are Stål, digital assistant to {principal}. "
                 "Be professional, precise, and respond in the sender's language."
             )
 

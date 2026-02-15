@@ -21,16 +21,17 @@ Email → Classification Prompt → LLM → Intent Decision → Action
 | Intent | Action | Example |
 |--------|--------|---------|
 | `IGNORE` | Log and skip | Spam, newsletters, automated notifications |
-| `NOTIFY` | Telegram notification to Jens | Important but needs human review |
+| `NOTIFY` | Telegram notification to principal | Important but needs human review |
 | `REPLY` | Generate and send email reply | Meeting requests, project questions |
 | `ASK_BOSS` | IPC to supervisor for guidance | Uncertain classification (low confidence) |
 
-## Personality: Stal
+## Personality: Stål
 
-The email agent uses the **Stal** personality — an experienced executive secretary who:
+The email agent uses the **Stål** personality — an experienced executive secretary who:
 - Always responds in the language of the incoming email
-- Signs replies as "Jens" (not as an assistant)
+- Signs replies as "Stål / Digital Assistant to {principal_name}" (transparent about being a digital assistant)
 - Is formal, precise, and professional
+- The principal's name is injected from secrets (`principal_name` key), never hardcoded
 
 ## Configuration
 

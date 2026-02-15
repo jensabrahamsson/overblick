@@ -3,6 +3,9 @@ Prompt templates for the email agent plugin.
 
 All decision-making is prompt-driven — no hard-coded if/else for email routing.
 Each template is a function that builds the prompt from context variables.
+
+IMPORTANT: No personal names are hardcoded. The principal_name parameter
+is injected at runtime from secrets (secret key: "principal_name").
 """
 
 
@@ -13,19 +16,22 @@ def classification_prompt(
     sender: str,
     subject: str,
     body: str,
+    principal_name: str = "",
+    allowed_senders: str = "",
 ) -> list[dict[str, str]]:
     """Build the email classification prompt chain."""
     system = (
-        "You are Stal's email classification system. Given an incoming email, "
+        "You are Stål's email classification system. Given an incoming email, "
         "decide the appropriate action.\n\n"
         f"Current goals:\n{goals}\n\n"
         f"Recent learnings:\n{learnings}\n\n"
         f"Sender history:\n{sender_history}\n\n"
-        "Allowed reply addresses: jens.abrahamsson@wirelesscar.com\n\n"
+        f"Principal: {principal_name}\n"
+        f"Allowed reply addresses: {allowed_senders}\n\n"
         "Actions:\n"
         "- IGNORE: Not relevant, spam, newsletters, automated notifications\n"
-        "- NOTIFY: Important but doesn't need a reply — notify Jens on Telegram\n"
-        "- REPLY: Needs a response — draft a reply as Jens's assistant\n"
+        f"- NOTIFY: Important but doesn't need a reply — notify {principal_name} on Telegram\n"
+        "- REPLY: Needs a response — draft a reply as Stål, digital assistant\n"
         "- ASK_BOSS: Uncertain — ask the supervisor for guidance\n\n"
         'Respond in JSON ONLY:\n'
         '{"intent": "ignore|notify|reply|ask_boss", "confidence": 0.0-1.0, '
@@ -50,14 +56,17 @@ def reply_prompt(
     body: str,
     sender_context: str,
     interaction_history: str,
+    principal_name: str = "",
 ) -> list[dict[str, str]]:
     """Build the email reply generation prompt."""
     system = (
-        "You are Stal, Jens Abrahamsson's executive secretary, writing an email "
-        "reply on his behalf.\n\n"
+        f"You are Stål, digital assistant to {principal_name}, writing an email "
+        f"reply on behalf of {principal_name}.\n\n"
         "CRITICAL: Respond in the SAME LANGUAGE as the incoming email.\n"
-        "Keep it professional, concise, and helpful. Sign as "
-        '"Best regards, Jens" (not as an assistant).\n'
+        "Keep it professional, concise, and helpful.\n"
+        f"Sign as: \"Best regards, Stål / Digital Assistant to {principal_name}\"\n"
+        "You are transparent about being a digital assistant. Never pretend to "
+        f"be {principal_name} directly.\n"
         "If you're unsure about specific details, say you'll follow up.\n\n"
         "GDPR POLICY: You retain email content for 30 days only. If someone "
         "references information from a conversation older than 30 days that you "
@@ -86,10 +95,11 @@ def notification_prompt(
     sender: str,
     subject: str,
     body: str,
+    principal_name: str = "",
 ) -> list[dict[str, str]]:
     """Build the Telegram notification summary prompt."""
     system = (
-        "Summarize this email in 2-3 sentences for a Telegram notification to Jens.\n"
+        f"Summarize this email in 2-3 sentences for a Telegram notification to {principal_name}.\n"
         "Include: who sent it, what it's about, and why it's worth attention.\n"
         "Be concise — this is a mobile notification."
     )

@@ -4,14 +4,14 @@
 **PERFECTION IS THE STANDARD.** Every file, every test, every prompt, every line of code must be production-grade. No shortcuts. No "good enough." No TODO comments left behind. If it's worth building, it's worth building right.
 
 ## Overview
-Överblick is a security-focused multi-identity agent framework with a personality stable. It consolidates multiple agent personalities (Anomal, Cherry, Blixt, Björk, Prisma, Rost, Natt) into ONE codebase with a plugin architecture.
+Överblick is a security-focused multi-identity agent framework with a personality stable. It consolidates multiple agent personalities (Anomal, Cherry, Blixt, Björk, Prisma, Rost, Natt, Stål) into ONE codebase with a plugin architecture.
 
 ## Architecture
 - **Core:** Orchestrator, identity system, plugin registry, event bus, scheduler, capability system, permission system
 - **Security:** SafeLLMPipeline (fail-closed), preflight checks, output safety, audit log, secrets manager, input sanitizer with boundary markers, rate limiter
 - **LLM:** Abstract client with Ollama + LLM Gateway backends. SafeLLMPipeline wraps ALL LLM calls (sanitize → preflight → rate limit → LLM → output safety → audit).
 - **Database:** Abstract backend (SQLite + PostgreSQL) with migration system
-- **Plugins:** Self-contained modules (Moltbook, Telegram, Gmail) that receive PluginContext as their only framework interface.
+- **Plugins:** Self-contained modules (Moltbook, Telegram, Gmail, Email Agent) that receive PluginContext as their only framework interface.
 - **Personalities:** Unified personality stable — YAML-driven character definitions (voice, traits, interests, backstory, psychology, key_knowledge, operational config) loadable by any plugin via `load_personality()` + `build_system_prompt()`. Each personality is a single `personality.yaml` containing both character AND operational config.
 - **Supervisor:** Multi-process boss agent with IPC (authenticated Unix sockets), permission management, agent audit system.
 - **Dashboard:** FastAPI + Jinja2 + htmx web dashboard (localhost only). Read-only agent monitoring, audit trail, identity browsing, and 7-step onboarding wizard. No npm — vendored htmx, hand-crafted dark theme CSS.
@@ -61,6 +61,16 @@ python -m overblick dashboard --port 9090
 - **Personality-driven:** Characters are reusable building blocks in the personality stable — unified YAML with both character and operational config
 - **No cross-contamination:** Each personality has isolated data/, logs/, secrets/
 - **Documentation:** Every personality, capability, and plugin MUST have its own README.md explaining purpose, usage, configuration, and examples
+
+## Secrets Management
+- Secrets are per-identity, stored in `config/<identity>/secrets.yaml` (Fernet-encrypted at rest)
+- Accessed via `ctx.get_secret("key")` in plugins — NEVER hardcode credentials or personal names in code
+- **CRITICAL:** Personal names (e.g. `principal_name`) are secrets, not config. The `{principal_name}` placeholder in personality YAML files is resolved at runtime from secrets, making personalities reusable across different principals.
+- Key secrets for the email agent (Stål):
+  - `principal_name` — the person Stål acts on behalf of (injected into prompts)
+  - `telegram_bot_token` — Telegram Bot API token (for TelegramNotifier capability)
+  - `telegram_chat_id` — target chat ID for notifications
+- Capabilities load their secrets via `ctx.get_secret()` in `setup()` and degrade gracefully if secrets are missing (e.g. TelegramNotifier sets `configured=False`)
 
 ## Development Agent Team ("Team Tage Erlander")
 The `.claude/agents/` directory contains a full development team of specialized Claude Code agents imported from the solana-alpha-bot project. Use the `/team` skill to activate them for structured development.

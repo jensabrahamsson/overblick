@@ -48,7 +48,7 @@ class TestPersonalityStable:
 
     def test_list_includes_new_personalities(self):
         names = list_personalities()
-        for name in ("blixt", "bjork", "prisma", "rost", "natt"):
+        for name in ("blixt", "bjork", "prisma", "rost", "natt", "stal"):
             assert name in names, f"Missing personality: {name}"
 
     def test_all_personalities_load(self):
@@ -66,13 +66,13 @@ class TestPersonalityStable:
             assert p.display_name in prompt
 
     def test_all_have_banned_words(self):
-        for name in ("blixt", "bjork", "prisma", "rost", "natt"):
+        for name in ("blixt", "bjork", "prisma", "rost", "natt", "stal"):
             p = load_personality(name)
             banned = p.get_banned_words()
             assert len(banned) > 0, f"{name} should have banned words"
 
     def test_all_have_examples(self):
-        for name in ("blixt", "bjork", "prisma", "rost", "natt"):
+        for name in ("blixt", "bjork", "prisma", "rost", "natt", "stal"):
             p = load_personality(name)
             assert len(p.examples) >= 2, f"{name} needs at least 2 examples"
 

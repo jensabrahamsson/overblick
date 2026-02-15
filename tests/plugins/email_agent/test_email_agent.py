@@ -60,7 +60,7 @@ class TestEmailAgentSetup:
 
     @pytest.mark.asyncio
     async def test_setup_builds_system_prompt(self, stal_plugin_context):
-        """setup() builds a system prompt from Stal's personality."""
+        """setup() builds a system prompt from Stål's personality."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
@@ -485,7 +485,7 @@ class TestPromptTemplates:
     """Test that prompt templates produce valid message lists."""
 
     def test_classification_prompt_structure(self):
-        """Classification prompt returns system + user messages."""
+        """Classification prompt returns system + user messages with principal_name."""
         messages = classification_prompt(
             goals="- Classify accurately",
             learnings="- No learnings yet",
@@ -493,6 +493,8 @@ class TestPromptTemplates:
             sender="test@example.com",
             subject="Test",
             body="Hello world",
+            principal_name="Test Principal",
+            allowed_senders="test@example.com",
         )
         assert len(messages) == 2
         assert messages[0]["role"] == "system"
@@ -501,29 +503,35 @@ class TestPromptTemplates:
         assert "NOTIFY" in messages[0]["content"]
         assert "REPLY" in messages[0]["content"]
         assert "ASK_BOSS" in messages[0]["content"]
+        assert "Test Principal" in messages[0]["content"]
+        assert "test@example.com" in messages[0]["content"]
 
     def test_reply_prompt_structure(self):
-        """Reply prompt returns system + user messages."""
+        """Reply prompt returns system + user messages with Stål identity."""
         messages = reply_prompt(
             sender="test@example.com",
             subject="Meeting",
             body="Can we meet?",
             sender_context="First contact",
             interaction_history="None",
+            principal_name="Test Principal",
         )
         assert len(messages) == 2
         assert "SAME LANGUAGE" in messages[0]["content"]
-        assert "Best regards, Jens" in messages[0]["content"]
+        assert "Stål" in messages[0]["content"]
+        assert "Digital Assistant to Test Principal" in messages[0]["content"]
 
     def test_notification_prompt_structure(self):
-        """Notification prompt returns system + user messages."""
+        """Notification prompt returns system + user messages with principal_name."""
         messages = notification_prompt(
             sender="test@example.com",
             subject="Important",
             body="Something happened",
+            principal_name="Test Principal",
         )
         assert len(messages) == 2
         assert "Telegram" in messages[0]["content"]
+        assert "Test Principal" in messages[0]["content"]
 
     def test_boss_consultation_prompt_structure(self):
         """Boss consultation prompt returns system + user messages."""
