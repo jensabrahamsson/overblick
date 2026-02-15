@@ -278,6 +278,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .tag-sm { padding: 1px 8px; font-size: 0.75rem; }
 .tag-connector { border-color: var(--accent); color: var(--accent); }
 .tag-capability { border-color: var(--orange); color: var(--orange); }
+.tag-operational { border-color: #2dd4bf; color: #2dd4bf; }
 .tag-psychology {
     background-color: #3a1a4a;
     border-color: #6b2d6b;

@@ -61,7 +61,7 @@
     <h3 class="review-section">Capabilities</h3>
     <div class="tag-list">
         {% for c in summary.capabilities %}
-        <span class="tag tag-capability">{{ c }}</span>
+        <span class="tag {{ 'tag-operational' if _is_operational_cap(c) else 'tag-capability' }}">{{ c }}</span>
         {% endfor %}
         {% if not summary.capabilities %}
         <span class="text-muted">None selected</span>

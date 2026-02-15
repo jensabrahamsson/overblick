@@ -58,7 +58,7 @@ class TestEmailAgentSetup:
         await plugin.setup()
 
         assert plugin._filter_mode == "opt_in"
-        assert "jens.abrahamsson@wirelesscar.com" in plugin._allowed_senders
+        assert "jens@example.com" in plugin._allowed_senders
 
     @pytest.mark.asyncio
     async def test_setup_builds_system_prompt(self, stal_plugin_context):
@@ -78,7 +78,7 @@ class TestEmailAgentFiltering:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        assert plugin._is_allowed_sender("jens.abrahamsson@wirelesscar.com") is True
+        assert plugin._is_allowed_sender("jens@example.com") is True
 
     @pytest.mark.asyncio
     async def test_opt_in_blocks_unknown(self, stal_plugin_context):
@@ -217,7 +217,7 @@ class TestEmailAgentActions:
             content="Meeting request from colleague about Q1 results."
         )
 
-        email = {"sender": "colleague@wirelesscar.com", "subject": "Meeting", "body": "Can we meet?"}
+        email = {"sender": "colleague@acme-motors.com", "subject": "Meeting", "body": "Can we meet?"}
         classification = EmailClassification(
             intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="Important"
         )
@@ -239,7 +239,7 @@ class TestEmailAgentActions:
         )
 
         email = {
-            "sender": "colleague@wirelesscar.com",
+            "sender": "colleague@acme-motors.com",
             "subject": "Meeting next Tuesday?",
             "body": "Can we schedule a meeting?",
             "thread_id": "thread-001",
@@ -251,7 +251,7 @@ class TestEmailAgentActions:
         assert result is True
         mock_gmail_capability.send_reply.assert_called_once()
         call_kwargs = mock_gmail_capability.send_reply.call_args.kwargs
-        assert call_kwargs["to"] == "colleague@wirelesscar.com"
+        assert call_kwargs["to"] == "colleague@acme-motors.com"
         assert call_kwargs["subject"] == "Re: Meeting next Tuesday?"
         assert call_kwargs["thread_id"] == "thread-001"
         assert call_kwargs["message_id"] == "msg-001"
@@ -270,7 +270,7 @@ class TestEmailAgentActions:
         )
 
         email = {
-            "sender": "unknown@wirelesscar.com",
+            "sender": "unknown@acme-motors.com",
             "subject": "Confidential: Restructuring",
             "body": "We need to discuss privately.",
             "snippet": "We need to discuss privately.",

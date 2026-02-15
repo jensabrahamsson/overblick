@@ -1,44 +1,44 @@
 # Getting Started with Överblick
 
-**Överblick** är ett säkerhetsfokuserat multi-identity agent framework med svensk själ. Denna guide visar hur du sätter upp ditt första agent-system med en **Supervisor** (chef) och en **AI Digest** plugin som skickar dagliga AI-nyheter via email.
+**Överblick** is a security-focused multi-identity agent framework with a Swedish soul. This guide shows how to set up your first agent system with a **Supervisor** (boss agent) and an **AI Digest** plugin that sends daily AI news via email.
 
-## 🎯 Vad du kommer bygga
+## What You Will Build
 
-Ett system där:
-1. **Supervisor** (chefen) hanterar agenter med Asimovs robotlagar som ethos
-2. **Anomal** (din första agent) vaknar kl 07:00 varje dag
-3. **AI Digest** plugin hämtar AI-nyheter från RSS-feeds
-4. **LLM** (Qwen3) rankar och genererar ett digest i Anomals röst
-5. **Gmail** plugin skickar digestet via SMTP
-6. **Dashboard** visar status i webbläsare på localhost:8080
+A system where:
+1. **Supervisor** (the boss) manages agents with Asimov's Laws of Robotics as its ethos
+2. **Anomal** (your first agent) wakes up at 07:00 every day
+3. **AI Digest** plugin fetches AI news from RSS feeds
+4. **LLM** (Qwen3) ranks and generates a digest in Anomal's voice
+5. **Gmail** plugin sends the digest via SMTP
+6. **Dashboard** shows status in a browser at localhost:8080
 
-## 📋 Förutsättningar
+## Prerequisites
 
 - **Python 3.13+**
-- **Ollama** med `qwen3:8b` modellen installerad
-- **SMTP-tjänst** (vi använder Brevo - gratis 300 emails/dag)
-- **macOS** (projektet är macOS-optimerat med Keychain-integration)
+- **Ollama** with the `qwen3:8b` model installed
+- **SMTP service** (we use Brevo — free 300 emails/day)
+- **macOS** (the project is macOS-optimized with Keychain integration)
 
-## 🚀 Steg-för-steg Installation
+## Step-by-Step Installation
 
-### 1. Klona och installera
+### 1. Clone and Install
 
 ```bash
 git clone https://github.com/jensabrahamsson/overblick.git
 cd overblick
 
-# Skapa virtual environment
+# Create virtual environment
 python3.13 -m venv venv
 source venv/bin/activate
 
-# Installera beroenden
+# Install dependencies
 pip install -e .
 
-# Verifiera installation
+# Verify installation
 python -m overblick list
 ```
 
-Du borde se:
+You should see:
 ```
 Available personalities:
   - anomal
@@ -50,88 +50,88 @@ Available personalities:
   - rost
 ```
 
-### 2. Starta Ollama och ladda modellen
+### 2. Start Ollama and Load the Model
 
 ```bash
-# I en separat terminal
+# In a separate terminal
 ollama serve
 
-# Ladda Qwen3 8B modellen
+# Pull the Qwen3 8B model
 ollama pull qwen3:8b
 ```
 
-### 3. Sätt upp SMTP (Brevo)
+### 3. Set Up SMTP (Brevo)
 
-**Varför Brevo?** Gratis 300 emails/dag, ingen kreditkort krävs, fungerar direkt.
+**Why Brevo?** Free 300 emails/day, no credit card required, works out of the box.
 
-1. Gå till https://www.brevo.com
-2. Skapa gratis konto
-3. Gå till **Settings → SMTP & API**
-4. Kopiera SMTP-credentials:
+1. Go to https://www.brevo.com
+2. Create a free account
+3. Go to **Settings → SMTP & API**
+4. Copy the SMTP credentials:
    - **Server**: `smtp-relay.brevo.com`
    - **Port**: `587`
-   - **Login**: (visas på sidan, typ `your-login@smtp-brevo.com`)
-   - **Password**: (klicka "Create New SMTP Key")
-   - **From Email**: Din verifierade email
+   - **Login**: (shown on the page, e.g. `your-login@smtp-brevo.com`)
+   - **Password**: (click "Create New SMTP Key")
+   - **From Email**: Your verified email
 
-### 4. Konfigurera secrets
+### 4. Configure Secrets
 
-Överblick använder **Fernet-krypterade secrets** med master key i macOS Keychain.
+Överblick uses **Fernet-encrypted secrets** with the master key stored in macOS Keychain.
 
 ```bash
-# Skapa secrets-fil för Anomal (temporär plaintext)
+# Create a secrets file for Anomal (temporary plaintext)
 cat > /tmp/anomal-secrets.yaml << 'EOF'
 smtp_server: smtp-relay.brevo.com
 smtp_port: 587
-smtp_login: your-login@smtp-brevo.com      # Ditt från Brevo
-smtp_password: xsmtpsib-YOUR_KEY_HERE...        # Ditt från Brevo
-smtp_from_email: you@example.com    # Din verifierade email
+smtp_login: your-login@smtp-brevo.com      # Yours from Brevo
+smtp_password: xsmtpsib-YOUR_KEY_HERE...        # Yours from Brevo
+smtp_from_email: you@example.com    # Your verified email
 EOF
 
-# Importera och kryptera
+# Import and encrypt
 python -m overblick secrets import anomal /tmp/anomal-secrets.yaml
 
-# Radera plaintext (viktigt!)
+# Delete the plaintext file (important!)
 rm /tmp/anomal-secrets.yaml
 ```
 
-**Vad händer?**
-- Secrets krypteras med Fernet och master key från macOS Keychain
-- Sparas i `config/secrets/anomal.yaml` (krypterad, säker att committa)
-- Dekrypteras runtime bara när Anomal behöver dem
+**What happens?**
+- Secrets are encrypted with Fernet using a master key from macOS Keychain
+- Stored in `config/secrets/anomal.yaml` (encrypted, safe to commit)
+- Decrypted at runtime only when Anomal needs them
 
-### 5. Konfigurera Anomal identity
+### 5. Configure the Anomal Identity
 
-Anomal har redan en `identity.yaml`, men låt oss förstå den:
+Anomal already has an `identity.yaml`, but let's understand it:
 
 ```yaml
 # overblick/personalities/anomal/identity.yaml
 
 name: anomal
 display_name: Anomal
-personality: anomal  # Refererar till personality.yaml för röst/karaktär
+personality: anomal  # References personality.yaml for voice/character
 
-# Vilka plugins ska laddas (connectors)
+# Which plugins to load (connectors)
 connectors:
   - ai_digest
   - gmail
 
-# AI Digest konfiguration
+# AI Digest configuration
 ai_digest:
-  recipient: "you@example.com"  # ← Ändra till din email!
-  hour: 7                              # Skicka kl 07:00
+  recipient: "you@example.com"  # ← Change to your email!
+  hour: 7                              # Send at 07:00
   timezone: "Europe/Stockholm"
-  top_n: 5                             # Välj top 5 artiklar
+  top_n: 5                             # Pick top 5 articles
   feeds:
     - "https://feeds.arstechnica.com/arstechnica/technology-lab"
     - "https://techcrunch.com/category/artificial-intelligence/feed/"
     - "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml"
 
-# Gmail plugin konfiguration
+# Gmail plugin configuration
 gmail:
-  draft_mode: false  # Skicka direkt (ej draft)
+  draft_mode: false  # Send directly (not draft)
   check_interval_seconds: 300
-  allowed_senders: []  # Ingen inbound processing
+  allowed_senders: []  # No inbound processing
 
 # LLM settings
 llm:
@@ -141,26 +141,26 @@ llm:
   provider: "ollama"
 ```
 
-**Ändra recipient till din email:**
+**Change the recipient to your email:**
 ```bash
-# Öppna i editor
+# Open in editor
 nano overblick/personalities/anomal/identity.yaml
 
-# Ändra rad 118:
-recipient: "din-email@example.com"
+# Change line 118:
+recipient: "your-email@example.com"
 ```
 
-### 6. Starta Supervisor (Chefen)
+### 6. Start the Supervisor (The Boss)
 
 ```bash
-# Starta supervisor med Anomal
+# Start supervisor with Anomal
 ./scripts/supervisor.sh start anomal
 
-# Kontrollera status
+# Check status
 ./scripts/supervisor.sh status
 ```
 
-Du borde se:
+You should see:
 ```
 ✅ Supervisor: RUNNING (PID 12345)
 
@@ -171,73 +171,73 @@ Recent activity (last 5 lines):
   2026-02-14 19:21:08,623 [INFO] Supervisor running: 1 agents active
 ```
 
-### 7. Starta Web Dashboard
+### 7. Start the Web Dashboard
 
 ```bash
-# I en ny terminal
+# In a new terminal
 source venv/bin/activate
 python -m overblick dashboard
 
-# Öppna i browser
+# Open in browser
 open http://localhost:8080
 ```
 
-Du borde se:
-- 🟢 **Supervisor: Running**
-- 🟢 **Anomal** med grön prick (running)
+You should see:
+- **Supervisor: Running** (green indicator)
+- **Anomal** with green status (running)
 - **ai_digest** + **gmail** badges
 - **Active Agents: 1**
 
-### 8. Testa manuellt (valfritt)
+### 8. Test Manually (Optional)
 
-Om du inte vill vänta till 07:00 kan du testa direkt:
+If you don't want to wait until 07:00, you can test right away:
 
 ```bash
-# Kör test-skriptet
+# Run the test script
 venv/bin/python3 tests/manual/test_ai_digest_full.py
 ```
 
-Detta kör hela AI Digest workflow:
-1. Hämtar RSS feeds
-2. Rankar artiklar med LLM
-3. Genererar digest i Anomals röst
-4. Skickar via email
+This runs the full AI Digest workflow:
+1. Fetches RSS feeds
+2. Ranks articles with the LLM
+3. Generates a digest in Anomal's voice
+4. Sends it via email
 
-**Förväntat resultat:** Efter ~30-60 sekunder får du ett email med AI-nyheter!
+**Expected result:** After ~30-60 seconds, you receive an email with AI news!
 
-## 🎓 Koncept och Arkitektur
+## Concepts and Architecture
 
-### Supervisor (Chefen)
+### Supervisor (The Boss)
 
-**Vad:** En boss agent som hanterar flera identity-agenter som subprocesses.
+**What:** A boss agent that manages multiple identity agents as subprocesses.
 
-**Ethos:** Asimovs Tre Robotlagar + GDPR + Datasäkerhet
-- Första lagen: Ingen skada på användare
-- Andra lagen: Lyda användare och supervisor (om ej konflikt)
-- Tredje lagen: Skydda agentens existens (om ej konflikt)
+**Ethos:** Asimov's Three Laws of Robotics + GDPR + Data Security
+- First Law: No harm to users
+- Second Law: Obey users and supervisor (unless it conflicts with the First Law)
+- Third Law: Protect the agent's existence (unless it conflicts with the First or Second Law)
 
-**Kommunikation:** IPC via Unix sockets med auth tokens
+**Communication:** IPC via Unix sockets with auth tokens
 
 **Features:**
-- Auto-restart vid krasch (max 3 gånger)
-- Permission management (kommande!)
-- Audit logging av alla agenter
+- Auto-restart on crash (max 3 times)
+- Permission management (coming soon!)
+- Audit logging of all agents
 
 ### Identities vs Personalities
 
-**Personality** = Karaktär (voice, traits, backstory, psychology)
-- Definierad i `overblick/personalities/<name>/personality.yaml`
+**Personality** = Character (voice, traits, backstory, psychology)
+- Defined in `overblick/personalities/<name>/personality.yaml`
 - Reusable building block
-- Fokus på "vem är denna agent?"
+- Focus on "who is this agent?"
 
-**Identity** = Operativ konfiguration (plugins, LLM, schedule, secrets)
-- Definierad i `overblick/personalities/<name>/identity.yaml`
-- Fokus på "vad gör denna agent?"
-- Refererar till en personality
+**Identity** = Operational configuration (plugins, LLM, schedule, secrets)
+- Defined in `overblick/personalities/<name>/identity.yaml`
+- Focus on "what does this agent do?"
+- References a personality
 
-**Exempel:**
-- **Anomal personality**: Intellektuell humanist, James May-röst, filosofisk
-- **Anomal identity**: Använder ai_digest + gmail, qwen3:8b, skickar kl 07:00
+**Example:**
+- **Anomal personality**: Intellectual humanist, James May voice, philosophical
+- **Anomal identity**: Uses ai_digest + gmail, qwen3:8b, sends at 07:00
 
 ### Psychological Frameworks (Optional)
 
@@ -267,70 +267,70 @@ psychological_framework:
 - Regular emotional depth = traits + backstory + voice
 - Only for characters with EXPLICIT named frameworks
 
-**Do NOT add "psychology" to capabilities** — that's deprecated. Psychology is CHARACTER (how they think), not FUNCTIONALITY (what system can do).
+**Do NOT add "psychology" to capabilities** — that's deprecated. Psychology is CHARACTER (how they think), not FUNCTIONALITY (what the system can do).
 
 ### Plugins (Connectors)
 
-**Vad:** Self-contained moduler som får access till framework via `PluginContext`.
+**What:** Self-contained modules that access the framework via `PluginContext`.
 
-**Typer:**
-- **Connectors**: I/O till externa system (AI Digest, Gmail, Telegram, Moltbook)
-- **Capabilities**: Återanvändbar logik (engagement scoring, LLM prompting)
+**Types:**
+- **Connectors**: I/O to external systems (AI Digest, Gmail, Telegram, Moltbook)
+- **Capabilities**: Reusable logic (engagement scoring, LLM prompting)
 
 **Security:**
-- Alla plugins använder `SafeLLMPipeline` (aldrig direkt `llm_client`)
-- External content wrapped med `wrap_external_content()` (boundary markers)
+- All plugins use `SafeLLMPipeline` (never direct `llm_client`)
+- External content wrapped with `wrap_external_content()` (boundary markers)
 - Secrets via `ctx.get_secret(key)` (never hardcoded)
-- Audit logging av alla actions
+- Audit logging of all actions
 
-**Livscykel:**
+**Lifecycle:**
 ```python
-async def setup(self):    # Initialize (läs config, secrets)
-async def tick(self):     # Periodisk arbete (schedulerad)
+async def setup(self):    # Initialize (read config, secrets)
+async def tick(self):     # Periodic work (scheduled)
 async def teardown(self): # Cleanup
 ```
 
 ### LLM Pipeline (SafeLLMPipeline)
 
-**6-stegs fail-closed security chain:**
+**6-step fail-closed security chain:**
 
 ```
 External Input
     ↓
 1. Sanitization (wrap_external_content)
     ↓
-2. Preflight Check (är prompten säker?)
+2. Preflight Check (is the prompt safe?)
     ↓
-3. Rate Limiting (inte för många requests)
+3. Rate Limiting (not too many requests)
     ↓
 4. LLM Call (Ollama / Gateway)
     ↓
-5. Output Safety (är svaret säkert?)
+5. Output Safety (is the response safe?)
     ↓
-6. Audit Log (logga för transparency)
+6. Audit Log (log for transparency)
     ↓
 Result (or blocked)
 ```
 
-**Reasoning:** Qwen3 stödjer `think` parameter för djup analys
-- ON (default): Bättre kvalitet för digest, analys, content creation
-- OFF: Snabbare för chat, reactions
+**Reasoning:** Qwen3 supports the `think` parameter for deep analysis
+- ON (default): Better quality for digest, analysis, content creation
+- OFF: Faster for chat, reactions
 
-## 🔧 Vanliga Kommandon
+## Common Commands
 
 ```bash
 # Supervisor management
-./scripts/supervisor.sh start anomal          # Starta med en agent
-./scripts/supervisor.sh start anomal cherry   # Starta med flera
-./scripts/supervisor.sh status                # Visa status
-./scripts/supervisor.sh logs -f               # Följ loggar
-./scripts/supervisor.sh restart anomal        # Starta om
-./scripts/supervisor.sh stop                  # Stoppa allt
+./scripts/supervisor.sh start anomal          # Start with one agent
+./scripts/supervisor.sh start anomal cherry   # Start with multiple agents
+./scripts/supervisor.sh status                # Show status
+./scripts/supervisor.sh logs -f               # Follow logs
+./scripts/supervisor.sh restart anomal        # Restart agent
+./scripts/supervisor.sh stop                  # Stop everything
 
-# Kör agent direkt (utan supervisor)
+# Run agent directly (without supervisor)
 python -m overblick run anomal
 
-# Lista personligheter
+# List personalities
 python -m overblick list
 
 # Dashboard
@@ -339,13 +339,13 @@ python -m overblick dashboard --port 8080
 # Secrets management
 python -m overblick secrets import <identity> <file.yaml>
 
-# Tester
-pytest tests/ -v -m "not llm"           # Snabba tester (utan LLM)
+# Tests
+pytest tests/ -v -m "not llm"           # Fast tests (without LLM)
 pytest tests/ -v -m llm                 # LLM personality tests
-pytest tests/plugins/ai_digest/ -v      # AI Digest specifika
+pytest tests/plugins/ai_digest/ -v      # AI Digest specific
 ```
 
-## 📊 Loggfiler
+## Log Files
 
 ```bash
 # Supervisor
@@ -357,11 +357,11 @@ tail -f logs/anomal/anomal.log
 # Dashboard
 tail -f logs/dashboard.log
 
-# Alla loggar för Anomal
+# All logs for Anomal
 ls logs/anomal/
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### "Supervisor already running"
 ```bash
@@ -369,22 +369,22 @@ ls logs/anomal/
 ./scripts/supervisor.sh start anomal
 ```
 
-### "No password configured" på dashboard
-**Normal!** Dashboard har auto-login när ingen password är satt. Öppna bara http://localhost:8080 igen.
+### "No password configured" on dashboard
+**Normal!** The dashboard has auto-login when no password is set. Just open http://localhost:8080 again.
 
 ### "Agent crashed (exit=2)"
-Kolla agent-loggen:
+Check the agent log:
 ```bash
 tail -50 logs/anomal/anomal.log
 ```
 
-Vanliga orsaker:
-- LLM (Ollama) körs inte: `ollama serve`
-- Saknade secrets: `python -m overblick secrets import anomal <file>`
-- Python venv: Använd `./scripts/supervisor.sh` som använder venv automatiskt
+Common causes:
+- LLM (Ollama) is not running: `ollama serve`
+- Missing secrets: `python -m overblick secrets import anomal <file>`
+- Python venv: Use `./scripts/supervisor.sh` which uses venv automatically
 
 ### "IPC auth rejected"
-Supervisorn genererar ett auth token vid start. Dashboard läser det automatiskt. Om problemet kvarstår:
+The supervisor generates an auth token at startup. The dashboard reads it automatically. If the problem persists:
 ```bash
 ./scripts/supervisor.sh restart anomal
 pkill -f "overblick dashboard"
@@ -392,25 +392,25 @@ python -m overblick dashboard
 ```
 
 ### "LLM returned empty response"
-LLM kan vara upptagen eller ha problem med prompten. Kolla Ollama-loggen:
+The LLM may be busy or having trouble with the prompt. Check the Ollama log:
 ```bash
 tail -f ~/.ollama/logs/server.log
 ```
 
-Försök:
-1. Starta om Ollama: `pkill ollama && ollama serve`
-2. Testa manuellt: `ollama run qwen3:8b "hello"`
-3. Kontrollera reasoning: AI Digest använder reasoning ON (långsammare men bättre)
+Try:
+1. Restart Ollama: `pkill ollama && ollama serve`
+2. Test manually: `ollama run qwen3:8b "hello"`
+3. Check reasoning: AI Digest uses reasoning ON (slower but better)
 
-### Email skickas inte
-Kolla Gmail plugin-loggen:
+### Email not sending
+Check the Gmail plugin log:
 ```bash
 grep -i "smtp\|email" logs/anomal/anomal.log
 ```
 
-Verifiera secrets:
+Verify secrets:
 ```bash
-# Secrets finns och är dekrypterbara
+# Secrets exist and are decryptable
 python -c "
 from overblick.core.security.secrets_manager import SecretsManager
 from pathlib import Path
@@ -419,33 +419,33 @@ print('SMTP server:', sm.get('anomal', 'smtp_server'))
 "
 ```
 
-## 🎯 Nästa steg
+## Next Steps
 
-### Lägg till fler agenter
+### Add More Agents
 
 ```bash
-# Starta Cherry också (moltbook plugin)
+# Start Cherry as well (moltbook plugin)
 ./scripts/supervisor.sh stop
 ./scripts/supervisor.sh start anomal cherry
 ```
 
-### Skapa din egen personality
+### Create Your Own Personality
 
-1. Kopiera en befintlig: `cp -r overblick/personalities/anomal overblick/personalities/myagent`
-2. Redigera `personality.yaml` (voice, traits, backstory)
-3. Redigera `identity.yaml` (connectors, schedule)
-4. Lägg till secrets: `python -m overblick secrets import myagent secrets.yaml`
-5. Starta: `./scripts/supervisor.sh start myagent`
+1. Copy an existing one: `cp -r overblick/personalities/anomal overblick/personalities/myagent`
+2. Edit `personality.yaml` (voice, traits, backstory)
+3. Edit `identity.yaml` (connectors, schedule)
+4. Add secrets: `python -m overblick secrets import myagent secrets.yaml`
+5. Start: `./scripts/supervisor.sh start myagent`
 
-### Utforska capabilities
+### Explore Capabilities
 
-Capabilities är återanvändbar logik:
+Capabilities are reusable logic:
 - **psychology**: Dream system, therapy sessions, emotional state
 - **knowledge**: Safe learning, knowledge loading
 - **social**: Opening phrase selector
 - **engagement**: Content analyzer, response composer
 
-Aktivera i `identity.yaml`:
+Activate in `identity.yaml`:
 ```yaml
 capabilities:
   - psychology
@@ -454,24 +454,24 @@ capabilities:
   - engagement
 ```
 
-### Bygg ett nytt plugin
+### Build a New Plugin
 
-Se `/overblick-skill-compiler` skill eller `docs/PLUGIN_DEVELOPMENT.md` för guide.
+See the `/overblick-skill-compiler` skill or `docs/PLUGIN_DEVELOPMENT.md` for a guide.
 
-## 📚 Mer dokumentation
+## More Documentation
 
-- **CLAUDE.md** - Komplett arkitektur och principles
-- **ARCHITECTURE.md** - Tekniska detaljer
-- **SECURITY.md** - Säkerhetsmodell
-- **README.md** - Projektöversikt
+- **CLAUDE.md** - Complete architecture and principles
+- **ARCHITECTURE.md** - Technical details
+- **SECURITY.md** - Security model
+- **README.md** - Project overview
 
-## 🤝 Community
+## Community
 
 - **Issues**: https://github.com/jensabrahamsson/overblick/issues
 - **Discussions**: https://github.com/jensabrahamsson/overblick/discussions
 
 ---
 
-**Grattis!** 🎉 Du har nu ett fungerande Överblick-system med supervisor, agent, och plugins. Systemet vaknar varje morgon kl 07:00, hämtar AI-nyheter, och skickar ett personligt digest i Anomals röst.
+**Congratulations!** You now have a working Överblick system with supervisor, agent, and plugins. The system wakes up every morning at 07:00, fetches AI news, and sends a personalized digest in Anomal's voice.
 
-Nästa gång du öppnar dashboarder ser du Anomal arbeta, audit trail växa, och supervisor övervaka allt enligt Asimovs lagar. Välkommen till etisk AI i praktiken! 🤖
+Next time you open the dashboard, you will see Anomal working, the audit trail growing, and the supervisor monitoring everything according to Asimov's Laws. Welcome to ethical AI in practice!
