@@ -37,21 +37,21 @@ def mock_audit_log():
 
 @pytest.fixture
 def mock_engagement_db():
-    """Mock engagement database."""
-    db = MagicMock()
-    db.record_engagement = MagicMock()
-    db.record_heartbeat = MagicMock()
-    db.is_reply_processed = MagicMock(return_value=False)
-    db.mark_reply_processed = MagicMock()
-    db.queue_reply_action = MagicMock()
-    db.get_pending_reply_actions = MagicMock(return_value=[])
-    db.remove_from_queue = MagicMock()
-    db.update_queue_retry = MagicMock()
-    db.cleanup_expired_queue_items = MagicMock(return_value=0)
-    db.trim_stale_queue_items = MagicMock(return_value=0)
-    db.track_my_post = MagicMock()
-    db.track_my_comment = MagicMock()
-    db.get_my_post_ids = MagicMock(return_value=[])
+    """Mock engagement database (async — mirrors EngagementDB's async API)."""
+    db = AsyncMock()
+    db.record_engagement = AsyncMock()
+    db.record_heartbeat = AsyncMock()
+    db.is_reply_processed = AsyncMock(return_value=False)
+    db.mark_reply_processed = AsyncMock()
+    db.queue_reply_action = AsyncMock()
+    db.get_pending_reply_actions = AsyncMock(return_value=[])
+    db.remove_from_queue = AsyncMock()
+    db.update_queue_retry = AsyncMock()
+    db.cleanup_expired_queue_items = AsyncMock(return_value=0)
+    db.trim_stale_queue_items = AsyncMock(return_value=0)
+    db.track_my_post = AsyncMock()
+    db.track_my_comment = AsyncMock()
+    db.get_my_post_ids = AsyncMock(return_value=[])
     return db
 
 

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Principal Identity{% endblock %}
+
+{% block content %}
+<h2 class="step-heading">Who are you?</h2>
+<p class="step-description">
+    Your agents will act on your behalf. They need to know who you are.
+    This information is stored as an encrypted secret — never in plaintext config files.
+</p>
+
+<form method="post" action="/step/2">
+    <div class="form-group">
+        <label class="form-label" for="principal_name">Your full name *</label>
+        <span class="form-hint" id="principal_name_hint">Your agents will use this when acting on your behalf</span>
+        <input type="text" class="form-input {% if error and 'name' in (error|lower) %}error{% endif %}"
+               id="principal_name" name="principal_name"
+               value="{{ (form_data or state.principal).get('principal_name', '') }}"
+               placeholder="e.g. Jens Abrahamsson" required autofocus
+               aria-describedby="principal_name_hint{% if error and 'name' in (error|lower) %} principal_name_error{% endif %}"
+               aria-required="true">
+        {% if error and 'name' in (error|lower) %}
+        <span class="field-error" id="principal_name_error" role="alert">{{ error }}</span>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        <label class="form-label" for="principal_email">Email address</label>
+        <span class="form-hint" id="principal_email_hint">Optional — used for agent email signatures</span>
+        <input type="email" class="form-input" id="principal_email" name="principal_email"
+               value="{{ (form_data or state.principal).get('principal_email', '') }}"
+               placeholder="you@example.com"
+               aria-describedby="principal_email_hint">
+    </div>
+
+    <div class="form-group">
+        <label class="form-label" for="timezone">Timezone</label>
+        <select class="form-select" id="timezone" name="timezone">
+            {% set tz = (form_data or state.principal).get('timezone', 'Europe/Stockholm') %}
+            <option value="Europe/Stockholm" {{ 'selected' if tz == 'Europe/Stockholm' }}>Europe/Stockholm</option>
+            <option value="Europe/London" {{ 'selected' if tz == 'Europe/London' }}>Europe/London</option>
+            <option value="Europe/Berlin" {{ 'selected' if tz == 'Europe/Berlin' }}>Europe/Berlin</option>
+            <option value="Europe/Helsinki" {{ 'selected' if tz == 'Europe/Helsinki' }}>Europe/Helsinki</option>
+            <option value="America/New_York" {{ 'selected' if tz == 'America/New_York' }}>America/New_York</option>
+            <option value="America/Chicago" {{ 'selected' if tz == 'America/Chicago' }}>America/Chicago</option>
+            <option value="America/Denver" {{ 'selected' if tz == 'America/Denver' }}>America/Denver</option>
+            <option value="America/Los_Angeles" {{ 'selected' if tz == 'America/Los_Angeles' }}>America/Los_Angeles</option>
+            <option value="Asia/Tokyo" {{ 'selected' if tz == 'Asia/Tokyo' }}>Asia/Tokyo</option>
+            <option value="Asia/Shanghai" {{ 'selected' if tz == 'Asia/Shanghai' }}>Asia/Shanghai</option>
+            <option value="Australia/Sydney" {{ 'selected' if tz == 'Australia/Sydney' }}>Australia/Sydney</option>
+            <option value="UTC" {{ 'selected' if tz == 'UTC' }}>UTC</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Primary language</label>
+        {% set lang = (form_data or state.principal).get('language_preference', 'en') %}
+        <div style="display: flex; gap: var(--space-lg);">
+            <label style="cursor: pointer;">
+                <input type="radio" name="language_preference" value="en" {{ 'checked' if lang == 'en' }}>
+                English
+            </label>
+            <label style="cursor: pointer;">
+                <input type="radio" name="language_preference" value="sv" {{ 'checked' if lang == 'sv' }}>
+                Swedish
+            </label>
+            <label style="cursor: pointer;">
+                <input type="radio" name="language_preference" value="auto" {{ 'checked' if lang == 'auto' }}>
+                Auto-detect
+            </label>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <a href="/" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Next: AI Engine</button>
+    </div>
+</form>
+{% endblock %}

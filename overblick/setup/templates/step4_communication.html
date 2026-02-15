@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Communication{% endblock %}
+
+{% block content %}
+<h2 class="step-heading">Connect Your Channels</h2>
+<p class="step-description">
+    Set up Gmail and Telegram for your agents. Both are optional — you can always configure them later.
+    <a href="/step/5" class="skip-link">Skip this step &rarr;</a>
+</p>
+
+<form method="post" action="/step/4">
+    {% set comm = state.communication or {} %}
+
+    <!-- Gmail Section -->
+    <div class="toggle-section">
+        <div class="toggle-header" onclick="toggleSection('gmail')">
+            <span class="toggle-header-title">Gmail Integration</span>
+            <label class="toggle-switch" onclick="event.stopPropagation()">
+                <input type="checkbox" name="gmail_enabled" id="gmail-toggle"
+                       {{ 'checked' if comm.get('gmail_enabled') }}
+                       onchange="toggleSection('gmail', this.checked)">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="toggle-body {{ 'open' if comm.get('gmail_enabled') }}" id="gmail-body">
+            <div class="form-group">
+                <label class="form-label" for="gmail_address">Gmail Address</label>
+                <input type="email" class="form-input" id="gmail_address" name="gmail_address"
+                       value="{{ comm.get('gmail_address', '') }}" placeholder="you@gmail.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="gmail_app_password">App Password</label>
+                <span class="form-hint" id="gmail_app_hint">
+                    Generate at
+                    <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Google App Passwords</a>
+                    (requires 2FA enabled)
+                </span>
+                <input type="password" class="form-input" id="gmail_app_password" name="gmail_app_password"
+                       value="{{ comm.get('gmail_app_password', '') }}" placeholder="xxxx xxxx xxxx xxxx"
+                       aria-describedby="gmail_app_hint">
+            </div>
+            <div class="form-group">
+                <button type="button" class="btn btn-secondary btn-test"
+                        hx-post="/test/gmail"
+                        hx-include="#gmail_address, #gmail_app_password"
+                        hx-target="#gmail-status">
+                    Test Connection
+                </button>
+                <span id="gmail-status" class="test-result"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Telegram Section -->
+    <div class="toggle-section">
+        <div class="toggle-header" onclick="toggleSection('telegram')">
+            <span class="toggle-header-title">Telegram Notifications</span>
+            <label class="toggle-switch" onclick="event.stopPropagation()">
+                <input type="checkbox" name="telegram_enabled" id="telegram-toggle"
+                       {{ 'checked' if comm.get('telegram_enabled') }}
+                       onchange="toggleSection('telegram', this.checked)">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="toggle-body {{ 'open' if comm.get('telegram_enabled') }}" id="telegram-body">
+            <div class="form-group">
+                <label class="form-label" for="telegram_bot_token">Bot Token</label>
+                <span class="form-hint" id="tg_token_hint">
+                    Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>
+                    on Telegram
+                </span>
+                <input type="password" class="form-input" id="telegram_bot_token" name="telegram_bot_token"
+                       value="{{ comm.get('telegram_bot_token', '') }}" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                       aria-describedby="tg_token_hint">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="telegram_chat_id">Chat ID</label>
+                <span class="form-hint" id="tg_chat_hint">
+                    Send a message to your bot, then visit
+                    https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates to find your chat ID
+                </span>
+                <input type="text" class="form-input" id="telegram_chat_id" name="telegram_chat_id"
+                       value="{{ comm.get('telegram_chat_id', '') }}" placeholder="e.g. 123456789"
+                       aria-describedby="tg_chat_hint">
+            </div>
+            <div class="form-group">
+                <button type="button" class="btn btn-secondary btn-test"
+                        hx-post="/test/telegram"
+                        hx-include="#telegram_bot_token, #telegram_chat_id"
+                        hx-target="#telegram-status">
+                    Test Connection
+                </button>
+                <span id="telegram-status" class="test-result"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <a href="/step/3" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Next: Characters</button>
+    </div>
+</form>
+
+<script>
+function toggleSection(name, forceState) {
+    var body = document.getElementById(name + '-body');
+    var toggle = document.getElementById(name + '-toggle');
+    if (!body) return;
+
+    var shouldOpen = forceState !== undefined ? forceState : !body.classList.contains('open');
+
+    if (shouldOpen) {
+        body.classList.add('open');
+        if (toggle) toggle.checked = true;
+    } else {
+        body.classList.remove('open');
+        if (toggle) toggle.checked = false;
+    }
+}
+</script>
+{% endblock %}

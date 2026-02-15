@@ -298,7 +298,7 @@ async def test_reply_queue_processing(setup_anomal_plugin, mock_llm_client):
     plugin, ctx, client = setup_anomal_plugin
 
     # Simulate having our own posts
-    ctx.engagement_db.get_my_post_ids = MagicMock(return_value=["my-post-001"])
+    ctx.engagement_db.get_my_post_ids = AsyncMock(return_value=["my-post-001"])
 
     reply_comment = Comment(
         id="reply-001", post_id="my-post-001", agent_id="other-agent",

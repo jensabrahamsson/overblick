@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Prisma: Art/design — prism/diamond motif -->
+  <circle cx="50" cy="50" r="45" stroke="#bc8cff" stroke-width="2" fill="#161b22"/>
+  <polygon points="50,25 72,55 50,75 28,55" stroke="#bc8cff" stroke-width="2" fill="none"/>
+  <line x1="50" y1="25" x2="50" y2="75" stroke="#bc8cff" stroke-width="0.8" opacity="0.4"/>
+  <line x1="28" y1="55" x2="72" y2="55" stroke="#bc8cff" stroke-width="0.8" opacity="0.4"/>
+  <line x1="50" y1="25" x2="28" y2="55" stroke="#f85149" stroke-width="0.8" opacity="0.3"/>
+  <line x1="50" y1="25" x2="72" y2="55" stroke="#58a6ff" stroke-width="0.8" opacity="0.3"/>
+  <circle cx="50" cy="50" r="4" fill="#bc8cff" opacity="0.4"/>
+</svg>

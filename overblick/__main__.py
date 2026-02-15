@@ -6,6 +6,7 @@ Usage:
     python -m overblick run cherry       # Run as Cherry
     python -m overblick list             # List available identities
     python -m overblick dashboard        # Start web dashboard
+    python -m overblick setup            # First-time onboarding wizard
     python -m overblick secrets import anomal config/plaintext.yaml
 """
 
@@ -104,6 +105,12 @@ def cmd_secrets_import(args: argparse.Namespace) -> None:
     print(f"Imported {len(data)} secrets for '{args.identity}'")
 
 
+def cmd_setup(args: argparse.Namespace) -> None:
+    """Launch the first-time onboarding setup wizard."""
+    from overblick.setup.__main__ import main as setup_main
+    setup_main(sandbox=args.sandbox, headless=args.headless)
+
+
 def cmd_supervisor(args: argparse.Namespace) -> None:
     """Start the supervisor (boss agent) managing multiple identities."""
     from overblick.supervisor.supervisor import Supervisor
@@ -167,6 +174,12 @@ def main() -> None:
     import_parser.add_argument("identity", help="Identity name")
     import_parser.add_argument("file", help="Path to plaintext YAML file")
     import_parser.set_defaults(func=cmd_secrets_import)
+
+    # setup
+    setup_parser = subparsers.add_parser("setup", help="First-time onboarding wizard")
+    setup_parser.add_argument("--sandbox", action="store_true", help="Sandbox mode (temp dir)")
+    setup_parser.add_argument("--headless", action="store_true", help="Skip browser open")
+    setup_parser.set_defaults(func=cmd_setup)
 
     # supervisor
     sup_parser = subparsers.add_parser("supervisor", help="Start supervisor (boss agent)")

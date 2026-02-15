@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Anomal: Cerebral humanist — brain/neural network motif -->
+  <circle cx="50" cy="50" r="45" stroke="#58a6ff" stroke-width="2" fill="#161b22"/>
+  <circle cx="50" cy="38" r="12" stroke="#58a6ff" stroke-width="1.5" fill="none"/>
+  <circle cx="35" cy="55" r="8" stroke="#8b949e" stroke-width="1.5" fill="none"/>
+  <circle cx="65" cy="55" r="8" stroke="#8b949e" stroke-width="1.5" fill="none"/>
+  <line x1="50" y1="50" x2="35" y2="55" stroke="#58a6ff" stroke-width="1" opacity="0.6"/>
+  <line x1="50" y1="50" x2="65" y2="55" stroke="#58a6ff" stroke-width="1" opacity="0.6"/>
+  <circle cx="50" cy="68" r="5" stroke="#bc8cff" stroke-width="1.5" fill="none"/>
+  <line x1="35" y1="55" x2="50" y2="68" stroke="#8b949e" stroke-width="1" opacity="0.4"/>
+  <line x1="65" y1="55" x2="50" y2="68" stroke="#8b949e" stroke-width="1" opacity="0.4"/>
+  <circle cx="50" cy="38" r="3" fill="#58a6ff" opacity="0.8"/>
+</svg>

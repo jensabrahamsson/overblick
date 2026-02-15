@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Cherry: Relationship expert — heart motif -->
+  <circle cx="50" cy="50" r="45" stroke="#f85149" stroke-width="2" fill="#161b22"/>
+  <path d="M50 70 C50 70, 25 50, 25 38 C25 30, 33 25, 40 28 C44 30, 48 34, 50 38 C52 34, 56 30, 60 28 C67 25, 75 30, 75 38 C75 50, 50 70, 50 70Z"
+        stroke="#f85149" stroke-width="2" fill="none"/>
+  <circle cx="38" cy="42" r="2" fill="#f85149" opacity="0.6"/>
+  <circle cx="62" cy="42" r="2" fill="#f85149" opacity="0.6"/>
+  <path d="M42 52 Q50 58 58 52" stroke="#bc8cff" stroke-width="1.5" fill="none" opacity="0.5"/>
+</svg>

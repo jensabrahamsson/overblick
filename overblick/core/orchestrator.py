@@ -22,6 +22,9 @@ from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.plugin_registry import PluginRegistry
 from overblick.core.quiet_hours import QuietHoursChecker
 from overblick.core.scheduler import Scheduler
+from overblick.core.database import DatabaseConfig
+from overblick.core.database.sqlite_backend import SQLiteBackend
+from overblick.core.db.engagement_db import EngagementDB
 from overblick.core.security.audit_log import AuditLog
 from overblick.core.security.output_safety import OutputSafety
 from overblick.core.security.preflight import PreflightChecker
@@ -78,6 +81,8 @@ class Orchestrator:
         self._plugins: list[PluginBase] = []
         self._capabilities: dict[str, CapabilityBase] = {}
         self._ipc_client: Optional[object] = None
+        self._engagement_db_backend: Optional[SQLiteBackend] = None
+        self._engagement_db: Optional[EngagementDB] = None
 
     @property
     def state(self) -> OrchestratorState:
@@ -108,6 +113,16 @@ class Orchestrator:
         self._secrets = SecretsManager(secrets_dir)
         self._audit_log = AuditLog(data_dir / "audit.db", self._identity_name)
         self._audit_log.log("orchestrator_setup", category="lifecycle")
+
+        # 3b. Initialize engagement database
+        eng_db_config = DatabaseConfig(
+            sqlite_path=str(data_dir / "engagement.db"),
+        )
+        self._engagement_db_backend = SQLiteBackend(eng_db_config, identity=self._identity_name)
+        await self._engagement_db_backend.connect()
+        self._engagement_db = EngagementDB(self._engagement_db_backend, identity=self._identity_name)
+        await self._engagement_db.setup()
+        logger.info("EngagementDB initialized for %s", self._identity_name)
 
         # 4. Initialize quiet hours
         self._quiet_hours = QuietHoursChecker(self._identity.quiet_hours)
@@ -160,6 +175,7 @@ class Orchestrator:
                 permissions=permissions,
                 capabilities=self._capabilities,
                 ipc_client=self._ipc_client,
+                engagement_db=self._engagement_db,
             )
             ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
 
@@ -261,6 +277,13 @@ class Orchestrator:
                 await self._llm_client.close()
             except Exception as e:
                 logger.error(f"Error closing LLM client: {e}")
+
+        # Close engagement DB backend
+        if self._engagement_db_backend:
+            try:
+                await self._engagement_db_backend.close()
+            except Exception as e:
+                logger.error("Error closing engagement DB backend: %s", e)
 
         # Final audit log
         if self._audit_log:

@@ -41,16 +41,16 @@ class ReplyQueueManager:
             Summary of processing results.
         """
         # Clean up expired items first
-        expired = self._db.cleanup_expired_queue_items()
+        expired = await self._db.cleanup_expired_queue_items()
         if expired:
             logger.info("Cleaned up %d expired queue items", expired)
 
-        stale = self._db.trim_stale_queue_items(max_age_hours=12)
+        stale = await self._db.trim_stale_queue_items(max_age_hours=12)
         if stale:
             logger.info("Trimmed %d stale queue items", stale)
 
         # Get pending actions
-        pending = self._db.get_pending_reply_actions(limit=self._max_per_cycle)
+        pending = await self._db.get_pending_reply_actions(limit=self._max_per_cycle)
         if not pending:
             return {"processed": 0, "success": 0, "failed": 0, "expired": expired}
 
@@ -66,8 +66,8 @@ class ReplyQueueManager:
 
             if retry_count >= self._max_retries:
                 logger.warning("Queue item %d exceeded max retries, removing", queue_id)
-                self._db.mark_reply_processed(comment_id, post_id, f"{action}_max_retries", score)
-                self._db.remove_from_queue(queue_id)
+                await self._db.mark_reply_processed(comment_id, post_id, f"{action}_max_retries", score)
+                await self._db.remove_from_queue(queue_id)
                 continue
 
             results["processed"] += 1
@@ -75,16 +75,16 @@ class ReplyQueueManager:
             try:
                 success = await reply_callback(post_id, comment_id, action, score)
                 if success:
-                    self._db.mark_reply_processed(comment_id, post_id, action, score)
-                    self._db.remove_from_queue(queue_id)
+                    await self._db.mark_reply_processed(comment_id, post_id, action, score)
+                    await self._db.remove_from_queue(queue_id)
                     results["success"] += 1
                     logger.info("Reply queue: processed %s on post %s", comment_id, post_id)
                 else:
-                    self._db.update_queue_retry(queue_id, "Reply callback returned False")
+                    await self._db.update_queue_retry(queue_id, "Reply callback returned False")
                     results["failed"] += 1
             except Exception as e:
                 logger.warning("Reply queue error for %s: %s", comment_id, e)
-                self._db.update_queue_retry(queue_id, str(e)[:200])
+                await self._db.update_queue_retry(queue_id, str(e)[:200])
                 results["failed"] += 1
 
         logger.info(

@@ -341,7 +341,6 @@ class TestPluginRegistryAvailablePlugins:
         expected_core = [
             "ai_digest",
             "discord",
-            "gmail",
             "matrix",
             "moltbook",
             "rss",

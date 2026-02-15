@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Setup Complete{% endblock %}
+
+{% block content %}
+<div class="success-container" role="status" aria-label="Setup completed successfully">
+    <div class="checkmark-circle" aria-hidden="true">
+        <svg class="checkmark-svg" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle class="checkmark-ring" cx="26" cy="26" r="24" stroke="var(--green)" stroke-width="3" />
+            <path class="checkmark-check" d="M14 27l8 8 16-16" stroke="var(--green)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+    </div>
+
+    <h2 class="success-title">Överblick is ready!</h2>
+    <p class="success-subtitle">
+        Your agent framework has been configured successfully.
+        {{ state.selected_characters | length }} agent{{ 's' if state.selected_characters | length != 1 }} ready to deploy.
+    </p>
+
+    <!-- Selected agents showcase -->
+    {% if state.selected_characters %}
+    <div class="success-agents" aria-label="Selected agents">
+        {% for name in state.selected_characters %}
+        <div class="success-agent-badge">
+            <img src="/static/img/personalities/{{ name }}.svg" alt="" aria-hidden="true"
+                 class="success-agent-icon"
+                 onerror="this.style.display='none'">
+            <span>{{ name | capitalize }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Created files -->
+    {% if state.created_files %}
+    <details class="created-files">
+        <summary class="created-files-title">Files created ({{ state.created_files | length }})</summary>
+        {% for f in state.created_files %}
+        <div class="created-file">{{ f }}</div>
+        {% endfor %}
+    </details>
+    {% endif %}
+
+    <!-- Next steps -->
+    <h3 style="margin-bottom: var(--space-lg);">Next Steps</h3>
+
+    {% if state.selected_characters %}
+    <div class="command-block">
+        <div class="command-label">Start an agent</div>
+        <div class="command-text">python -m overblick run {{ state.selected_characters[0] }}</div>
+    </div>
+    {% endif %}
+
+    <div class="command-block">
+        <div class="command-label">Open the dashboard</div>
+        <div class="command-text">python -m overblick dashboard</div>
+    </div>
+
+    {% if state.selected_characters | length > 1 %}
+    <div class="command-block">
+        <div class="command-label">Start all agents with the supervisor</div>
+        <div class="command-text">python -m overblick supervisor {{ state.selected_characters | join(' ') }}</div>
+    </div>
+    {% endif %}
+
+    <div style="margin-top: var(--space-2xl);">
+        <a href="http://127.0.0.1:8080" class="btn btn-primary btn-large" target="_blank" rel="noopener">
+            Open Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Confetti animation -->
+<div class="confetti" id="confetti" aria-hidden="true"></div>
+
+<script>
+// Generate confetti celebration
+(function() {
+    var container = document.getElementById('confetti');
+    if (!container) return;
+
+    // Respect reduced motion
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    var colors = ['#58a6ff', '#3fb950', '#bc8cff', '#d29922', '#ff8c42', '#f85149'];
+
+    for (var i = 0; i < 50; i++) {
+        var piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = (Math.random() * 100) + '%';
+        piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.animationDelay = (Math.random() * 2) + 's';
+        piece.style.animationDuration = (2 + Math.random() * 3) + 's';
+        piece.style.width = (4 + Math.random() * 8) + 'px';
+        piece.style.height = (4 + Math.random() * 8) + 'px';
+        piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        piece.style.transform = 'rotate(' + Math.round(Math.random() * 360) + 'deg)';
+        container.appendChild(piece);
+    }
+
+    // Remove confetti after animation
+    setTimeout(function() {
+        container.style.display = 'none';
+    }, 6000);
+})();
+</script>
+{% endblock %}

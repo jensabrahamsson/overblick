@@ -23,7 +23,6 @@ from overblick.core.event_bus import EventBus
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage, SafeLLMPipeline
 from overblick.core.permissions import PermissionChecker, PermissionSet
 from overblick.core.security.input_sanitizer import sanitize, wrap_external_content
-from overblick.plugins.gmail.plugin import RecipientRateLimit
 from overblick.plugins.telegram.plugin import ConversationContext, UserRateLimit
 from overblick.supervisor.audit import AgentAuditor, AuditSeverity, AuditThresholds
 from overblick.supervisor.routing import MessageRouter, RouteStatus
@@ -460,15 +459,6 @@ class TestRateLimiterChaos:
         # Add timestamps from the far future (clock skew)
         rl.message_timestamps = [time.time() + 999999 for _ in range(25)]
         # These are "in the future" so they won't be pruned as old
-        assert not rl.is_allowed()
-
-    def test_gmail_rate_limit_boundary(self):
-        """Exact boundary condition for rate limits."""
-        rl = RecipientRateLimit(
-            email="test@test.com", max_per_hour=5, max_per_day=5,
-        )
-        for _ in range(5):
-            rl.record()
         assert not rl.is_allowed()
 
     def test_conversation_context_overflow(self):

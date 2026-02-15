@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Character Select{% endblock %}
+
+{% block content %}
+<h2 class="step-heading">Choose Your Agents</h2>
+<p class="step-description">
+    Select which personalities to activate. Each agent has a unique voice, expertise,
+    and purpose. Use arrow keys to browse, Space/Enter to select.
+</p>
+
+{% if error %}
+<div class="flash-error" role="alert">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/step/5">
+    <!-- Carousel -->
+    <div class="carousel-container" aria-roledescription="Character selection carousel">
+        <button type="button" class="carousel-nav carousel-nav-prev" id="carousel-prev" aria-label="Previous character">&#9664;</button>
+        <div class="carousel-track" id="carousel-track">
+            <!-- Populated by character-select.js with ARIA attributes -->
+        </div>
+        <button type="button" class="carousel-nav carousel-nav-next" id="carousel-next" aria-label="Next character">&#9654;</button>
+        <!-- Dot indicator rendered by character-select.js -->
+    </div>
+
+    <!-- Selection counter -->
+    <div class="selection-counter" id="selection-counter">
+        <strong>0</strong> characters selected
+    </div>
+
+    <!-- Hidden inputs for form submission (populated by JS) -->
+    <div id="selected-inputs"></div>
+
+    <div class="btn-group">
+        <a href="/step/4" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Next: Configure</button>
+    </div>
+</form>
+
+<!-- Character data for JS -->
+<script type="application/json" id="character-data">{{ characters | tojson }}</script>
+<script type="application/json" id="preselected-data">{{ state.selected_characters | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/character-select.js"></script>
+{% endblock %}

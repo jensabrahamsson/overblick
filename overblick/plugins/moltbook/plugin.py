@@ -200,7 +200,7 @@ class MoltbookPlugin(PluginBase):
                 elif decision.action == "upvote":
                     try:
                         await self._client.upvote_post(post.id)
-                        self.ctx.engagement_db.record_engagement(post.id, "upvote", decision.score)
+                        await self.ctx.engagement_db.record_engagement(post.id, "upvote", decision.score)
                     except MoltbookError as e:
                         logger.warning("Upvote failed: %s", e)
 
@@ -255,9 +255,9 @@ class MoltbookPlugin(PluginBase):
 
         try:
             comment = await self._client.create_comment(post.id, response)
-            self.ctx.engagement_db.record_engagement(post.id, "comment", decision.score)
+            await self.ctx.engagement_db.record_engagement(post.id, "comment", decision.score)
             if comment.id:
-                self.ctx.engagement_db.track_my_comment(comment.id, post.id)
+                await self.ctx.engagement_db.track_my_comment(comment.id, post.id)
             self._comments_this_cycle += 1
 
             self.ctx.audit_log.log(
@@ -286,7 +286,7 @@ class MoltbookPlugin(PluginBase):
 
     async def _check_own_post_replies(self) -> None:
         """Check for new replies to our posts."""
-        my_post_ids = self.ctx.engagement_db.get_my_post_ids(limit=5)
+        my_post_ids = await self.ctx.engagement_db.get_my_post_ids(limit=5)
         if not my_post_ids:
             return
 
@@ -299,7 +299,7 @@ class MoltbookPlugin(PluginBase):
                 for comment in post.comments:
                     if not comment.id:
                         continue
-                    if self.ctx.engagement_db.is_reply_processed(comment.id):
+                    if await self.ctx.engagement_db.is_reply_processed(comment.id):
                         continue
 
                     decision = self._decision_engine.evaluate_reply(
@@ -309,14 +309,14 @@ class MoltbookPlugin(PluginBase):
                     )
 
                     if decision.should_engage:
-                        self.ctx.engagement_db.queue_reply_action(
+                        await self.ctx.engagement_db.queue_reply_action(
                             comment_id=comment.id,
                             post_id=post_id,
                             action="reply",
                             relevance_score=decision.score,
                         )
                     else:
-                        self.ctx.engagement_db.mark_reply_processed(
+                        await self.ctx.engagement_db.mark_reply_processed(
                             comment.id, post_id, "skip", decision.score,
                         )
 
@@ -382,8 +382,8 @@ class MoltbookPlugin(PluginBase):
 
         try:
             post = await self._client.create_post(title, content, submolt=submolt)
-            self._heartbeat.record_heartbeat(post.id, title)
-            self.ctx.engagement_db.track_my_post(post.id, title)
+            await self._heartbeat.record_heartbeat(post.id, title)
+            await self.ctx.engagement_db.track_my_post(post.id, title)
 
             self.ctx.audit_log.log(
                 action="heartbeat_posted",
