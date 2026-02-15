@@ -482,10 +482,11 @@ operational:
 
   capabilities:
     - "email_agent"
+    - "gmail"
+    - "telegram_notifier"
 
   connectors:
     - "email_agent"
-    - "gmail"
 
 # Sender filtering — opt-in or opt-out mode
 email_agent:

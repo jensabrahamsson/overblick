@@ -226,8 +226,8 @@ class TestEmailAgentActions:
         mock_telegram_notifier.send_notification.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_reply(self, stal_plugin_context, mock_event_bus):
-        """_send_reply() emits email.send_request event."""
+    async def test_send_reply(self, stal_plugin_context, mock_gmail_capability):
+        """_send_reply() sends via Gmail capability with thread ID."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
@@ -240,14 +240,21 @@ class TestEmailAgentActions:
             "sender": "colleague@wirelesscar.com",
             "subject": "Meeting next Tuesday?",
             "body": "Can we schedule a meeting?",
+            "thread_id": "thread-001",
+            "message_id": "msg-001",
         }
 
         result = await plugin._send_reply(email)
 
         assert result is True
-        mock_event_bus.emit.assert_called_once()
-        call_kwargs = mock_event_bus.emit.call_args
-        assert call_kwargs[0][0] == "email.send_request"
+        mock_gmail_capability.send_reply.assert_called_once()
+        call_kwargs = mock_gmail_capability.send_reply.call_args.kwargs
+        assert call_kwargs["to"] == "colleague@wirelesscar.com"
+        assert call_kwargs["subject"] == "Re: Meeting next Tuesday?"
+        assert call_kwargs["thread_id"] == "thread-001"
+        assert call_kwargs["message_id"] == "msg-001"
+        # Verify mark_as_read was called after successful reply
+        mock_gmail_capability.mark_as_read.assert_called_once_with("msg-001")
 
     @pytest.mark.asyncio
     async def test_consult_boss(self, stal_plugin_context, mock_ipc_client_email):
