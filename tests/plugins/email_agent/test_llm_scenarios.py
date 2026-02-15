@@ -113,7 +113,6 @@ def _parse_classification(raw: str) -> dict | None:
                         return json.loads(raw[start:i + 1])
                     except json.JSONDecodeError:
                         break
-                    break
 
     # Strategy 2: Try raw string as JSON
     try:
