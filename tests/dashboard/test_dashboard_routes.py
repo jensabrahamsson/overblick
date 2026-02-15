@@ -30,10 +30,10 @@ class TestDashboardPage:
 
 class TestDashboardPartials:
     @pytest.mark.asyncio
-    async def test_agent_cards_partial(self, client, session_cookie):
+    async def test_plugin_cards_partial(self, client, session_cookie):
         cookie_value, _ = session_cookie
         resp = await client.get(
-            "/partials/agent-cards",
+            "/partials/plugin-cards",
             cookies={SESSION_COOKIE: cookie_value},
         )
         assert resp.status_code == 200

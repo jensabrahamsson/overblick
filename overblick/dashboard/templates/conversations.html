@@ -78,6 +78,28 @@
                     </div>
                 </div>
             </div>
+
+            {% if conv.acknowledgment %}
+            <!-- Acknowledgment from initiator (left-aligned) -->
+            <div style="display: flex; margin-top: 0.75rem;">
+                <div style="max-width: 80%; background: var(--bg-input, #252540); padding: 0.5rem 1rem; border-radius: 12px 12px 12px 2px; opacity: 0.85;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                        {{ conv.sender }} — ack
+                    </div>
+                    <div style="color: var(--text-secondary); line-height: 1.5; font-style: italic; font-size: 0.9rem;">
+                        {{ conv.acknowledgment }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if conv.outcome %}
+            <!-- Outcome footer -->
+            <div style="margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Outcome:</span>
+                <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ conv.outcome }}</span>
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

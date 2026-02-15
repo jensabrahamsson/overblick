@@ -10,7 +10,6 @@ from overblick.core.event_bus import EventBus
 from overblick.core.plugin_base import PluginContext
 from overblick.core.security.secrets_manager import SecretsManager
 from overblick.plugins.ai_digest.plugin import AiDigestPlugin
-from overblick.plugins.gmail.plugin import GmailPlugin
 from overblick.core.llm.ollama_client import OllamaClient
 from overblick.core.llm.pipeline import SafeLLMPipeline
 from unittest.mock import MagicMock
@@ -76,11 +75,13 @@ async def test_full_digest():
     # Set secrets getter
     ctx._secrets_getter = lambda key: secrets_manager.get("anomal", key)
     
-    # Create Gmail plugin (to handle email sending)
-    print("\n[1/6] Setting up Gmail plugin...")
-    gmail = GmailPlugin(ctx)
-    await gmail.setup()
-    print("✅ Gmail plugin ready")
+    # Create and register email capability
+    print("\n[1/6] Setting up email capability...")
+    from overblick.capabilities.communication.email import EmailCapability
+    email_cap = EmailCapability(ctx)
+    await email_cap.setup()
+    ctx.capabilities["email"] = email_cap
+    print("✅ Email capability ready")
     
     # Create AI Digest plugin
     print("\n[2/6] Setting up AI Digest plugin...")

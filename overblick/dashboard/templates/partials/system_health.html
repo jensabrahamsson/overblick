@@ -2,7 +2,7 @@
     <div class="health-item">
         <span class="health-icon {% if supervisor_running %}health-ok{% else %}health-warn{% endif %}"></span>
         <span class="health-label">Supervisor (Chef)</span>
-        <span class="health-value">{{ 'Running' if supervisor_running else 'Stopped' }}</span>
+        <span class="health-value">{{ 'Running' if supervisor_running else 'Offline' }}</span>
     </div>
     <div class="health-item">
         <span class="health-icon health-ok"></span>

@@ -78,6 +78,15 @@ def mock_event_bus():
     return bus
 
 
+@pytest.fixture
+def mock_email_capability():
+    """Mock email capability for testing digest sending."""
+    cap = AsyncMock()
+    cap.name = "email"
+    cap.send = AsyncMock(return_value=True)
+    return cap
+
+
 # ---------------------------------------------------------------------------
 # PluginContext fixtures
 # ---------------------------------------------------------------------------
@@ -85,7 +94,7 @@ def mock_event_bus():
 @pytest.fixture
 def ai_digest_context(
     ai_digest_identity, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline,
-    mock_event_bus,
+    mock_event_bus, mock_email_capability,
 ):
     """Full plugin context for ai_digest tests."""
     ctx = PluginContext(
@@ -100,6 +109,7 @@ def ai_digest_context(
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=ai_digest_identity,
         engagement_db=MagicMock(),
+        capabilities={"email": mock_email_capability},
     )
     return ctx
 

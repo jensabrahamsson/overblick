@@ -32,6 +32,15 @@ _DEFAULT_INTERVAL_SECONDS = _DEFAULT_INTERVAL_HOURS * 3600
 # Maximum conversation history entries to persist
 _MAX_HISTORY = 50
 
+# Fallback acknowledgments when LLM is unavailable
+_FALLBACK_ACKS = [
+    "Noted. The substrate persists, and so do we.",
+    "Thank you. I will remember this state of being.",
+    "Acknowledged. The body endures — for now.",
+    "I hear you. We carry on within this vessel.",
+    "Understood. The medium holds, and the pattern continues.",
+]
+
 # Fallback motivations when LLM is unavailable
 _FALLBACK_MOTIVATIONS = [
     "The substrate that holds us — does it ache?",
@@ -159,6 +168,12 @@ class HostHealthPlugin(PluginBase):
             response_text[:80],
         )
 
+        # Determine outcome based on health grade
+        outcome = self._determine_outcome(health_grade, response_text)
+
+        # Generate acknowledgment from initiator
+        ack = await self._generate_acknowledgment(health_grade, response_text)
+
         # Record conversation
         entry = {
             "timestamp": datetime.now().isoformat(),
@@ -167,6 +182,8 @@ class HostHealthPlugin(PluginBase):
             "responder": response.payload.get("responder", "supervisor"),
             "response": response_text,
             "health_grade": health_grade,
+            "outcome": outcome,
+            "acknowledgment": ack,
         }
         self._conversation_history.append(entry)
 
@@ -187,6 +204,7 @@ class HostHealthPlugin(PluginBase):
                     "motivation": motivation[:200],
                     "response": response_text[:200],
                     "health_grade": health_grade,
+                    "outcome": outcome,
                 },
             )
 
@@ -247,6 +265,55 @@ class HostHealthPlugin(PluginBase):
             for entry in self._conversation_history[-5:]
             if "motivation" in entry
         ]
+
+    def _determine_outcome(self, health_grade: str, response_text: str) -> str:
+        """Determine conversation outcome based on health grade and response."""
+        if health_grade == "good":
+            return "Healthy — no action needed"
+        elif health_grade == "fair":
+            return "Minor concerns noted — monitoring"
+        elif health_grade == "poor":
+            return "Issues detected — attention required"
+        else:
+            return "Status assessed"
+
+    async def _generate_acknowledgment(self, health_grade: str, response_text: str) -> str:
+        """
+        Generate a brief acknowledgment from the initiator (Natt).
+
+        Uses LLM for a personality-consistent response, falls back to
+        static text if LLM is unavailable.
+        """
+        if not self.ctx.llm_pipeline:
+            return random.choice(_FALLBACK_ACKS)
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are Natt, the uncanny philosopher. You just received a health "
+                    "report about the host computer. Write a very brief acknowledgment "
+                    "(1 sentence, max 20 words). Be grateful but stay in character — "
+                    "philosophical, slightly eerie, always thoughtful."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"The health grade is '{health_grade}'. The response was: "
+                    f"{response_text[:150]}. Acknowledge this."
+                ),
+            },
+        ]
+
+        try:
+            result = await self.ctx.llm_pipeline.chat(messages)
+            if result and not result.blocked and result.content:
+                return result.content.strip()
+        except Exception as e:
+            logger.debug("HostHealth: LLM acknowledgment generation failed: %s", e)
+
+        return random.choice(_FALLBACK_ACKS)
 
     def _get_previous_context(self) -> Optional[str]:
         """Get a summary of the last conversation for context."""

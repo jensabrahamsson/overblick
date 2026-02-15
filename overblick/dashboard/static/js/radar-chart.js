@@ -129,18 +129,29 @@ class RadarChart {
     }
 }
 
-// Auto-initialize all radar charts on page
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('canvas[data-radar-chart]').forEach(canvas => {
+// Initialize radar charts in a given container (or whole document)
+function initRadarCharts(root) {
+    root = root || document;
+    root.querySelectorAll('canvas[data-radar-chart]').forEach(canvas => {
+        if (canvas._radarRendered) return; // skip already-rendered
         const traitsJson = canvas.getAttribute('data-traits');
         if (traitsJson) {
             try {
                 const traits = JSON.parse(traitsJson);
                 const chart = new RadarChart(canvas, traits);
                 chart.render();
+                canvas._radarRendered = true;
             } catch (e) {
                 console.error('Failed to parse traits for radar chart:', e);
             }
         }
     });
+}
+
+// Auto-initialize on page load
+document.addEventListener('DOMContentLoaded', () => initRadarCharts());
+
+// Re-initialize after htmx swaps new content into the DOM
+document.addEventListener('htmx:afterSettle', (event) => {
+    initRadarCharts(event.detail.elt);
 });

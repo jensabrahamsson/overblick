@@ -137,7 +137,7 @@ def _build_plugin_cards(
         agent_info = {
             "name": name,
             "display_name": identity.get("display_name", name.capitalize()),
-            "state": status.get("state", "stopped"),
+            "state": status.get("state", "offline"),
             "personality_ref": identity.get("personality_ref", ""),
             "traits": big_five,
         }
@@ -184,7 +184,7 @@ def _build_agent_cards(
             "capabilities": identity.get("capability_names", []),
             "llm_model": identity.get("llm", {}).get("model", "unknown"),
             # Status from supervisor (or defaults if not running)
-            "state": status.get("state", "stopped"),
+            "state": status.get("state", "offline"),
             "pid": status.get("pid"),
             "uptime": status.get("uptime", 0),
             "restart_count": status.get("restart_count", 0),

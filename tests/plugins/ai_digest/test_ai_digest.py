@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
+from overblick.core.plugin_base import PluginContext
 from overblick.plugins.ai_digest.plugin import (
     AiDigestPlugin,
     FeedArticle,
@@ -265,22 +266,23 @@ class TestFetchFeeds:
 
 
 class TestSendDigest:
-    """Test event bus email dispatch."""
+    """Test email sending via capability."""
 
     @pytest.mark.asyncio
-    async def test_emits_email_event(self, ai_digest_context):
-        """Emits email.send_request on event bus."""
+    async def test_sends_via_email_capability(self, ai_digest_context):
+        """Sends digest via email capability."""
         plugin = AiDigestPlugin(ai_digest_context)
         await plugin.setup()
 
         await plugin._send_digest("Test digest content", 5)
 
-        ai_digest_context.event_bus.emit.assert_called_once()
-        call_args = ai_digest_context.event_bus.emit.call_args
-        assert call_args[0][0] == "email.send_request"
-        assert call_args[1]["to"] == "test@example.com"
-        assert "AI News Digest" in call_args[1]["subject"]
-        assert call_args[1]["body"] == "Test digest content"
+        email_cap = ai_digest_context.capabilities["email"]
+        email_cap.send.assert_called_once()
+        call_kwargs = email_cap.send.call_args[1]
+        assert call_kwargs["to"] == "test@example.com"
+        assert "AI News Digest" in call_kwargs["subject"]
+        assert call_kwargs["body"] == "Test digest content"
+        assert call_kwargs["html"] is False
 
     @pytest.mark.asyncio
     async def test_audits_send(self, ai_digest_context):
@@ -298,6 +300,31 @@ class TestSendDigest:
                 "content_length": 7,
             },
         )
+
+    @pytest.mark.asyncio
+    async def test_handles_missing_capability(self, tmp_path, mock_llm_client,
+                                               mock_audit_log, mock_pipeline):
+        """Logs error when email capability is not available."""
+        from overblick.personalities import Personality, LLMSettings
+        identity = Personality(
+            name="test",
+            llm=LLMSettings(),
+            raw_config={"ai_digest": {"recipient": "test@example.com"}},
+        )
+        ctx = PluginContext(
+            identity_name="test",
+            data_dir=tmp_path / "data",
+            log_dir=tmp_path / "logs",
+            llm_client=mock_llm_client,
+            llm_pipeline=mock_pipeline,
+            audit_log=mock_audit_log,
+            quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
+            identity=identity,
+        )
+        plugin = AiDigestPlugin(ctx)
+        await plugin.setup()
+        # Should not raise, just log error and return
+        await plugin._send_digest("Content", 3)
 
 
 class TestTeardown:

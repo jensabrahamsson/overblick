@@ -6,8 +6,8 @@
     <div class="detail-header">
         <div class="detail-title-row">
             <h1 class="detail-name">{{ identity.display_name }}</h1>
-            <span class="status-badge status-{{ agent_status.get('state', 'stopped') }}">
-                {{ agent_status.get('state', 'stopped') }}
+            <span class="status-badge status-{{ agent_status.get('state', 'offline') }}">
+                {{ agent_status.get('state', 'offline') }}
             </span>
         </div>
         <p class="detail-description">{{ identity.description }}</p>
@@ -52,8 +52,8 @@
                 <div class="info-item">
                     <span class="info-label">State</span>
                     <span class="info-value">
-                        <span class="status-dot status-{{ agent_status.get('state', 'stopped') }}"></span>
-                        {{ agent_status.get('state', 'stopped') }}
+                        <span class="status-dot status-{{ agent_status.get('state', 'offline') }}"></span>
+                        {{ agent_status.get('state', 'offline') }}
                     </span>
                 </div>
                 {% if agent_status.get('pid') %}
