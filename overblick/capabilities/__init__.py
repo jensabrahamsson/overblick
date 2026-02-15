@@ -28,6 +28,7 @@ from overblick.capabilities.speech.stt import SpeechToTextCapability
 from overblick.capabilities.speech.tts import TextToSpeechCapability
 from overblick.capabilities.vision.analyzer import VisionCapability
 from overblick.capabilities.communication.email import EmailCapability
+from overblick.capabilities.communication.telegram_notifier import TelegramNotifier
 from overblick.capabilities.monitoring.inspector import HostInspectionCapability
 
 # Name -> class mapping for registry
@@ -46,6 +47,7 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "tts": TextToSpeechCapability,
     "vision": VisionCapability,
     "email": EmailCapability,
+    "telegram_notifier": TelegramNotifier,
     "host_inspection": HostInspectionCapability,
 }
 
@@ -60,7 +62,7 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "content": ["summarizer"],
     "speech": ["stt", "tts"],
     "vision": ["vision"],
-    "communication": ["email"],
+    "communication": ["email", "telegram_notifier"],
     "monitoring": ["host_inspection"],
 }
 
@@ -94,6 +96,7 @@ __all__ = [
     "TextToSpeechCapability",
     "VisionCapability",
     "EmailCapability",
+    "TelegramNotifier",
     "HostInspectionCapability",
     "CAPABILITY_REGISTRY",
     "CAPABILITY_BUNDLES",
