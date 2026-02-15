@@ -3,7 +3,7 @@ End-to-end Playwright tests for the Överblick Setup Wizard.
 
 Runs a real browser through all 8 wizard steps, takes screenshots
 at each step for UI/UX review, and verifies visual elements like
-the character carousel, animations, and form interactions.
+the use-case cards, personality assignment, and form interactions.
 
 Screenshots are saved to tests/setup/screenshots/ for review.
 
@@ -99,7 +99,7 @@ class TestFullWizardFlow:
         """Walk through the entire wizard flow end-to-end."""
         base_url = setup_server
 
-        # ── Step 1: Welcome ──
+        # -- Step 1: Welcome --
         page.goto(base_url)
         page.wait_for_load_state("networkidle")
         time.sleep(0.5)  # Let CSS animations settle
@@ -119,112 +119,100 @@ class TestFullWizardFlow:
         page.locator("a.btn-primary.btn-large").click()
         page.wait_for_load_state("networkidle")
 
-        # ── Step 2: Principal Identity ──
+        # -- Step 2: Principal Identity --
         assert "Who are you?" in page.content()
         assert page.locator("#principal_name").is_visible()
 
         # Fill in the form
         page.fill("#principal_name", "Test User")
         page.fill("#principal_email", "test@example.com")
-        # Timezone defaults to Europe/Stockholm
-        # Language defaults to English
 
         page.screenshot(path=str(screenshot_dir / "02_principal.png"), full_page=True)
 
         page.locator("button[type='submit']").click()
         page.wait_for_load_state("networkidle")
 
-        # ── Step 3: LLM Configuration ──
+        # -- Step 3: LLM Configuration --
         assert "AI Engine" in page.title()
         assert page.locator(".radio-card").count() >= 2
 
-        # Defaults are fine (Ollama, qwen3:8b)
         page.screenshot(path=str(screenshot_dir / "03_llm.png"), full_page=True)
 
         page.locator("button[type='submit']").click()
         page.wait_for_load_state("networkidle")
 
-        # ── Step 4: Communication Channels ──
+        # -- Step 4: Communication Channels --
         assert "Connect Your Channels" in page.content()
         assert page.locator(".toggle-section").count() >= 2
 
-        # Skip Gmail and Telegram (both optional)
         page.screenshot(path=str(screenshot_dir / "04_communication.png"), full_page=True)
 
         page.locator("button[type='submit']").click()
         page.wait_for_load_state("networkidle")
 
-        # ── Step 5: Character Select ──
-        assert "Choose Your Agents" in page.content()
+        # -- Step 5: Use Cases --
+        assert "What Should Your Agents Do?" in page.content()
 
-        # Wait for JS carousel to render
-        page.wait_for_selector(".character-card", timeout=5000)
-        time.sleep(0.5)  # Let CSS transitions settle
+        # Should have use case cards
+        cards = page.locator(".use-case-card")
+        assert cards.count() >= 3, f"Expected at least 3 use case cards, got {cards.count()}"
 
-        # Should have multiple character cards
-        cards = page.locator(".character-card")
-        assert cards.count() >= 3, f"Expected at least 3 character cards, got {cards.count()}"
+        # Initially no checkboxes should be checked (fresh state)
+        counter = page.locator("#selection-count")
+        assert counter.text_content().strip() == "0"
 
-        # One card should be focused
-        focused = page.locator(".character-card.focused")
-        assert focused.count() == 1
+        page.screenshot(path=str(screenshot_dir / "05_usecases_initial.png"), full_page=True)
 
-        page.screenshot(path=str(screenshot_dir / "05_characters_initial.png"), full_page=True)
+        # Select "Social Media" and "Email Management"
+        # force=True needed because checkboxes are visually hidden behind card styling
+        page.locator("#uc-social_media").check(force=True)
+        time.sleep(0.2)
+        page.locator("#uc-email").check(force=True)
+        time.sleep(0.2)
 
-        # Test carousel keyboard navigation
-        page.keyboard.press("ArrowRight")
-        time.sleep(0.3)
-        page.keyboard.press("ArrowRight")
-        time.sleep(0.3)
+        # Counter should update
+        assert counter.text_content().strip() == "2"
 
-        page.screenshot(path=str(screenshot_dir / "05_characters_nav_right.png"), full_page=True)
-
-        # Navigate back left
-        page.keyboard.press("ArrowLeft")
-        time.sleep(0.3)
-
-        # Select the focused character with Space
-        page.keyboard.press("Space")
-        time.sleep(0.3)
-
-        # Should now have a selected card
-        selected_cards = page.locator(".character-card.selected")
-        assert selected_cards.count() >= 1, "No character was selected"
-
-        # Selection counter should update
-        counter = page.locator("#selection-counter")
-        assert "1" in counter.text_content()
-
-        # Navigate right and select another
-        page.keyboard.press("ArrowRight")
-        time.sleep(0.3)
-        page.keyboard.press("Space")
-        time.sleep(0.3)
-
-        selected_cards = page.locator(".character-card.selected")
-        assert selected_cards.count() >= 2, "Second character was not selected"
-
-        page.screenshot(path=str(screenshot_dir / "05_characters_selected.png"), full_page=True)
+        page.screenshot(path=str(screenshot_dir / "05_usecases_selected.png"), full_page=True)
 
         # Submit
         page.locator("button[type='submit']").click()
         page.wait_for_load_state("networkidle")
 
-        # ── Step 6: Agent Configuration ──
-        assert "Configure Your Agents" in page.content()
+        # -- Step 6: Assign Agents --
+        assert "Who Handles What?" in page.content()
 
-        # Should have config for selected agents
-        page.screenshot(path=str(screenshot_dir / "06_agent_config.png"), full_page=True)
+        # Should have assignment sections for selected use cases
+        sections = page.locator(".assignment-section")
+        assert sections.count() == 2, f"Expected 2 assignment sections, got {sections.count()}"
+
+        # Social Media should have personality radio options (multiple choices)
+        social_radios = page.locator('input[name="social_media_personality"]')
+        assert social_radios.count() >= 3, "Social Media should have multiple personality options"
+
+        # Email should be auto-assigned (only Stal)
+        auto_badge = page.locator(".auto-assigned")
+        assert auto_badge.count() >= 1, "Email should be auto-assigned"
+
+        page.screenshot(path=str(screenshot_dir / "06_assign_agents.png"), full_page=True)
+
+        # Select Cherry for social media (should be recommended/default)
+        cherry_radio = page.locator("#opt-social_media-cherry")
+        if not cherry_radio.is_checked():
+            cherry_radio.check(force=True)
 
         page.locator("button[type='submit']").click()
         page.wait_for_load_state("networkidle")
 
-        # ── Step 7: Review ──
+        # -- Step 7: Review --
         assert "Review" in page.content()
         assert "Test User" in page.content()
 
         # Check review sections exist
         assert page.locator(".review-section").count() >= 3
+
+        # Should show agent assignments
+        assert "Agent Assignments" in page.content()
 
         page.screenshot(path=str(screenshot_dir / "07_review.png"), full_page=True)
 
@@ -232,7 +220,7 @@ class TestFullWizardFlow:
         page.locator("button[type='submit']").click()
         page.wait_for_load_state("networkidle")
 
-        # ── Step 8: Complete ──
+        # -- Step 8: Complete --
         assert "ready" in page.content().lower() or "complete" in page.content().lower()
         assert page.locator(".checkmark-circle").is_visible()
 
@@ -245,83 +233,197 @@ class TestFullWizardFlow:
         assert "python -m overblick" in page.content()
 
 
-class TestCharacterCarousel:
-    """Detailed carousel interaction tests."""
+class TestUseCaseSelection:
+    """Detailed use case selection interaction tests."""
 
-    def test_carousel_click_navigation(self, setup_server, screenshot_dir, page):
-        """Test clicking on side characters to focus them."""
-        base_url = setup_server
-
-        # Navigate to step 5 by walking through the wizard
-        _navigate_to_step5(page, base_url)
-
-        page.wait_for_selector(".character-card", timeout=5000)
-        time.sleep(0.5)
-
-        cards = page.locator(".character-card")
-        count = cards.count()
-
-        if count >= 3:
-            # Click on a non-focused card
-            focused_idx = None
-            for i in range(count):
-                if "focused" in (cards.nth(i).get_attribute("class") or ""):
-                    focused_idx = i
-                    break
-
-            # Click the next card
-            click_idx = (focused_idx + 1) % count if focused_idx is not None else 1
-            cards.nth(click_idx).click()
-            time.sleep(0.3)
-
-            # That card should now be focused
-            new_focused = page.locator(".character-card.focused")
-            assert new_focused.count() == 1
-
-            page.screenshot(
-                path=str(screenshot_dir / "05_carousel_click_nav.png"),
-                full_page=True,
-            )
-
-    def test_select_button_click(self, setup_server, screenshot_dir, page):
-        """Test clicking the select button on a character card."""
+    def test_use_case_cards_render(self, setup_server, screenshot_dir, page):
+        """All use case cards should render with proper content."""
         base_url = setup_server
 
         _navigate_to_step5(page, base_url)
 
-        page.wait_for_selector(".character-card.focused", timeout=5000)
-        time.sleep(0.5)
+        cards = page.locator(".use-case-card")
+        assert cards.count() >= 4, f"Expected at least 4 use case cards, got {cards.count()}"
 
-        # Click the select button on the focused card
-        btn = page.locator(".character-card.focused .character-select-btn")
-        assert btn.is_visible()
-        btn.click()
-        time.sleep(0.3)
-
-        # Button should now show "Selected"
-        assert "Selected" in btn.text_content()
-
-        # Card should have .selected class
-        assert page.locator(".character-card.selected").count() >= 1
+        # Check that expected use cases are present
+        content = page.content()
+        assert "Social Media" in content
+        assert "Email Management" in content
+        assert "Notifications" in content
+        assert "News &amp; Research" in content or "News" in content
 
         page.screenshot(
-            path=str(screenshot_dir / "05_carousel_select_btn.png"),
+            path=str(screenshot_dir / "05_usecase_cards.png"),
             full_page=True,
         )
 
-    def test_trait_bars_visible_on_focus(self, setup_server, page):
-        """Focused card should show trait bars."""
+    def test_checkbox_toggle(self, setup_server, page):
+        """Clicking a use case card should toggle the checkbox."""
         base_url = setup_server
 
         _navigate_to_step5(page, base_url)
 
-        page.wait_for_selector(".character-card.focused", timeout=5000)
-        time.sleep(0.5)
+        checkbox = page.locator("#uc-research")
 
-        # Focused card should have trait bars
-        focused = page.locator(".character-card.focused")
-        trait_bars = focused.locator(".trait-bar")
-        assert trait_bars.count() >= 1, "No trait bars on focused card"
+        # Ensure unchecked first, then toggle
+        checkbox.uncheck(force=True)
+        assert not checkbox.is_checked()
+
+        checkbox.check(force=True)
+        assert checkbox.is_checked()
+
+        checkbox.uncheck(force=True)
+        assert not checkbox.is_checked()
+
+    def test_counter_updates(self, setup_server, page):
+        """Selection counter should reflect toggling use case checkboxes."""
+        base_url = setup_server
+
+        _navigate_to_step5(page, base_url)
+
+        counter = page.locator("#selection-count")
+        label = page.locator("#selection-label")
+
+        # Uncheck all first to get a clean baseline
+        for uc_id in ["social_media", "email", "notifications", "research"]:
+            page.locator(f"#uc-{uc_id}").uncheck(force=True)
+        time.sleep(0.1)
+        assert counter.text_content().strip() == "0"
+
+        # Check one
+        page.locator("#uc-notifications").check(force=True)
+        time.sleep(0.1)
+        assert counter.text_content().strip() == "1"
+        assert "use case selected" in label.text_content()
+
+        # Check another
+        page.locator("#uc-research").check(force=True)
+        time.sleep(0.1)
+        assert counter.text_content().strip() == "2"
+        assert "use cases selected" in label.text_content()
+
+        # Uncheck one
+        page.locator("#uc-notifications").uncheck(force=True)
+        time.sleep(0.1)
+        assert counter.text_content().strip() == "1"
+
+    def test_empty_submission_stays_on_page(self, setup_server, page):
+        """Submitting without selecting any use case should stay on step 5."""
+        base_url = setup_server
+
+        _navigate_to_step5(page, base_url)
+
+        # Uncheck all to ensure empty submission
+        for uc_id in ["social_media", "email", "notifications", "research"]:
+            page.locator(f"#uc-{uc_id}").uncheck(force=True)
+        time.sleep(0.1)
+
+        # Submit with nothing selected
+        page.locator("button[type='submit']").click()
+        page.wait_for_load_state("networkidle")
+
+        # Should still be on step 5 (not redirected)
+        assert "What Should Your Agents Do?" in page.content()
+
+    def test_plugin_badges_visible(self, setup_server, page):
+        """Each use case card should show plugin badges."""
+        base_url = setup_server
+
+        _navigate_to_step5(page, base_url)
+
+        badges = page.locator(".use-case-plugins .badge")
+        assert badges.count() >= 4, "Expected plugin badges on use case cards"
+
+
+class TestPersonalityAssignment:
+    """Test step 6 personality assignment interactions."""
+
+    def test_single_personality_auto_assigned(self, setup_server, screenshot_dir, page):
+        """Use cases with one compatible personality should be auto-assigned."""
+        base_url = setup_server
+
+        _navigate_to_step6(page, base_url, use_cases=["email"])
+
+        # Email has only Stal — should show auto-assigned badge
+        auto_badge = page.locator(".auto-assigned")
+        assert auto_badge.count() >= 1, "Email should be auto-assigned to Stal"
+        assert "Auto-assigned" in page.content()
+
+        page.screenshot(
+            path=str(screenshot_dir / "06_auto_assigned.png"),
+            full_page=True,
+        )
+
+    def test_multiple_personality_radio_grid(self, setup_server, screenshot_dir, page):
+        """Use cases with multiple compatible personalities should show radio options."""
+        base_url = setup_server
+
+        _navigate_to_step6(page, base_url, use_cases=["social_media"])
+
+        # Social media has many compatible personalities — should show radio grid
+        radios = page.locator('input[name="social_media_personality"]')
+        assert radios.count() >= 3, f"Expected 3+ personality options, got {radios.count()}"
+
+        # Should have a recommended badge
+        recommended = page.locator(".personality-option .badge-green")
+        assert recommended.count() >= 1, "Should show a recommended personality"
+
+        page.screenshot(
+            path=str(screenshot_dir / "06_personality_grid.png"),
+            full_page=True,
+        )
+
+    def test_advanced_settings_toggle(self, setup_server, page):
+        """Advanced settings should be collapsed by default and expandable."""
+        base_url = setup_server
+
+        _navigate_to_step6(page, base_url, use_cases=["social_media"])
+
+        # Advanced settings should be collapsed (details element)
+        details = page.locator(".assignment-config")
+        assert details.count() >= 1
+
+        # Body should not be visible initially
+        body = page.locator(".assignment-config-body")
+        assert not body.is_visible()
+
+        # Click to expand
+        page.locator(".assignment-config-summary").first.click()
+        time.sleep(0.2)
+
+        # Now body should be visible
+        assert body.is_visible()
+
+        # Should have temperature slider, max tokens, heartbeat, quiet hours
+        assert page.locator('input[name="social_media_temperature"]').is_visible()
+        assert page.locator('input[name="social_media_max_tokens"]').is_visible()
+        assert page.locator('input[name="social_media_heartbeat_hours"]').is_visible()
+        assert page.locator('input[name="social_media_quiet_hours"]').is_visible()
+
+    def test_submit_redirects_to_review(self, setup_server, page):
+        """Submitting step 6 should redirect to step 7 (review)."""
+        base_url = setup_server
+
+        _navigate_to_step6(page, base_url, use_cases=["social_media"])
+
+        page.locator("button[type='submit']").click()
+        page.wait_for_load_state("networkidle")
+
+        assert "Review" in page.content()
+
+    def test_multiple_use_cases_assignment(self, setup_server, screenshot_dir, page):
+        """Multiple use cases should each get their own assignment section."""
+        base_url = setup_server
+
+        _navigate_to_step6(page, base_url, use_cases=["social_media", "email", "research"])
+
+        sections = page.locator(".assignment-section")
+        assert sections.count() == 3, f"Expected 3 sections, got {sections.count()}"
+
+        page.screenshot(
+            path=str(screenshot_dir / "06_multi_assignment.png"),
+            full_page=True,
+        )
 
 
 class TestBackNavigation:
@@ -349,6 +451,20 @@ class TestBackNavigation:
         name_val = page.locator("#principal_name").input_value()
         assert name_val == "Preserved Name"
 
+    def test_back_preserves_use_cases(self, setup_server, page):
+        """Going back from step 6 to step 5 should preserve selections."""
+        base_url = setup_server
+
+        _navigate_to_step6(page, base_url, use_cases=["social_media", "email"])
+
+        # Go back to step 5
+        page.locator("a.btn-secondary").click()
+        page.wait_for_load_state("networkidle")
+
+        # Use case checkboxes should still be checked
+        assert page.locator("#uc-social_media").is_checked()
+        assert page.locator("#uc-email").is_checked()
+
 
 class TestFormValidation:
     """Test form validation in the browser."""
@@ -363,8 +479,7 @@ class TestFormValidation:
         # Clear the name field and submit
         page.fill("#principal_name", "")
 
-        # The HTML5 required attribute may prevent submission via button click,
-        # so we need to remove it first to test server-side validation
+        # Remove required attribute to test server-side validation
         page.evaluate("document.getElementById('principal_name').removeAttribute('required')")
         page.locator("button[type='submit']").click()
         page.wait_for_load_state("networkidle")
@@ -437,9 +552,8 @@ class TestVisualElements:
             "getComputedStyle(document.body).backgroundColor"
         )
         # Dark theme — RGB should be low values
-        # bg-primary is #0d1117 → rgb(13, 17, 23)
+        # bg-primary is #0d1117 -> rgb(13, 17, 23)
         assert "rgb(" in bg_color
-        # Extract values
         values = bg_color.replace("rgb(", "").replace(")", "").split(",")
         r, g, b = [int(v.strip()) for v in values]
         assert r < 50 and g < 50 and b < 50, f"Not dark theme: {bg_color}"
@@ -462,22 +576,41 @@ class TestResponsiveness:
             full_page=True,
         )
 
-        # Navigate to character select
+        # Navigate to use case select
         _navigate_to_step5(page, base_url)
-        page.wait_for_selector(".character-card", timeout=5000)
-        time.sleep(0.5)
+
+        # Use case grid should switch to single column on mobile
+        cards = page.locator(".use-case-card")
+        assert cards.count() >= 3
 
         page.screenshot(
-            path=str(screenshot_dir / "05_characters_mobile.png"),
+            path=str(screenshot_dir / "05_usecases_mobile.png"),
+            full_page=True,
+        )
+
+    def test_mobile_assignment_step(self, setup_server, screenshot_dir, page):
+        """Assignment step should render well on mobile viewport."""
+        base_url = setup_server
+
+        page.set_viewport_size({"width": 375, "height": 812})
+
+        _navigate_to_step6(page, base_url, use_cases=["social_media"])
+
+        # Personality grid should wrap on mobile
+        grid = page.locator(".personality-grid")
+        assert grid.count() >= 1
+
+        page.screenshot(
+            path=str(screenshot_dir / "06_assign_mobile.png"),
             full_page=True,
         )
 
 
-# ── Helpers ──
+# -- Helpers --
 
 
 def _navigate_to_step5(page, base_url: str) -> None:
-    """Navigate through steps 1-4 to reach step 5 (character select)."""
+    """Navigate through steps 1-4 to reach step 5 (use cases)."""
     page.goto(base_url)
     page.locator("a.btn-primary.btn-large").click()
     page.wait_for_load_state("networkidle")
@@ -492,5 +625,28 @@ def _navigate_to_step5(page, base_url: str) -> None:
     page.wait_for_load_state("networkidle")
 
     # Step 4: skip
+    page.locator("button[type='submit']").click()
+    page.wait_for_load_state("networkidle")
+
+
+def _navigate_to_step6(
+    page, base_url: str, use_cases: list[str] | None = None,
+) -> None:
+    """Navigate through steps 1-5 to reach step 6 (assign agents)."""
+    _navigate_to_step5(page, base_url)
+
+    # Step 5: uncheck all first (server state may persist from previous tests)
+    all_uc_ids = ["social_media", "email", "notifications", "research"]
+    for uc_id in all_uc_ids:
+        page.locator(f"#uc-{uc_id}").uncheck(force=True)
+
+    # Select only the specified use cases
+    if use_cases is None:
+        use_cases = ["social_media"]
+
+    for uc_id in use_cases:
+        page.locator(f"#uc-{uc_id}").check(force=True)
+        time.sleep(0.1)
+
     page.locator("button[type='submit']").click()
     page.wait_for_load_state("networkidle")

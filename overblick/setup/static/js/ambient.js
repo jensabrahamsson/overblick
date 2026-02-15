@@ -1,49 +1,66 @@
 /**
- * Ambient Music Controller — Web Audio API Synthesizer
+ * Ambient Music Controller — Klaus Wunderlich-inspired Organ Synthesizer
  *
- * Generates dreamy ambient electronic organ sounds procedurally
- * using Web Audio API. No external audio files needed.
+ * Generates warm, lush electronic organ sounds using Web Audio API.
+ * Inspired by Klaus Wunderlich's space-age lounge organ recordings.
  *
- * Inspired by Klaus Wunderlich's electronic organ and space-age
- * lounge aesthetics — layered detuned oscillators, soft filtering,
- * and gentle LFO modulation create a warm, floating atmosphere.
+ * Sound design:
+ * - Hammond-style drawbar harmonics (fundamental + 2nd, 3rd, 4th partials)
+ * - Chorus detuning across 3 unison voices per note (6-10 cent spread)
+ * - Leslie speaker simulation (slow pitch + amplitude modulation)
+ * - Pseudo-reverb via feedback delay network
+ * - Warm low-pass filtering with gentle resonance
+ * - Slow evolving chord progression with long crossfades
  *
  * Features:
  * - Play/pause toggle with smooth fade-in/fade-out
  * - Volume slider (persisted in localStorage)
  * - Procedurally generated — no MP3 dependencies
- * - Multiple chord layers that slowly evolve
+ * - Respects prefers-reduced-motion (disables modulation effects)
  */
 
 (function () {
     'use strict';
 
     var STORAGE_KEY = 'overblick_setup_volume';
-    var FADE_DURATION = 1200; // ms
+    var FADE_DURATION = 1500; // ms
+    var CHORD_DURATION = 14000; // ms — slow dreamy changes
+    var CROSSFADE_TIME = 4.0; // seconds overlap between chords
 
     var audioCtx = null;
     var masterGain = null;
+    var reverbGain = null;
     var isPlaying = false;
-    var oscillators = [];
-    var fadeTimer = null;
+    var activeVoices = [];
+    var chordTimer = null;
+    var currentChordIndex = 0;
 
-    // Chord progression — dreamy ambient voicings (frequencies in Hz)
-    // Cmaj9 → Fmaj7 → Am7 → Dm9 (slow cycling)
+    // Rich jazz voicings — spread across octaves for Wunderlich's lush sound
+    // Lower notes provide warmth, upper notes shimmer
     var CHORDS = [
-        [130.81, 164.81, 196.00, 246.94, 293.66],  // C E G B D (Cmaj9)
-        [174.61, 220.00, 261.63, 329.63],            // F A C E (Fmaj7)
-        [220.00, 261.63, 329.63, 392.00],            // A C E G (Am7)
-        [146.83, 174.61, 220.00, 261.63, 329.63],   // D F A C E (Dm9)
+        // Cmaj9 — C2, G2, E3, B3, D4
+        [65.41, 98.00, 164.81, 246.94, 293.66],
+        // Fmaj7#11 — F2, A2, C3, E3, B3
+        [87.31, 110.00, 130.81, 164.81, 246.94],
+        // Am9 — A1, E2, G2, C3, B3
+        [55.00, 82.41, 98.00, 130.81, 246.94],
+        // Dm11 — D2, A2, C3, F3, G3
+        [73.42, 110.00, 130.81, 174.61, 196.00],
+        // Gmaj7 — G1, B2, D3, F#3, A3
+        [49.00, 123.47, 146.83, 185.00, 220.00],
+        // Ebmaj9 — Eb2, Bb2, G3, D4, F4
+        [77.78, 116.54, 196.00, 293.66, 349.23],
     ];
 
-    var currentChordIndex = 0;
-    var chordTimer = null;
+    // Hammond drawbar ratios — relative to fundamental
+    // Simulates 16', 8', 5 1/3', 4' drawbar registrations
+    var DRAWBAR_RATIOS = [0.5, 1.0, 1.5, 2.0];
+    var DRAWBAR_LEVELS = [0.3, 1.0, 0.25, 0.4]; // relative loudness per drawbar
 
     function init() {
         var playBtn = document.getElementById('music-toggle');
         var volumeSlider = document.getElementById('music-volume');
 
-        // Restore volume from localStorage
         var savedVolume = localStorage.getItem(STORAGE_KEY);
         var initialVolume = savedVolume !== null ? parseFloat(savedVolume) : 0.3;
 
@@ -53,7 +70,7 @@
 
         if (volumeSlider) {
             volumeSlider.value = Math.round(initialVolume * 100);
-            volumeSlider.addEventListener('input', function(e) {
+            volumeSlider.addEventListener('input', function (e) {
                 var vol = parseInt(e.target.value) / 100;
                 localStorage.setItem(STORAGE_KEY, vol.toString());
                 if (masterGain && isPlaying) {
@@ -65,14 +82,14 @@
         // Music enable button on welcome page
         var enableBtn = document.getElementById('music-enable');
         if (enableBtn) {
-            enableBtn.addEventListener('click', function() {
+            enableBtn.addEventListener('click', function () {
                 togglePlay();
                 enableBtn.textContent = isPlaying ? 'Music: ON' : 'Music: OFF';
                 enableBtn.classList.toggle('active', isPlaying);
             });
         }
 
-        // Handle the <audio> element gracefully (not needed, but avoid errors)
+        // Handle the <audio> element gracefully (not used — we synthesize)
         var audioEl = document.getElementById('ambient-audio');
         if (audioEl) {
             audioEl.removeAttribute('src');
@@ -83,123 +100,197 @@
     function createAudioContext() {
         if (audioCtx) return;
 
-        var AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContext();
+        var AC = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AC();
+
+        // Master gain
         masterGain = audioCtx.createGain();
         masterGain.gain.value = 0;
+
+        // Create pseudo-reverb (feedback delay network)
+        var reverbDelay1 = audioCtx.createDelay(1.0);
+        reverbDelay1.delayTime.value = 0.12;
+        var reverbDelay2 = audioCtx.createDelay(1.0);
+        reverbDelay2.delayTime.value = 0.19;
+        var reverbDelay3 = audioCtx.createDelay(1.0);
+        reverbDelay3.delayTime.value = 0.27;
+
+        var feedback1 = audioCtx.createGain();
+        feedback1.gain.value = 0.35;
+        var feedback2 = audioCtx.createGain();
+        feedback2.gain.value = 0.30;
+        var feedback3 = audioCtx.createGain();
+        feedback3.gain.value = 0.25;
+
+        // Reverb filter — darken the reverb tail
+        var reverbFilter = audioCtx.createBiquadFilter();
+        reverbFilter.type = 'lowpass';
+        reverbFilter.frequency.value = 2000;
+        reverbFilter.Q.value = 0.5;
+
+        // Reverb wet/dry
+        reverbGain = audioCtx.createGain();
+        reverbGain.gain.value = 0.35; // wet level
+
+        // Wire up feedback delay network
+        masterGain.connect(reverbDelay1);
+        masterGain.connect(reverbDelay2);
+        masterGain.connect(reverbDelay3);
+
+        reverbDelay1.connect(feedback1);
+        feedback1.connect(reverbDelay1);
+        reverbDelay2.connect(feedback2);
+        feedback2.connect(reverbDelay2);
+        reverbDelay3.connect(feedback3);
+        feedback3.connect(reverbDelay3);
+
+        feedback1.connect(reverbFilter);
+        feedback2.connect(reverbFilter);
+        feedback3.connect(reverbFilter);
+
+        reverbFilter.connect(reverbGain);
+        reverbGain.connect(audioCtx.destination);
+
+        // Dry signal
         masterGain.connect(audioCtx.destination);
     }
 
-    function createPad(frequencies) {
-        if (!audioCtx) return;
+    /**
+     * Create a single organ voice with Hammond-style drawbar harmonics,
+     * chorus detuning, and Leslie speaker modulation.
+     */
+    function createOrganVoice(freq, voiceGain, attackTime) {
+        var now = audioCtx.currentTime;
+        var nodes = [];
+        var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        // Stop existing oscillators with gentle release
-        stopOscillators(1.5);
+        // Voice output gain (for crossfade control)
+        var outputGain = audioCtx.createGain();
+        outputGain.gain.value = 0;
+        outputGain.gain.setTargetAtTime(voiceGain, now, attackTime);
 
-        var vol = parseFloat(localStorage.getItem(STORAGE_KEY) || '0.3');
-        var perVoiceGain = vol / Math.max(frequencies.length, 1) * 0.6;
+        // Leslie speaker simulation — slow pitch wobble + tremolo
+        var leslieSpeed = 0.8 + Math.random() * 0.4; // ~0.8-1.2 Hz (slow Leslie)
+        var lesliePitchDepth = reducedMotion ? 0 : 3; // cents
+        var leslieTremoloDepth = reducedMotion ? 0 : voiceGain * 0.12;
 
-        frequencies.forEach(function(freq, i) {
-            // Main oscillator — sine for organ warmth
-            var osc = audioCtx.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.value = freq;
+        // Tremolo LFO (amplitude modulation)
+        var tremoloLFO = audioCtx.createOscillator();
+        tremoloLFO.type = 'sine';
+        tremoloLFO.frequency.value = leslieSpeed;
+        var tremoloDepth = audioCtx.createGain();
+        tremoloDepth.gain.value = leslieTremoloDepth;
+        tremoloLFO.connect(tremoloDepth);
+        tremoloDepth.connect(outputGain.gain);
+        tremoloLFO.start(now);
+        nodes.push(tremoloLFO);
 
-            // Slight detuning for richness (+/- 2 cents)
-            osc.detune.value = (i % 2 === 0 ? 1 : -1) * (1 + i * 0.5);
+        // Warm low-pass filter for the voice
+        var voiceFilter = audioCtx.createBiquadFilter();
+        voiceFilter.type = 'lowpass';
+        voiceFilter.frequency.value = 1200 + Math.random() * 400;
+        voiceFilter.Q.value = 0.7;
+        voiceFilter.connect(outputGain);
 
-            // Per-voice gain
-            var gain = audioCtx.createGain();
-            gain.gain.value = 0;
+        // For each drawbar partial...
+        DRAWBAR_RATIOS.forEach(function (ratio, di) {
+            var partialFreq = freq * ratio;
+            var level = DRAWBAR_LEVELS[di];
 
-            // Low-pass filter for warmth
-            var filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.value = 800 + i * 100;
-            filter.Q.value = 0.5;
+            // Chorus: 3 detuned oscillators per partial
+            var detuneSpread = [
+                -6 - Math.random() * 2,  // ~-6 to -8 cents
+                0,                        // center
+                6 + Math.random() * 2,    // ~+6 to +8 cents
+            ];
+            var chorusLevels = [0.8, 1.0, 0.8]; // center louder
 
-            // LFO for subtle tremolo
-            var lfo = audioCtx.createOscillator();
-            lfo.type = 'sine';
-            lfo.frequency.value = 0.15 + i * 0.05; // Very slow modulation
+            detuneSpread.forEach(function (detuneCents, ci) {
+                var osc = audioCtx.createOscillator();
+                // Mix sine and triangle for organ character
+                osc.type = di < 2 ? 'sine' : 'triangle';
+                osc.frequency.value = partialFreq;
+                osc.detune.value = detuneCents;
 
-            var lfoGain = audioCtx.createGain();
-            lfoGain.gain.value = perVoiceGain * 0.15; // Subtle modulation depth
+                // Leslie pitch wobble via LFO → detune
+                if (!reducedMotion) {
+                    var pitchLFO = audioCtx.createOscillator();
+                    pitchLFO.type = 'sine';
+                    pitchLFO.frequency.value = leslieSpeed + ci * 0.05;
+                    var pitchDepth = audioCtx.createGain();
+                    pitchDepth.gain.value = lesliePitchDepth;
+                    pitchLFO.connect(pitchDepth);
+                    pitchDepth.connect(osc.detune);
+                    pitchLFO.start(now);
+                    nodes.push(pitchLFO);
+                }
 
-            lfo.connect(lfoGain);
-            lfoGain.connect(gain.gain);
+                // Per-partial gain
+                var partialGain = audioCtx.createGain();
+                partialGain.gain.value = level * chorusLevels[ci] * 0.12;
 
-            // Connect: osc → filter → gain → master
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(masterGain);
+                osc.connect(partialGain);
+                partialGain.connect(voiceFilter);
 
-            // Start with gentle fade-in
-            osc.start();
-            lfo.start();
-
-            // Smooth attack over 2 seconds
-            gain.gain.setTargetAtTime(perVoiceGain, audioCtx.currentTime, 0.8);
-
-            oscillators.push({osc: osc, lfo: lfo, gain: gain, filter: filter});
-
-            // Second layer — triangle wave an octave up, very quiet
-            var osc2 = audioCtx.createOscillator();
-            osc2.type = 'triangle';
-            osc2.frequency.value = freq * 2;
-            osc2.detune.value = (i % 2 === 0 ? -3 : 3);
-
-            var gain2 = audioCtx.createGain();
-            gain2.gain.value = 0;
-
-            var filter2 = audioCtx.createBiquadFilter();
-            filter2.type = 'lowpass';
-            filter2.frequency.value = 600;
-            filter2.Q.value = 0.3;
-
-            osc2.connect(filter2);
-            filter2.connect(gain2);
-            gain2.connect(masterGain);
-
-            osc2.start();
-            gain2.gain.setTargetAtTime(perVoiceGain * 0.2, audioCtx.currentTime, 1.2);
-
-            oscillators.push({osc: osc2, gain: gain2, filter: filter2});
+                osc.start(now);
+                nodes.push(osc);
+            });
         });
+
+        outputGain.connect(masterGain);
+
+        return {
+            outputGain: outputGain,
+            nodes: nodes,
+            release: function (releaseTime) {
+                var t = audioCtx.currentTime;
+                outputGain.gain.cancelScheduledValues(t);
+                outputGain.gain.setTargetAtTime(0, t, releaseTime * 0.3);
+                setTimeout(function () {
+                    nodes.forEach(function (n) {
+                        try { n.stop(); } catch (e) { /* already stopped */ }
+                    });
+                    try { outputGain.disconnect(); } catch (e) {}
+                }, releaseTime * 1000 + 500);
+            },
+        };
     }
 
-    function stopOscillators(releaseTime) {
-        var t = releaseTime || 0.1;
-        var now = audioCtx ? audioCtx.currentTime : 0;
+    function playChord(chordFreqs) {
+        if (!audioCtx) return;
 
-        oscillators.forEach(function(o) {
-            if (o.gain) {
-                o.gain.gain.setTargetAtTime(0, now, t * 0.3);
-            }
-            // Schedule stop after release
-            setTimeout(function() {
-                try {
-                    o.osc.stop();
-                    if (o.lfo) o.lfo.stop();
-                } catch (e) {
-                    // Already stopped
-                }
-            }, t * 1000 + 200);
+        var vol = parseFloat(localStorage.getItem(STORAGE_KEY) || '0.3');
+        var perNoteGain = (vol * 0.5) / Math.max(chordFreqs.length, 1);
+        var voices = [];
+
+        chordFreqs.forEach(function (freq) {
+            var voice = createOrganVoice(freq, perNoteGain, 1.5);
+            voices.push(voice);
         });
 
-        oscillators = [];
+        // Release previous voices with long crossfade
+        activeVoices.forEach(function (oldVoices) {
+            oldVoices.forEach(function (v) {
+                v.release(CROSSFADE_TIME);
+            });
+        });
+
+        activeVoices.push(voices);
+
+        // Keep only current + fading voices (prevent memory buildup)
+        if (activeVoices.length > 3) {
+            activeVoices.shift();
+        }
     }
 
     function nextChord() {
         currentChordIndex = (currentChordIndex + 1) % CHORDS.length;
-        createPad(CHORDS[currentChordIndex]);
+        playChord(CHORDS[currentChordIndex]);
     }
 
     function startChordCycle() {
-        createPad(CHORDS[currentChordIndex]);
-
-        // Change chord every 8 seconds
-        chordTimer = setInterval(nextChord, 8000);
+        playChord(CHORDS[currentChordIndex]);
+        chordTimer = setInterval(nextChord, CHORD_DURATION);
     }
 
     function stopChordCycle() {
@@ -211,14 +302,15 @@
 
     function togglePlay() {
         if (isPlaying) {
-            // Fade out and stop
+            // Fade out
             if (masterGain && audioCtx) {
-                var vol = masterGain.gain.value;
-                masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.4);
-
-                setTimeout(function() {
+                masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+                setTimeout(function () {
                     stopChordCycle();
-                    stopOscillators(0.1);
+                    activeVoices.forEach(function (voices) {
+                        voices.forEach(function (v) { v.release(0.2); });
+                    });
+                    activeVoices = [];
                     isPlaying = false;
                     updateButton();
                 }, FADE_DURATION);
@@ -231,7 +323,7 @@
             }
 
             var vol = parseFloat(localStorage.getItem(STORAGE_KEY) || '0.3');
-            masterGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.5);
+            masterGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.8);
 
             isPlaying = true;
             updateButton();

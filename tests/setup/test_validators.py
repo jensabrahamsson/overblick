@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from overblick.setup.validators import (
-    CharacterSelection,
+    UseCaseSelection,
     CommunicationData,
     LLMData,
     PrincipalData,
@@ -119,17 +119,17 @@ class TestCommunicationData:
         assert data.telegram_enabled
 
 
-class TestCharacterSelection:
+class TestUseCaseSelection:
     """Tests for Step 5 validation."""
 
     def test_valid_selection(self):
-        data = CharacterSelection(selected_characters=["anomal", "cherry"])
-        assert len(data.selected_characters) == 2
+        data = UseCaseSelection(selected_use_cases=["social_media", "email"])
+        assert len(data.selected_use_cases) == 2
 
     def test_empty_selection(self):
         with pytest.raises(ValidationError, match="at least one"):
-            CharacterSelection(selected_characters=[])
+            UseCaseSelection(selected_use_cases=[])
 
     def test_single_selection(self):
-        data = CharacterSelection(selected_characters=["stal"])
-        assert data.selected_characters == ["stal"]
+        data = UseCaseSelection(selected_use_cases=["research"])
+        assert data.selected_use_cases == ["research"]

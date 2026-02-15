@@ -418,8 +418,17 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 
 .radio-card input[type="radio"] {
     position: absolute;
-    opacity: 0;
-    pointer-events: none;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.radio-card:has(input:focus-visible) {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
 }
 
 .radio-card:has(input:checked) {
@@ -591,6 +600,15 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
     border-top: 1px solid var(--border);
 }
 
+/* Sticky variant — keeps buttons visible on long pages (e.g. character select) */
+.btn-group-sticky {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-primary);
+    padding-bottom: var(--space-lg);
+    z-index: 20;
+}
+
 /* ================================================
    Badges
    ================================================ */
@@ -607,7 +625,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .badge-red { background: var(--red-dim); color: var(--red); }
 .badge-amber { background: var(--amber-dim); color: var(--amber); }
 .badge-purple { background: rgba(188, 140, 255, 0.15); color: var(--purple); }
-.badge-muted { background: var(--bg-tertiary); color: var(--text-muted); }
+.badge-muted { background: var(--bg-tertiary); color: var(--text-secondary); }
 
 .test-result {
     display: inline-flex;
@@ -635,15 +653,17 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .carousel-track {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: var(--space-lg);
     transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    min-height: 480px;
+    min-height: 400px;
     /* Scroll snap for smooth mobile experience */
     overflow-x: auto;
     scroll-snap-type: x mandatory;
+    scroll-padding-inline: calc(50% - 180px); /* center focused card (half of 360px) */
     scrollbar-width: none; /* hide scrollbar */
     -ms-overflow-style: none;
+    /* Pad edges so first/last card can scroll to center */
+    padding-inline: max(var(--space-xl), calc(50% - 180px));
 }
 
 .carousel-track::-webkit-scrollbar {
@@ -948,47 +968,224 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 }
 
 /* ================================================
-   Agent Config (Step 6)
+   Use Case Cards (Step 5)
    ================================================ */
 
-.agent-tabs {
-    display: flex;
-    gap: var(--space-xs);
-    border-bottom: 1px solid var(--border);
-    margin-bottom: var(--space-lg);
-    overflow-x: auto;
+.use-case-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
 }
 
-.agent-tab {
-    padding: var(--space-sm) var(--space-lg);
-    border: none;
-    background: none;
-    color: var(--text-secondary);
-    font-family: inherit;
-    font-size: 0.95rem;
-    font-weight: 600;
+.use-case-card {
     cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
+    display: block;
+}
+
+.use-case-card input[type="checkbox"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
     white-space: nowrap;
 }
 
-.agent-tab:hover {
-    color: var(--text-primary);
+.use-case-card-inner {
+    padding: var(--space-lg);
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    transition: all 0.2s;
+    height: 100%;
 }
 
-.agent-tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
+.use-case-card-inner:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-hover);
 }
 
-.agent-panel {
-    display: none;
+.use-case-card input:focus-visible + .use-case-card-inner {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
 }
 
-.agent-panel.active {
+.use-case-card input:checked + .use-case-card-inner {
+    border-color: var(--green);
+    background: var(--card-selected);
+    box-shadow: 0 0 12px rgba(63, 185, 80, 0.15);
+}
+
+.use-case-icon {
+    font-size: 2rem;
+    margin-bottom: var(--space-sm);
+    line-height: 1;
+}
+
+.use-case-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: var(--space-xs);
+}
+
+.use-case-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: var(--space-md);
+    line-height: 1.5;
+}
+
+.use-case-plugins {
+    display: flex;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+}
+
+.use-case-warning {
+    margin-top: var(--space-sm);
+    font-size: 0.85rem;
+    color: var(--amber);
+    padding: var(--space-xs) var(--space-sm);
+    background: rgba(210, 153, 34, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+.use-case-warning a {
+    color: var(--amber);
+    text-decoration: underline;
+}
+
+/* ================================================
+   Agent Assignment (Step 6)
+   ================================================ */
+
+.assignment-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.assignment-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.assignment-header-icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.assignment-header-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.assignment-header-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.auto-assigned {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.assignment-role {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.personality-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+}
+
+.personality-option {
+    cursor: pointer;
     display: block;
-    animation: fade-in 0.3s ease-out;
+}
+
+.personality-option input[type="radio"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.personality-option-inner {
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    transition: all 0.2s;
+    height: 100%;
+}
+
+.personality-option-inner:hover {
+    border-color: var(--accent);
+}
+
+.personality-option input:focus-visible + .personality-option-inner {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+}
+
+.personality-option input:checked + .personality-option-inner {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.08);
+    box-shadow: 0 0 8px var(--glow);
+}
+
+.personality-option-name {
+    font-weight: 700;
+    margin-bottom: var(--space-xs);
+}
+
+.personality-option-role {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: var(--space-xs);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.assignment-config {
+    margin-top: var(--space-md);
+}
+
+.assignment-config-summary {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: var(--space-sm) 0;
+    user-select: none;
+}
+
+.assignment-config-summary:hover {
+    color: var(--text-secondary);
+}
+
+.assignment-config-body {
+    padding: var(--space-md) 0;
 }
 
 /* ================================================
@@ -1436,8 +1633,13 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
         padding: var(--space-md);
     }
 
-    .radio-cards {
+    .radio-cards,
+    .use-case-grid {
         grid-template-columns: 1fr;
+    }
+
+    .personality-grid {
+        grid-template-columns: 1fr 1fr;
     }
 
     .carousel-track {
