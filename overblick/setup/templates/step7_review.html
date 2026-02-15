@@ -103,7 +103,7 @@
         <span class="review-value">
             <strong>{{ a.personality_display }}</strong>
             {% for plugin in a.plugins %}
-            <span class="badge badge-purple" style="margin-left: 4px;">{{ plugin | replace('_', ' ') | title }}</span>
+            <span class="badge badge-purple" style="margin-left: 4px;">{{ plugin | replace('_', ' ') | title }} agent</span>
             {% endfor %}
         </span>
     </div>
