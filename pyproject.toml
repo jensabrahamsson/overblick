@@ -49,10 +49,11 @@ overblick = "overblick.__main__:main"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-ra --strict-markers --tb=short"
+addopts = "-ra --strict-markers --tb=short -m 'not e2e'"
 markers = [
     "llm: tests that require a running Ollama LLM (use -m llm to run)",
     "llm_slow: LLM tests >30s each — multi-turn conversations, forum posts (use -m llm_slow)",
+    "e2e: end-to-end Playwright browser tests (use -m e2e to run, requires: playwright install chromium)",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:starlette.templating",

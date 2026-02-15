@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Blixt (Lightning): Tech/gaming — lightning bolt motif -->
+  <circle cx="50" cy="50" r="45" stroke="#d29922" stroke-width="2" fill="#161b22"/>
+  <polygon points="55,22 38,52 48,52 43,78 62,45 52,45" fill="none" stroke="#d29922" stroke-width="2"/>
+  <line x1="55" y1="22" x2="52" y2="45" stroke="#d29922" stroke-width="0.5" opacity="0.3"/>
+  <circle cx="48" cy="52" r="2" fill="#d29922" opacity="0.5"/>
+</svg>

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+<div class="welcome-fade" style="text-align: center;">
+    <div class="setup-header">
+        <img src="/static/img/overblick-logo.svg" alt="Överblick" class="setup-logo"
+             onerror="this.style.display='none'">
+        <h1 class="setup-title">Överblick</h1>
+        <p class="setup-subtitle">Security-first multi-identity agent framework</p>
+        <p class="setup-version">v{{ version }}</p>
+    </div>
+
+    <div class="welcome-description">
+        <p>
+            Welcome to Överblick — a framework for running intelligent AI agents,
+            each with their own personality, voice, and purpose. From email assistants
+            to social media personalities, your agents act autonomously while you
+            maintain full control.
+        </p>
+        <p style="margin-top: var(--space-md);">
+            This wizard will guide you through setting up your installation:
+            your identity, AI engine, communication channels, and which agents
+            to activate.
+        </p>
+    </div>
+
+    <p class="welcome-credit">
+        Created by <a href="https://github.com/jensabrahamsson" target="_blank" rel="noopener">@jensabrahamsson</a>
+    </p>
+
+    <div style="margin-bottom: var(--space-lg);">
+        <button id="music-enable" class="btn btn-secondary" type="button">
+            Enable ambient music
+        </button>
+    </div>
+
+    <a href="/step/2" class="btn btn-primary btn-large">
+        Start Setup
+    </a>
+</div>
+{% endblock %}

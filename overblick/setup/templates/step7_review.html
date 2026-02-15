@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Review{% endblock %}
+
+{% block content %}
+<h2 class="step-heading">Review Your Setup</h2>
+<p class="step-description">
+    Here is everything that will be created. Review and click "Create Everything" to provision your installation.
+</p>
+
+{% set principal = state.principal or {} %}
+{% set llm = state.llm or {} %}
+{% set comm = state.communication or {} %}
+
+<!-- Principal -->
+<div class="review-section">
+    <div class="review-section-title">
+        Principal Identity
+        <a href="/step/2" class="review-edit">edit</a>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Name</span>
+        <span class="review-value">{{ principal.get('principal_name', 'Not set') }}</span>
+    </div>
+    {% if principal.get('principal_email') %}
+    <div class="review-item">
+        <span class="review-label">Email</span>
+        <span class="review-value">{{ principal.get('principal_email') }}</span>
+    </div>
+    {% endif %}
+    <div class="review-item">
+        <span class="review-label">Timezone</span>
+        <span class="review-value">{{ principal.get('timezone', 'Europe/Stockholm') }}</span>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Language</span>
+        <span class="review-value">{{ principal.get('language_preference', 'en') }}</span>
+    </div>
+</div>
+
+<!-- LLM -->
+<div class="review-section">
+    <div class="review-section-title">
+        AI Engine
+        <a href="/step/3" class="review-edit">edit</a>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Provider</span>
+        <span class="review-value">{{ llm.get('llm_provider', 'ollama') | title }}</span>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Model</span>
+        <span class="review-value">{{ llm.get('model', 'qwen3:8b') }}</span>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Temperature</span>
+        <span class="review-value">{{ llm.get('default_temperature', 0.7) }}</span>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Max Tokens</span>
+        <span class="review-value">{{ llm.get('default_max_tokens', 2000) }}</span>
+    </div>
+</div>
+
+<!-- Communication -->
+<div class="review-section">
+    <div class="review-section-title">
+        Communication Channels
+        <a href="/step/4" class="review-edit">edit</a>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Gmail</span>
+        <span class="review-value">
+            {% if comm.get('gmail_enabled') %}
+                <span class="badge badge-green">Enabled</span> {{ comm.get('gmail_address', '') }}
+            {% else %}
+                <span class="badge badge-muted">Disabled</span>
+            {% endif %}
+        </span>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Telegram</span>
+        <span class="review-value">
+            {% if comm.get('telegram_enabled') %}
+                <span class="badge badge-green">Enabled</span>
+            {% else %}
+                <span class="badge badge-muted">Disabled</span>
+            {% endif %}
+        </span>
+    </div>
+</div>
+
+<!-- Selected Agents -->
+<div class="review-section">
+    <div class="review-section-title">
+        Selected Agents
+        <a href="/step/5" class="review-edit">edit</a>
+    </div>
+    {% for char in selected_characters %}
+    <div class="review-item">
+        <span class="review-label">{{ char.display_name }}</span>
+        <span class="review-value">{{ char.role }}</span>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- What will be created -->
+<div class="review-section">
+    <div class="review-section-title">What will be created</div>
+    <div class="review-item">
+        <span class="review-label">Config file</span>
+        <span class="review-value" style="font-family: var(--font-mono); font-size: 0.85rem;">config/overblick.yaml</span>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Encrypted secrets</span>
+        <span class="review-value" style="font-family: var(--font-mono); font-size: 0.85rem;">
+            config/secrets/{% for name in state.selected_characters %}{{ name }}.yaml{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Data directories</span>
+        <span class="review-value" style="font-family: var(--font-mono); font-size: 0.85rem;">
+            {% for name in state.selected_characters %}data/{{ name }}/{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+    </div>
+    <div class="review-item">
+        <span class="review-label">Log directories</span>
+        <span class="review-value" style="font-family: var(--font-mono); font-size: 0.85rem;">
+            {% for name in state.selected_characters %}logs/{{ name }}/{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+    </div>
+</div>
+
+<form method="post" action="/step/7" id="provision-form">
+    <div class="btn-group">
+        <a href="/step/6" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-success btn-large" id="provision-btn">Create Everything</button>
+    </div>
+</form>
+
+<!-- Provisioning overlay (shown during submission) -->
+<div class="provisioning-overlay" id="provision-overlay" style="display: none;" aria-hidden="true">
+    <div class="provisioning-spinner" aria-hidden="true"></div>
+    <div class="provisioning-text" role="status" aria-live="assertive" id="provision-status"></div>
+</div>
+
+<script>
+(function() {
+    var form = document.getElementById('provision-form');
+    var btn = document.getElementById('provision-btn');
+    var overlay = document.getElementById('provision-overlay');
+    var statusText = document.getElementById('provision-status');
+    if (!form || !btn || !overlay) return;
+
+    form.addEventListener('submit', function() {
+        btn.classList.add('btn-loading');
+        btn.textContent = 'Creating...';
+        btn.disabled = true;
+        overlay.style.display = 'flex';
+        overlay.removeAttribute('aria-hidden');
+        if (statusText) statusText.textContent = 'Setting up your agents...';
+    });
+})();
+</script>
+{% endblock %}

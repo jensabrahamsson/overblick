@@ -97,55 +97,6 @@ class UserRateLimit(BaseModel):
         return per_minute < self.max_per_minute and len(self.message_timestamps) < self.max_per_hour
 ```
 
-## GmailPlugin (Condensed)
-
-**File:** `overblick/plugins/gmail/plugin.py`
-
-Email processing plugin with draft mode and boss agent approval workflow.
-
-### Key Patterns
-
-```python
-class GmailPlugin(PluginBase):
-    name = "gmail"
-
-    async def setup(self) -> None:
-        # Multiple secrets needed
-        credentials = self.ctx.get_secret("gmail_credentials")
-        if not credentials:
-            raise RuntimeError(f"Missing gmail_credentials for {self.ctx.identity.name}")
-
-        # Draft mode — responses go to drafts, not sent directly
-        self._draft_mode = self.ctx.identity.raw_config.get("gmail", {}).get("draft_mode", True)
-
-    async def tick(self) -> None:
-        # Check quiet hours first
-        if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
-            return
-
-        # Poll for new emails
-        emails = await self._fetch_unread()
-        for email in emails:
-            # Wrap email content in boundary markers
-            safe_body = wrap_external_content(email.body, "email")
-            safe_subject = wrap_external_content(email.subject, "email_subject")
-
-            # Generate response via pipeline
-            result = await self.ctx.llm_pipeline.chat(
-                messages=[...],
-                audit_action="gmail_response",
-            )
-
-            if result.blocked:
-                continue
-
-            # Draft mode: save as draft for human review
-            if self._draft_mode:
-                await self._create_draft(email, result.content)
-            else:
-                await self._send_reply(email, result.content)
-```
-
 ## MoltbookPlugin — Capability Integration Pattern
 
 **File:** `overblick/plugins/moltbook/plugin.py`

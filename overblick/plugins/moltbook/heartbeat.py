@@ -31,7 +31,7 @@ class HeartbeatManager:
         self._current_topic_index = (self._current_topic_index + 1) % self._topic_count
         return idx
 
-    def record_heartbeat(self, post_id: str, title: str) -> None:
+    async def record_heartbeat(self, post_id: str, title: str) -> None:
         """Record a heartbeat post in the engagement database."""
-        self._db.record_heartbeat(post_id, title)
+        await self._db.record_heartbeat(post_id, title)
         logger.info("Heartbeat recorded: %s (%s)", title[:50], post_id)

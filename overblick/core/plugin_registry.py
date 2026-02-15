@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 _KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
-    "gmail": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
     "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),

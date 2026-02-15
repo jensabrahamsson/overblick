@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Agent Configuration{% endblock %}
+
+{% block content %}
+<h2 class="step-heading">Configure Your Agents</h2>
+<p class="step-description">
+    Fine-tune each selected agent. Default settings come from the personality definition
+    — only change what you need.
+</p>
+
+<form method="post" action="/step/6">
+    {% set configs = state.agent_configs or {} %}
+
+    {% if selected_characters | length > 1 %}
+    <!-- Tabbed interface for multiple agents -->
+    <div class="agent-tabs" role="tablist">
+        {% for char in selected_characters %}
+        <button type="button" class="agent-tab {{ 'active' if loop.first }}"
+                role="tab"
+                aria-selected="{{ 'true' if loop.first else 'false' }}"
+                aria-controls="panel-{{ char.name }}"
+                onclick="switchTab('{{ char.name }}', this)">
+            {{ char.display_name }}
+        </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% for char in selected_characters %}
+    {% set cfg = configs.get(char.name, {}) %}
+    {% set op = char.get('operational', {}) %}
+    {% set llm_cfg = op.get('llm', {}) %}
+    {% set sched = op.get('schedule', {}) %}
+
+    <div class="agent-panel {{ 'active' if loop.first }}" id="panel-{{ char.name }}" role="tabpanel">
+        <div class="review-section">
+            <div class="review-section-title">
+                {{ char.display_name }}
+                <span class="badge badge-purple">{{ char.base_tone }}</span>
+            </div>
+
+            <!-- Temperature -->
+            <div class="form-group">
+                <label class="form-label">
+                    Temperature:
+                    <span class="form-range-value" id="{{ char.name }}-temp-val">
+                        {{ cfg.get('temperature', llm_cfg.get('temperature', state.llm.get('default_temperature', 0.7))) }}
+                    </span>
+                </label>
+                <input type="range" class="form-range"
+                       name="{{ char.name }}_temperature"
+                       min="0" max="2" step="0.1"
+                       value="{{ cfg.get('temperature', llm_cfg.get('temperature', state.llm.get('default_temperature', 0.7))) }}"
+                       oninput="document.getElementById('{{ char.name }}-temp-val').textContent = this.value">
+            </div>
+
+            <!-- Max tokens -->
+            <div class="form-group">
+                <label class="form-label" for="{{ char.name }}_max_tokens">Max Tokens</label>
+                <input type="number" class="form-input"
+                       name="{{ char.name }}_max_tokens"
+                       value="{{ cfg.get('max_tokens', llm_cfg.get('max_tokens', state.llm.get('default_max_tokens', 2000))) }}"
+                       min="100" max="32000">
+            </div>
+
+            <!-- Heartbeat -->
+            <div class="form-group">
+                <label class="form-label" for="{{ char.name }}_heartbeat_hours">
+                    Heartbeat Interval (hours)
+                </label>
+                <span class="form-hint">How often the agent wakes up to check for work</span>
+                <input type="number" class="form-input"
+                       name="{{ char.name }}_heartbeat_hours"
+                       value="{{ cfg.get('heartbeat_hours', sched.get('heartbeat_hours', 4)) }}"
+                       min="1" max="24">
+            </div>
+
+            <!-- Quiet hours -->
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                    <input type="checkbox" name="{{ char.name }}_quiet_hours" value="on"
+                           {{ 'checked' if cfg.get('quiet_hours', True) }}>
+                    <span class="form-label" style="margin-bottom: 0;">Enable quiet hours</span>
+                </label>
+                <span class="form-hint">Agent sleeps during nighttime (configurable per-personality)</span>
+            </div>
+
+            <!-- Plugins -->
+            {% if char.plugins %}
+            <div class="form-group">
+                <label class="form-label">Plugins</label>
+                {% for plugin_name, level in char.plugins.items() %}
+                <label style="display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-xs); cursor: pointer;">
+                    <input type="checkbox" name="{{ char.name }}_plugins" value="{{ plugin_name }}"
+                           {{ 'checked' if level == 'great' }}>
+                    <span>{{ plugin_name | replace('_', ' ') | title }}</span>
+                    <span class="badge {{ 'badge-green' if level == 'great' else 'badge-amber' }}">{{ level }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="btn-group">
+        <a href="/step/5" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Next: Review</button>
+    </div>
+</form>
+
+{% if selected_characters | length > 1 %}
+<script>
+function switchTab(name, btn) {
+    // Deactivate all tabs and panels
+    document.querySelectorAll('.agent-tab').forEach(function(t) {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+    });
+    document.querySelectorAll('.agent-panel').forEach(function(p) {
+        p.classList.remove('active');
+    });
+
+    // Activate selected
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    var panel = document.getElementById('panel-' + name);
+    if (panel) panel.classList.add('active');
+}
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Rost (Voice/Rust): Politics/debate — megaphone/speech motif -->
+  <circle cx="50" cy="50" r="45" stroke="#ff8c42" stroke-width="2" fill="#161b22"/>
+  <path d="M35 40 L55 30 L55 60 L35 50 Z" stroke="#ff8c42" stroke-width="2" fill="none"/>
+  <rect x="30" y="40" width="5" height="10" rx="1" stroke="#ff8c42" stroke-width="1.5" fill="none"/>
+  <path d="M55 32 Q70 38 70 45 Q70 52 55 58" stroke="#8b949e" stroke-width="1" fill="none" opacity="0.5"/>
+  <path d="M58 28 Q75 36 75 45 Q75 54 58 62" stroke="#8b949e" stroke-width="1" fill="none" opacity="0.3"/>
+</svg>
