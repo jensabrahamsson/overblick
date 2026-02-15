@@ -22,6 +22,7 @@ from typing import Optional
 from overblick.core.security.audit_log import AuditLog
 from overblick.supervisor.email_handler import EmailConsultationHandler
 from overblick.supervisor.health_handler import HealthInquiryHandler
+from overblick.supervisor.research_handler import ResearchHandler
 from overblick.supervisor.ipc import IPCMessage, IPCServer, generate_ipc_token
 from overblick.supervisor.process import AgentProcess, ProcessState
 
@@ -77,6 +78,9 @@ class Supervisor:
         # Email consultation handler (lazy LLM initialization)
         self._email_handler = EmailConsultationHandler(audit_log=self._audit_log)
 
+        # Research handler (lazy LLM initialization)
+        self._research_handler = ResearchHandler(audit_log=self._audit_log)
+
     @property
     def state(self) -> SupervisorState:
         return self._state
@@ -95,6 +99,7 @@ class Supervisor:
         self._ipc.on("permission_request", self._handle_permission_request)
         self._ipc.on("health_inquiry", self._handle_health_inquiry)
         self._ipc.on("email_consultation", self._handle_email_consultation)
+        self._ipc.on("research_request", self._handle_research_request)
         self._ipc.on("shutdown", self._handle_shutdown)
 
         self._audit_log.log("supervisor_starting", category="lifecycle")
@@ -275,6 +280,10 @@ class Supervisor:
     async def _handle_email_consultation(self, msg: IPCMessage) -> Optional[IPCMessage]:
         """Handle an email consultation from an agent."""
         return await self._email_handler.handle(msg)
+
+    async def _handle_research_request(self, msg: IPCMessage) -> Optional[IPCMessage]:
+        """Handle a research request from an agent."""
+        return await self._research_handler.handle(msg)
 
     async def _handle_shutdown(self, msg: IPCMessage) -> Optional[IPCMessage]:
         """Handle shutdown request."""

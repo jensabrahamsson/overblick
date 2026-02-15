@@ -10,7 +10,7 @@ Bundles:
     content        = [summarizer]
     speech         = [stt, tts]
     vision         = [vision]
-    communication  = [email, gmail]
+    communication  = [boss_request, email, gmail]
     monitoring     = [host_inspection]
 """
 
@@ -27,6 +27,7 @@ from overblick.capabilities.content.summarizer import SummarizerCapability
 from overblick.capabilities.speech.stt import SpeechToTextCapability
 from overblick.capabilities.speech.tts import TextToSpeechCapability
 from overblick.capabilities.vision.analyzer import VisionCapability
+from overblick.capabilities.communication.boss_request import BossRequestCapability
 from overblick.capabilities.communication.email import EmailCapability
 from overblick.capabilities.communication.gmail import GmailCapability
 from overblick.capabilities.communication.telegram_notifier import TelegramNotifier
@@ -47,6 +48,7 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "stt": SpeechToTextCapability,
     "tts": TextToSpeechCapability,
     "vision": VisionCapability,
+    "boss_request": BossRequestCapability,
     "email": EmailCapability,
     "gmail": GmailCapability,
     "telegram_notifier": TelegramNotifier,
@@ -64,7 +66,7 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "content": ["summarizer"],
     "speech": ["stt", "tts"],
     "vision": ["vision"],
-    "communication": ["email", "gmail", "telegram_notifier"],
+    "communication": ["boss_request", "email", "gmail", "telegram_notifier"],
     "monitoring": ["host_inspection"],
 }
 
@@ -84,6 +86,7 @@ def resolve_capabilities(names: list[str]) -> list[str]:
 
 
 __all__ = [
+    "BossRequestCapability",
     "DreamCapability",
     "TherapyCapability",
     "EmotionalCapability",

@@ -136,7 +136,7 @@ class TestGermanScenarios:
         assert records[0].classified_intent == "notify"
 
         # Telegram notification sent
-        mock_telegram_notifier.send_notification.assert_called_once()
+        mock_telegram_notifier.send_notification_tracked.assert_called_once()
 
 
 class TestFrenchScenarios:
@@ -230,19 +230,74 @@ class TestSenderFiltering:
     """Test that sender filtering works correctly in the processing pipeline."""
 
     @pytest.mark.asyncio
-    async def test_blocked_sender_not_processed(self, stal_plugin_context):
-        """Emails from non-whitelisted senders are skipped."""
+    async def test_allowed_sender_check(self, stal_plugin_context):
+        """_is_allowed_sender works for opt-in mode."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        email = make_email(
-            sender="random@nobody.com",  # Not in allowed_senders
-            subject="Hello",
-            body="This should be filtered out",
-        )
-
-        # _process_email should not be called for filtered senders
-        # We test _is_allowed_sender directly
         assert plugin._is_allowed_sender("random@nobody.com") is False
         assert plugin._is_allowed_sender("jens.abrahamsson@wirelesscar.com") is True
         assert plugin._is_allowed_sender("test@example.com") is True
+
+
+class TestNotifyAllSenders:
+    """Test that NOTIFY works for all senders regardless of filter mode."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_sender_notify_works(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """Emails from unknown senders classified as NOTIFY still get sent."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # LLM: classify as NOTIFY, then generate notification
+        responses = [
+            PipelineResult(content='{"intent": "notify", "confidence": 0.85, "reasoning": "Important financial info", "priority": "high"}'),
+            PipelineResult(content="Important financial update from unknown sender."),
+        ]
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)
+
+        email = make_email(
+            sender="finance@unknowncorp.com",  # NOT in allowed_senders
+            subject="Q4 Financial Report",
+            body="Please review the attached Q4 financials.",
+        )
+
+        await plugin._process_email(email)
+
+        records = await plugin._db.get_recent_emails(limit=1)
+        assert len(records) == 1
+        assert records[0].classified_intent == "notify"
+        # Notification should have been sent
+        mock_telegram_notifier.send_notification_tracked.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unknown_sender_reply_falls_back_to_notify(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """Emails from unknown senders classified as REPLY fall back to NOTIFY."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # LLM: classify as REPLY (but sender not allowed), then notification fallback
+        responses = [
+            PipelineResult(content='{"intent": "reply", "confidence": 0.9, "reasoning": "Meeting request", "priority": "normal"}'),
+            PipelineResult(content="Meeting request from unknown sender — please review."),
+        ]
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)
+
+        email = make_email(
+            sender="unknown@randomcorp.com",  # NOT in allowed_senders
+            subject="Partnership meeting",
+            body="Would you like to discuss a potential partnership?",
+        )
+
+        await plugin._process_email(email)
+
+        records = await plugin._db.get_recent_emails(limit=1)
+        assert len(records) == 1
+        assert records[0].classified_intent == "reply"
+        # Should have fallen back to notify
+        assert "notify_fallback" in records[0].action_taken
+        mock_telegram_notifier.send_notification_tracked.assert_called_once()

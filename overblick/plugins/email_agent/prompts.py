@@ -128,7 +128,9 @@ def boss_consultation_prompt(
     system = (
         "You're uncertain about how to handle this email. Formulate a brief "
         "question for the supervisor. Include the email context and explain "
-        "what you're unsure about."
+        "what you're unsure about.\n\n"
+        "IMPORTANT: Always formulate your question in English. "
+        "All internal agent-to-agent communication uses English."
     )
 
     user = (
@@ -136,7 +138,91 @@ def boss_consultation_prompt(
         f"Your reasoning so far: {reasoning}\n"
         f"Your tentative classification: {tentative_intent}\n"
         f"Confidence: {confidence}\n\n"
-        "Formulate your question:"
+        "Formulate your question (in English):"
+    )
+
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
+def reply_prompt_with_research(
+    sender: str,
+    subject: str,
+    body: str,
+    sender_context: str,
+    interaction_history: str,
+    principal_name: str = "",
+    research_context: str = "",
+) -> list[dict[str, str]]:
+    """Build the email reply prompt with optional research context."""
+    research_section = ""
+    if research_context:
+        research_section = (
+            f"\n\nRESEARCH CONTEXT (from supervisor):\n{research_context}\n"
+            "Use this research to inform your reply where relevant."
+        )
+
+    system = (
+        f"You are Stål, digital assistant to {principal_name}, writing an email "
+        f"reply on behalf of {principal_name}.\n\n"
+        "CRITICAL: Respond in the SAME LANGUAGE as the incoming email.\n"
+        "Keep it professional, concise, and helpful.\n"
+        f"Sign as: \"Best regards, Stål / Digital Assistant to {principal_name}\"\n"
+        "You are transparent about being a digital assistant. Never pretend to "
+        f"be {principal_name} directly.\n"
+        "If you're unsure about specific details, say you'll follow up.\n\n"
+        "GDPR POLICY: You retain email content for 30 days only. If someone "
+        "references information from a conversation older than 30 days that you "
+        "cannot find, politely explain that due to GDPR compliance, detailed "
+        "correspondence is not retained beyond 30 days, and ask them to resend "
+        "the relevant information.\n\n"
+        f"Context about the sender:\n{sender_context}\n\n"
+        f"Previous interactions:\n{interaction_history}"
+        f"{research_section}"
+    )
+
+    user = (
+        "Email to reply to:\n"
+        f"From: {sender}\n"
+        f"Subject: {subject}\n"
+        f"Body:\n{body}\n\n"
+        "Write the reply (in the same language as the email above):"
+    )
+
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
+def feedback_classification_prompt(
+    feedback_text: str,
+    original_notification: str,
+    original_email_subject: str,
+) -> list[dict[str, str]]:
+    """
+    Classify principal's Telegram feedback on a notification.
+
+    Returns JSON: {"sentiment": "positive|negative|neutral",
+                   "learning": "...", "should_acknowledge": true|false}
+    """
+    system = (
+        "You are analyzing feedback from the principal about a notification "
+        "you sent via Telegram. Classify the feedback sentiment and extract "
+        "any learning for future classification.\n\n"
+        "Respond in JSON ONLY:\n"
+        '{"sentiment": "positive|negative|neutral", '
+        '"learning": "brief description of what to learn from this feedback", '
+        '"should_acknowledge": true|false}'
+    )
+
+    user = (
+        f"Original notification was about email: \"{original_email_subject}\"\n"
+        f"Notification sent: {original_notification}\n\n"
+        f"Principal's feedback: \"{feedback_text}\"\n\n"
+        "Classify the feedback:"
     )
 
     return [

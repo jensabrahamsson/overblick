@@ -39,8 +39,10 @@ from overblick.plugins.email_agent.models import (
 from overblick.plugins.email_agent.prompts import (
     boss_consultation_prompt,
     classification_prompt,
+    feedback_classification_prompt,
     notification_prompt,
     reply_prompt,
+    reply_prompt_with_research,
 )
 from overblick.supervisor.ipc import IPCMessage
 
@@ -174,9 +176,9 @@ class EmailAgentPlugin(PluginBase):
         try:
             emails = await self._fetch_unread()
             for email in emails:
-                if not self._is_allowed_sender(email.get("sender", "")):
-                    continue
                 await self._process_email(email)
+            # Check for Telegram feedback after processing emails
+            await self._check_tg_feedback()
         except Exception as e:
             logger.error("EmailAgent tick failed: %s", e, exc_info=True)
             self._state.current_health = "degraded"
@@ -233,20 +235,27 @@ class EmailAgentPlugin(PluginBase):
                 classification.confidence, sender,
             )
 
-        # Execute action
-        action_taken = await self._execute_action(email, classification)
-
-        # Record in database
+        # Record in database FIRST to get record_id for notification tracking
+        email_record_id = None
         if self._db:
-            await self._db.record_email(EmailRecord(
+            email_record_id = await self._db.record_email(EmailRecord(
                 email_from=sender,
                 email_subject=subject,
                 email_snippet=snippet,
                 classified_intent=classification.intent.value,
                 confidence=classification.confidence,
                 reasoning=classification.reasoning,
-                action_taken=action_taken,
+                action_taken="pending",
             ))
+
+        # Execute action (pass record_id for notification tracking)
+        action_taken = await self._execute_action(
+            email, classification, email_record_id=email_record_id,
+        )
+
+        # Update action_taken in database
+        if self._db and email_record_id:
+            await self._db.update_action_taken(email_record_id, action_taken)
 
         self._state.emails_processed += 1
 
@@ -341,20 +350,41 @@ class EmailAgentPlugin(PluginBase):
             return None
 
     async def _execute_action(
-        self, email: dict[str, Any], classification: EmailClassification,
+        self,
+        email: dict[str, Any],
+        classification: EmailClassification,
+        email_record_id: Optional[int] = None,
     ) -> str:
         """Execute the classified action. Returns description of action taken."""
+        sender = email.get("sender", "")
+
         match classification.intent:
             case EmailIntent.IGNORE:
                 return "ignored"
 
             case EmailIntent.NOTIFY:
-                success = await self._send_notification(email, classification)
+                success = await self._send_notification(
+                    email, classification, email_record_id=email_record_id,
+                )
                 if success:
                     self._state.notifications_sent += 1
                 return "notification_sent" if success else "notification_failed"
 
             case EmailIntent.REPLY:
+                if not self._is_allowed_sender(sender):
+                    logger.info(
+                        "Reply suppressed for sender %s — not in allowed list, "
+                        "falling back to notification",
+                        sender,
+                    )
+                    # Fall back to NOTIFY — important email, just can't reply
+                    success = await self._send_notification(
+                        email, classification, email_record_id=email_record_id,
+                    )
+                    if success:
+                        self._state.notifications_sent += 1
+                    return "reply_suppressed_notify_fallback" if success else "reply_suppressed_notify_failed"
+
                 success = await self._send_reply(email)
                 if success:
                     self._state.emails_replied += 1
@@ -371,8 +401,9 @@ class EmailAgentPlugin(PluginBase):
 
     async def _send_notification(
         self, email: dict[str, Any], classification: EmailClassification,
+        email_record_id: Optional[int] = None,
     ) -> bool:
-        """Generate and send a Telegram notification."""
+        """Generate and send a tracked Telegram notification."""
         sender = email.get("sender", "")
         subject = email.get("subject", "")
         body = email.get("body", "")
@@ -397,19 +428,43 @@ class EmailAgentPlugin(PluginBase):
                 f"{result.content.strip()}"
             )
 
-            # Send via Telegram notifier capability
+            # Send via Telegram notifier capability (tracked when possible)
             notifier = self.ctx.get_capability("telegram_notifier")
-            if notifier:
-                return await notifier.send_notification(notification_text)
-            else:
+            if not notifier:
                 logger.warning("EmailAgent: telegram_notifier capability not available")
                 return False
+
+            # Use tracked send to enable feedback loop
+            tg_message_id = await notifier.send_notification_tracked(
+                notification_text, ref_id=str(email_record_id or ""),
+            )
+
+            if tg_message_id and email_record_id and self._db:
+                chat_id = notifier._chat_id or ""
+                await self._db.track_notification(
+                    email_record_id=email_record_id,
+                    tg_message_id=tg_message_id,
+                    tg_chat_id=chat_id,
+                    notification_text=notification_text,
+                )
+
+            return tg_message_id is not None
 
         except Exception as e:
             logger.error("EmailAgent: notification generation failed: %s", e)
             return False
 
-    async def _send_reply(self, email: dict[str, Any]) -> bool:
+    async def _request_research(self, query: str, context: str = "") -> Optional[str]:
+        """Ask the supervisor for research via BossRequestCapability."""
+        boss_cap = self.ctx.get_capability("boss_request")
+        if not boss_cap or not boss_cap.configured:
+            logger.debug("EmailAgent: boss_request capability not available for research")
+            return None
+        return await boss_cap.request_research(query, context)
+
+    async def _send_reply(
+        self, email: dict[str, Any], research_context: str = "",
+    ) -> bool:
         """Generate and send an email reply via the Gmail plugin event bus."""
         sender = email.get("sender", "")
         subject = email.get("subject", "")
@@ -438,14 +493,25 @@ class EmailAgentPlugin(PluginBase):
                     for r in history[:3]
                 )
 
-        messages = reply_prompt(
-            sender=sender,
-            subject=subject,
-            body=body[:3000],
-            sender_context=sender_context,
-            interaction_history=interaction_history,
-            principal_name=self._principal_name,
-        )
+        if research_context:
+            messages = reply_prompt_with_research(
+                sender=sender,
+                subject=subject,
+                body=body[:3000],
+                sender_context=sender_context,
+                interaction_history=interaction_history,
+                principal_name=self._principal_name,
+                research_context=research_context,
+            )
+        else:
+            messages = reply_prompt(
+                sender=sender,
+                subject=subject,
+                body=body[:3000],
+                sender_context=sender_context,
+                interaction_history=interaction_history,
+                principal_name=self._principal_name,
+            )
 
         try:
             result = await self.ctx.llm_pipeline.chat(
@@ -621,6 +687,134 @@ class EmailAgentPlugin(PluginBase):
                 logger.warning("EmailAgent: failed to load sender profile: %s", e)
 
         return SenderProfile(email=sender)
+
+    async def _check_tg_feedback(self) -> None:
+        """Check for principal's Telegram feedback on sent notifications."""
+        notifier = self.ctx.get_capability("telegram_notifier")
+        if not notifier or not notifier.configured:
+            return
+
+        if not self._db:
+            return
+
+        try:
+            updates = await notifier.fetch_updates()
+        except Exception as e:
+            logger.debug("EmailAgent: failed to fetch TG updates: %s", e)
+            return
+
+        for update in updates:
+            # Only process replies to our tracked notifications
+            if not update.reply_to_message_id:
+                continue
+
+            # Look up the original notification
+            tracking = await self._db.get_notification_by_tg_id(
+                update.reply_to_message_id,
+            )
+            if not tracking:
+                continue
+
+            # Classify the feedback via LLM
+            sentiment, learning_text, should_ack = await self._classify_feedback(
+                feedback_text=update.text,
+                original_notification=tracking.get("notification_text", ""),
+                original_email_subject=tracking.get("email_subject", ""),
+            )
+
+            # Record feedback in DB
+            await self._db.record_feedback(
+                tracking_id=tracking["id"],
+                text=update.text,
+                sentiment=sentiment,
+            )
+
+            # Update the email record with feedback
+            was_correct = sentiment == "positive"
+            email_record_id = tracking.get("email_record_id")
+            if email_record_id:
+                await self._db.update_feedback(
+                    record_id=email_record_id,
+                    feedback=update.text,
+                    was_correct=was_correct,
+                )
+
+            # Store as learning
+            if learning_text:
+                await self._db.store_learning(AgentLearning(
+                    learning_type="classification",
+                    content=learning_text,
+                    source="principal_feedback",
+                    email_from=tracking.get("email_from"),
+                ))
+                # Refresh learnings cache
+                self._learnings = await self._db.get_learnings(limit=50)
+
+            # Acknowledge if appropriate
+            if should_ack and notifier.configured:
+                await notifier.send_notification(
+                    "Noted, I'll adjust my classification accordingly."
+                )
+
+            logger.info(
+                "Processed TG feedback (sentiment=%s) for email '%s'",
+                sentiment, tracking.get("email_subject", ""),
+            )
+
+    async def _classify_feedback(
+        self, feedback_text: str, original_notification: str,
+        original_email_subject: str,
+    ) -> tuple[str, str, bool]:
+        """Classify principal feedback via LLM. Returns (sentiment, learning, should_ack)."""
+        if not self.ctx.llm_pipeline:
+            # Heuristic fallback
+            lower = feedback_text.lower()
+            if any(w in lower for w in ("bra", "tack", "great", "good", "thanks")):
+                return "positive", "", False
+            if any(w in lower for w in ("inte", "sluta", "stop", "spam", "no")):
+                return "negative", f"Principal said '{feedback_text}' about {original_email_subject}", True
+            return "neutral", "", False
+
+        messages = feedback_classification_prompt(
+            feedback_text=feedback_text,
+            original_notification=original_notification,
+            original_email_subject=original_email_subject,
+        )
+
+        try:
+            result = await self.ctx.llm_pipeline.chat(
+                messages=messages,
+                audit_action="feedback_classification",
+                skip_preflight=True,
+            )
+            if result and not result.blocked and result.content:
+                return self._parse_feedback_classification(result.content)
+        except Exception as e:
+            logger.debug("EmailAgent: feedback classification failed: %s", e)
+
+        return "neutral", "", False
+
+    def _parse_feedback_classification(self, raw: str) -> tuple[str, str, bool]:
+        """Parse LLM feedback classification JSON."""
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            start = raw.find("{")
+            end = raw.rfind("}") + 1
+            if start >= 0 and end > start:
+                try:
+                    data = json.loads(raw[start:end])
+                except json.JSONDecodeError:
+                    return "neutral", "", False
+            else:
+                return "neutral", "", False
+
+        sentiment = data.get("sentiment", "neutral")
+        if sentiment not in ("positive", "negative", "neutral"):
+            sentiment = "neutral"
+        learning = data.get("learning", "")
+        should_ack = data.get("should_acknowledge", False)
+        return sentiment, learning, should_ack
 
     def _is_allowed_sender(self, sender: str) -> bool:
         """Check if sender is allowed based on filter mode."""
