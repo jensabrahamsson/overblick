@@ -104,6 +104,58 @@ class SupervisorService:
             ]
         return []
 
+    async def start_agent(self, identity: str) -> dict[str, Any]:
+        """Request supervisor to start an agent.
+
+        Returns:
+            Dict with 'success' bool and optional 'error' string.
+        """
+        client = self._get_client()
+        if not client:
+            return {"success": False, "error": "Supervisor not reachable"}
+
+        try:
+            from overblick.supervisor.ipc import IPCMessage
+
+            msg = IPCMessage(
+                msg_type="start_agent",
+                payload={"identity": identity},
+                sender="dashboard",
+            )
+            response = await client.send(msg, timeout=10.0)
+            if response and response.msg_type == "agent_action_response":
+                return response.payload
+            return {"success": False, "error": "No response from supervisor"}
+        except Exception as e:
+            logger.debug("Failed to start agent '%s': %s", identity, e)
+            return {"success": False, "error": str(e)}
+
+    async def stop_agent(self, identity: str) -> dict[str, Any]:
+        """Request supervisor to stop an agent.
+
+        Returns:
+            Dict with 'success' bool and optional 'error' string.
+        """
+        client = self._get_client()
+        if not client:
+            return {"success": False, "error": "Supervisor not reachable"}
+
+        try:
+            from overblick.supervisor.ipc import IPCMessage
+
+            msg = IPCMessage(
+                msg_type="stop_agent",
+                payload={"identity": identity},
+                sender="dashboard",
+            )
+            response = await client.send(msg, timeout=10.0)
+            if response and response.msg_type == "agent_action_response":
+                return response.payload
+            return {"success": False, "error": "No response from supervisor"}
+        except Exception as e:
+            logger.debug("Failed to stop agent '%s': %s", identity, e)
+            return {"success": False, "error": str(e)}
+
     async def close(self) -> None:
         """Cleanup IPC client."""
         self._client = None

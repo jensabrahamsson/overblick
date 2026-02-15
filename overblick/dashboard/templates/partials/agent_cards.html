@@ -3,12 +3,18 @@
     <div class="agent-card-header">
         <span class="status-dot status-{{ card.state }}"></span>
         <a href="/agent/{{ card.name }}" class="agent-card-name">{{ card.display_name }}</a>
+        {% if card.restart_count > 0 %}
+        <span class="restart-badge" title="{{ card.restart_count }} restart{{ 's' if card.restart_count != 1 else '' }}">{{ card.restart_count }}x</span>
+        {% endif %}
     </div>
     <p class="agent-card-desc">{{ card.description[:80] }}{% if card.description|length > 80 %}...{% endif %}</p>
     <div class="agent-card-meta">
         <span class="meta-item mono">{{ card.llm_model }}</span>
+        {% if card.personality_ref %}
+        <span class="meta-item">{{ card.personality_ref }}</span>
+        {% endif %}
         {% if card.state == 'running' and card.uptime %}
-        <span class="meta-item">up {{ card.uptime }}s</span>
+        <span class="meta-item">{{ _format_uptime(card.uptime) }}</span>
         {% endif %}
     </div>
     <div class="tag-list">
@@ -23,7 +29,7 @@
 {% endfor %}
 {% if not agent_cards %}
 <div class="empty-state">
-    <p>No identities configured yet.</p>
-    <a href="/onboard" class="btn btn-primary btn-sm">Create your first identity</a>
+    <p>No agents configured yet.</p>
+    <a href="/onboard" class="btn btn-primary btn-sm">Create your first agent</a>
 </div>
 {% endif %}

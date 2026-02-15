@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}LLM Calls{% endblock %}
+
+{% block content %}
+<div class="llm-page">
+    <h1 class="page-title">LLM Calls</h1>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+        <select name="identity" class="form-select"
+                hx-get="/partials/llm-table"
+                hx-trigger="change"
+                hx-target="#llm-results"
+                hx-include=".filter-bar"
+                hx-swap="innerHTML">
+            <option value="">All Identities</option>
+            {% for ident in identities %}
+            <option value="{{ ident }}" {% if selected_identity == ident %}selected{% endif %}>{{ ident }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="hours" class="form-select"
+                hx-get="/partials/llm-table"
+                hx-trigger="change"
+                hx-target="#llm-results"
+                hx-include=".filter-bar"
+                hx-swap="innerHTML">
+            <option value="1" {% if selected_hours == 1 %}selected{% endif %}>Last hour</option>
+            <option value="6" {% if selected_hours == 6 %}selected{% endif %}>Last 6 hours</option>
+            <option value="24" {% if selected_hours == 24 %}selected{% endif %}>Last 24 hours</option>
+            <option value="168" {% if selected_hours == 168 %}selected{% endif %}>Last 7 days</option>
+        </select>
+    </div>
+
+    <!-- Results -->
+    <div id="llm-results">
+        {% include "partials/llm_table.html" %}
+    </div>
+</div>
+{% endblock %}

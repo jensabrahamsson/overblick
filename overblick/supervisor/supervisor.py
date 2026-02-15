@@ -100,6 +100,8 @@ class Supervisor:
         self._ipc.on("health_inquiry", self._handle_health_inquiry)
         self._ipc.on("email_consultation", self._handle_email_consultation)
         self._ipc.on("research_request", self._handle_research_request)
+        self._ipc.on("start_agent", self._handle_start_agent)
+        self._ipc.on("stop_agent", self._handle_stop_agent)
         self._ipc.on("shutdown", self._handle_shutdown)
 
         self._audit_log.log("supervisor_starting", category="lifecycle")
@@ -284,6 +286,64 @@ class Supervisor:
     async def _handle_research_request(self, msg: IPCMessage) -> Optional[IPCMessage]:
         """Handle a research request from an agent."""
         return await self._research_handler.handle(msg)
+
+    async def _handle_start_agent(self, msg: IPCMessage) -> Optional[IPCMessage]:
+        """Handle a start_agent request (e.g. from dashboard)."""
+        identity = msg.payload.get("identity", "")
+        if not identity:
+            return IPCMessage(
+                msg_type="agent_action_response",
+                payload={"success": False, "error": "Missing identity", "identity": "", "action": "start"},
+                sender="supervisor",
+            )
+
+        logger.info("Start agent requested for '%s' by '%s'", identity, msg.sender)
+        self._audit_log.log(
+            "agent_start_requested", category="lifecycle",
+            details={"identity": identity, "requested_by": msg.sender},
+        )
+
+        result = await self.start_agent(identity)
+        if result:
+            return IPCMessage(
+                msg_type="agent_action_response",
+                payload={"success": True, "identity": identity, "action": "start"},
+                sender="supervisor",
+            )
+        return IPCMessage(
+            msg_type="agent_action_response",
+            payload={"success": False, "error": f"Failed to start '{identity}'", "identity": identity, "action": "start"},
+            sender="supervisor",
+        )
+
+    async def _handle_stop_agent(self, msg: IPCMessage) -> Optional[IPCMessage]:
+        """Handle a stop_agent request (e.g. from dashboard)."""
+        identity = msg.payload.get("identity", "")
+        if not identity:
+            return IPCMessage(
+                msg_type="agent_action_response",
+                payload={"success": False, "error": "Missing identity", "identity": "", "action": "stop"},
+                sender="supervisor",
+            )
+
+        logger.info("Stop agent requested for '%s' by '%s'", identity, msg.sender)
+        self._audit_log.log(
+            "agent_stop_requested", category="lifecycle",
+            details={"identity": identity, "requested_by": msg.sender},
+        )
+
+        result = await self.stop_agent(identity)
+        if result:
+            return IPCMessage(
+                msg_type="agent_action_response",
+                payload={"success": True, "identity": identity, "action": "stop"},
+                sender="supervisor",
+            )
+        return IPCMessage(
+            msg_type="agent_action_response",
+            payload={"success": False, "error": f"Agent '{identity}' not found or not running", "identity": identity, "action": "stop"},
+            sender="supervisor",
+        )
 
     async def _handle_shutdown(self, msg: IPCMessage) -> Optional[IPCMessage]:
         """Handle shutdown request."""

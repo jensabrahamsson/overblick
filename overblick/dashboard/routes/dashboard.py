@@ -29,39 +29,49 @@ async def dashboard_page(request: Request):
     agents = await supervisor_svc.get_agents()
     recent_audit = audit_svc.query(limit=20)
     audit_count_24h = audit_svc.count(since_hours=24)
+    llm_calls_24h = audit_svc.count(since_hours=24, category="llm")
+    failed_24h = audit_svc.count(since_hours=24, success=False)
+    error_rate = (failed_24h / audit_count_24h * 100) if audit_count_24h > 0 else 0.0
+    categories = audit_svc.get_categories()
 
-    # Build plugin cards (showing which agents use each plugin)
-    plugin_cards = _build_plugin_cards(identities, agents)
+    # Build agent status rows (running processes only)
+    agent_rows = _build_agent_status_rows(identities, agents, audit_svc)
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "csrf_token": request.state.session.get("csrf_token", ""),
-        "plugin_cards": plugin_cards,
+        "agent_rows": agent_rows,
         "supervisor_running": supervisor_status is not None,
         "supervisor_status": supervisor_status or {},
-        "recent_audit": recent_audit,
+        "entries": recent_audit,
         "audit_count_24h": audit_count_24h,
+        "llm_calls_24h": llm_calls_24h,
+        "error_rate": error_rate,
+        "categories": categories,
         "total_identities": len(identities),
         "total_agents": len(agents),
         "poll_interval": config.poll_interval,
     })
 
 
-@router.get("/partials/plugin-cards", response_class=HTMLResponse)
-async def plugin_cards_partial(request: Request):
-    """htmx partial: refreshed plugin cards."""
+@router.get("/partials/agent-status", response_class=HTMLResponse)
+async def agent_status_partial(request: Request):
+    """htmx partial: refreshed agent status rows."""
     templates = request.app.state.templates
 
     identity_svc = request.app.state.identity_service
     supervisor_svc = request.app.state.supervisor_service
+    audit_svc = request.app.state.audit_service
 
     identities = identity_svc.get_all_identities()
     agents = await supervisor_svc.get_agents()
-    plugin_cards = _build_plugin_cards(identities, agents)
+    agent_rows = _build_agent_status_rows(identities, agents, audit_svc)
+    supervisor_status = await supervisor_svc.get_status()
 
-    return templates.TemplateResponse("partials/plugin_cards.html", {
+    return templates.TemplateResponse("partials/agent_status.html", {
         "request": request,
-        "plugin_cards": plugin_cards,
+        "agent_rows": agent_rows,
+        "supervisor_running": supervisor_status is not None,
     })
 
 
@@ -77,6 +87,9 @@ async def system_health_partial(request: Request):
     supervisor_status = await supervisor_svc.get_status()
     agents = await supervisor_svc.get_agents()
     audit_count = audit_svc.count(since_hours=24)
+    llm_calls = audit_svc.count(since_hours=24, category="llm")
+    failed = audit_svc.count(since_hours=24, success=False)
+    error_rate = (failed / audit_count * 100) if audit_count > 0 else 0.0
 
     return templates.TemplateResponse("partials/system_health.html", {
         "request": request,
@@ -84,20 +97,71 @@ async def system_health_partial(request: Request):
         "total_agents": len(agents),
         "total_identities": len(identity_svc.list_identities()),
         "audit_count_24h": audit_count,
+        "llm_calls_24h": llm_calls,
+        "error_rate": error_rate,
     })
 
 
 @router.get("/partials/audit-recent", response_class=HTMLResponse)
 async def audit_recent_partial(request: Request):
-    """htmx partial: recent audit entries."""
+    """htmx partial: recent audit entries with optional category filter."""
     templates = request.app.state.templates
     audit_svc = request.app.state.audit_service
 
-    recent_audit = audit_svc.query(limit=20)
+    category = request.query_params.get("category", "")
+    recent_audit = audit_svc.query(limit=20, category=category)
 
     return templates.TemplateResponse("partials/audit_table.html", {
         "request": request,
         "entries": recent_audit,
+    })
+
+
+@router.post("/agent/{name}/start", response_class=HTMLResponse)
+async def agent_start(name: str, request: Request):
+    """Start a stopped agent and return updated agent status partial."""
+    templates = request.app.state.templates
+    supervisor_svc = request.app.state.supervisor_service
+    identity_svc = request.app.state.identity_service
+    audit_svc = request.app.state.audit_service
+
+    result = await supervisor_svc.start_agent(name)
+
+    # Re-fetch state and return updated partial
+    identities = identity_svc.get_all_identities()
+    agents = await supervisor_svc.get_agents()
+    agent_rows = _build_agent_status_rows(identities, agents, audit_svc)
+    supervisor_status = await supervisor_svc.get_status()
+
+    return templates.TemplateResponse("partials/agent_status.html", {
+        "request": request,
+        "agent_rows": agent_rows,
+        "supervisor_running": supervisor_status is not None,
+        "action_result": result,
+    })
+
+
+@router.post("/agent/{name}/stop", response_class=HTMLResponse)
+async def agent_stop(name: str, request: Request):
+    """Stop a running agent and return updated agent status partial."""
+    templates = request.app.state.templates
+    supervisor_svc = request.app.state.supervisor_service
+    identity_svc = request.app.state.identity_service
+    audit_svc = request.app.state.audit_service
+
+    result = await supervisor_svc.stop_agent(name)
+
+    # Re-fetch state and return updated partial
+    identities = identity_svc.get_all_identities()
+    agents = await supervisor_svc.get_agents()
+    agent_rows = _build_agent_status_rows(identities, agents, audit_svc)
+    supervisor_status = await supervisor_svc.get_status()
+
+    return templates.TemplateResponse("partials/agent_status.html", {
+        "request": request,
+        "agent_rows": agent_rows,
+        "supervisor_running": supervisor_status is not None,
+        "action_result": result,
     })
 
 
@@ -163,31 +227,57 @@ def _build_plugin_cards(
     return cards
 
 
-def _build_agent_cards(
-    identities: list[dict], agents: list[dict],
+def _build_agent_status_rows(
+    identities: list[dict], agents: list[dict], audit_svc=None,
 ) -> list[dict]:
-    """Merge identity config with live agent status."""
-    # Build status lookup from supervisor
-    agent_status = {a.get("name", ""): a for a in agents}
+    """Build operational status rows: one row per identity+plugin.
 
-    cards = []
+    Shows identities that have plugins (= runnable agents), including
+    stopped ones. Identities without plugins are personality definitions,
+    not agents — they belong on the Identities page, not here.
+    """
+    # Build lookup: identity name -> running process info
+    running_lookup = {a.get("name", ""): a for a in agents}
+    rows = []
+
     for identity in identities:
-        name = identity["name"]
-        status = agent_status.get(name, {})
+        ident_name = identity.get("name", "")
+        plugins = identity.get("plugins", [])
 
-        cards.append({
-            "name": name,
-            "display_name": identity.get("display_name", name.capitalize()),
-            "description": identity.get("description", ""),
-            "personality_ref": identity.get("personality_ref", ""),
-            "plugins": identity.get("plugins", []),
-            "capabilities": identity.get("capability_names", []),
-            "llm_model": identity.get("llm", {}).get("model", "unknown"),
-            # Status from supervisor (or defaults if not running)
-            "state": status.get("state", "offline"),
-            "pid": status.get("pid"),
-            "uptime": status.get("uptime", 0),
-            "restart_count": status.get("restart_count", 0),
-        })
+        # Skip identities without plugins — they're not runnable agents
+        if not plugins:
+            continue
 
-    return cards
+        proc = running_lookup.get(ident_name)
+        is_running = proc is not None and proc.get("state") == "running"
+
+        # Get last audit action for this identity
+        last_action = None
+        if audit_svc:
+            recent = audit_svc.query(identity=ident_name, limit=1)
+            if recent:
+                last_action = {
+                    "action": recent[0].get("action", ""),
+                    "category": recent[0].get("category", ""),
+                    "timestamp": recent[0].get("timestamp", 0),
+                    "success": recent[0].get("success", True),
+                }
+
+        # One row per plugin = one agent
+        for plugin in plugins:
+            state = proc.get("state", "offline") if proc else "offline"
+            rows.append({
+                "agent_name": _plugin_display_name(plugin),
+                "plugin": plugin,
+                "identity_name": identity.get("display_name", ident_name.capitalize()),
+                "identity_ref": ident_name,
+                "state": state,
+                "pid": proc.get("pid") if proc else None,
+                "uptime": proc.get("uptime", proc.get("uptime_seconds", 0)) if proc else 0,
+                "restart_count": proc.get("restart_count", 0) if proc else 0,
+                "last_action": last_action,
+                "can_start": not is_running,
+                "can_stop": is_running,
+            })
+
+    return rows

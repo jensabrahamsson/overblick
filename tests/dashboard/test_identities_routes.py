@@ -23,4 +23,4 @@ class TestIdentitiesPage:
     async def test_identities_page_has_create_button(self, client, session_cookie):
         cookie_value, _ = session_cookie
         resp = await client.get("/identities", cookies={SESSION_COOKIE: cookie_value})
-        assert "Create New Identity" in resp.text
+        assert "Create New Agent" in resp.text
