@@ -16,8 +16,19 @@ class SupervisorService:
     """Read-only access to supervisor agent status via IPC."""
 
     def __init__(self, socket_dir: Optional[Path] = None):
-        self._client = None
         self._socket_dir = socket_dir
+        self._resolved_socket_dir: Optional[Path] = None
+
+    def _resolve_socket_dir(self) -> Path:
+        """Resolve the IPC socket directory."""
+        if self._resolved_socket_dir:
+            return self._resolved_socket_dir
+        if self._socket_dir:
+            self._resolved_socket_dir = self._socket_dir
+        else:
+            base_dir = Path(__file__).parent.parent.parent.parent
+            self._resolved_socket_dir = base_dir / "data" / "ipc"
+        return self._resolved_socket_dir
 
     def _read_auth_token(self, socket_dir: Path) -> str:
         """Read auth token from supervisor's token file."""
@@ -30,29 +41,22 @@ class SupervisorService:
         return ""
 
     def _get_client(self):
-        """Lazy-initialize IPC client with auth token."""
-        if self._client is not None:
-            return self._client
+        """Create a fresh IPC client with current auth token.
+
+        Re-reads the token file each time to handle supervisor restarts
+        that generate new tokens.
+        """
         try:
             from overblick.supervisor.ipc import IPCClient
 
-            # Determine socket directory
-            socket_dir = self._socket_dir
-            if not socket_dir:
-                # Default to project data/ipc directory
-                from pathlib import Path
-                base_dir = Path(__file__).parent.parent.parent.parent
-                socket_dir = base_dir / "data" / "ipc"
-
-            # Read auth token
+            socket_dir = self._resolve_socket_dir()
             auth_token = self._read_auth_token(socket_dir)
 
-            self._client = IPCClient(
+            return IPCClient(
                 target="supervisor",
                 socket_dir=socket_dir,
                 auth_token=auth_token,
             )
-            return self._client
         except Exception as e:
             logger.debug("IPC client not available: %s", e)
             return None

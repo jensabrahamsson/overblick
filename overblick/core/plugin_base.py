@@ -85,6 +85,18 @@ class PluginContext(BaseModel):
             return self._secrets_getter(key)
         return None
 
+    def get_capability(self, name: str) -> Optional[Any]:
+        """
+        Get a capability by name from the shared capabilities dict.
+
+        Args:
+            name: Capability name (e.g. "email")
+
+        Returns:
+            Capability instance or None if not registered
+        """
+        return self.capabilities.get(name)
+
     def model_post_init(self, __context) -> None:
         # Ensure directories exist
         self.data_dir.mkdir(parents=True, exist_ok=True)

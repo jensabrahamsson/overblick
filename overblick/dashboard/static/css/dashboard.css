@@ -242,6 +242,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
     animation: pulse 2s ease-in-out infinite;
 }
 .status-dot.status-stopped { background: var(--red); }
+.status-dot.status-offline { background: var(--text-muted); }
 .status-dot.status-starting { background: var(--amber); animation: pulse 1s ease-in-out infinite; }
 .status-dot.status-error { background: var(--red); box-shadow: 0 0 8px var(--red); }
 
@@ -261,6 +262,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 }
 .status-badge.status-running { background: var(--green-dim); color: var(--green); }
 .status-badge.status-stopped { background: var(--red-dim); color: #ff7b72; }
+.status-badge.status-offline { background: var(--bg-tertiary); color: var(--text-muted); }
 .status-badge.status-starting { background: var(--amber-dim); color: var(--amber); }
 
 /* --- Tags --- */
@@ -296,6 +298,14 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
     color: var(--text-muted);
 }
 .tag-agent.status-stopped:hover {
+    background-color: rgba(72, 79, 88, 0.1);
+}
+.tag-agent.status-offline {
+    border-color: var(--text-muted);
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+.tag-agent.status-offline:hover {
     background-color: rgba(72, 79, 88, 0.1);
 }
 

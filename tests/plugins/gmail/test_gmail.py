@@ -126,7 +126,7 @@ class TestGmailLifecycle:
     async def test_setup_without_credentials_raises(self, gmail_context):
         gmail_context._secrets_getter = lambda key: None
         plugin = GmailPlugin(gmail_context)
-        with pytest.raises(RuntimeError, match="Missing gmail credentials"):
+        with pytest.raises(RuntimeError, match="Missing email credentials"):
             await plugin.setup()
 
     @pytest.mark.asyncio
@@ -135,7 +135,7 @@ class TestGmailLifecycle:
             "gmail_oauth_credentials": '{"test": true}',
         }.get(key)
         plugin = GmailPlugin(gmail_context)
-        with pytest.raises(RuntimeError, match="Missing gmail_email_address"):
+        with pytest.raises(RuntimeError, match="Missing email credentials"):
             await plugin.setup()
 
     @pytest.mark.asyncio

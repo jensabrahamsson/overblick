@@ -102,6 +102,16 @@ def mock_personality_service():
             "signature_phrases": {},
             "ethos": {},
             "moltbook_bio": "",
+            "raw": {
+                "psychological_framework": {
+                    "primary": "jungian",
+                    "domains": ["archetypes", "shadow_work"],
+                    "dream_interpretation": True,
+                    "self_reflection_style": "archetypal_analysis",
+                    "therapeutic_approach": "depth_psychology",
+                    "key_concepts": ["The shadow is not evil."],
+                },
+            },
         },
     ]
     svc.get_personality.side_effect = lambda name: next(
