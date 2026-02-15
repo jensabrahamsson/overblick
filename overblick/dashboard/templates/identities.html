@@ -37,7 +37,7 @@
                 <span class="tag tag-connector">{{ conn }}</span>
                 {% endfor %}
                 {% for cap in identity.capability_names %}
-                <span class="tag tag-capability">{{ cap }}</span>
+                <span class="tag {{ 'tag-operational' if _is_operational_cap(cap) else 'tag-capability' }}">{{ cap }}</span>
                 {% endfor %}
             </div>
 

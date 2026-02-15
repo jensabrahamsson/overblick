@@ -2,6 +2,7 @@
 Capabilities — composable behavioral building blocks for agent plugins.
 
 Bundles:
+    system         = [system_clock] — Core capabilities injected into all agents
     psychology     = [dream, therapy, emotional] — DEPRECATED: Use psychological_framework in personality.yaml
     knowledge      = [learning, loader]
     social         = [openings]
@@ -10,7 +11,7 @@ Bundles:
     content        = [summarizer]
     speech         = [stt, tts]
     vision         = [vision]
-    communication  = [boss_request, email, gmail]
+    communication  = [boss_request, email, gmail, telegram_notifier]
     monitoring     = [host_inspection]
 """
 
@@ -32,6 +33,7 @@ from overblick.capabilities.communication.email import EmailCapability
 from overblick.capabilities.communication.gmail import GmailCapability
 from overblick.capabilities.communication.telegram_notifier import TelegramNotifier
 from overblick.capabilities.monitoring.inspector import HostInspectionCapability
+from overblick.capabilities.system.clock import SystemClockCapability
 
 # Name -> class mapping for registry
 CAPABILITY_REGISTRY: dict[str, type] = {
@@ -53,6 +55,7 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "gmail": GmailCapability,
     "telegram_notifier": TelegramNotifier,
     "host_inspection": HostInspectionCapability,
+    "system_clock": SystemClockCapability,
 }
 
 # Bundle -> capability names
@@ -68,6 +71,7 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "vision": ["vision"],
     "communication": ["boss_request", "email", "gmail", "telegram_notifier"],
     "monitoring": ["host_inspection"],
+    "system": ["system_clock"],
 }
 
 
@@ -104,6 +108,7 @@ __all__ = [
     "GmailCapability",
     "TelegramNotifier",
     "HostInspectionCapability",
+    "SystemClockCapability",
     "CAPABILITY_REGISTRY",
     "CAPABILITY_BUNDLES",
     "resolve_capabilities",

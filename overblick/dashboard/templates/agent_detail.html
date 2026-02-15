@@ -89,7 +89,7 @@
             <div class="tag-list">
                 {% for cap in identity.capability_names %}
                 {% if cap not in ['dream_system', 'therapy_system', 'emotional_state'] %}
-                <span class="tag tag-capability">{{ cap }}</span>
+                <span class="tag {{ 'tag-operational' if _is_operational_cap(cap) else 'tag-capability' }}">{{ cap }}</span>
                 {% endif %}
                 {% endfor %}
                 {% if not identity.capability_names %}

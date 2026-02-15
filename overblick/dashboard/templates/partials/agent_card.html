@@ -15,7 +15,7 @@
         <span class="tag tag-sm tag-connector">{{ conn }}</span>
         {% endfor %}
         {% for cap in card.capabilities %}
-        <span class="tag tag-sm tag-capability">{{ cap }}</span>
+        <span class="tag tag-sm {{ 'tag-operational' if _is_operational_cap(cap) else 'tag-capability' }}">{{ cap }}</span>
         {% endfor %}
     </div>
 </div>

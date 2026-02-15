@@ -119,7 +119,7 @@ class TestGermanScenarios:
 
         responses = [
             PipelineResult(content='{"intent": "notify", "confidence": 0.88, "reasoning": "Financial question about invoice — needs Jens review", "priority": "high"}'),
-            PipelineResult(content="Invoice question from buchhaltung@wirelesscar.com about Rechnung Nr. 2024-0847. Financial matter requiring your review."),
+            PipelineResult(content="Invoice question from buchhaltung@acme-motors.com about Rechnung Nr. 2024-0847. Financial matter requiring your review."),
         ]
         stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)
 
@@ -236,7 +236,7 @@ class TestSenderFiltering:
         await plugin.setup()
 
         assert plugin._is_allowed_sender("random@nobody.com") is False
-        assert plugin._is_allowed_sender("jens.abrahamsson@wirelesscar.com") is True
+        assert plugin._is_allowed_sender("jens@example.com") is True
         assert plugin._is_allowed_sender("test@example.com") is True
 
 

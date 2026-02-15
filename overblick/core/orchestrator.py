@@ -282,6 +282,12 @@ class Orchestrator:
         if not cap_names and self._identity.enabled_modules:
             cap_names = list(self._identity.enabled_modules)
 
+        # Core capabilities injected into ALL agents (always available)
+        _CORE_CAPS = ["system_clock"]
+        for core_cap in _CORE_CAPS:
+            if core_cap not in cap_names:
+                cap_names.append(core_cap)
+
         if not cap_names:
             logger.debug("No capabilities configured for %s", self._identity_name)
             return

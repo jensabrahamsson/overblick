@@ -57,6 +57,22 @@ def _format_epoch(value: int | float) -> str:
         return str(value)
 
 
+def _is_operational_cap(name: str) -> bool:
+    """Check if a capability is operational (I/O, communication, monitoring).
+
+    Used in templates to assign a different badge color to operational
+    capabilities vs personality-behavioral ones (social, engagement, etc.).
+    """
+    _OPERATIONAL = {
+        # Bundle names
+        "communication", "monitoring", "system",
+        # Individual capability names
+        "boss_request", "email", "gmail", "telegram_notifier",
+        "host_inspection", "email_agent", "system_clock",
+    }
+    return name in _OPERATIONAL
+
+
 def _create_templates() -> Jinja2Templates:
     """Create Jinja2 templates with autoescape enabled and global functions."""
     from jinja2 import Environment, FileSystemLoader
@@ -67,6 +83,7 @@ def _create_templates() -> Jinja2Templates:
     )
     # Register global template functions
     env.globals["_format_uptime"] = _format_uptime
+    env.globals["_is_operational_cap"] = _is_operational_cap
 
     # Register filters
     env.filters["epoch_to_datetime"] = _format_epoch

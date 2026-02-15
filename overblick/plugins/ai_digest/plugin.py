@@ -133,6 +133,10 @@ class AiDigestPlugin(PluginBase):
         if not self._is_digest_time():
             return
 
+        # Mark sent FIRST to prevent retry-storms on failure.
+        # If the pipeline fails, we retry tomorrow — not every 5 minutes.
+        self._mark_digest_sent()
+
         logger.info("AiDigestPlugin: digest time! Starting pipeline.")
 
         try:
@@ -140,28 +144,22 @@ class AiDigestPlugin(PluginBase):
             articles = await self._fetch_all_feeds()
             if not articles:
                 logger.info("AiDigestPlugin: no new articles found, skipping digest.")
-                self._mark_digest_sent()
                 return
 
             # 2. Rank and select top articles via LLM
             top_articles = await self._rank_articles(articles)
             if not top_articles:
                 logger.warning("AiDigestPlugin: ranking produced no results.")
-                self._mark_digest_sent()
                 return
 
             # 3. Generate the digest summary in personality voice
             digest_html = await self._generate_digest(top_articles)
             if not digest_html:
                 logger.warning("AiDigestPlugin: digest generation failed.")
-                self._mark_digest_sent()
                 return
 
-            # 4. Emit email request via event bus
+            # 4. Send email
             await self._send_digest(digest_html, len(top_articles))
-
-            # 5. Mark as sent
-            self._mark_digest_sent()
 
         except Exception as e:
             logger.error("AiDigestPlugin pipeline error: %s", e, exc_info=True)
