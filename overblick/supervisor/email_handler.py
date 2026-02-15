@@ -55,6 +55,8 @@ class EmailConsultationHandler:
                 "- notify: Important, but the principal should see it personally\n"
                 "- reply: Write a professional reply on the principal's behalf\n"
                 "- ask_boss: Still unclear, escalate further\n\n"
+                "IMPORTANT: Always respond in English. Internal agent communication "
+                "uses English.\n\n"
                 "Respond in JSON: {\"advised_action\": \"...\", \"reasoning\": \"...\"}"
             )
 

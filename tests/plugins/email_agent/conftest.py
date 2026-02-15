@@ -84,7 +84,20 @@ def mock_telegram_notifier():
     """Mock Telegram notifier capability."""
     notifier = AsyncMock()
     notifier.send_notification = AsyncMock(return_value=True)
+    notifier.send_notification_tracked = AsyncMock(return_value=42)
+    notifier.fetch_updates = AsyncMock(return_value=[])
+    notifier.configured = True
+    notifier._chat_id = "12345"
     return notifier
+
+
+@pytest.fixture
+def mock_boss_request_capability():
+    """Mock BossRequest capability for research."""
+    cap = AsyncMock()
+    cap.configured = True
+    cap.request_research = AsyncMock(return_value="Research summary: The topic is well documented.")
+    return cap
 
 
 @pytest.fixture
@@ -101,7 +114,7 @@ def mock_gmail_capability():
 def stal_plugin_context(
     stal_identity, tmp_path, mock_audit_log, mock_ipc_client_email,
     mock_llm_pipeline_classify, mock_event_bus, mock_telegram_notifier,
-    mock_gmail_capability,
+    mock_gmail_capability, mock_boss_request_capability,
 ):
     """PluginContext for Stål with all required services."""
     def _mock_secrets(key: str):
@@ -122,6 +135,7 @@ def stal_plugin_context(
         capabilities={
             "telegram_notifier": mock_telegram_notifier,
             "gmail": mock_gmail_capability,
+            "boss_request": mock_boss_request_capability,
         },
     )
     ctx._secrets_getter = _mock_secrets

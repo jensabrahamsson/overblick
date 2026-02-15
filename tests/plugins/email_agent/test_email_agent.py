@@ -22,8 +22,10 @@ from overblick.plugins.email_agent.plugin import EmailAgentPlugin
 from overblick.plugins.email_agent.prompts import (
     boss_consultation_prompt,
     classification_prompt,
+    feedback_classification_prompt,
     notification_prompt,
     reply_prompt,
+    reply_prompt_with_research,
 )
 from overblick.supervisor.ipc import IPCMessage
 
@@ -206,7 +208,7 @@ class TestEmailAgentActions:
 
     @pytest.mark.asyncio
     async def test_send_notification(self, stal_plugin_context, mock_telegram_notifier):
-        """_send_notification() sends via Telegram notifier."""
+        """_send_notification() sends via tracked Telegram notifier."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
@@ -223,7 +225,7 @@ class TestEmailAgentActions:
         result = await plugin._send_notification(email, classification)
 
         assert result is True
-        mock_telegram_notifier.send_notification.assert_called_once()
+        mock_telegram_notifier.send_notification_tracked.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_send_reply(self, stal_plugin_context, mock_gmail_capability):
@@ -553,6 +555,58 @@ class TestPromptTemplates:
         assert len(messages) == 2
         assert "0.4" in messages[1]["content"]
 
+    def test_boss_consultation_prompt_english_enforcement(self):
+        """Boss consultation prompt enforces English for IPC."""
+        messages = boss_consultation_prompt(
+            sender="test@example.com",
+            subject="Test",
+            snippet="Test",
+            reasoning="Test",
+            tentative_intent="ask_boss",
+            confidence=0.5,
+        )
+        assert "English" in messages[0]["content"]
+        assert "English" in messages[1]["content"]
+
+    def test_reply_prompt_with_research_structure(self):
+        """Reply prompt with research includes research context."""
+        messages = reply_prompt_with_research(
+            sender="test@example.com",
+            subject="Meeting",
+            body="Can we meet?",
+            sender_context="First contact",
+            interaction_history="None",
+            principal_name="Test Principal",
+            research_context="The topic is well documented.",
+        )
+        assert len(messages) == 2
+        assert "RESEARCH CONTEXT" in messages[0]["content"]
+        assert "well documented" in messages[0]["content"]
+
+    def test_reply_prompt_with_research_no_research(self):
+        """Reply prompt with empty research context has no RESEARCH section."""
+        messages = reply_prompt_with_research(
+            sender="test@example.com",
+            subject="Meeting",
+            body="Can we meet?",
+            sender_context="First contact",
+            interaction_history="None",
+            principal_name="Test Principal",
+            research_context="",
+        )
+        assert "RESEARCH CONTEXT" not in messages[0]["content"]
+
+    def test_feedback_classification_prompt_structure(self):
+        """Feedback classification prompt returns system + user messages."""
+        messages = feedback_classification_prompt(
+            feedback_text="Bra att du flaggade det!",
+            original_notification="Email from boss about meeting",
+            original_email_subject="Important meeting",
+        )
+        assert len(messages) == 2
+        assert "sentiment" in messages[0]["content"]
+        assert "Important meeting" in messages[1]["content"]
+
 
 class TestGetStatus:
     """Test the plugin status reporting."""
@@ -583,3 +637,296 @@ class TestGetStatus:
         await plugin.setup()
 
         await plugin.teardown()  # Should not raise
+
+
+class TestSmartSenderFiltering:
+    """Test that sender filtering only applies to REPLY, not NOTIFY."""
+
+    @pytest.mark.asyncio
+    async def test_reply_blocked_for_unknown_sender_falls_back_to_notify(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """REPLY for non-allowed sender falls back to NOTIFY."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        classification = EmailClassification(
+            intent=EmailIntent.REPLY, confidence=0.9, reasoning="Meeting request"
+        )
+
+        email = {
+            "sender": "unknown@nobody.com",  # Not in allowed_senders
+            "subject": "Meeting",
+            "body": "Can we meet?",
+        }
+
+        # Mock LLM for notification
+        stal_plugin_context.llm_pipeline.chat.return_value = PipelineResult(
+            content="Meeting request summary."
+        )
+
+        result = await plugin._execute_action(email, classification)
+
+        assert result == "reply_suppressed_notify_fallback"
+        mock_telegram_notifier.send_notification_tracked.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_notify_works_for_all_senders(self, stal_plugin_context, mock_telegram_notifier):
+        """NOTIFY works for any sender (no filtering)."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Mock LLM for notification summary
+        stal_plugin_context.llm_pipeline.chat.return_value = PipelineResult(
+            content="Important notification"
+        )
+
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="Important"
+        )
+
+        email = {
+            "sender": "unknown@nobody.com",
+            "subject": "Urgent",
+            "body": "Something important",
+        }
+
+        result = await plugin._execute_action(email, classification)
+
+        assert result == "notification_sent"
+        mock_telegram_notifier.send_notification_tracked.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_all_emails_classified_regardless_of_sender(
+        self, stal_plugin_context,
+    ):
+        """All emails get classified, even from non-allowed senders."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Mock LLM for classification
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
+            content='{"intent": "notify", "confidence": 0.85, "reasoning": "Important", "priority": "high"}'
+        ))
+
+        # Mock notifier for the notification
+        mock_notifier = stal_plugin_context.get_capability("telegram_notifier")
+        mock_notifier.send_notification_tracked = AsyncMock(return_value=42)
+
+        email = {
+            "sender": "unknown@nobody.com",  # Not in allowed_senders
+            "subject": "Important notice",
+            "body": "Something important happened",
+            "snippet": "Something important",
+            "message_id": "msg-123",
+            "thread_id": "thread-123",
+        }
+
+        await plugin._process_email(email)
+
+        # Should be classified and recorded
+        records = await plugin._db.get_recent_emails(limit=1)
+        assert len(records) == 1
+        assert records[0].classified_intent == "notify"
+
+
+class TestResearchIntegration:
+    """Test research capability integration."""
+
+    @pytest.mark.asyncio
+    async def test_request_research_uses_boss_cap(
+        self, stal_plugin_context, mock_boss_request_capability,
+    ):
+        """_request_research() uses BossRequestCapability."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        result = await plugin._request_research("What is the weather?")
+
+        assert result is not None
+        assert "Research summary" in result
+        mock_boss_request_capability.request_research.assert_called_once_with(
+            "What is the weather?", "",
+        )
+
+    @pytest.mark.asyncio
+    async def test_request_research_without_capability(self, stal_context_no_ipc):
+        """_request_research() returns None when capability unavailable."""
+        plugin = EmailAgentPlugin(stal_context_no_ipc)
+        await plugin.setup()
+
+        result = await plugin._request_research("test query")
+        assert result is None
+
+
+class TestFeedbackProcessing:
+    """Test Telegram feedback classification and processing."""
+
+    @pytest.mark.asyncio
+    async def test_parse_feedback_positive(self, stal_plugin_context):
+        """Parses positive feedback JSON correctly."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        raw = '{"sentiment": "positive", "learning": "Good notification", "should_acknowledge": false}'
+        sentiment, learning, should_ack = plugin._parse_feedback_classification(raw)
+
+        assert sentiment == "positive"
+        assert learning == "Good notification"
+        assert should_ack is False
+
+    @pytest.mark.asyncio
+    async def test_parse_feedback_negative(self, stal_plugin_context):
+        """Parses negative feedback JSON correctly."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        raw = '{"sentiment": "negative", "learning": "Not important", "should_acknowledge": true}'
+        sentiment, learning, should_ack = plugin._parse_feedback_classification(raw)
+
+        assert sentiment == "negative"
+        assert learning == "Not important"
+        assert should_ack is True
+
+    @pytest.mark.asyncio
+    async def test_parse_feedback_invalid_json(self, stal_plugin_context):
+        """Returns neutral for unparseable feedback."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        sentiment, learning, should_ack = plugin._parse_feedback_classification("not json at all")
+
+        assert sentiment == "neutral"
+        assert learning == ""
+        assert should_ack is False
+
+    @pytest.mark.asyncio
+    async def test_classify_feedback_heuristic_positive(self, stal_plugin_context):
+        """Heuristic fallback classifies positive feedback."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Disable LLM to test heuristic
+        stal_plugin_context.llm_pipeline = None
+
+        sentiment, learning, should_ack = await plugin._classify_feedback(
+            "Bra att du flaggade det!", "Notification text", "Email subject",
+        )
+
+        assert sentiment == "positive"
+
+    @pytest.mark.asyncio
+    async def test_classify_feedback_heuristic_negative(self, stal_plugin_context):
+        """Heuristic fallback classifies negative feedback."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        stal_plugin_context.llm_pipeline = None
+
+        sentiment, learning, should_ack = await plugin._classify_feedback(
+            "Inte viktigt, sluta notifiera", "Notification text", "Email subject",
+        )
+
+        assert sentiment == "negative"
+        assert should_ack is True
+
+
+class TestDatabaseNotificationTracking:
+    """Test database notification tracking methods."""
+
+    @pytest.mark.asyncio
+    async def test_track_and_retrieve_notification(self, tmp_path):
+        """Can track a notification and retrieve it by TG message ID."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+        from overblick.plugins.email_agent.database import EmailAgentDB
+
+        db_path = tmp_path / "test_tracking.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        # First insert an email record
+        record = EmailRecord(
+            email_from="test@example.com",
+            email_subject="Test Subject",
+            classified_intent="notify",
+            confidence=0.9,
+            reasoning="Test",
+            action_taken="notification_sent",
+        )
+        record_id = await db.record_email(record)
+
+        # Track the notification
+        tracking_id = await db.track_notification(
+            email_record_id=record_id,
+            tg_message_id=42,
+            tg_chat_id="12345",
+            notification_text="Test notification",
+        )
+        assert tracking_id > 0
+
+        # Retrieve by TG message ID
+        result = await db.get_notification_by_tg_id(42)
+        assert result is not None
+        assert result["email_record_id"] == record_id
+        assert result["tg_message_id"] == 42
+        assert result["email_subject"] == "Test Subject"
+
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_record_feedback_on_tracking(self, tmp_path):
+        """Can record feedback on a tracked notification."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+        from overblick.plugins.email_agent.database import EmailAgentDB
+
+        db_path = tmp_path / "test_feedback.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        record_id = await db.record_email(EmailRecord(
+            email_from="test@example.com",
+            email_subject="Test",
+            classified_intent="notify",
+            confidence=0.9,
+            reasoning="Test",
+        ))
+
+        tracking_id = await db.track_notification(
+            email_record_id=record_id,
+            tg_message_id=42,
+            tg_chat_id="12345",
+        )
+
+        await db.record_feedback(tracking_id, "Great job!", "positive")
+
+        # Verify feedback was recorded
+        result = await db.get_notification_by_tg_id(42)
+        assert result["feedback_received"]  # SQLite returns 1 for TRUE
+        assert result["feedback_text"] == "Great job!"
+        assert result["feedback_sentiment"] == "positive"
+
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_get_notification_by_tg_id_not_found(self, tmp_path):
+        """Returns None for unknown TG message ID."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+        from overblick.plugins.email_agent.database import EmailAgentDB
+
+        db_path = tmp_path / "test_not_found.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        result = await db.get_notification_by_tg_id(99999)
+        assert result is None
+
+        await db.close()

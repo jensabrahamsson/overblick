@@ -484,6 +484,7 @@ operational:
     - "email_agent"
     - "gmail"
     - "telegram_notifier"
+    - "boss_request"
 
   connectors:
     - "email_agent"

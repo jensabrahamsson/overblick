@@ -1,26 +1,38 @@
 """
-Telegram notification capability — send-only.
+Telegram notification capability — send and receive.
 
-Thin wrapper around the Telegram Bot API for sending notifications.
-No conversation handling — just fire-and-forget messages to a configured chat.
+Wrapper around the Telegram Bot API for sending notifications and
+receiving feedback from the principal. Supports tracked notifications
+(correlating replies to specific messages) and offset-based polling.
 
 Security:
 - Bot token and chat ID loaded from SecretsManager (never hardcoded)
 - Audit logging of all sent notifications
 - TLS for all API calls (Telegram API enforces HTTPS)
+- Only processes messages from the configured chat_id
+- Owner ID filtering: only accepts messages from the instance owner
 """
 
 import logging
 from typing import Optional
 
 import aiohttp
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
+class TelegramUpdate(BaseModel):
+    """A message received from Telegram."""
+    message_id: int
+    text: str
+    reply_to_message_id: Optional[int] = None
+    timestamp: str = ""
+
+
 class TelegramNotifier:
     """
-    Send notifications via Telegram Bot API.
+    Send notifications and receive feedback via Telegram Bot API.
 
     Requires secrets:
     - telegram_bot_token: Bot token from BotFather
@@ -28,8 +40,8 @@ class TelegramNotifier:
 
     This is a capability (not a plugin) because:
     - Reusable across multiple plugins (email_agent, alerts, monitoring)
-    - No external state/polling (just sends on demand)
-    - Simple function: take message → send via Telegram API
+    - Lightweight: no persistent event loop, just on-demand calls
+    - Simple function: take message -> send via Telegram API
     """
 
     name = "telegram_notifier"
@@ -38,7 +50,10 @@ class TelegramNotifier:
         self.ctx = ctx
         self._bot_token: Optional[str] = None
         self._chat_id: Optional[str] = None
+        self._owner_id: Optional[str] = None
         self._base_url: Optional[str] = None
+        self._update_offset: int = 0
+        self._bot_id: Optional[int] = None
 
     async def setup(self) -> None:
         """Load Telegram credentials from secrets."""
@@ -47,6 +62,13 @@ class TelegramNotifier:
             self._chat_id = self.ctx.get_secret("telegram_chat_id")
         except (KeyError, Exception):
             pass
+
+        # Owner ID is optional but strongly recommended — restricts who the bot
+        # accepts messages from. Falls back to chat_id for private chats.
+        try:
+            self._owner_id = self.ctx.get_secret("telegram_owner_id")
+        except (KeyError, Exception):
+            self._owner_id = self._chat_id  # Private chat: chat_id == user_id
 
         if not self._bot_token or not self._chat_id:
             logger.warning(
@@ -100,6 +122,141 @@ class TelegramNotifier:
         except aiohttp.ClientError as e:
             logger.error("Telegram notification failed: %s", e)
             return False
+
+    async def send_notification_tracked(
+        self, message: str, ref_id: str = "",
+    ) -> Optional[int]:
+        """
+        Send a notification and return the Telegram message_id for tracking.
+
+        Args:
+            message: Text to send (supports Markdown formatting).
+            ref_id: Optional reference ID for correlating replies.
+
+        Returns:
+            The sent message's Telegram message_id, or None on failure.
+        """
+        if not self._base_url:
+            logger.warning("TelegramNotifier: not configured, cannot send")
+            return None
+
+        url = f"{self._base_url}/sendMessage"
+        payload = {
+            "chat_id": self._chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+        }
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        tg_message_id = data.get("result", {}).get("message_id")
+                        logger.info(
+                            "Tracked notification sent (tg_msg=%s, ref=%s)",
+                            tg_message_id, ref_id,
+                        )
+                        return tg_message_id
+                    else:
+                        body = await resp.text()
+                        logger.error(
+                            "Telegram API error %d: %s", resp.status, body[:200],
+                        )
+                        return None
+        except aiohttp.ClientError as e:
+            logger.error("Tracked notification failed: %s", e)
+            return None
+
+    async def fetch_updates(self, limit: int = 10) -> list[TelegramUpdate]:
+        """
+        Fetch new messages from the configured chat via getUpdates.
+
+        Uses offset tracking to avoid re-processing old messages.
+        Only returns messages from the configured chat_id (filters
+        out messages from other chats and our own bot messages).
+
+        Args:
+            limit: Maximum number of updates to fetch.
+
+        Returns:
+            List of new TelegramUpdate objects.
+        """
+        if not self._base_url:
+            return []
+
+        url = f"{self._base_url}/getUpdates"
+        params: dict = {
+            "limit": limit,
+            "timeout": 0,  # Non-blocking poll
+        }
+        if self._update_offset:
+            params["offset"] = self._update_offset
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status != 200:
+                        return []
+
+                    data = await resp.json()
+                    if not data.get("ok"):
+                        return []
+
+                    updates = []
+                    for update in data.get("result", []):
+                        update_id = update.get("update_id", 0)
+                        # Always advance offset past this update
+                        self._update_offset = max(
+                            self._update_offset, update_id + 1,
+                        )
+
+                        msg = update.get("message", {})
+                        if not msg:
+                            continue
+
+                        # Filter: only from our configured chat
+                        chat_id = str(msg.get("chat", {}).get("id", ""))
+                        if chat_id != str(self._chat_id):
+                            continue
+
+                        # Filter: skip our own bot messages
+                        from_user = msg.get("from", {})
+                        if from_user.get("is_bot", False):
+                            continue
+
+                        # Filter: only accept messages from the owner
+                        if self._owner_id:
+                            sender_id = str(from_user.get("id", ""))
+                            if sender_id != str(self._owner_id):
+                                continue
+
+                        text = msg.get("text", "")
+                        if not text:
+                            continue
+
+                        reply_to = msg.get("reply_to_message", {})
+                        reply_to_id = reply_to.get("message_id") if reply_to else None
+
+                        updates.append(TelegramUpdate(
+                            message_id=msg.get("message_id", 0),
+                            text=text,
+                            reply_to_message_id=reply_to_id,
+                            timestamp=str(msg.get("date", "")),
+                        ))
+
+                    return updates
+
+        except aiohttp.ClientError as e:
+            logger.error("Telegram getUpdates failed: %s", e)
+            return []
+        except Exception as e:
+            logger.error("Unexpected error fetching Telegram updates: %s", e)
+            return []
 
     async def send_html(self, message: str) -> bool:
         """

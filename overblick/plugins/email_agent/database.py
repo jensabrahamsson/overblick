@@ -71,6 +71,24 @@ MIGRATIONS = [
         """,
         down_sql="DROP TABLE IF EXISTS agent_goals;",
     ),
+    Migration(
+        version=4,
+        name="notification_tracking",
+        up_sql="""
+            CREATE TABLE IF NOT EXISTS notification_tracking (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email_record_id INTEGER NOT NULL,
+                tg_message_id INTEGER NOT NULL,
+                tg_chat_id TEXT NOT NULL,
+                notification_text TEXT DEFAULT '',
+                feedback_received BOOLEAN DEFAULT FALSE,
+                feedback_text TEXT,
+                feedback_sentiment TEXT,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+        """,
+        down_sql="DROP TABLE IF EXISTS notification_tracking;",
+    ),
 ]
 
 
@@ -106,6 +124,13 @@ class EmailAgentDB:
             ),
         )
         return row_id or 0
+
+    async def update_action_taken(self, record_id: int, action_taken: str) -> None:
+        """Update the action_taken field on an email record."""
+        await self._db.execute(
+            "UPDATE email_records SET action_taken = ? WHERE id = ?",
+            (action_taken, record_id),
+        )
 
     async def get_recent_emails(self, limit: int = 20) -> list[EmailRecord]:
         """Get most recent email records."""
@@ -262,6 +287,45 @@ class EmailAgentDB:
             "notifications_sent": notified,
             "boss_consultations": consulted,
         }
+
+    # -- Notification tracking --
+
+    async def track_notification(
+        self, email_record_id: int, tg_message_id: int, tg_chat_id: str,
+        notification_text: str = "",
+    ) -> int:
+        """Track a Telegram notification linked to an email record."""
+        row_id = await self._db.execute_returning_id(
+            "INSERT INTO notification_tracking "
+            "(email_record_id, tg_message_id, tg_chat_id, notification_text) "
+            "VALUES (?, ?, ?, ?)",
+            (email_record_id, tg_message_id, tg_chat_id, notification_text),
+        )
+        return row_id or 0
+
+    async def get_notification_by_tg_id(
+        self, tg_message_id: int,
+    ) -> Optional[dict]:
+        """Look up a tracked notification by Telegram message ID."""
+        row = await self._db.fetch_one(
+            "SELECT nt.*, er.email_from, er.email_subject "
+            "FROM notification_tracking nt "
+            "JOIN email_records er ON nt.email_record_id = er.id "
+            "WHERE nt.tg_message_id = ?",
+            (tg_message_id,),
+        )
+        return dict(row) if row else None
+
+    async def record_feedback(
+        self, tracking_id: int, text: str, sentiment: str,
+    ) -> None:
+        """Record principal feedback on a tracked notification."""
+        await self._db.execute(
+            "UPDATE notification_tracking "
+            "SET feedback_received = TRUE, feedback_text = ?, feedback_sentiment = ? "
+            "WHERE id = ?",
+            (text, sentiment, tracking_id),
+        )
 
     # -- GDPR retention --
 
