@@ -183,13 +183,30 @@ class EmailAgentPlugin(PluginBase):
 
     async def _fetch_unread(self) -> list[dict[str, Any]]:
         """
-        Fetch unread emails.
+        Fetch unread emails via GmailCapability.
 
-        In production, this would query the Gmail API via the Gmail plugin
-        or event bus. Currently a stub returning empty list.
+        Converts GmailMessage objects to dicts for the classification pipeline.
         """
         logger.debug("EmailAgent: checking for unread emails")
-        return []
+
+        gmail_cap = self.ctx.get_capability("gmail")
+        if not gmail_cap:
+            logger.debug("EmailAgent: gmail capability not available")
+            return []
+
+        messages = await gmail_cap.fetch_unread(max_results=10)
+
+        return [
+            {
+                "message_id": msg.message_id,
+                "thread_id": msg.thread_id,
+                "sender": msg.sender,
+                "subject": msg.subject,
+                "body": msg.body,
+                "snippet": msg.snippet,
+            }
+            for msg in messages
+        ]
 
     async def _process_email(self, email: dict[str, Any]) -> None:
         """Process a single email through the classification pipeline."""
@@ -438,19 +455,25 @@ class EmailAgentPlugin(PluginBase):
             if not result or result.blocked or not result.content:
                 return False
 
-            # Send via Gmail plugin event bus
-            if self.ctx.event_bus:
+            # Send via GmailCapability (thread-aware reply)
+            gmail_cap = self.ctx.get_capability("gmail")
+            if gmail_cap:
                 reply_subject = subject if subject.startswith("Re:") else f"Re: {subject}"
-                self.ctx.event_bus.emit(
-                    "email.send_request",
+                thread_id = email.get("thread_id", "")
+                msg_id = email.get("message_id", "")
+                success = await gmail_cap.send_reply(
+                    thread_id=thread_id,
+                    message_id=msg_id,
                     to=sender,
                     subject=reply_subject,
                     body=result.content.strip(),
-                    plugin="email_agent",
                 )
-                return True
+                if success:
+                    # Mark original as read after successful reply
+                    await gmail_cap.mark_as_read(msg_id)
+                return success
             else:
-                logger.warning("EmailAgent: event bus not available for reply")
+                logger.warning("EmailAgent: gmail capability not available for reply")
                 return False
 
         except Exception as e:

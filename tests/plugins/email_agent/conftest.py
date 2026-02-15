@@ -88,9 +88,20 @@ def mock_telegram_notifier():
 
 
 @pytest.fixture
+def mock_gmail_capability():
+    """Mock Gmail capability for fetching and sending email."""
+    cap = AsyncMock()
+    cap.fetch_unread = AsyncMock(return_value=[])
+    cap.send_reply = AsyncMock(return_value=True)
+    cap.mark_as_read = AsyncMock(return_value=True)
+    return cap
+
+
+@pytest.fixture
 def stal_plugin_context(
     stal_identity, tmp_path, mock_audit_log, mock_ipc_client_email,
     mock_llm_pipeline_classify, mock_event_bus, mock_telegram_notifier,
+    mock_gmail_capability,
 ):
     """PluginContext for Stål with all required services."""
     def _mock_secrets(key: str):
@@ -108,7 +119,10 @@ def stal_plugin_context(
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=stal_identity,
         ipc_client=mock_ipc_client_email,
-        capabilities={"telegram_notifier": mock_telegram_notifier},
+        capabilities={
+            "telegram_notifier": mock_telegram_notifier,
+            "gmail": mock_gmail_capability,
+        },
     )
     ctx._secrets_getter = _mock_secrets
     return ctx

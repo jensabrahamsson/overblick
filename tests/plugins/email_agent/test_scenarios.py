@@ -21,7 +21,7 @@ class TestEnglishScenarios:
     """English email scenarios."""
 
     @pytest.mark.asyncio
-    async def test_english_meeting_request(self, stal_plugin_context):
+    async def test_english_meeting_request(self, stal_plugin_context, mock_gmail_capability):
         """English meeting request -> REPLY with English response."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
@@ -47,8 +47,8 @@ class TestEnglishScenarios:
         assert records[0].classified_intent == "reply"
         assert records[0].confidence == 0.95
 
-        # Verify reply was sent via event bus
-        stal_plugin_context.event_bus.emit.assert_called_once()
+        # Verify reply was sent via Gmail capability
+        mock_gmail_capability.send_reply.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_newsletter_ignored(self, stal_plugin_context):
@@ -72,15 +72,16 @@ class TestEnglishScenarios:
         assert len(records) == 1
         assert records[0].classified_intent == "ignore"
 
-        # No event bus call (no reply sent)
-        stal_plugin_context.event_bus.emit.assert_not_called()
+        # No Gmail send_reply call (ignored email)
+        gmail_cap = stal_plugin_context.get_capability("gmail")
+        gmail_cap.send_reply.assert_not_called()
 
 
 class TestSwedishScenarios:
     """Swedish email scenarios."""
 
     @pytest.mark.asyncio
-    async def test_swedish_project_update(self, stal_plugin_context):
+    async def test_swedish_project_update(self, stal_plugin_context, mock_gmail_capability):
         """Swedish project update -> REPLY in Swedish."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
@@ -103,8 +104,8 @@ class TestSwedishScenarios:
         assert len(records) == 1
         assert records[0].classified_intent == "reply"
 
-        # Reply sent
-        stal_plugin_context.event_bus.emit.assert_called_once()
+        # Reply sent via Gmail
+        mock_gmail_capability.send_reply.assert_called_once()
 
 
 class TestGermanScenarios:
@@ -142,7 +143,7 @@ class TestFrenchScenarios:
     """French email scenarios."""
 
     @pytest.mark.asyncio
-    async def test_french_partnership_inquiry(self, stal_plugin_context):
+    async def test_french_partnership_inquiry(self, stal_plugin_context, mock_gmail_capability):
         """French partnership inquiry -> REPLY in French."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
@@ -165,7 +166,7 @@ class TestFrenchScenarios:
         assert len(records) == 1
         assert records[0].classified_intent == "reply"
 
-        stal_plugin_context.event_bus.emit.assert_called_once()
+        mock_gmail_capability.send_reply.assert_called_once()
 
 
 class TestUncertainScenarios:
