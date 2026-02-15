@@ -342,7 +342,11 @@ class AiDigestPlugin(PluginBase):
         )
 
     def _is_digest_time(self) -> bool:
-        """Check if it's time to send the daily digest."""
+        """Check if it's time to send the daily digest.
+
+        Only fires within a 15-minute window (digest_hour:00 to digest_hour:14).
+        This prevents re-sending on every agent restart after the digest hour.
+        """
         tz = ZoneInfo(self._timezone)
         now = datetime.now(tz)
         today_str = now.strftime("%Y-%m-%d")
@@ -351,8 +355,8 @@ class AiDigestPlugin(PluginBase):
         if self._last_digest_date == today_str:
             return False
 
-        # Is it past the configured hour?
-        return now.hour >= self._digest_hour
+        # Only fire within the 15-minute delivery window (e.g. 07:00-07:14)
+        return now.hour == self._digest_hour and now.minute < 15
 
     def _mark_digest_sent(self) -> None:
         """Record that today's digest has been sent."""
