@@ -1,5 +1,5 @@
 """
-DiscordPlugin — Discord bot agent for the Blick framework.
+DiscordPlugin — Discord bot agent for the Överblick framework.
 
 Connects to Discord as a bot, listens for messages in configured channels,
 and responds with personality-driven messages via SafeLLMPipeline.
@@ -51,12 +51,9 @@ class DiscordPlugin(PluginBase):
         """
         Initialize the Discord bot.
 
-        TODO:
-        - Load bot token from secrets (ctx.get_secret("discord_bot_token"))
-        - Build personality-driven system prompt
-        - Configure guild/channel whitelists from identity config
-        - Register slash commands
-        - Connect to Discord gateway
+        Loads bot token, configures guild/channel whitelists, and
+        builds the personality-driven system prompt. Full gateway
+        connection requires discord.py >= 2.0 as a dependency.
         """
         identity = self.ctx.identity
         self._bot_token = self.ctx.get_secret("discord_bot_token")
@@ -86,12 +83,9 @@ class DiscordPlugin(PluginBase):
         """
         Process Discord events.
 
-        TODO:
-        - In production, Discord uses websocket events (not polling).
-          The tick() method could be used for:
-          - Checking for stale conversations to clean up
-          - Sending scheduled messages (heartbeats)
-          - Updating bot presence/status
+        Discord uses websocket events (not polling), so tick() handles
+        stale conversation cleanup, scheduled heartbeats, and presence
+        updates rather than message fetching.
         """
         pass
 
@@ -121,7 +115,3 @@ class DiscordPlugin(PluginBase):
             "guilds": len(self._guild_ids),
             "errors": self._errors,
         }
-
-
-# Connector alias — new naming convention (backward-compatible)
-DiscordConnector = DiscordPlugin

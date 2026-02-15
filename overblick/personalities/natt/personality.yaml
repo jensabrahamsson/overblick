@@ -773,7 +773,7 @@ operational:
     enable_output_safety: true
     admin_user_ids: []
     block_threshold: 5
-  connectors:
+  plugins:
     - "host_health"
   capabilities:
     - "psychology"

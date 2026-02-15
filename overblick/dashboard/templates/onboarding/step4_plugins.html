@@ -2,7 +2,7 @@
 
 {% block wizard_content %}
 <h2 class="wizard-title">Plugins &amp; Capabilities</h2>
-<p class="wizard-desc">Select which connectors and capability bundles to enable.</p>
+<p class="wizard-desc">Select which plugins and capability bundles to enable.</p>
 
 {% if error %}
 <div class="flash flash-error">{{ error }}</div>
@@ -13,16 +13,14 @@
     <input type="hidden" name="step" value="4">
 
     <div class="form-group">
-        <label class="form-label">Connectors</label>
+        <label class="form-label">Plugins</label>
         <div class="checkbox-grid">
             {% for plugin in available_plugins %}
-            {% if not plugin.endswith('_connector') %}
             <label class="form-checkbox">
                 <input type="checkbox" name="plugins" value="{{ plugin }}"
                        {% if plugin in wizard.get('plugins', []) %}checked{% endif %}>
                 <span>{{ plugin }}</span>
             </label>
-            {% endif %}
             {% endfor %}
         </div>
     </div>

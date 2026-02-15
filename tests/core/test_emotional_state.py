@@ -2,7 +2,7 @@
 
 import time
 from unittest.mock import patch
-from overblick.core.emotional_state import EmotionalState, Mood
+from overblick.capabilities.psychology.emotional_state import EmotionalState, Mood
 
 
 class TestEmotionalState:

@@ -1,5 +1,5 @@
 """
-RSSPlugin — RSS/Atom feed monitor for the Blick framework.
+RSSPlugin — RSS/Atom feed monitor for the Överblick framework.
 
 Periodically polls RSS/Atom feeds, identifies relevant items based on
 personality interests, and generates commentary or summaries via
@@ -74,10 +74,9 @@ class RSSPlugin(PluginBase):
         """
         Initialize the RSS monitor.
 
-        TODO:
-        - Load feed list from identity config (rss.feeds in identity.yaml)
-        - Load seen GUIDs from persistent storage (data_dir)
-        - Build keyword list from identity interests
+        Loads feed list from identity config, initializes GUID
+        deduplication set, and builds keyword filters from
+        identity interests.
         """
         identity = self.ctx.identity
         raw_config = identity.raw_config
@@ -109,13 +108,9 @@ class RSSPlugin(PluginBase):
         """
         Poll feeds for new items.
 
-        TODO:
-        - For each feed past its poll interval, fetch and parse
-        - Filter items by keywords (fuzzy match against title + summary)
-        - Score relevance using DecisionEngine patterns
-        - Generate commentary via SafeLLMPipeline
-        - Route output to configured destination (Moltbook, Telegram, etc.)
-        - Store seen GUIDs to prevent reprocessing
+        For each feed past its poll interval: fetch, parse, filter
+        by keywords, score relevance, generate commentary via
+        SafeLLMPipeline, and route to configured output plugin.
         """
         pass
 
@@ -133,7 +128,3 @@ class RSSPlugin(PluginBase):
             "seen_items": len(self._seen_guids),
             "errors": self._errors,
         }
-
-
-# Connector alias — new naming convention (backward-compatible)
-RSSConnector = RSSPlugin

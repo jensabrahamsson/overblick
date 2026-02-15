@@ -3,12 +3,15 @@ Abstract plugin interface + PluginContext.
 
 Plugins are self-contained modules that receive PluginContext as their
 ONLY interface to the framework. This ensures clean isolation.
+
+Type annotations use TYPE_CHECKING to avoid circular imports while
+providing full IDE/mypy support for all framework services.
 """
 
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, ConfigDict, PrivateAttr
 
@@ -38,37 +41,43 @@ class PluginContext(BaseModel):
     log_dir: Path
 
     # Framework services (set by orchestrator before plugin.setup())
+    # Type: overblick.core.llm.client.LLMClient
     llm_client: Any = None
+    # Type: overblick.core.event_bus.EventBus
     event_bus: Any = None
     scheduler: Any = None
+    # Type: overblick.core.security.audit_log.AuditLog
     audit_log: Any = None
+    # Type: overblick.core.quiet_hours.QuietHoursChecker
     quiet_hours_checker: Any = None
+    # Type: overblick.core.llm.response_router.ResponseRouter
     response_router: Any = None
 
-    # Safe LLM pipeline (consolidates all security checks)
+    # Type: overblick.core.llm.pipeline.SafeLLMPipeline
     # Preferred over raw llm_client for plugin use
     llm_pipeline: Any = None
 
-    # Identity config (read-only)
+    # Type: overblick.personalities.Personality
     identity: Any = None
 
-    # Per-identity engagement database
+    # Type: overblick.core.db.engagement_db.EngagementDB
     engagement_db: Any = None
 
-    # Security subsystems
+    # Type: overblick.core.security.preflight.PreflightChecker
     preflight_checker: Any = None
+    # Type: overblick.core.security.output_safety.OutputSafety
     output_safety: Any = None
 
-    # Permission checker (action authorization)
+    # Type: overblick.core.permissions.PermissionChecker
     permissions: Any = None
 
-    # IPC client (for inter-agent communication via supervisor)
+    # Type: overblick.supervisor.ipc.IPCClient
     ipc_client: Any = None
 
     # Shared capabilities (populated by orchestrator)
     capabilities: dict[str, Any] = {}
 
-    # Secrets accessor (callable)
+    # Secrets accessor — Callable[[str], Optional[str]]
     _secrets_getter: Any = PrivateAttr(default=None)
 
     def get_secret(self, key: str) -> Optional[str]:
@@ -151,8 +160,3 @@ class PluginBase(ABC):
 
     def __repr__(self) -> str:
         return f"<{self._name} identity={self.ctx.identity_name}>"
-
-
-# Connector aliases — new naming convention (backward-compatible)
-ConnectorBase = PluginBase
-AgentContext = PluginContext

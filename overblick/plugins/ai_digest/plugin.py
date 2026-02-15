@@ -423,7 +423,3 @@ class AiDigestPlugin(PluginBase):
         """Persist state on shutdown."""
         self._save_state()
         logger.info("AiDigestPlugin teardown complete")
-
-
-# Connector alias (backward-compatible)
-AiDigestConnector = AiDigestPlugin

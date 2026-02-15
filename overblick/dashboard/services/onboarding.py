@@ -107,10 +107,10 @@ class OnboardingService:
         if personality:
             config["personality"] = personality
 
-        # Plugins/connectors
+        # Plugins
         plugins = state.get("plugins", [])
         if plugins:
-            config["connectors"] = plugins
+            config["plugins"] = plugins
 
         # Capabilities
         capabilities = state.get("capabilities", [])

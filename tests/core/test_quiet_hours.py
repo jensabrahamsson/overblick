@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from overblick.core.quiet_hours import QuietHoursChecker
-from overblick.core.identity import QuietHoursSettings
+from overblick.personalities import QuietHoursSettings
 
 
 class TestQuietHoursChecker:

@@ -940,8 +940,8 @@ parallel_examples:
 # OPERATIONAL CONFIGURATION
 ################################################################################
 
-# Active plugins/connectors
-connectors:
+# Active plugins
+plugins:
   - ai_digest
   - gmail
 

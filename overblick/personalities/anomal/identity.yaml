@@ -69,8 +69,8 @@ security:
   output_safety_enabled: true
   max_response_length: 3000
 
-# Connectors (thin I/O adapters - external system integration)
-connectors:
+# Plugins (thin I/O adapters - external system integration)
+plugins:
   - ai_digest
 
 # Capabilities (composable Lego blocks - reusable internal logic)

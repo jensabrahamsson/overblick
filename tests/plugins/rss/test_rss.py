@@ -14,7 +14,7 @@ import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from overblick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.personalities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
 from overblick.core.plugin_base import PluginContext
 from overblick.plugins.rss.plugin import FeedConfig, FeedItem, RSSPlugin
 

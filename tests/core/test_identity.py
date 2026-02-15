@@ -2,9 +2,9 @@
 
 import pytest
 from pydantic import ValidationError
-from overblick.core.identity import (
+from overblick.personalities import (
     Identity, LLMSettings, QuietHoursSettings, ScheduleSettings,
-    SecuritySettings, load_identity, list_identities, _load_yaml,
+    SecuritySettings, load_personality, list_personalities, _load_yaml,
 )
 
 
@@ -49,7 +49,7 @@ class TestIdentity:
 
 class TestLoadIdentity:
     def test_load_anomal(self):
-        identity = load_identity("anomal")
+        identity = load_personality("anomal")
         assert identity.name == "anomal"
         assert identity.display_name == "Anomal"
         assert identity.llm.temperature == 0.7
@@ -61,7 +61,7 @@ class TestLoadIdentity:
         assert len(identity.knowledge) > 0
 
     def test_load_cherry(self):
-        identity = load_identity("cherry")
+        identity = load_personality("cherry")
         assert identity.name == "cherry"
         assert identity.display_name == "Cherry"
         assert identity.llm.temperature == 0.8
@@ -71,20 +71,20 @@ class TestLoadIdentity:
 
     def test_load_nonexistent(self):
         with pytest.raises(FileNotFoundError):
-            load_identity("does_not_exist")
+            load_personality("does_not_exist")
 
     def test_list_identities(self):
-        identities = list_identities()
+        identities = list_personalities()
         assert "anomal" in identities
         assert "cherry" in identities
 
     def test_raw_config_present(self):
-        identity = load_identity("anomal")
+        identity = load_personality("anomal")
         assert isinstance(identity.raw_config, dict)
         assert "interest_keywords" in identity.raw_config
 
     def test_identity_dir(self):
-        identity = load_identity("anomal")
+        identity = load_personality("anomal")
         assert identity.identity_dir.exists()
         assert identity.identity_dir.name == "anomal"
 

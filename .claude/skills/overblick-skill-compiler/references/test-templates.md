@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from overblick.core.identity import (
+from overblick.personalities import (
     Identity,
     LLMSettings,
     QuietHoursSettings,

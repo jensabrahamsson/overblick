@@ -26,7 +26,7 @@ class TestAgentDetail:
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_agent_detail_shows_connectors(self, client, session_cookie):
+    async def test_agent_detail_shows_plugins(self, client, session_cookie):
         cookie_value, _ = session_cookie
         resp = await client.get(
             "/agent/anomal",

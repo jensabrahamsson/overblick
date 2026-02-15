@@ -13,7 +13,7 @@ from overblick.core.plugin_base import PluginBase, PluginContext
 
 logger = logging.getLogger(__name__)
 
-# Registry of known plugins/connectors (name -> module path + class name)
+# Registry of known plugins (name -> module path + class name)
 _KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
@@ -25,17 +25,6 @@ _KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
     "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
     "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
-    # Connector aliases (same classes, new names)
-    "ai_digest_connector": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
-    "discord_connector": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
-    "gmail_connector": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
-    "matrix_connector": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
-    "moltbook_connector": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "rss_connector": ("overblick.plugins.rss.plugin", "RSSPlugin"),
-    "telegram_connector": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "webhook_connector": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
-    "host_health_connector": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
-    "email_agent_connector": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
 }
 
 
@@ -111,7 +100,3 @@ class PluginRegistry:
     def available_plugins() -> list[str]:
         """List all known plugin names."""
         return sorted(_KNOWN_PLUGINS.keys())
-
-
-# Connector alias — new naming convention (backward-compatible)
-ConnectorRegistry = PluginRegistry

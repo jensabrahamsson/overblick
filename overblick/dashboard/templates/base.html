@@ -9,7 +9,8 @@
     <script src="/static/js/htmx.min.js"></script>
 </head>
 <body hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'>
-    <nav class="nav">
+    <a href="#main-content" class="skip-nav">Skip to main content</a>
+    <nav class="nav" aria-label="Main navigation">
         <div class="nav-brand">
             <a href="/">
                 <img src="/static/img/overblick-logo.svg" alt="Överblick" class="nav-logo">
@@ -17,16 +18,16 @@
             </a>
         </div>
         <div class="nav-links">
-            <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
-            <a href="/identities" class="nav-link {% if request.url.path == '/identities' %}active{% endif %}">Identities</a>
-            <a href="/conversations" class="nav-link {% if request.url.path == '/conversations' %}active{% endif %}">Conversations</a>
-            <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}">Audit</a>
-            <a href="/onboard" class="nav-link {% if request.url.path.startswith('/onboard') %}active{% endif %}">New Identity</a>
+            <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a>
+            <a href="/identities" class="nav-link {% if request.url.path == '/identities' %}active{% endif %}" {% if request.url.path == '/identities' %}aria-current="page"{% endif %}>Identities</a>
+            <a href="/conversations" class="nav-link {% if request.url.path == '/conversations' %}active{% endif %}" {% if request.url.path == '/conversations' %}aria-current="page"{% endif %}>Conversations</a>
+            <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}" {% if request.url.path == '/audit' %}aria-current="page"{% endif %}>Audit</a>
+            <a href="/onboard" class="nav-link {% if request.url.path.startswith('/onboard') %}active{% endif %}" {% if request.url.path.startswith('/onboard') %}aria-current="page"{% endif %}>New Identity</a>
             <a href="/logout" class="nav-link nav-link-logout">Logout</a>
         </div>
     </nav>
 
-    <main class="main">
+    <main class="main" id="main-content">
         {% block flash %}
         {% if error %}
         <div class="flash flash-error">{{ error }}</div>
@@ -46,5 +47,16 @@
     </footer>
 
     <script src="/static/js/radar-chart.js"></script>
+    <script>
+    document.body.addEventListener('htmx:responseError', function(e) {
+        var flash = document.createElement('div');
+        flash.className = 'flash flash-error';
+        flash.setAttribute('role', 'alert');
+        flash.textContent = 'Request failed. Please try again.';
+        var main = document.getElementById('main-content');
+        if (main) main.prepend(flash);
+        setTimeout(function() { flash.remove(); }, 5000);
+    });
+    </script>
 </body>
 </html>
