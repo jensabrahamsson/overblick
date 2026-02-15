@@ -125,12 +125,13 @@ class TestDigestTime:
         with patch("overblick.plugins.ai_digest.plugin.datetime") as mock_dt:
             mock_now = MagicMock()
             mock_now.hour = 5
+            mock_now.minute = 30
             mock_now.strftime.return_value = "2026-02-14"
             mock_dt.now.return_value = mock_now
             assert not plugin._is_digest_time()
 
     def test_is_digest_time_at_hour(self, ai_digest_context):
-        """Is digest time at the configured hour."""
+        """Is digest time at the start of the configured hour."""
         plugin = AiDigestPlugin(ai_digest_context)
         plugin._digest_hour = 7
         plugin._timezone = "Europe/Stockholm"
@@ -139,9 +140,40 @@ class TestDigestTime:
         with patch("overblick.plugins.ai_digest.plugin.datetime") as mock_dt:
             mock_now = MagicMock()
             mock_now.hour = 7
+            mock_now.minute = 3
             mock_now.strftime.return_value = "2026-02-14"
             mock_dt.now.return_value = mock_now
             assert plugin._is_digest_time()
+
+    def test_is_digest_time_after_window_does_not_fire(self, ai_digest_context):
+        """Not digest time after the 15-minute window (prevents re-send on restart)."""
+        plugin = AiDigestPlugin(ai_digest_context)
+        plugin._digest_hour = 7
+        plugin._timezone = "Europe/Stockholm"
+        plugin._last_digest_date = None
+
+        with patch("overblick.plugins.ai_digest.plugin.datetime") as mock_dt:
+            mock_now = MagicMock()
+            mock_now.hour = 7
+            mock_now.minute = 20  # 07:20 — past the 15-min window
+            mock_now.strftime.return_value = "2026-02-14"
+            mock_dt.now.return_value = mock_now
+            assert not plugin._is_digest_time()
+
+    def test_is_digest_time_different_hour_does_not_fire(self, ai_digest_context):
+        """Not digest time at a completely different hour."""
+        plugin = AiDigestPlugin(ai_digest_context)
+        plugin._digest_hour = 7
+        plugin._timezone = "Europe/Stockholm"
+        plugin._last_digest_date = None
+
+        with patch("overblick.plugins.ai_digest.plugin.datetime") as mock_dt:
+            mock_now = MagicMock()
+            mock_now.hour = 15
+            mock_now.minute = 0
+            mock_now.strftime.return_value = "2026-02-14"
+            mock_dt.now.return_value = mock_now
+            assert not plugin._is_digest_time()
 
     def test_is_digest_time_already_sent(self, ai_digest_context):
         """Not digest time if already sent today."""
@@ -151,7 +183,8 @@ class TestDigestTime:
 
         with patch("overblick.plugins.ai_digest.plugin.datetime") as mock_dt:
             mock_now = MagicMock()
-            mock_now.hour = 9
+            mock_now.hour = 7
+            mock_now.minute = 5
             mock_now.strftime.return_value = "2026-02-14"
             mock_dt.now.return_value = mock_now
             plugin._last_digest_date = "2026-02-14"
