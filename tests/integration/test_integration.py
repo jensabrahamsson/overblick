@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from overblick.core.event_bus import EventBus
-from overblick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.personalities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage, SafeLLMPipeline
 from overblick.core.permissions import PermissionChecker, PermissionSet
 from overblick.core.plugin_base import PluginContext

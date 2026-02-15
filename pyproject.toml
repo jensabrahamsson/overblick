@@ -49,9 +49,14 @@ overblick = "overblick.__main__:main"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "-ra --strict-markers --tb=short"
 markers = [
     "llm: tests that require a running Ollama LLM (use -m llm to run)",
     "llm_slow: LLM tests >30s each — multi-turn conversations, forum posts (use -m llm_slow)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:starlette.templating",
+    "ignore::DeprecationWarning:httpx._client",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -35,7 +35,7 @@ class IdentityService:
                 "description": identity.description,
                 "version": identity.version,
                 "engagement_threshold": identity.engagement_threshold,
-                "connectors": list(identity.connectors),
+                "plugins": list(identity.plugins),
                 "capability_names": list(identity.capability_names),
                 "traits": dict(identity.traits),  # Big Five personality traits
                 "llm": {

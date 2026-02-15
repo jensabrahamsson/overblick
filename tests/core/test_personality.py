@@ -162,33 +162,33 @@ class TestListPersonalities:
 
 
 class TestIdentityPersonalityWiring:
-    """Verify that load_identity() automatically loads personality."""
+    """Verify that load_personality() automatically loads personality."""
 
     def test_identity_has_loaded_personality(self):
-        from overblick.core.identity import load_identity
-        identity = load_identity("anomal")
+        from overblick.personalities import load_personality
+        identity = load_personality("anomal")
         assert identity.loaded_personality is not None
         assert identity.loaded_personality.name == "anomal"
 
     def test_identity_personality_ref(self):
-        from overblick.core.identity import load_identity
-        identity = load_identity("anomal")
+        from overblick.personalities import load_personality
+        identity = load_personality("anomal")
         assert identity.personality_ref == "anomal"
 
     def test_identity_personality_has_voice(self):
-        from overblick.core.identity import load_identity
-        identity = load_identity("anomal")
+        from overblick.personalities import load_personality
+        identity = load_personality("anomal")
         assert identity.loaded_personality.voice != {}
         assert "base_tone" in identity.loaded_personality.voice
 
     def test_identity_personality_has_traits(self):
-        from overblick.core.identity import load_identity
-        identity = load_identity("anomal")
+        from overblick.personalities import load_personality
+        identity = load_personality("anomal")
         assert identity.loaded_personality.traits != {}
         assert "openness" in identity.loaded_personality.traits
 
     def test_cherry_has_personality(self):
-        from overblick.core.identity import load_identity
-        identity = load_identity("cherry")
+        from overblick.personalities import load_personality
+        identity = load_personality("cherry")
         assert identity.loaded_personality is not None
         assert identity.loaded_personality.name == "cherry"

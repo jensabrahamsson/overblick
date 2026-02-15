@@ -32,7 +32,7 @@ async def main():
     for identity in identities:
         print(f"\nIdentity: {identity['name']}")
         print(f"  Display name: {identity.get('display_name', 'N/A')}")
-        print(f"  Connectors: {identity.get('connectors', [])}")
+        print(f"  Plugins: {identity.get('plugins', [])}")
         print(f"  Capabilities: {identity.get('capability_names', [])}")
 
     print("\n" + "=" * 80)
@@ -54,13 +54,13 @@ async def main():
         print(">>> NO PLUGIN CARDS! <<<")
         print("\nDEBUG: Checking why...")
 
-        has_connectors = any(identity.get("connectors") for identity in identities)
-        print(f"  Any identity has connectors? {has_connectors}")
+        has_plugins = any(identity.get("plugins") for identity in identities)
+        print(f"  Any identity has plugins? {has_plugins}")
 
-        if not has_connectors:
-            print("\n  >>> ROOT CAUSE: No identity has 'connectors' field set!")
-            print("  The plugin cards are built from identity.connectors[]")
-            print("  If all identities have empty/missing connectors, no cards are shown.")
+        if not has_plugins:
+            print("\n  >>> ROOT CAUSE: No identity has 'plugins' field set!")
+            print("  The plugin cards are built from identity.plugins[]")
+            print("  If all identities have empty/missing plugins, no cards are shown.")
     else:
         for card in plugin_cards:
             print(f"\nPlugin: {card['name']}")

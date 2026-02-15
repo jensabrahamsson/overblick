@@ -491,6 +491,221 @@ class TestMessageParsing:
         assert cap._decode_header(None) == ""
 
 
+class TestSendAsAlias:
+    """Test Gmail send-as alias (sending from a different address)."""
+
+    @pytest.mark.asyncio
+    async def test_setup_loads_send_as_alias(self):
+        """setup() loads optional gmail_send_as secret."""
+        ctx = MagicMock()
+        ctx.identity_name = "stal"
+
+        secrets = {
+            "gmail_address": "login@gmail.com",
+            "gmail_app_password": "abcd-efgh-ijkl-mnop",
+            "gmail_send_as": "alias@example.com",
+        }
+        ctx.get_secret = MagicMock(side_effect=lambda key: secrets.get(key) or (_ for _ in ()).throw(KeyError(key)))
+
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        assert cap._send_as == "alias@example.com"
+        assert cap.configured is True
+
+    @pytest.mark.asyncio
+    async def test_send_reply_uses_send_as_from_address(self):
+        """send_reply() uses send_as address in From header when set."""
+        ctx = MagicMock()
+        ctx.identity_name = "stal"
+
+        secrets = {
+            "gmail_address": "login@gmail.com",
+            "gmail_app_password": "abcd-efgh-ijkl-mnop",
+            "gmail_send_as": "alias@example.com",
+        }
+        ctx.get_secret = MagicMock(side_effect=lambda key: secrets.get(key) or (_ for _ in ()).throw(KeyError(key)))
+
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        mock_smtp = MagicMock()
+        mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+        mock_smtp.__exit__ = MagicMock(return_value=False)
+
+        with patch("overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp):
+            await cap.send_reply("t", "m", "recipient@example.com", "Subject", "Body")
+
+        sent_msg = mock_smtp.send_message.call_args[0][0]
+        assert sent_msg["From"] == "alias@example.com"
+
+    @pytest.mark.asyncio
+    async def test_send_reply_uses_login_address_when_no_alias(self):
+        """send_reply() uses login address in From when no send_as is set."""
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        mock_smtp = MagicMock()
+        mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+        mock_smtp.__exit__ = MagicMock(return_value=False)
+
+        with patch("overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp):
+            await cap.send_reply("t", "m", "recipient@example.com", "Subject", "Body")
+
+        sent_msg = mock_smtp.send_message.call_args[0][0]
+        assert sent_msg["From"] == "test@gmail.com"
+
+
+class TestFetchMultipleMessages:
+    """Test fetching multiple messages and max_results behavior."""
+
+    @pytest.mark.asyncio
+    async def test_fetch_multiple_messages(self):
+        """fetch_unread() returns multiple messages, newest first."""
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        raw_email_1 = _build_raw_email(
+            sender="alice@example.com",
+            subject="First",
+            body="First email body.",
+            message_id="<first@example.com>",
+        )
+        raw_email_2 = _build_raw_email(
+            sender="bob@example.com",
+            subject="Second",
+            body="Second email body.",
+            message_id="<second@example.com>",
+        )
+
+        mock_imap = _mock_imap(
+            search_uids=[b"10", b"20"],
+            fetch_data={b"10": raw_email_1, b"20": raw_email_2},
+        )
+
+        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+            results = await cap.fetch_unread(max_results=10)
+
+        assert len(results) == 2
+        # Newest first (reversed order of UIDs)
+        assert results[0].message_id == "<second@example.com>"
+        assert results[1].message_id == "<first@example.com>"
+
+    @pytest.mark.asyncio
+    async def test_fetch_respects_max_results(self):
+        """fetch_unread() limits results to max_results."""
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        raw_email_1 = _build_raw_email(
+            message_id="<msg-1@example.com>",
+            body="First",
+        )
+        raw_email_2 = _build_raw_email(
+            message_id="<msg-2@example.com>",
+            body="Second",
+        )
+        raw_email_3 = _build_raw_email(
+            message_id="<msg-3@example.com>",
+            body="Third",
+        )
+
+        mock_imap = _mock_imap(
+            search_uids=[b"1", b"2", b"3"],
+            fetch_data={b"1": raw_email_1, b"2": raw_email_2, b"3": raw_email_3},
+        )
+
+        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+            results = await cap.fetch_unread(max_results=2)
+
+        # Only the last 2 UIDs should be fetched (newest)
+        assert len(results) == 2
+
+
+class TestSnippetGeneration:
+    """Test that snippets are generated correctly from email bodies."""
+
+    @pytest.mark.asyncio
+    async def test_snippet_truncates_long_body(self):
+        """Snippet is truncated to 200 characters."""
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        long_body = "A" * 300
+        raw_email = _build_raw_email(body=long_body, message_id="<long@example.com>")
+
+        mock_imap = _mock_imap(
+            search_uids=[b"1"],
+            fetch_data={b"1": raw_email},
+        )
+
+        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+            results = await cap.fetch_unread()
+
+        assert len(results) == 1
+        assert len(results[0].snippet) <= 200
+
+    @pytest.mark.asyncio
+    async def test_snippet_strips_newlines(self):
+        """Snippet replaces newlines with spaces."""
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        body_with_newlines = "Line one\nLine two\nLine three"
+        raw_email = _build_raw_email(
+            body=body_with_newlines,
+            message_id="<newline@example.com>",
+        )
+
+        mock_imap = _mock_imap(
+            search_uids=[b"1"],
+            fetch_data={b"1": raw_email},
+        )
+
+        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+            results = await cap.fetch_unread()
+
+        assert "\n" not in results[0].snippet
+
+
+class TestGmailMessageModel:
+    """Test the GmailMessage model."""
+
+    def test_basic_message(self):
+        """GmailMessage can be created with required fields."""
+        msg = GmailMessage(
+            message_id="<test@example.com>",
+            thread_id="<test@example.com>",
+            sender="alice@example.com",
+            subject="Hello",
+            body="Body text",
+            snippet="Body text",
+            timestamp="Mon, 10 Feb 2026 14:30:00 +0100",
+        )
+        assert msg.message_id == "<test@example.com>"
+        assert msg.sender == "alice@example.com"
+        assert msg.labels == []
+
+    def test_message_with_labels(self):
+        """GmailMessage can include labels."""
+        msg = GmailMessage(
+            message_id="<test@example.com>",
+            thread_id="<test@example.com>",
+            sender="alice@example.com",
+            subject="Hello",
+            body="Body text",
+            snippet="Body text",
+            timestamp="Mon, 10 Feb 2026 14:30:00 +0100",
+            labels=["INBOX", "UNREAD"],
+        )
+        assert msg.labels == ["INBOX", "UNREAD"]
+
+
 class TestTeardown:
     """Test cleanup."""
 

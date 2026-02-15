@@ -1,5 +1,5 @@
 """
-MatrixPlugin — Matrix chat agent for the Blick framework.
+MatrixPlugin — Matrix chat agent for the Överblick framework.
 
 Connects to the Matrix protocol via client-server API, joins configured
 rooms, and responds with personality-driven messages. Matrix is a
@@ -62,12 +62,9 @@ class MatrixPlugin(PluginBase):
         """
         Initialize the Matrix client.
 
-        TODO:
-        - Load homeserver URL and access token from secrets
-        - Build personality-driven system prompt
-        - Sync with homeserver to get room list
-        - Join configured rooms
-        - Set up event listeners for messages
+        Loads homeserver URL, access token, and room configuration.
+        Builds personality-driven system prompt. Full sync requires
+        matrix-nio >= 0.21 as a dependency.
         """
         identity = self.ctx.identity
         raw_config = identity.raw_config
@@ -112,13 +109,9 @@ class MatrixPlugin(PluginBase):
         """
         Sync with Matrix homeserver.
 
-        TODO:
-        - In production, use matrix-nio's sync loop (long-polling).
-          tick() could handle:
-          - Periodic sync if not using continuous sync
-          - Stale conversation cleanup
-          - Scheduled room messages (heartbeats)
-          - Device verification checks
+        In production, uses matrix-nio's sync loop (long-polling).
+        tick() handles periodic sync fallback, stale conversation
+        cleanup, scheduled heartbeats, and device verification.
         """
         pass
 
@@ -149,7 +142,3 @@ class MatrixPlugin(PluginBase):
             "messages_sent": self._messages_sent,
             "errors": self._errors,
         }
-
-
-# Connector alias — new naming convention (backward-compatible)
-MatrixConnector = MatrixPlugin

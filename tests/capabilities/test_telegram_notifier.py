@@ -520,6 +520,303 @@ class TestTelegramNotifierFetchUpdates:
         assert updates == []
 
 
+    @pytest.mark.asyncio
+    async def test_fetch_updates_api_error(self):
+        """fetch_updates() returns empty list on HTTP error from Telegram API."""
+        ctx = _make_ctx(chat_id="12345")
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        mock_response = AsyncMock()
+        mock_response.status = 502
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+
+        with patch("aiohttp.ClientSession", return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_session),
+            __aexit__=AsyncMock(return_value=False),
+        )):
+            updates = await notifier.fetch_updates()
+
+        assert updates == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_updates_not_ok_response(self):
+        """fetch_updates() returns empty list when API response ok=false."""
+        ctx = _make_ctx(chat_id="12345")
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        api_response = {"ok": False, "description": "Unauthorized"}
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value=api_response)
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+
+        with patch("aiohttp.ClientSession", return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_session),
+            __aexit__=AsyncMock(return_value=False),
+        )):
+            updates = await notifier.fetch_updates()
+
+        assert updates == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_updates_network_error(self):
+        """fetch_updates() returns empty list on network error."""
+        import aiohttp
+
+        ctx = _make_ctx(chat_id="12345")
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        with patch("aiohttp.ClientSession", side_effect=aiohttp.ClientError("timeout")):
+            updates = await notifier.fetch_updates()
+
+        assert updates == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_updates_skips_empty_text_messages(self):
+        """fetch_updates() skips messages with empty text."""
+        ctx = _make_ctx(chat_id="12345")
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        api_response = {
+            "ok": True,
+            "result": [
+                {
+                    "update_id": 100,
+                    "message": {
+                        "message_id": 50,
+                        "text": "",
+                        "chat": {"id": 12345},
+                        "from": {"id": 12345, "is_bot": False},
+                        "date": 1700000000,
+                    },
+                },
+            ],
+        }
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value=api_response)
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+
+        with patch("aiohttp.ClientSession", return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_session),
+            __aexit__=AsyncMock(return_value=False),
+        )):
+            updates = await notifier.fetch_updates()
+
+        assert len(updates) == 0
+
+    @pytest.mark.asyncio
+    async def test_fetch_updates_skips_updates_without_message(self):
+        """fetch_updates() skips updates that have no message field."""
+        ctx = _make_ctx(chat_id="12345")
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        api_response = {
+            "ok": True,
+            "result": [
+                {
+                    "update_id": 100,
+                    # No "message" key — could be an edited_message or callback_query
+                },
+            ],
+        }
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value=api_response)
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+
+        with patch("aiohttp.ClientSession", return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_session),
+            __aexit__=AsyncMock(return_value=False),
+        )):
+            updates = await notifier.fetch_updates()
+
+        assert len(updates) == 0
+        # Offset should still advance past this update
+        assert notifier._update_offset == 101
+
+
+class TestTelegramNotifierSendHtml:
+    """Test HTML notification sending."""
+
+    @pytest.mark.asyncio
+    async def test_send_html_success(self):
+        """send_html() returns True on HTTP 200."""
+        ctx = _make_ctx()
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+
+        with patch("aiohttp.ClientSession", return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_session),
+            __aexit__=AsyncMock(return_value=False),
+        )):
+            result = await notifier.send_html("<b>Bold</b> message")
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_send_html_failure(self):
+        """send_html() returns False on HTTP error."""
+        ctx = _make_ctx()
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        mock_response = AsyncMock()
+        mock_response.status = 400
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+
+        with patch("aiohttp.ClientSession", return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_session),
+            __aexit__=AsyncMock(return_value=False),
+        )):
+            result = await notifier.send_html("<b>Bold</b>")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_html_network_error(self):
+        """send_html() returns False on network error."""
+        import aiohttp
+
+        ctx = _make_ctx()
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        with patch("aiohttp.ClientSession", side_effect=aiohttp.ClientError("fail")):
+            result = await notifier.send_html("<b>Bold</b>")
+
+        assert result is False
+
+
+class TestTelegramNotifierPayloads:
+    """Test that correct payloads are sent to the Telegram API."""
+
+    @pytest.mark.asyncio
+    async def test_send_notification_uses_markdown_parse_mode(self):
+        """send_notification() sends Markdown parse_mode in payload."""
+        ctx = _make_ctx()
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        captured_payload = {}
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+
+        mock_session = AsyncMock()
+
+        def capture_post(url, json, timeout):
+            captured_payload.update(json)
+            return AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
+            )
+
+        mock_session.post = MagicMock(side_effect=capture_post)
+
+        with patch("aiohttp.ClientSession", return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_session),
+            __aexit__=AsyncMock(return_value=False),
+        )):
+            await notifier.send_notification("*bold* _italic_")
+
+        assert captured_payload["parse_mode"] == "Markdown"
+        assert captured_payload["chat_id"] == "12345"
+        assert captured_payload["text"] == "*bold* _italic_"
+
+    @pytest.mark.asyncio
+    async def test_send_html_uses_html_parse_mode(self):
+        """send_html() sends HTML parse_mode in payload."""
+        ctx = _make_ctx()
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        captured_payload = {}
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+
+        mock_session = AsyncMock()
+
+        def capture_post(url, json, timeout):
+            captured_payload.update(json)
+            return AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
+            )
+
+        mock_session.post = MagicMock(side_effect=capture_post)
+
+        with patch("aiohttp.ClientSession", return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_session),
+            __aexit__=AsyncMock(return_value=False),
+        )):
+            await notifier.send_html("<b>Bold</b>")
+
+        assert captured_payload["parse_mode"] == "HTML"
+        assert captured_payload["text"] == "<b>Bold</b>"
+
+
+class TestTelegramNotifierTrackedNetworkError:
+    """Test tracked notification error scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_send_tracked_network_error(self):
+        """send_notification_tracked() returns None on network error."""
+        import aiohttp
+
+        ctx = _make_ctx()
+        notifier = TelegramNotifier(ctx)
+        await notifier.setup()
+
+        with patch("aiohttp.ClientSession", side_effect=aiohttp.ClientError("timeout")):
+            result = await notifier.send_notification_tracked("Test", ref_id="ref-1")
+
+        assert result is None
+
+
 class TestTelegramUpdateModel:
     """Test the TelegramUpdate model."""
 
@@ -536,3 +833,15 @@ class TestTelegramUpdateModel:
             message_id=1, text="reply", reply_to_message_id=42,
         )
         assert update.reply_to_message_id == 42
+
+    def test_update_default_timestamp(self):
+        """TelegramUpdate has empty timestamp by default."""
+        update = TelegramUpdate(message_id=1, text="hello")
+        assert update.timestamp == ""
+
+    def test_update_with_timestamp(self):
+        """TelegramUpdate can include a timestamp."""
+        update = TelegramUpdate(
+            message_id=1, text="hello", timestamp="1700000000",
+        )
+        assert update.timestamp == "1700000000"

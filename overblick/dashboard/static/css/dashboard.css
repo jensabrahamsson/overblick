@@ -72,6 +72,33 @@ body {
 a { color: var(--text-link); text-decoration: none; }
 a:hover { color: var(--accent-hover); text-decoration: underline; }
 
+/* --- Accessibility --- */
+.skip-nav {
+    position: absolute;
+    top: -100%;
+    left: var(--space-md);
+    background: var(--accent);
+    color: var(--bg-primary);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    z-index: 1000;
+}
+.skip-nav:focus {
+    top: var(--space-sm);
+}
+
+/* Focus-visible for all interactive elements */
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible,
+.btn:focus-visible,
+.nav-link:focus-visible,
+.tag:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+}
+
 .mono { font-family: var(--font-mono); font-size: 0.9em; }
 .text-muted { color: var(--text-muted); }
 .mt-2 { margin-top: var(--space-md); }
@@ -276,7 +303,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
     color: var(--text-secondary);
 }
 .tag-sm { padding: 1px 8px; font-size: 0.75rem; }
-.tag-connector { border-color: var(--accent); color: var(--accent); }
+.tag-plugin { border-color: var(--accent); color: var(--accent); }
 .tag-capability { border-color: var(--orange); color: var(--orange); }
 .tag-operational { border-color: #2dd4bf; color: #2dd4bf; }
 .tag-psychology {

@@ -126,7 +126,7 @@ class Personality(BaseModel):
     - quiet_hours: GPU bedroom mode settings
     - schedule: Heartbeat and polling intervals
     - security: Preflight, output safety, admin IDs
-    - connectors: Which plugins to load
+    - plugins: Which plugins to load
     - capability_names: Which capabilities to enable
     """
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
@@ -161,9 +161,9 @@ class Personality(BaseModel):
     engagement_threshold: int = 35
     comment_cooldown_hours: int = 24
 
-    # Modules and connectors
+    # Modules and plugins
     enabled_modules: tuple[str, ...] = ()
-    connectors: tuple[str, ...] = ()
+    plugins: tuple[str, ...] = ()
     capability_names: tuple[str, ...] = ()
 
     # Security deflections
@@ -682,7 +682,10 @@ def _build_personality(name: str, data: dict, base_dir: Optional[Path] = None) -
             return val
         return default
 
-    connectors = _get("connectors", [])
+    # Support both "plugins" (new) and "connectors" (legacy) YAML keys
+    plugins = _get("plugins", None)
+    if plugins is None:
+        plugins = _get("connectors", [])
     capability_names = _get("capabilities", [])
     enabled_modules = _get("enabled_modules", [])
     deflections = _get("deflections", {})
@@ -754,7 +757,7 @@ def _build_personality(name: str, data: dict, base_dir: Optional[Path] = None) -
         engagement_threshold=engagement_threshold,
         comment_cooldown_hours=comment_cooldown_hours,
         enabled_modules=enabled_modules,
-        connectors=connectors,
+        plugins=plugins,
         capability_names=capability_names,
         deflections=deflections,
         interest_keywords=interest_keywords,

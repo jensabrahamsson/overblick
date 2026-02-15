@@ -119,13 +119,13 @@ def _build_plugin_cards(
     # Build status lookup from supervisor
     agent_status = {a.get("name", ""): a for a in agents}
 
-    # Group agents by plugin (connector)
+    # Group agents by plugin
     plugin_map: dict[str, list[dict]] = {}
 
     for identity in identities:
         name = identity["name"]
         status = agent_status.get(name, {})
-        connectors = identity.get("connectors", [])
+        plugins = identity.get("plugins", [])
 
         # Get Big Five traits for emotion radar chart (if available)
         traits = identity.get("traits", {})
@@ -142,10 +142,10 @@ def _build_plugin_cards(
             "traits": big_five,
         }
 
-        for connector in connectors:
-            if connector not in plugin_map:
-                plugin_map[connector] = []
-            plugin_map[connector].append(agent_info)
+        for plugin in plugins:
+            if plugin not in plugin_map:
+                plugin_map[plugin] = []
+            plugin_map[plugin].append(agent_info)
 
     # Build plugin cards
     cards = []
@@ -180,7 +180,7 @@ def _build_agent_cards(
             "display_name": identity.get("display_name", name.capitalize()),
             "description": identity.get("description", ""),
             "personality_ref": identity.get("personality_ref", ""),
-            "connectors": identity.get("connectors", []),
+            "plugins": identity.get("plugins", []),
             "capabilities": identity.get("capability_names", []),
             "llm_model": identity.get("llm", {}).get("model", "unknown"),
             # Status from supervisor (or defaults if not running)

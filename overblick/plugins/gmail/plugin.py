@@ -219,8 +219,7 @@ class GmailPlugin(PluginBase):
         In production, this would use the Gmail API. Currently a stub
         that returns an empty list — implement with google-api-python-client.
         """
-        # TODO: Implement with Gmail API when google-api-python-client is added
-        # For now, this is a well-defined interface for testing
+        # Stub — implement with google-api-python-client for Gmail API support
         logger.debug("Gmail: checking for unread messages")
         return []
 
@@ -531,7 +530,3 @@ class GmailPlugin(PluginBase):
         if unsent:
             logger.warning("GmailPlugin teardown with %d unsent drafts", unsent)
         logger.info("GmailPlugin teardown complete")
-
-
-# Connector alias — new naming convention (backward-compatible)
-GmailConnector = GmailPlugin

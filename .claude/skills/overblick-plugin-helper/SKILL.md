@@ -147,7 +147,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-from overblick.core.identity import Identity
+from overblick.personalities import Identity
 from overblick.core.plugin_base import PluginContext
 from overblick.core.llm.pipeline import SafeLLMPipeline, PipelineResult
 

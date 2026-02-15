@@ -446,7 +446,3 @@ class TelegramPlugin(PluginBase):
             self._polling_task.cancel()
         self._conversations.clear()
         logger.info("TelegramPlugin teardown complete")
-
-
-# Connector alias — new naming convention (backward-compatible)
-TelegramConnector = TelegramPlugin

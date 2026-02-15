@@ -506,7 +506,3 @@ class _FallbackPrompts:
     COMMENT_PROMPT = "Respond to this post:\nTitle: {title}\n{content}"
     REPLY_PROMPT = "Reply to: {comment}\nOn post: {title}"
     HEARTBEAT_PROMPT = "Write a short post about topic {topic_index}."
-
-
-# Connector alias — new naming convention (backward-compatible)
-MoltbookConnector = MoltbookPlugin

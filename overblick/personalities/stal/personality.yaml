@@ -486,7 +486,7 @@ operational:
     - "telegram_notifier"
     - "boss_request"
 
-  connectors:
+  plugins:
     - "email_agent"
 
 # Sender filtering — opt-in or opt-out mode

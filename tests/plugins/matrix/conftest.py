@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from overblick.core.identity import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.personalities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.core.plugin_base import PluginContext
 from overblick.plugins.matrix.plugin import MatrixPlugin

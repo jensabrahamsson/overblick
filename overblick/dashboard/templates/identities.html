@@ -31,10 +31,10 @@
                 </span>
             </div>
 
-            <!-- Connectors -->
+            <!-- Plugins -->
             <div class="tag-list mt-2">
-                {% for conn in identity.connectors %}
-                <span class="tag tag-connector">{{ conn }}</span>
+                {% for p in identity.plugins %}
+                <span class="tag tag-plugin">{{ p }}</span>
                 {% endfor %}
                 {% for cap in identity.capability_names %}
                 <span class="tag {{ 'tag-operational' if _is_operational_cap(cap) else 'tag-capability' }}">{{ cap }}</span>

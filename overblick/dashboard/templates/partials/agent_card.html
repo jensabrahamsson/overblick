@@ -11,8 +11,8 @@
         {% endif %}
     </div>
     <div class="tag-list">
-        {% for conn in card.connectors %}
-        <span class="tag tag-sm tag-connector">{{ conn }}</span>
+        {% for p in card.plugins %}
+        <span class="tag tag-sm tag-plugin">{{ p }}</span>
         {% endfor %}
         {% for cap in card.capabilities %}
         <span class="tag tag-sm {{ 'tag-operational' if _is_operational_cap(cap) else 'tag-capability' }}">{{ cap }}</span>

@@ -73,15 +73,15 @@
             </div>
         </div>
 
-        <!-- Connectors & Capabilities -->
+        <!-- Plugins & Capabilities -->
         <div class="card">
-            <h3 class="card-title">Connectors</h3>
+            <h3 class="card-title">Plugins</h3>
             <div class="tag-list">
-                {% for conn in identity.connectors %}
-                <span class="tag tag-connector">{{ conn }}</span>
+                {% for p in identity.plugins %}
+                <span class="tag tag-plugin">{{ p }}</span>
                 {% endfor %}
-                {% if not identity.connectors %}
-                <span class="text-muted">No connectors configured</span>
+                {% if not identity.plugins %}
+                <span class="text-muted">No plugins configured</span>
                 {% endif %}
             </div>
 

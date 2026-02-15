@@ -137,13 +137,13 @@ class Orchestrator:
         # 9. Create IPC client (if running under supervisor)
         self._ipc_client = self._create_ipc_client()
 
-        # 10. Load and setup plugins/connectors
+        # 10. Load and setup plugins
         permissions = PermissionChecker.from_identity(self._identity)
 
-        # Use connectors from identity if specified, otherwise fall back to constructor arg
-        connector_names = list(self._identity.connectors) if self._identity.connectors else self._plugin_names
+        # Use plugins from identity if specified, otherwise fall back to constructor arg
+        plugin_names = list(self._identity.plugins) if self._identity.plugins else self._plugin_names
 
-        for plugin_name in connector_names:
+        for plugin_name in plugin_names:
             ctx = PluginContext(
                 identity_name=self._identity_name,
                 data_dir=data_dir / plugin_name,

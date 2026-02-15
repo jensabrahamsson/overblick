@@ -53,7 +53,7 @@ class ConversationCapability(CapabilityBase):
     Multi-turn conversation tracking capability.
 
     Manages per-conversation history with automatic stale cleanup.
-    Reusable across any connector that needs conversation context
+    Reusable across any plugin that needs conversation context
     (Telegram, Discord, Matrix, etc.).
     """
 

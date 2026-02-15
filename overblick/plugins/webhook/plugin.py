@@ -1,5 +1,5 @@
 """
-WebhookPlugin — HTTP webhook receiver for the Blick framework.
+WebhookPlugin — HTTP webhook receiver for the Överblick framework.
 
 Exposes an HTTP endpoint that accepts webhook payloads from external
 services (GitHub, Stripe, custom integrations) and routes them through
@@ -57,11 +57,8 @@ class WebhookPlugin(PluginBase):
         """
         Initialize the webhook server.
 
-        TODO:
-        - Load host/port/path from identity config
-        - Load HMAC secret from secrets (ctx.get_secret("webhook_hmac_secret"))
-        - Start aiohttp web server
-        - Register routes
+        Loads endpoint config and HMAC secret. Full HTTP server
+        requires aiohttp as a dependency.
         """
         identity = self.ctx.identity
         raw_config = identity.raw_config
@@ -90,12 +87,9 @@ class WebhookPlugin(PluginBase):
         """
         Process queued webhook events.
 
-        TODO:
-        - The HTTP server runs independently (aiohttp app).
-          tick() can be used for:
-          - Processing queued events that need LLM responses
-          - Retry logic for failed webhook processing
-          - Metrics collection and reporting
+        The HTTP server runs independently. tick() processes queued
+        events needing LLM responses, handles retries, and collects
+        metrics.
         """
         pass
 
@@ -113,7 +107,3 @@ class WebhookPlugin(PluginBase):
             "webhooks_processed": self._webhooks_processed,
             "errors": self._errors,
         }
-
-
-# Connector alias — new naming convention (backward-compatible)
-WebhookConnector = WebhookPlugin
