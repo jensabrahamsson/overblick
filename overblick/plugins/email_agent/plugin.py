@@ -91,6 +91,7 @@ class EmailAgentPlugin(PluginBase):
         self._blocked_senders: set[str] = set()
         self._profiles_dir: Optional[Path] = None
         self._principal_name: str = ""
+        self._dry_run: bool = False
 
     async def setup(self) -> None:
         """Initialize the email agent: database, state, goals, prompt."""
@@ -136,6 +137,11 @@ class EmailAgentPlugin(PluginBase):
 
         # Load principal name from secrets (injected at runtime — never hardcoded)
         self._principal_name = self.ctx.get_secret("principal_name") or ""
+
+        # Dry-run mode: classify and notify, but never send actual email replies
+        self._dry_run = ea_config.get("dry_run", False)
+        if self._dry_run:
+            logger.info("EmailAgentPlugin running in DRY RUN mode — no emails will be sent")
 
         # Run GDPR cleanup on startup
         await self._db.purge_gdpr_data(self.GDPR_RETENTION_DAYS)
@@ -469,6 +475,10 @@ class EmailAgentPlugin(PluginBase):
         """Generate and send an email reply via the Gmail plugin event bus."""
         sender = email.get("sender", "")
         subject = email.get("subject", "")
+
+        if self._dry_run:
+            logger.info("DRY RUN: would reply to %s re: %s — skipped", sender, subject)
+            return True
         body = email.get("body", "")
 
         # Get sender context from profile (GDPR-safe) and DB history

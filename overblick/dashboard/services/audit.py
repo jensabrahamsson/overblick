@@ -120,8 +120,14 @@ class AuditService:
         results.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
         return results[:limit]
 
-    def count(self, identity: str = "", since_hours: int = 24) -> int:
-        """Count audit entries for an identity (or all)."""
+    def count(
+        self,
+        identity: str = "",
+        since_hours: int = 24,
+        category: str = "",
+        success: Optional[bool] = None,
+    ) -> int:
+        """Count audit entries with optional category/success filters."""
         since = time.time() - (since_hours * 3600)
         total = 0
 
@@ -132,9 +138,20 @@ class AuditService:
             if not conn:
                 continue
             try:
+                conditions = ["timestamp >= ?"]
+                params: list[Any] = [since]
+
+                if category:
+                    conditions.append("category = ?")
+                    params.append(category)
+                if success is not None:
+                    conditions.append("success = ?")
+                    params.append(1 if success else 0)
+
+                where = " AND ".join(conditions)
                 cursor = conn.execute(
-                    "SELECT COUNT(*) FROM audit_log WHERE timestamp >= ?",
-                    (since,),
+                    f"SELECT COUNT(*) FROM audit_log WHERE {where}",
+                    params,
                 )
                 total += cursor.fetchone()[0]
             except Exception as e:

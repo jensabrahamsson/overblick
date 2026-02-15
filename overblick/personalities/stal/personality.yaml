@@ -492,6 +492,7 @@ operational:
 
 # Sender filtering — opt-in or opt-out mode
 email_agent:
+  dry_run: true                        # Safety: classify + notify, never send actual replies
   filter_mode: "opt_in"               # "opt_in" or "opt_out"
   allowed_senders: []                  # Populate with approved senders
   blocked_senders: []                  # Used when filter_mode = opt_out

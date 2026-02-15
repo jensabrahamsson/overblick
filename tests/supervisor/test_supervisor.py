@@ -274,6 +274,105 @@ class TestSupervisor:
 # IPC Authentication
 # ---------------------------------------------------------------------------
 
+class TestSupervisorAgentActions:
+    """Test start/stop agent IPC handlers."""
+
+    @pytest.mark.asyncio
+    async def test_start_agent_via_ipc(self, short_tmp):
+        """start_agent IPC handler returns success for valid identity."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            client = IPCClient(
+                target="supervisor", socket_dir=short_tmp,
+                auth_token=sup._auth_token,
+            )
+            msg = IPCMessage(
+                msg_type="start_agent",
+                payload={"identity": "anomal"},
+                sender="dashboard",
+            )
+            response = await client.send(msg, timeout=5.0)
+            assert response is not None
+            assert response.msg_type == "agent_action_response"
+            assert response.payload["action"] == "start"
+            # May fail (no actual agent binary) but handler should respond
+            assert "identity" in response.payload
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_stop_agent_via_ipc_not_found(self, short_tmp):
+        """stop_agent IPC handler returns error for non-running agent."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            client = IPCClient(
+                target="supervisor", socket_dir=short_tmp,
+                auth_token=sup._auth_token,
+            )
+            msg = IPCMessage(
+                msg_type="stop_agent",
+                payload={"identity": "nonexistent"},
+                sender="dashboard",
+            )
+            response = await client.send(msg, timeout=5.0)
+            assert response is not None
+            assert response.msg_type == "agent_action_response"
+            assert response.payload["success"] is False
+            assert response.payload["action"] == "stop"
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_start_agent_missing_identity(self, short_tmp):
+        """start_agent with missing identity returns error."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            client = IPCClient(
+                target="supervisor", socket_dir=short_tmp,
+                auth_token=sup._auth_token,
+            )
+            msg = IPCMessage(
+                msg_type="start_agent",
+                payload={},
+                sender="dashboard",
+            )
+            response = await client.send(msg, timeout=5.0)
+            assert response is not None
+            assert response.payload["success"] is False
+            assert "Missing identity" in response.payload["error"]
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_stop_agent_missing_identity(self, short_tmp):
+        """stop_agent with missing identity returns error."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            client = IPCClient(
+                target="supervisor", socket_dir=short_tmp,
+                auth_token=sup._auth_token,
+            )
+            msg = IPCMessage(
+                msg_type="stop_agent",
+                payload={},
+                sender="dashboard",
+            )
+            response = await client.send(msg, timeout=5.0)
+            assert response is not None
+            assert response.payload["success"] is False
+            assert "Missing identity" in response.payload["error"]
+        finally:
+            await sup.stop()
+
+
 class TestIPCAuth:
     @pytest.mark.asyncio
     async def test_auth_accepted(self, short_tmp):

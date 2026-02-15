@@ -1,3 +1,31 @@
+<!-- Summary -->
+<div class="health-bar" style="margin-bottom: var(--space-lg);">
+    <div class="health-items">
+        <div class="health-item">
+            <span class="health-icon {% if total_calls > 0 %}health-ok{% else %}health-neutral{% endif %}"></span>
+            <span class="health-label">Total Calls</span>
+            <span class="health-value">{{ total_calls }}</span>
+        </div>
+        <div class="health-item">
+            <span class="health-icon health-neutral"></span>
+            <span class="health-label">Total Time</span>
+            <span class="health-value">
+                {% if total_duration >= 60000 %}{{ "%.1f"|format(total_duration / 60000) }}m
+                {% elif total_duration >= 1000 %}{{ "%.1f"|format(total_duration / 1000) }}s
+                {% else %}{{ total_duration|int }}ms{% endif %}
+            </span>
+        </div>
+        <div class="health-item">
+            <span class="health-icon health-neutral"></span>
+            <span class="health-label">Avg Duration</span>
+            <span class="health-value">
+                {% if avg_duration >= 1000 %}{{ "%.1f"|format(avg_duration / 1000) }}s
+                {% else %}{{ avg_duration|int }}ms{% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+
 {% if entries %}
 <table class="audit-table">
     <thead>
@@ -5,9 +33,8 @@
             <th>Time</th>
             <th>Identity</th>
             <th>Action</th>
-            <th>Category</th>
-            <th>Plugin</th>
             <th>Duration</th>
+            <th>Response</th>
             <th>Status</th>
             <th></th>
         </tr>
@@ -18,13 +45,18 @@
             <td class="mono audit-time">{{ entry.timestamp|epoch_to_datetime }}</td>
             <td>{{ entry.identity }}</td>
             <td>{{ entry.action }}</td>
-            <td><span class="tag tag-sm">{{ entry.category }}</span></td>
-            <td>{{ entry.plugin or '—' }}</td>
             <td class="mono">
                 {% if entry.duration_ms is not none %}
                     {% if entry.duration_ms >= 1000 %}{{ "%.1f"|format(entry.duration_ms / 1000) }}s{% else %}{{ entry.duration_ms|int }}ms{% endif %}
                 {% else %}
                     —
+                {% endif %}
+            </td>
+            <td class="mono">
+                {% if entry.details is mapping and entry.details.content_length %}
+                {{ entry.details.content_length }} chars
+                {% else %}
+                —
                 {% endif %}
             </td>
             <td>
@@ -42,7 +74,7 @@
         </tr>
         {% if entry.error or entry.details %}
         <tr class="audit-detail-row" hidden>
-            <td colspan="8">
+            <td colspan="7">
                 <div class="audit-detail">
                     {% if entry.error %}
                     <div class="audit-detail-error">
@@ -76,6 +108,6 @@ function toggleDetail(btn) {
 </script>
 {% else %}
 <div class="empty-state">
-    <p>No audit entries found.</p>
+    <p>No LLM calls found.</p>
 </div>
 {% endif %}

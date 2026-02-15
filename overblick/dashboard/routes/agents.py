@@ -29,12 +29,15 @@ async def agent_detail(request: Request, name: str):
         return templates.TemplateResponse("dashboard.html", {
             "request": request,
             "csrf_token": request.state.session.get("csrf_token", ""),
-            "error": f"Identity '{name}' not found.",
-            "agent_cards": [],
+            "error": f"Agent '{name}' not found.",
+            "agent_rows": [],
+            "entries": [],
             "supervisor_running": False,
             "supervisor_status": {},
-            "recent_audit": [],
             "audit_count_24h": 0,
+            "llm_calls_24h": 0,
+            "error_rate": 0.0,
+            "categories": [],
             "total_identities": 0,
             "total_agents": 0,
             "poll_interval": 5,
@@ -53,6 +56,9 @@ async def agent_detail(request: Request, name: str):
     # Get capability bundles for display
     capability_bundles = system_svc.get_capability_bundles()
 
+    supervisor_status = await supervisor_svc.get_status()
+    is_running = agent_status.get("state") == "running"
+
     return templates.TemplateResponse("agent_detail.html", {
         "request": request,
         "csrf_token": request.state.session.get("csrf_token", ""),
@@ -61,5 +67,8 @@ async def agent_detail(request: Request, name: str):
         "agent_status": agent_status,
         "audit_entries": audit_entries,
         "capability_bundles": capability_bundles,
+        "supervisor_running": supervisor_status is not None,
+        "can_start": not is_running,
+        "can_stop": is_running,
         "poll_interval": request.app.state.config.poll_interval,
     })

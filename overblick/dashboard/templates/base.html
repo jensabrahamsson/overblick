@@ -21,8 +21,8 @@
             <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a>
             <a href="/identities" class="nav-link {% if request.url.path == '/identities' %}active{% endif %}" {% if request.url.path == '/identities' %}aria-current="page"{% endif %}>Identities</a>
             <a href="/conversations" class="nav-link {% if request.url.path == '/conversations' %}active{% endif %}" {% if request.url.path == '/conversations' %}aria-current="page"{% endif %}>Conversations</a>
+            <a href="/llm" class="nav-link {% if request.url.path == '/llm' %}active{% endif %}" {% if request.url.path == '/llm' %}aria-current="page"{% endif %}>LLM</a>
             <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}" {% if request.url.path == '/audit' %}aria-current="page"{% endif %}>Audit</a>
-            <a href="/onboard" class="nav-link {% if request.url.path.startswith('/onboard') %}active{% endif %}" {% if request.url.path.startswith('/onboard') %}aria-current="page"{% endif %}>New Identity</a>
             <a href="/logout" class="nav-link nav-link-logout">Logout</a>
         </div>
     </nav>
@@ -41,9 +41,11 @@
     </main>
 
     <footer class="footer">
+        <span>&copy; 2025-2026 Jens Abrahamsson</span>
+        <span class="footer-sep">|</span>
         <span>Överblick Agent Framework</span>
         <span class="footer-sep">|</span>
-        <span>Security-first. Read-only monitoring.</span>
+        <span><a href="https://www.gnu.org/licenses/gpl-3.0.html" class="footer-link">GPL v3</a></span>
     </footer>
 
     <script src="/static/js/radar-chart.js"></script>

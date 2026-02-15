@@ -152,6 +152,8 @@ def mock_supervisor_service():
     svc.get_agents.return_value = [
         {"name": "anomal", "state": "running", "pid": 12345, "uptime": 3600, "restart_count": 0},
     ]
+    svc.start_agent.return_value = {"success": True, "identity": "anomal", "action": "start"}
+    svc.stop_agent.return_value = {"success": True, "identity": "anomal", "action": "stop"}
     svc.close.return_value = None
     return svc
 

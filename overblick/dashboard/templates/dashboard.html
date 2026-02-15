@@ -11,28 +11,14 @@
         {% include "partials/system_health.html" %}
     </section>
 
-    <!-- Plugin Cards Grid -->
+    <!-- Agent Status -->
     <section class="section">
-        <h2 class="section-title">Plugins</h2>
-        <div class="agent-grid"
-             hx-get="/partials/plugin-cards"
+        <h2 class="section-title">Agent Status</h2>
+        <div id="agent-status-container"
+             hx-get="/partials/agent-status"
              hx-trigger="every {{ poll_interval }}s"
              hx-swap="innerHTML">
-            {% include "partials/plugin_cards.html" %}
-        </div>
-    </section>
-
-    <!-- Recent Audit Trail -->
-    <section class="section">
-        <div class="section-header">
-            <h2 class="section-title">Recent Activity</h2>
-            <a href="/audit" class="btn btn-ghost btn-sm">View All</a>
-        </div>
-        <div class="audit-container"
-             hx-get="/partials/audit-recent"
-             hx-trigger="every {{ poll_interval }}s"
-             hx-swap="innerHTML">
-            {% include "partials/audit_table.html" with context %}
+            {% include "partials/agent_status.html" %}
         </div>
     </section>
 </div>

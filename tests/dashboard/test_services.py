@@ -73,6 +73,22 @@ class TestAuditService:
         assert count == 5
         svc.close()
 
+    def test_count_with_category(self, audit_db):
+        svc = AuditService(audit_db)
+        count = svc.count(identity="testident", category="moltbook")
+        assert count == 5
+        count = svc.count(identity="testident", category="nonexistent")
+        assert count == 0
+        svc.close()
+
+    def test_count_with_success_filter(self, audit_db):
+        svc = AuditService(audit_db)
+        count = svc.count(identity="testident", success=True)
+        assert count == 5
+        count = svc.count(identity="testident", success=False)
+        assert count == 0
+        svc.close()
+
     def test_discover_identities(self, audit_db):
         svc = AuditService(audit_db)
         identities = svc._discover_identities()
