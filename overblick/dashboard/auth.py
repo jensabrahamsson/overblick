@@ -93,13 +93,11 @@ def get_session(request: Request) -> Optional[dict]:
 
 
 def check_csrf(request: Request, session_data: dict) -> bool:
-    """Validate CSRF token from form or htmx header."""
+    """Validate CSRF token from htmx header."""
     session_mgr: SessionManager = request.app.state.session_manager
-    # Check htmx header first, then form field
     token = request.headers.get("X-CSRF-Token", "")
     if not token:
-        # Will be checked in route handler after form parsing
-        return True  # Defer to route handler
+        return False
     return session_mgr.validate_csrf(session_data, token)
 
 
@@ -131,13 +129,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Store session data on request state for route handlers
         request.state.session = session_data
 
-        # CSRF check on mutating requests
+        # CSRF check on mutating requests — always required
         if request.method in ("POST", "PUT", "DELETE", "PATCH"):
             token = request.headers.get("X-CSRF-Token", "")
-            if token:
-                session_mgr: SessionManager = request.app.state.session_manager
-                if not session_mgr.validate_csrf(session_data, token):
-                    logger.warning("CSRF validation failed for %s %s", request.method, path)
-                    return Response("CSRF validation failed", status_code=403)
+            if not token:
+                logger.warning("Missing CSRF token for %s %s", request.method, path)
+                return Response("CSRF token required", status_code=403)
+            session_mgr: SessionManager = request.app.state.session_manager
+            if not session_mgr.validate_csrf(session_data, token):
+                logger.warning("CSRF validation failed for %s %s", request.method, path)
+                return Response("CSRF validation failed", status_code=403)
 
         return await call_next(request)

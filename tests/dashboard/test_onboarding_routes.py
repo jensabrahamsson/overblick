@@ -65,8 +65,9 @@ class TestOnboardingWizard:
         cookie_value, csrf = session_cookie
         resp = await client.post(
             "/onboard",
-            data={"step": "1", "name": "testbot", "description": "A test bot", "display_name": "TestBot", "csrf_token": csrf},
+            data={"step": "1", "name": "testbot", "description": "A test bot", "display_name": "TestBot"},
             cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
             follow_redirects=False,
         )
         assert resp.status_code == 302
@@ -76,8 +77,9 @@ class TestOnboardingWizard:
         cookie_value, csrf = session_cookie
         resp = await client.post(
             "/onboard",
-            data={"step": "1", "name": "INVALID!", "description": "", "display_name": "", "csrf_token": csrf},
+            data={"step": "1", "name": "INVALID!", "description": "", "display_name": ""},
             cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
         )
         assert resp.status_code == 400
 
@@ -87,8 +89,9 @@ class TestOnboardingWizard:
         cookie_value, csrf = session_cookie
         resp = await client.post(
             "/onboard",
-            data={"step": "1", "name": "anomal", "description": "", "display_name": "", "csrf_token": csrf},
+            data={"step": "1", "name": "anomal", "description": "", "display_name": ""},
             cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
         )
         assert resp.status_code == 400
         assert "already exists" in resp.text

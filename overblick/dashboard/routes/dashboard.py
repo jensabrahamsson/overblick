@@ -3,12 +3,16 @@ Dashboard routes — main page with agent cards and system health.
 """
 
 import logging
+import re
 import time
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
+from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
+
+_IDENTITY_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
 router = APIRouter()
 
@@ -120,6 +124,8 @@ async def audit_recent_partial(request: Request):
 @router.post("/agent/{name}/start", response_class=HTMLResponse)
 async def agent_start(name: str, request: Request):
     """Start a stopped agent and return updated agent status partial."""
+    if not _IDENTITY_NAME_RE.match(name):
+        return Response("Invalid identity name", status_code=400)
     templates = request.app.state.templates
     supervisor_svc = request.app.state.supervisor_service
     identity_svc = request.app.state.identity_service
@@ -144,6 +150,8 @@ async def agent_start(name: str, request: Request):
 @router.post("/agent/{name}/stop", response_class=HTMLResponse)
 async def agent_stop(name: str, request: Request):
     """Stop a running agent and return updated agent status partial."""
+    if not _IDENTITY_NAME_RE.match(name):
+        return Response("Invalid identity name", status_code=400)
     templates = request.app.state.templates
     supervisor_svc = request.app.state.supervisor_service
     identity_svc = request.app.state.identity_service

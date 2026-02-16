@@ -16,7 +16,6 @@ Reasoning policy:
 
 import asyncio
 import logging
-import re
 import time
 from typing import Optional
 
@@ -98,21 +97,21 @@ class OllamaClient(LLMClient):
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    logger.error(f"LLM: API error {response.status}: {error_text}")
+                    logger.warning("LLM: API error %d: %s", response.status, error_text)
                     return None
 
                 data = await response.json()
 
             choices = data.get("choices", [])
             if not choices:
-                logger.error("LLM: No choices in response")
+                logger.warning("LLM: No choices in response")
                 return None
 
             raw_content = choices[0].get("message", {}).get("content", "")
             elapsed = time.monotonic() - start_time
 
             # Strip Qwen3 thinking tokens
-            content = self._strip_think_tokens(raw_content)
+            content = self.strip_think_tokens(raw_content)
 
             if len(raw_content) != len(content):
                 think_chars = len(raw_content) - len(content)
@@ -139,12 +138,6 @@ class OllamaClient(LLMClient):
         except Exception as e:
             logger.error(f"LLM: Unexpected error: {e}", exc_info=True)
             return None
-
-    @staticmethod
-    def _strip_think_tokens(text: str) -> str:
-        """Strip Qwen3 <think>...</think> reasoning blocks."""
-        stripped = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
-        return stripped.strip()
 
     async def health_check(self) -> bool:
         """Check if Ollama is running and model is available."""

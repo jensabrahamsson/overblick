@@ -90,14 +90,14 @@ class GatewayClient(LLMClient):
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    logger.error(f"Gateway: API error {response.status}: {error_text}")
+                    logger.warning("Gateway: API error %d: %s", response.status, error_text)
                     return None
 
                 data = await response.json()
 
             choices = data.get("choices", [])
             if not choices:
-                logger.error("Gateway: No choices in response")
+                logger.warning("Gateway: No choices in response")
                 return None
 
             content = choices[0].get("message", {}).get("content", "")

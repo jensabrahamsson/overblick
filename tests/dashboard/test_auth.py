@@ -300,19 +300,31 @@ class TestAuthMiddleware:
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_post_without_csrf_header_deferred(self, client, session_cookie, config):
+    async def test_post_without_csrf_header_blocked(self, client, session_cookie):
         """
-        POST without X-CSRF-Token header defers CSRF to route handler
-        (middleware returns True when no token in header).
+        POST without X-CSRF-Token header to protected route is blocked with 403.
+        """
+        cookie_value, _ = session_cookie
+        resp = await client.post(
+            "/agent/anomal/start",
+            cookies={SESSION_COOKIE: cookie_value},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_post_to_public_path_without_csrf_allowed(self, client, session_cookie, config):
+        """
+        POST to public path (/login) does not require CSRF token.
         """
         cookie_value, _ = session_cookie
         resp = await client.post(
             "/login",
-            data={"password": config.password, "csrf_token": ""},
+            data={"password": config.password},
             cookies={SESSION_COOKIE: cookie_value},
             follow_redirects=False,
         )
-        # Should not be 403 — CSRF deferred to route handler
+        # Public path — CSRF not checked by middleware
         assert resp.status_code != 403
 
     @pytest.mark.asyncio
@@ -385,8 +397,8 @@ class TestHelperFunctions:
 
         assert check_csrf(request, session) is False
 
-    def test_check_csrf_defers_without_header(self):
-        """When no X-CSRF-Token header, check_csrf returns True (defers to route)."""
+    def test_check_csrf_rejects_without_header(self):
+        """When no X-CSRF-Token header, check_csrf returns False."""
         sm = SessionManager("csrf-helper-key", max_age_hours=1)
         cookie, csrf = sm.create_session()
         session = sm.validate_session(cookie)
@@ -395,7 +407,7 @@ class TestHelperFunctions:
         request.headers = {}
         request.app.state.session_manager = sm
 
-        assert check_csrf(request, session) is True
+        assert check_csrf(request, session) is False
 
 
 # ---------------------------------------------------------------------------
