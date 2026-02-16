@@ -281,6 +281,13 @@ button:focus-visible,
     50% { opacity: 0.5; }
 }
 
+/* State text coloring — status tells you what IS */
+.state-text-running { color: var(--green); }
+.state-text-stopped { color: var(--red); }
+.state-text-offline { color: var(--text-muted); }
+.state-text-starting { color: var(--amber); }
+.state-text-error { color: var(--red); }
+
 .status-badge {
     display: inline-block;
     padding: 2px 8px;
@@ -810,18 +817,22 @@ button:focus-visible,
     gap: var(--space-sm);
     justify-content: flex-end;
 }
-.btn-agent-start {
-    background: var(--green-dim);
-    border-color: var(--green);
-    color: var(--green);
-}
-.btn-agent-start:hover { background: var(--green); color: #fff; }
+.btn-agent-start,
 .btn-agent-stop {
-    background: rgba(248, 81, 73, 0.1);
-    border-color: var(--red-dim);
-    color: var(--red);
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-secondary);
 }
-.btn-agent-stop:hover { background: var(--red-dim); color: #fff; }
+.btn-agent-start:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(88, 166, 255, 0.1);
+}
+.btn-agent-stop:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+    background: rgba(210, 153, 34, 0.1);
+}
 .btn-agent-start.htmx-request,
 .btn-agent-stop.htmx-request {
     opacity: 0.5;

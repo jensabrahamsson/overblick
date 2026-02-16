@@ -223,7 +223,9 @@ class TestUncertainScenarios:
         records = await plugin._db.get_recent_emails(limit=1)
         assert len(records) == 1
         assert records[0].classified_intent == "ask_boss"
-        assert records[0].action_taken == "boss_consultation_failed"
+        # Without IPC, boss consultation fails and falls back to notify.
+        # Without telegram_notifier capability, the notify fallback also fails.
+        assert records[0].action_taken == "boss_unavailable_notify_failed"
 
 
 class TestSenderFiltering:

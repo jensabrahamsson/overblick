@@ -26,7 +26,7 @@
             </span>
             <span class="meta-item">
                 <span class="meta-label">State</span>
-                {{ agent.state }}
+                <span class="state-text-{{ agent.state }}">{{ agent.state }}</span>
             </span>
         </div>
         {% if agent.last_action %}

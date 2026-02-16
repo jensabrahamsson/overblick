@@ -48,6 +48,7 @@ class AgentLearning(BaseModel):
 class EmailRecord(BaseModel):
     """Record of an email processed by the agent."""
     id: Optional[int] = None
+    gmail_message_id: str = ""  # Gmail message ID for deduplication
     email_from: str
     email_subject: str
     email_snippet: str = ""

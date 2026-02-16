@@ -217,12 +217,30 @@ class EmailAgentPlugin(PluginBase):
             for msg in messages
         ]
 
+    async def _mark_email_read(self, message_id: str) -> None:
+        """Mark an email as read in Gmail to prevent re-processing."""
+        if not message_id:
+            return
+        gmail_cap = self.ctx.get_capability("gmail")
+        if not gmail_cap:
+            return
+        try:
+            await gmail_cap.mark_as_read(message_id)
+        except Exception as e:
+            logger.warning("EmailAgent: failed to mark email %s as read: %s", message_id, e)
+
     async def _process_email(self, email: dict[str, Any]) -> None:
         """Process a single email through the classification pipeline."""
         sender = email.get("sender", "")
         subject = email.get("subject", "")
         body = email.get("body", "")
         snippet = email.get("snippet", body[:200])
+        message_id = email.get("message_id", "")
+
+        # Deduplication: skip emails already processed
+        if message_id and self._db and await self._db.has_been_processed(message_id):
+            logger.debug("EmailAgent: skipping already-processed email %s", message_id)
+            return
 
         # Wrap external content in boundary markers
         safe_subject = wrap_external_content(subject, "email_subject")
@@ -246,6 +264,7 @@ class EmailAgentPlugin(PluginBase):
         email_record_id = None
         if self._db:
             email_record_id = await self._db.record_email(EmailRecord(
+                gmail_message_id=message_id,
                 email_from=sender,
                 email_subject=subject,
                 email_snippet=snippet,
@@ -265,6 +284,10 @@ class EmailAgentPlugin(PluginBase):
             await self._db.update_action_taken(email_record_id, action_taken)
 
         self._state.emails_processed += 1
+
+        # Always mark email as read in Gmail after processing
+        # This prevents re-processing the same email on the next tick
+        await self._mark_email_read(message_id)
 
         # Update sender profile (GDPR-safe consolidated data)
         await self._update_sender_profile(sender, classification)
@@ -401,7 +424,18 @@ class EmailAgentPlugin(PluginBase):
                 success = await self._consult_boss(email, classification)
                 if success:
                     self._state.boss_consultations += 1
-                return "boss_consulted" if success else "boss_consultation_failed"
+                    return "boss_consulted"
+                # Fallback: if boss unavailable, send notification instead
+                logger.info(
+                    "EmailAgent: boss consultation failed for %s — falling back to notify",
+                    email.get("sender", ""),
+                )
+                fallback_ok = await self._send_notification(
+                    email, classification, email_record_id=email_record_id,
+                )
+                if fallback_ok:
+                    self._state.notifications_sent += 1
+                return "boss_unavailable_notify_fallback" if fallback_ok else "boss_unavailable_notify_failed"
 
             case _:
                 return "unknown_action"
@@ -553,9 +587,6 @@ class EmailAgentPlugin(PluginBase):
                     subject=reply_subject,
                     body=result.content.strip(),
                 )
-                if success:
-                    # Mark original as read after successful reply
-                    await gmail_cap.mark_as_read(msg_id)
                 return success
             else:
                 logger.warning("EmailAgent: gmail capability not available for reply")
