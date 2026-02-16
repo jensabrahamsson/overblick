@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}System Health{% endblock %}
+
+{% block content %}
+<h1 class="page-title">System Health</h1>
+
+<div id="system-metrics"
+     role="status"
+     aria-live="polite"
+     aria-atomic="true"
+     hx-get="/system/metrics"
+     hx-trigger="load, every 5s"
+     hx-swap="innerHTML settle:200ms">
+    {% include "partials/system_metrics.html" %}
+</div>
+{% endblock %}
