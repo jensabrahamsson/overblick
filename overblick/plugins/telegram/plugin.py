@@ -396,9 +396,9 @@ class TelegramPlugin(PluginBase):
 
     def _build_system_prompt(self, identity) -> str:
         """Build system prompt from personality."""
-        from overblick.personalities import load_personality, build_system_prompt
+        from overblick.identities import load_identity, build_system_prompt
         try:
-            personality = load_personality(identity.name)
+            personality = load_identity(identity.name)
             return build_system_prompt(personality, platform="Telegram")
         except FileNotFoundError:
             return (

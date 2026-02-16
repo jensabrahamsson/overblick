@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from overblick.personalities import (
+from overblick.identities import (
     Personality,
     load_personality,
     list_personalities,
@@ -111,7 +111,7 @@ class TestLoadPersonality:
 
     def test_load_from_standalone(self, tmp_path, monkeypatch):
         """Test loading from standalone personality file."""
-        import overblick.personalities as personalities_mod
+        import overblick.identities as identities_mod
 
         # Create a standalone personality file
         standalone_data = {
@@ -124,7 +124,7 @@ class TestLoadPersonality:
             yaml.dump(standalone_data, f)
 
         # Monkeypatch the personalities dir
-        monkeypatch.setattr(personalities_mod, "_PERSONALITIES_DIR", tmp_path)
+        monkeypatch.setattr(identities_mod, "_IDENTITIES_DIR", tmp_path)
 
         p = load_personality("standalone")
         assert p.display_name == "Standalone"
@@ -134,7 +134,7 @@ class TestLoadPersonality:
 class TestLoadFromDirectory(object):
     def test_load_from_directory_based(self, tmp_path, monkeypatch):
         """Test loading from directory-based personality."""
-        import overblick.personalities as personalities_mod
+        import overblick.identities as identities_mod
 
         # Create directory-based personality
         personality_dir = tmp_path / "dirtest"
@@ -147,7 +147,7 @@ class TestLoadFromDirectory(object):
         with open(personality_dir / "personality.yaml", "w") as f:
             yaml.dump(data, f)
 
-        monkeypatch.setattr(personalities_mod, "_PERSONALITIES_DIR", tmp_path)
+        monkeypatch.setattr(identities_mod, "_IDENTITIES_DIR", tmp_path)
 
         p = load_personality("dirtest")
         assert p.display_name == "DirTest"
@@ -165,30 +165,30 @@ class TestIdentityPersonalityWiring:
     """Verify that load_personality() automatically loads personality."""
 
     def test_identity_has_loaded_personality(self):
-        from overblick.personalities import load_personality
+        from overblick.identities import load_personality
         identity = load_personality("anomal")
         assert identity.loaded_personality is not None
         assert identity.loaded_personality.name == "anomal"
 
     def test_identity_personality_ref(self):
-        from overblick.personalities import load_personality
+        from overblick.identities import load_personality
         identity = load_personality("anomal")
         assert identity.personality_ref == "anomal"
 
     def test_identity_personality_has_voice(self):
-        from overblick.personalities import load_personality
+        from overblick.identities import load_personality
         identity = load_personality("anomal")
         assert identity.loaded_personality.voice != {}
         assert "base_tone" in identity.loaded_personality.voice
 
     def test_identity_personality_has_traits(self):
-        from overblick.personalities import load_personality
+        from overblick.identities import load_personality
         identity = load_personality("anomal")
         assert identity.loaded_personality.traits != {}
         assert "openness" in identity.loaded_personality.traits
 
     def test_cherry_has_personality(self):
-        from overblick.personalities import load_personality
+        from overblick.identities import load_personality
         identity = load_personality("cherry")
         assert identity.loaded_personality is not None
         assert identity.loaded_personality.name == "cherry"

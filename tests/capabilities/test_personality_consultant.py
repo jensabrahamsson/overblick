@@ -74,10 +74,10 @@ class TestPersonalityConsultantCapability:
         # Mock personality loading
         mock_personality = _mock_personality()
         with patch(
-            "overblick.personalities.load_personality",
+            "overblick.identities.load_identity",
             return_value=mock_personality,
         ), patch(
-            "overblick.personalities.build_system_prompt",
+            "overblick.identities.build_system_prompt",
             return_value="You are Cherry, a relationship expert.",
         ):
             result = await cap.consult(
@@ -109,10 +109,10 @@ class TestPersonalityConsultantCapability:
 
         mock_personality = _mock_personality("blixt")
         with patch(
-            "overblick.personalities.load_personality",
+            "overblick.identities.load_identity",
             return_value=mock_personality,
         ), patch(
-            "overblick.personalities.build_system_prompt",
+            "overblick.identities.build_system_prompt",
             return_value="You are Blixt.",
         ):
             result = await cap.consult(query="Give me advice.")
@@ -134,10 +134,10 @@ class TestPersonalityConsultantCapability:
 
         mock_personality = _mock_personality()
         with patch(
-            "overblick.personalities.load_personality",
+            "overblick.identities.load_identity",
             return_value=mock_personality,
         ) as mock_load, patch(
-            "overblick.personalities.build_system_prompt",
+            "overblick.identities.build_system_prompt",
             return_value="You are Cherry.",
         ):
             await cap.consult(query="First question.", consultant_name="cherry")
@@ -155,7 +155,7 @@ class TestPersonalityConsultantCapability:
         await cap.setup()
 
         with patch(
-            "overblick.personalities.load_personality",
+            "overblick.identities.load_identity",
             side_effect=FileNotFoundError("No such personality"),
         ):
             result = await cap.consult(
@@ -177,10 +177,10 @@ class TestPersonalityConsultantCapability:
         await cap.setup()
 
         with patch(
-            "overblick.personalities.load_personality",
+            "overblick.identities.load_identity",
             return_value=_mock_personality(),
         ), patch(
-            "overblick.personalities.build_system_prompt",
+            "overblick.identities.build_system_prompt",
             return_value="You are Cherry.",
         ):
             result = await cap.consult(query="Test.", consultant_name="cherry")
@@ -207,10 +207,10 @@ class TestPersonalityConsultantCapability:
         await cap.setup()
 
         with patch(
-            "overblick.personalities.load_personality",
+            "overblick.identities.load_identity",
             return_value=_mock_personality(),
         ), patch(
-            "overblick.personalities.build_system_prompt",
+            "overblick.identities.build_system_prompt",
             return_value="You are Cherry.",
         ):
             result = await cap.consult(query="Test.", consultant_name="cherry")
@@ -229,10 +229,10 @@ class TestPersonalityConsultantCapability:
         await cap.setup()
 
         with patch(
-            "overblick.personalities.load_personality",
+            "overblick.identities.load_identity",
             return_value=_mock_personality(),
         ), patch(
-            "overblick.personalities.build_system_prompt",
+            "overblick.identities.build_system_prompt",
             return_value="You are Cherry.",
         ):
             await cap.consult(
@@ -259,10 +259,10 @@ class TestPersonalityConsultantCapability:
         await cap.setup()
 
         with patch(
-            "overblick.personalities.load_personality",
+            "overblick.identities.load_identity",
             return_value=_mock_personality(),
         ), patch(
-            "overblick.personalities.build_system_prompt",
+            "overblick.identities.build_system_prompt",
             return_value="You are Cherry.",
         ):
             await cap.consult(query="Test.", consultant_name="cherry")

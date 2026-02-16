@@ -186,9 +186,12 @@ class TestFullWizardFlow:
         sections = page.locator(".assignment-section")
         assert sections.count() == 2, f"Expected 2 assignment sections, got {sections.count()}"
 
-        # Social Media should have personality radio options (multiple choices)
-        social_radios = page.locator('input[name="social_media_personality"]')
-        assert social_radios.count() >= 3, "Social Media should have multiple personality options"
+        # Social Media should have a carousel with multiple character options
+        social_carousel = page.locator('.carousel-instance[data-instance-id="social_media"]')
+        assert social_carousel.count() == 1, "Social Media should have a character carousel"
+        # The hidden input holds the selected value
+        social_input = page.locator('input[name="social_media_personality"]')
+        assert social_input.count() == 1, "Social Media carousel should have a hidden input"
 
         # Email should be auto-assigned (only Stal)
         auto_badge = page.locator(".auto-assigned")
@@ -196,10 +199,10 @@ class TestFullWizardFlow:
 
         page.screenshot(path=str(screenshot_dir / "06_assign_agents.png"), full_page=True)
 
-        # Select Cherry for social media (should be recommended/default)
-        cherry_radio = page.locator("#opt-social_media-cherry")
-        if not cherry_radio.is_checked():
-            cherry_radio.check(force=True)
+        # Select Cherry for social media via carousel card click
+        cherry_card = page.locator("#character-option-social_media-cherry")
+        if cherry_card.count() > 0:
+            cherry_card.click(force=True)
 
         page.locator("button[type='submit']").click()
         page.wait_for_load_state("networkidle")
@@ -354,22 +357,26 @@ class TestPersonalityAssignment:
             full_page=True,
         )
 
-    def test_multiple_personality_radio_grid(self, setup_server, screenshot_dir, page):
-        """Use cases with multiple compatible personalities should show radio options."""
+    def test_multiple_personality_carousel(self, setup_server, screenshot_dir, page):
+        """Use cases with multiple compatible identities should show a character carousel."""
         base_url = setup_server
 
         _navigate_to_step6(page, base_url, use_cases=["social_media"])
 
-        # Social media has many compatible personalities — should show radio grid
-        radios = page.locator('input[name="social_media_personality"]')
-        assert radios.count() >= 3, f"Expected 3+ personality options, got {radios.count()}"
+        # Social media has many compatible identities — should show carousel
+        carousel = page.locator('.carousel-instance[data-instance-id="social_media"]')
+        assert carousel.count() == 1, "Social Media should have a character carousel"
 
-        # Should have a recommended badge
-        recommended = page.locator(".personality-option .badge-green")
-        assert recommended.count() >= 1, "Should show a recommended personality"
+        # The carousel has a hidden input for the selected value
+        hidden_input = page.locator('input[name="social_media_personality"]')
+        assert hidden_input.count() == 1, "Carousel should have a hidden input"
+
+        # Carousel should have character cards rendered by JS
+        cards = page.locator('.carousel-instance[data-instance-id="social_media"] .character-card')
+        assert cards.count() >= 3, f"Expected 3+ character cards, got {cards.count()}"
 
         page.screenshot(
-            path=str(screenshot_dir / "06_personality_grid.png"),
+            path=str(screenshot_dir / "06_character_carousel.png"),
             full_page=True,
         )
 
@@ -596,9 +603,9 @@ class TestResponsiveness:
 
         _navigate_to_step6(page, base_url, use_cases=["social_media"])
 
-        # Personality grid should wrap on mobile
-        grid = page.locator(".personality-grid")
-        assert grid.count() >= 1
+        # Character carousel should render on mobile
+        carousel = page.locator(".carousel-instance")
+        assert carousel.count() >= 1
 
         page.screenshot(
             path=str(screenshot_dir / "06_assign_mobile.png"),

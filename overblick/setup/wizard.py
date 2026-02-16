@@ -131,15 +131,15 @@ def _get_state(app: FastAPI) -> dict[str, Any]:
     return app.state.wizard_state
 
 
-def _load_personality_data(base_dir: Path) -> list[dict[str, Any]]:
-    """Load personality data from YAML files for the character select screen."""
-    personalities_dir = base_dir / "overblick" / "personalities"
+def _load_identity_data(base_dir: Path) -> list[dict[str, Any]]:
+    """Load identity data from YAML files for the character select screen."""
+    identities_dir = base_dir / "overblick" / "identities"
     characters = []
 
-    if not personalities_dir.exists():
+    if not identities_dir.exists():
         return characters
 
-    for pdir in sorted(personalities_dir.iterdir()):
+    for pdir in sorted(identities_dir.iterdir()):
         yaml_path = pdir / "personality.yaml"
         if not pdir.is_dir() or not yaml_path.exists():
             continue
@@ -465,7 +465,7 @@ def register_routes(app: FastAPI) -> None:
     async def step6_get(request: Request):
         state = _get_state(request.app)
         state["current_step"] = 6
-        characters = _load_personality_data(request.app.state.base_dir)
+        characters = _load_identity_data(request.app.state.base_dir)
         assignment_data = _build_assignment_data(
             state.get("selected_use_cases", []),
             characters,
@@ -513,7 +513,7 @@ def register_routes(app: FastAPI) -> None:
     async def step7_get(request: Request):
         state = _get_state(request.app)
         state["current_step"] = 7
-        characters = _load_personality_data(request.app.state.base_dir)
+        characters = _load_identity_data(request.app.state.base_dir)
         char_by_name = {c["name"]: c for c in characters}
 
         # Build review-friendly assignment list
@@ -553,7 +553,7 @@ def register_routes(app: FastAPI) -> None:
             return RedirectResponse("/step/8", status_code=303)
         except Exception as e:
             logger.error("Provisioning failed: %s", e, exc_info=True)
-            characters = _load_personality_data(base_dir)
+            characters = _load_identity_data(base_dir)
             char_by_name = {c["name"]: c for c in characters}
             review_assignments = []
             for uc_id in state.get("selected_use_cases", []):

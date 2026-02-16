@@ -53,9 +53,9 @@ OVERBLICK_TEST_MODEL=mistral_7b pytest tests/personalities/ -v -s -m llm
 
 2. **Create LLM hints for each personality:**
    ```bash
-   # For each personality in overblick/personalities/*/llm_hints/
-   cp overblick/personalities/blixt/llm_hints/qwen3_8b.yaml \
-      overblick/personalities/blixt/llm_hints/your_model.yaml
+   # For each identity in overblick/identities/*/llm_hints/
+   cp overblick/identities/blixt/llm_hints/qwen3_8b.yaml \
+      overblick/identities/blixt/llm_hints/your_model.yaml
    ```
 
 3. **Run tests and iterate:**
@@ -79,7 +79,7 @@ OVERBLICK_TEST_MODEL=mistral_7b pytest tests/personalities/ -v -s -m llm
 
 The system has two layers of LLM-specific tuning:
 
-1. **LLM Hints** (`overblick/personalities/<name>/llm_hints/<model>.yaml`)
+1. **LLM Hints** (`overblick/identities/<name>/llm_hints/<model>.yaml`)
    - Injected into the system prompt by `build_system_prompt(model_slug="...")`
    - Contains extra voice reinforcement, examples, and avoidance lists
    - Ships with the repo — ready for use by anyone with the same LLM

@@ -360,9 +360,9 @@ This is character design applied to AI with the same rigor that the best fiction
 
 For those interested in how this translates to code:
 
-- Each personality lives in `overblick/personalities/<name>/personality.yaml`
-- The `load_personality()` function in `overblick/personalities/__init__.py` parses the YAML into a frozen Pydantic model
-- The `Personality` model carries both character fields (voice, traits, interests, examples) and operational fields (LLM settings, schedule, security)
+- Each identity lives in `overblick/identities/<name>/personality.yaml`
+- The `load_identity()` function in `overblick/identities/__init__.py` parses the YAML into a frozen Pydantic model
+- The `Identity` model carries both character fields (voice, traits, interests, examples) and operational fields (LLM settings, schedule, security)
 - `build_system_prompt()` generates platform-appropriate prompts from personality data, including voice guidance, trait summaries, vocabulary constraints, and example conversations
 - Knowledge files (`knowledge_*.yaml`) and opinion files (`opinions.yaml`) are auto-loaded from each personality's directory
 - The alias system maps old English names to new Swedish names for backward compatibility

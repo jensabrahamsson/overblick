@@ -32,8 +32,8 @@ def _create_sandbox(real_base: Path) -> Path:
     """
     Create a sandbox directory for safe provisioning.
 
-    Copies personality YAML files and pyproject.toml into a temp
-    directory so the wizard can load personality data, but all
+    Copies identity YAML files and pyproject.toml into a temp
+    directory so the wizard can load identity data, but all
     provisioned config/secrets/directories go to the sandbox.
 
     Returns:
@@ -42,11 +42,11 @@ def _create_sandbox(real_base: Path) -> Path:
     """
     sandbox = Path(tempfile.mkdtemp(prefix="overblick-sandbox-"))
 
-    # Copy personalities (needed for character select)
-    real_personalities = real_base / "overblick" / "personalities"
-    if real_personalities.exists():
-        sandbox_personalities = sandbox / "overblick" / "personalities"
-        shutil.copytree(real_personalities, sandbox_personalities)
+    # Copy identities (needed for character select)
+    real_identities = real_base / "overblick" / "identities"
+    if real_identities.exists():
+        sandbox_identities = sandbox / "overblick" / "identities"
+        shutil.copytree(real_identities, sandbox_identities)
 
     # Copy pyproject.toml (needed for version detection)
     real_toml = real_base / "pyproject.toml"

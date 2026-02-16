@@ -178,7 +178,7 @@ These rules are baked into every template and must appear in every generated com
 
 | Order | File | Condition |
 |-------|------|-----------|
-| 1 | `overblick/personalities/<name>/personality.yaml` | If personality needed |
+| 1 | `overblick/identities/<name>/personality.yaml` | If personality needed |
 | 2 | `overblick/capabilities/<bundle>/<name>.py` | If capability needed |
 | 3 | `overblick/capabilities/<bundle>/__init__.py` | If new bundle |
 | 4 | `overblick/capabilities/__init__.py` | If capability needed (update) |

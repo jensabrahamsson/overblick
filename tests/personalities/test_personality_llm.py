@@ -18,7 +18,7 @@ import re
 
 import pytest
 
-from overblick.personalities import build_system_prompt, load_personality, list_personalities
+from overblick.identities import build_system_prompt, load_personality, list_personalities
 from tests.personalities.conftest import MODEL_SLUG, generate_response
 
 

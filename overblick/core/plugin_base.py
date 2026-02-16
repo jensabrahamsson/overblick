@@ -57,7 +57,7 @@ class PluginContext(BaseModel):
     # Preferred over raw llm_client for plugin use
     llm_pipeline: Any = None
 
-    # Type: overblick.personalities.Personality
+    # Type: overblick.identities.Personality
     identity: Any = None
 
     # Type: overblick.core.db.engagement_db.EngagementDB

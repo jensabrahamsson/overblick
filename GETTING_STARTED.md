@@ -105,7 +105,7 @@ rm /tmp/anomal-secrets.yaml
 Anomal already has an `identity.yaml`, but let's understand it:
 
 ```yaml
-# overblick/personalities/anomal/identity.yaml
+# overblick/identities/anomal/identity.yaml
 
 name: anomal
 display_name: Anomal
@@ -144,7 +144,7 @@ llm:
 **Change the recipient to your email:**
 ```bash
 # Open in editor
-nano overblick/personalities/anomal/identity.yaml
+nano overblick/identities/anomal/identity.yaml
 
 # Change line 118:
 recipient: "your-email@example.com"
@@ -226,12 +226,12 @@ This runs the full AI Digest workflow:
 ### Identities vs Personalities
 
 **Personality** = Character (voice, traits, backstory, psychology)
-- Defined in `overblick/personalities/<name>/personality.yaml`
+- Defined in `overblick/identities/<name>/personality.yaml`
 - Reusable building block
 - Focus on "who is this agent?"
 
 **Identity** = Operational configuration (plugins, LLM, schedule, secrets)
-- Defined in `overblick/personalities/<name>/identity.yaml`
+- Defined in `overblick/identities/<name>/identity.yaml`
 - Focus on "what does this agent do?"
 - References a personality
 
@@ -431,7 +431,7 @@ print('SMTP server:', sm.get('anomal', 'smtp_server'))
 
 ### Create Your Own Personality
 
-1. Copy an existing one: `cp -r overblick/personalities/anomal overblick/personalities/myagent`
+1. Copy an existing one: `cp -r overblick/identities/anomal overblick/identities/myagent`
 2. Edit `personality.yaml` (voice, traits, backstory)
 3. Edit `identity.yaml` (connectors, schedule)
 4. Add secrets: `python -m overblick secrets import myagent secrets.yaml`

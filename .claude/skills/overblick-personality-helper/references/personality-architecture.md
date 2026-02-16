@@ -2,7 +2,7 @@
 
 ## Unified Personality Class
 
-**File:** `overblick/personalities/__init__.py`
+**File:** `overblick/identities/__init__.py`
 
 Immutable (frozen) Pydantic model containing ALL agent configuration — both character and operations. This replaces the old split Identity + Personality system.
 
@@ -117,16 +117,16 @@ p.raw["psychology"]           # Access psychology section from YAML
 Loads personality by searching three locations and resolving aliases:
 
 ```python
-def load_personality(name: str) -> Personality:
+def load_identity(name: str) -> Identity:
     """
     Alias resolution (backward compat):
         "volt" → "blixt", "birch" → "bjork", "prism" → "prisma",
         "rust" → "rost", "nyx" → "natt"
 
     Search order:
-    1. overblick/personalities/<name>/personality.yaml (directory-based)
-    2. overblick/personalities/<name>.yaml (standalone file)
-    3. overblick/identities/<name>/personality.yaml (legacy)
+    1. overblick/identities/<name>/personality.yaml (directory-based)
+    2. overblick/identities/<name>.yaml (standalone file)
+    3. overblick/personalities/<name>/personality.yaml (legacy)
 
     If identity.yaml exists alongside personality.yaml, operational config
     is merged automatically.

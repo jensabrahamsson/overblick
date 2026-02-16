@@ -31,7 +31,7 @@ Ask the user about the character they want to create:
 
 ### Step 2: Create Personality YAML
 
-Create `overblick/personalities/<name>/personality.yaml` — the preferred directory-based format.
+Create `overblick/identities/<name>/personality.yaml` — the preferred directory-based format.
 
 The YAML schema has these sections (all documented in references/personality-yaml-schema.md):
 
@@ -149,9 +149,9 @@ When reviewing, assess:
 
 ## Personality Loading Search Order
 
-1. `overblick/personalities/<name>/personality.yaml` — **directory-based (preferred)**
-2. `overblick/personalities/<name>.yaml` — standalone file
-3. `overblick/identities/<name>/personality.yaml` — legacy location
+1. `overblick/identities/<name>/personality.yaml` — **directory-based (preferred)**
+2. `overblick/identities/<name>.yaml` — standalone file
+3. `overblick/personalities/<name>/personality.yaml` — legacy location
 
 ## System Prompt Generation
 
@@ -190,9 +190,9 @@ The security section is automatically added:
 
 | File | Purpose |
 |------|---------|
-| `overblick/personalities/__init__.py` | `Personality`, `load_personality()`, `build_system_prompt()` |
-| `overblick/personalities/<name>/personality.yaml` | Personality YAML files |
-| `overblick/identities/<name>/identity.yaml` | Identity config (references `personality_ref`) |
+| `overblick/identities/__init__.py` | `Identity`, `load_identity()`, `build_system_prompt()` |
+| `overblick/identities/<name>/personality.yaml` | Personality YAML files |
+| `overblick/identities/<name>/identity.yaml` | Identity config (references `identity_ref`) |
 | `tests/core/test_personality.py` | Unit tests for personality system |
 | `tests/personalities/test_personality_llm.py` | LLM integration tests for voice validation |
 

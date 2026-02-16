@@ -60,8 +60,8 @@ def _patch_init(mock_personality, mock_pipeline):
     we patch the source modules.
     """
     return (
-        patch("overblick.personalities.load_personality", return_value=mock_personality),
-        patch("overblick.personalities.build_system_prompt", return_value="system prompt"),
+        patch("overblick.identities.load_identity", return_value=mock_personality),
+        patch("overblick.identities.build_system_prompt", return_value="system prompt"),
         patch("overblick.core.llm.ollama_client.OllamaClient"),
         patch("overblick.core.llm.pipeline.SafeLLMPipeline", return_value=mock_pipeline),
         patch("overblick.core.security.rate_limiter.RateLimiter"),
@@ -102,7 +102,7 @@ class TestEmailHandlerInit:
     async def test_init_failure_returns_fallback(self, handler, email_consultation_msg):
         """If initialization fails, returns fallback response."""
         # Force init failure
-        with patch("overblick.personalities.load_personality", side_effect=Exception("boom")):
+        with patch("overblick.identities.load_identity", side_effect=Exception("boom")):
             response = await handler.handle(email_consultation_msg)
 
             assert response is not None

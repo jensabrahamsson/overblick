@@ -2,7 +2,7 @@
 
 import pytest
 from pydantic import ValidationError
-from overblick.personalities import (
+from overblick.identities import (
     Identity, LLMSettings, QuietHoursSettings, ScheduleSettings,
     SecuritySettings, load_personality, list_personalities, _load_yaml,
 )

@@ -895,10 +895,10 @@ class EmailAgentPlugin(PluginBase):
 
     def _build_system_prompt(self) -> str:
         """Build system prompt from Stål's personality."""
-        from overblick.personalities import build_system_prompt, load_personality
+        from overblick.identities import build_system_prompt, load_identity
 
         try:
-            personality = load_personality("stal")
+            personality = load_identity("stal")
             return build_system_prompt(personality, platform="Email")
         except FileNotFoundError:
             principal = self._principal_name or "the principal"

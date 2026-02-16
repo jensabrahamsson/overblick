@@ -65,8 +65,8 @@ def _patch_init(mock_personality, mock_pipeline, mock_health):
         patch("overblick.supervisor.health_handler.HostInspectionCapability",
               return_value=mock_inspector_instance),
         # These are dynamically imported inside _ensure_initialized() — patch source modules
-        patch("overblick.personalities.load_personality", return_value=mock_personality),
-        patch("overblick.personalities.build_system_prompt", return_value="system prompt"),
+        patch("overblick.identities.load_identity", return_value=mock_personality),
+        patch("overblick.identities.build_system_prompt", return_value="system prompt"),
         patch("overblick.core.llm.ollama_client.OllamaClient"),
         patch("overblick.core.llm.pipeline.SafeLLMPipeline", return_value=mock_pipeline),
         patch("overblick.core.security.rate_limiter.RateLimiter"),

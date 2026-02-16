@@ -28,7 +28,7 @@ async def identities_page(request: Request):
     # Merge personality data into identities for display
     personality_map = {p["name"]: p for p in personalities}
     for identity in identities:
-        pref = identity.get("personality_ref", identity["name"])
+        pref = identity.get("identity_ref", identity["name"])
         identity["personality_data"] = personality_map.get(pref)
 
     return templates.TemplateResponse("identities.html", {

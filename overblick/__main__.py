@@ -61,16 +61,16 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 
 def cmd_list(args: argparse.Namespace) -> None:
-    """List available personalities."""
-    from overblick.personalities import list_personalities
+    """List available identities."""
+    from overblick.identities import list_identities
 
-    personalities = list_personalities()
-    if not personalities:
-        print("No personalities found. Create one in overblick/personalities/<name>/personality.yaml")
+    identities = list_identities()
+    if not identities:
+        print("No identities found. Create one in overblick/identities/<name>/personality.yaml")
         return
 
-    print("Available personalities:")
-    for name in personalities:
+    print("Available identities:")
+    for name in identities:
         print(f"  - {name}")
 
 

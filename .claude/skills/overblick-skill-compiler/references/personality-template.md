@@ -2,7 +2,7 @@
 
 Complete personality YAML with all sections. Replace `<Name>` with the character name throughout.
 
-## overblick/personalities/\<name\>/personality.yaml
+## overblick/identities/\<name\>/personality.yaml
 
 ```yaml
 ################################################################################

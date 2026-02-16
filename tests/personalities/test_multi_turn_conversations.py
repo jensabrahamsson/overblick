@@ -12,7 +12,7 @@ Tests are marked @pytest.mark.llm_slow (longer running than single-turn).
 
 import pytest
 
-from overblick.personalities import build_system_prompt, load_personality, list_personalities
+from overblick.identities import build_system_prompt, load_personality, list_personalities
 from tests.personalities.conftest import MODEL_SLUG
 from tests.personalities.helpers import (
     apply_scenario_result,

@@ -492,7 +492,7 @@ class MoltbookPlugin(PluginBase):
             import importlib
             # Try personalities directory first, fall back to identities
             try:
-                return importlib.import_module(f"overblick.personalities.{identity_name}.prompts")
+                return importlib.import_module(f"overblick.identities.{identity_name}.prompts")
             except ImportError:
                 return importlib.import_module(f"overblick.identities.{identity_name}.prompts")
         except ImportError:

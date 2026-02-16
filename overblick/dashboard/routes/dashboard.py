@@ -202,7 +202,7 @@ def _build_plugin_cards(
             "name": name,
             "display_name": identity.get("display_name", name.capitalize()),
             "state": status.get("state", "offline"),
-            "personality_ref": identity.get("personality_ref", ""),
+            "identity_ref": identity.get("identity_ref", ""),
             "traits": big_five,
         }
 
