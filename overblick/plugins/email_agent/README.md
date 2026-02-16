@@ -88,7 +88,7 @@ Add to `config/stal/secrets.yaml`:
 
 ```yaml
 # Required
-principal_name: "Your Name"     # Name injected into prompts (never hardcoded)
+principal_name: "Your Name"            # Name injected into prompts (never hardcoded)
 gmail_address: "user@gmail.com"
 gmail_app_password: "xxxx xxxx xxxx"    # Gmail App Password (not regular password)
 

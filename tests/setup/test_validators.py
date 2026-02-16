@@ -18,13 +18,13 @@ class TestPrincipalData:
 
     def test_valid_principal(self):
         data = PrincipalData(
-            principal_name="Jens Abrahamsson",
-            principal_email="jens@example.com",
+            principal_name="Alice Andersson",
+            principal_email="alice@example.com",
             timezone="Europe/Stockholm",
             language_preference="en",
         )
-        assert data.principal_name == "Jens Abrahamsson"
-        assert data.principal_email == "jens@example.com"
+        assert data.principal_name == "Alice Andersson"
+        assert data.principal_email == "alice@example.com"
 
     def test_name_required(self):
         with pytest.raises(ValidationError, match="Principal name is required"):
@@ -35,19 +35,19 @@ class TestPrincipalData:
             PrincipalData(principal_name="J")
 
     def test_name_stripped(self):
-        data = PrincipalData(principal_name="  Jens  ")
-        assert data.principal_name == "Jens"
+        data = PrincipalData(principal_name="  Alice  ")
+        assert data.principal_name == "Alice"
 
     def test_email_optional(self):
-        data = PrincipalData(principal_name="Jens")
+        data = PrincipalData(principal_name="Alice")
         assert data.principal_email == ""
 
     def test_invalid_email(self):
         with pytest.raises(ValidationError, match="Invalid email"):
-            PrincipalData(principal_name="Jens", principal_email="not-an-email")
+            PrincipalData(principal_name="Alice", principal_email="not-an-email")
 
     def test_defaults(self):
-        data = PrincipalData(principal_name="Jens")
+        data = PrincipalData(principal_name="Alice")
         assert data.timezone == "Europe/Stockholm"
         assert data.language_preference == "en"
 

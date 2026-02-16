@@ -88,8 +88,8 @@ cat > /tmp/anomal-secrets.yaml << 'EOF'
 smtp_server: smtp-relay.brevo.com
 smtp_port: 587
 smtp_login: your-login@smtp-brevo.com      # Yours from Brevo
-smtp_password: xsmtpsib-YOUR_KEY_HERE...        # Yours from Brevo
-smtp_from_email: you@example.com    # Your verified email
+smtp_password: xsmtpsib-YOUR_KEY_HERE      # Yours from Brevo
+smtp_from_email: you@example.com           # Your verified email
 EOF
 
 # Import and encrypt
