@@ -428,3 +428,5 @@ Different models have different tendencies:
 ### The Golden Rule
 
 If a test fails, **never assume the LLM is broken**. The personality YAML is the tuning knob. The scenario tests exist so you can measure the distance between "what we want" and "what the LLM actually produces," then close that gap through better prompt engineering. Every failure is an opportunity to make the personality more robust across models.
+
+For a comprehensive, step-by-step guide to voice tuning — including all YAML fields, LLM hint techniques, common problems and solutions, and how to add support for a new LLM — see **[The Voice Tuner's Handbook](VOICE_TUNING.md)**.

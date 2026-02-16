@@ -460,10 +460,11 @@ See the `/overblick-skill-compiler` skill or `docs/PLUGIN_DEVELOPMENT.md` for a 
 
 ## More Documentation
 
-- **CLAUDE.md** - Complete architecture and principles
-- **ARCHITECTURE.md** - Technical details
-- **SECURITY.md** - Security model
-- **README.md** - Project overview
+- **CLAUDE.md** — Complete architecture and principles
+- **ARCHITECTURE.md** — Technical details
+- **SECURITY.md** — Security model
+- **VOICE_TUNING.md** — The Voice Tuner's Handbook (tuning identity voices for your LLM)
+- **README.md** — Project overview
 
 ## Community
 
