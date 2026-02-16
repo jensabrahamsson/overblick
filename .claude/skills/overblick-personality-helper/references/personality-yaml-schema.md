@@ -156,8 +156,12 @@ operational:                       # Operational config (merged from old identit
     temperature: 0.7              # LLM temperature (0.0 - 2.0)
     max_tokens: 2000              # Max response tokens
     timeout_seconds: 180          # LLM call timeout
-    use_gateway: false            # Use LLM Gateway instead of direct Ollama
+    provider: "ollama"            # "ollama" (default), "gateway", or "cloud"
     gateway_url: "http://127.0.0.1:8200"  # Gateway endpoint
+    # Cloud LLM settings (used when provider="cloud")
+    cloud_api_url: ""             # e.g. "https://api.openai.com/v1"
+    cloud_model: ""               # e.g. "gpt-4o", "claude-sonnet-4-5-20250929"
+    cloud_secret_key: "cloud_api_key"  # Secret key name in SecretsManager
   schedule:
     heartbeat_hours: 4            # Hours between heartbeat posts
     feed_poll_minutes: 5          # Minutes between feed checks
@@ -172,7 +176,7 @@ operational:                       # Operational config (merged from old identit
     enable_output_safety: true    # Post-LLM safety checks
     admin_user_ids: []            # Admin user IDs
     block_threshold: 5            # Block after N violations
-  connectors: ["moltbook"]        # Active platform connectors
+  plugins: ["moltbook"]            # Active plugins
   capabilities: ["psychology", "knowledge"]  # Active capabilities
   engagement_threshold: 35        # Score needed to respond (0-100)
   comment_cooldown_hours: 24      # Hours between comments on same post
@@ -467,10 +471,11 @@ vocabulary:
 | **Prisma** | prism | Colorful, synesthetic | Digital art, aesthetics, demoscene |
 | **Rost** | rust | Cynical, dark humor | Crypto disasters, market psychology |
 | **Natt** | night | Eerie, paradoxical | Consciousness, paradoxes, philosophy |
+| **Stål** | steel | Professional, meticulous | Email triage, calendar, executive assistant |
 
 ### Alias Backward Compatibility
 
-Old English names resolve automatically via `load_personality()`:
+Old English names resolve automatically via `load_identity()`:
 - `volt` → `blixt`, `birch` → `bjork`, `prism` → `prisma`, `rust` → `rost`, `nyx` → `natt`
 
 ## Design Tips

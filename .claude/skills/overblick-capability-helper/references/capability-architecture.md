@@ -77,15 +77,41 @@ class CapabilityContext(BaseModel):
 
     identity_name: str          # e.g. "anomal"
     data_dir: Any               # Path — shared with plugin
-    llm_client: Any = None      # Raw LLM client
+    llm_client: Any = None      # Raw LLM client (avoid in new code)
     event_bus: Any = None        # EventBus for pub/sub
     audit_log: Any = None        # AuditLog
     quiet_hours_checker: Any = None
     identity: Any = None         # Full Identity object
-    llm_pipeline: Any = None     # SafeLLMPipeline
+    llm_pipeline: Any = None     # SafeLLMPipeline (preferred for LLM calls)
 
     # Capability-specific config from identity YAML
     config: dict[str, Any] = {}
+
+    # Secrets getter (private — callable returning secret value by key)
+    _secrets_getter: Any = PrivateAttr(default=None)
+```
+
+### Methods
+
+```python
+def get_secret(self, key: str) -> str:
+    """Get a secret value by key.
+
+    Raises:
+        KeyError: If secret not found or secrets_getter not configured
+    """
+
+@classmethod
+def from_plugin_context(
+    cls,
+    ctx: "PluginContext",
+    config: Optional[dict[str, Any]] = None,
+) -> "CapabilityContext":
+    """Create a CapabilityContext from a PluginContext.
+
+    Copies: identity_name, data_dir, llm_client, event_bus, audit_log,
+    quiet_hours_checker, identity, llm_pipeline, _secrets_getter.
+    """
 ```
 
 ### `from_plugin_context()` — Factory Method
@@ -98,7 +124,7 @@ def from_plugin_context(
     config: Optional[dict[str, Any]] = None,
 ) -> "CapabilityContext":
     """Create a CapabilityContext from a PluginContext."""
-    return cls(
+    cap_ctx = cls(
         identity_name=ctx.identity_name,
         data_dir=ctx.data_dir,
         llm_client=ctx.llm_client,
@@ -109,6 +135,9 @@ def from_plugin_context(
         llm_pipeline=getattr(ctx, "llm_pipeline", None),
         config=config or {},
     )
+    # Set private attributes after creation
+    cap_ctx._secrets_getter = getattr(ctx, "_secrets_getter", None)
+    return cap_ctx
 ```
 
 **Pattern:** Plugins create capability contexts like this:
@@ -148,8 +177,8 @@ class CapabilityRegistry:
         """Resolve names (expanding bundles) to individual capability names.
 
         Example:
-            resolve(["psychology", "summarizer"])
-            → ["dream_system", "therapy_system", "emotional_state", "summarizer"]
+            resolve(["knowledge", "summarizer"])
+            → ["safe_learning", "knowledge_loader", "summarizer"]
         """
 
     def create(
@@ -186,43 +215,68 @@ class CapabilityRegistry:
 
 ### Registration Tables
 
-**`CAPABILITY_REGISTRY`** — name-to-class mapping:
+**`CAPABILITY_REGISTRY`** — name-to-class mapping (20 capabilities):
 ```python
 CAPABILITY_REGISTRY = {
+    # psychology (DEPRECATED — use personality.yaml instead)
     "dream_system": DreamCapability,
     "therapy_system": TherapyCapability,
     "emotional_state": EmotionalCapability,
+    # knowledge
     "safe_learning": LearningCapability,
     "knowledge_loader": KnowledgeCapability,
+    # social
     "openings": OpeningCapability,
+    # engagement
     "analyzer": AnalyzerCapability,
     "composer": ComposerCapability,
+    # conversation
     "conversation_tracker": ConversationCapability,
+    # content
     "summarizer": SummarizerCapability,
+    # speech
     "stt": SpeechToTextCapability,
     "tts": TextToSpeechCapability,
+    # vision
+    "vision": VisionCapability,
+    # communication
+    "boss_request": BossRequestCapability,
+    "email": EmailCapability,
+    "gmail": GmailCapability,
+    "telegram_notifier": TelegramNotifier,
+    # monitoring
+    "host_inspection": HostInspectionCapability,
+    # system
+    "system_clock": SystemClockCapability,
+    # consulting
+    "personality_consultant": PersonalityConsultantCapability,
 }
 ```
 
-**`CAPABILITY_BUNDLES`** — bundle-to-names mapping:
+**`CAPABILITY_BUNDLES`** — bundle-to-names mapping (12 bundles):
 ```python
 CAPABILITY_BUNDLES = {
-    "psychology": ["dream_system", "therapy_system", "emotional_state"],
+    "system": ["system_clock"],
+    "psychology": ["dream_system", "therapy_system", "emotional_state"],  # DEPRECATED
     "knowledge": ["safe_learning", "knowledge_loader"],
     "social": ["openings"],
     "engagement": ["analyzer", "composer"],
     "conversation": ["conversation_tracker"],
     "content": ["summarizer"],
     "speech": ["stt", "tts"],
+    "vision": ["vision"],
+    "communication": ["boss_request", "email", "gmail", "telegram_notifier"],
+    "consulting": ["personality_consultant"],
+    "monitoring": ["host_inspection"],
 }
 ```
 
 ### Bundle Resolution Flow
 
-1. Plugin calls `registry.resolve(["psychology", "summarizer"])`
-2. `"psychology"` is a bundle → expands to `["dream_system", "therapy_system", "emotional_state"]`
+1. Plugin calls `registry.resolve(["knowledge", "summarizer"])`
+2. `"knowledge"` is a bundle → expands to `["safe_learning", "knowledge_loader"]`
 3. `"summarizer"` is a capability → kept as-is
-4. Returns: `["dream_system", "therapy_system", "emotional_state", "summarizer"]`
+4. Returns: `["safe_learning", "knowledge_loader", "summarizer"]`
 5. Unknown names are logged as warnings and skipped
 
 ### How Plugins Consume Capabilities
@@ -235,7 +289,14 @@ if tracker:
     tracker.add_user_message(str(chat_id), text)
 ```
 
-**Method 2: Via registry (create locally)**
+**Method 2: Via PluginContext helper method**
+```python
+tracker = self.ctx.get_capability("conversation_tracker")
+if tracker:
+    tracker.add_user_message(str(chat_id), text)
+```
+
+**Method 3: Via registry (create locally)**
 ```python
 registry = CapabilityRegistry.default()
 resolved = registry.resolve(enabled_modules)
@@ -246,7 +307,7 @@ for name in resolved:
         self._capabilities[cap.name] = cap
 ```
 
-**Method 3: Direct instantiation (for tests/simple cases)**
+**Method 4: Direct instantiation (for tests/simple cases)**
 ```python
 from overblick.core.capability import CapabilityContext
 from overblick.capabilities.content.summarizer import SummarizerCapability

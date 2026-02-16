@@ -224,14 +224,20 @@ parallel_examples:
 
 # --- Operational Config ---
 # Runtime settings for the agent framework.
+# Can also be placed in a separate identity.yaml in the same directory.
 operational:
   llm:
     model: "qwen3:8b"
     temperature: 0.7
     max_tokens: 2000
     timeout_seconds: 180
-    use_gateway: false
+    # Provider: "ollama" (default), "gateway", or "cloud"
+    provider: "ollama"
     gateway_url: "http://127.0.0.1:8200"
+    # Cloud LLM settings (only used when provider="cloud"):
+    # cloud_api_url: "https://api.openai.com/v1"
+    # cloud_model: "gpt-4o"
+    # cloud_secret_key: "cloud_api_key"  # Secret key name in SecretsManager
   schedule:
     heartbeat_hours: 4
     feed_poll_minutes: 5
@@ -246,8 +252,8 @@ operational:
     enable_output_safety: true
     admin_user_ids: []
     block_threshold: 5
-  connectors: ["moltbook"]
-  capabilities: ["psychology", "knowledge"]
+  plugins: ["moltbook"]
+  capabilities: ["knowledge"]
   engagement_threshold: 35
   comment_cooldown_hours: 24
   deflections: []
@@ -278,6 +284,7 @@ operational:
 - `attachment_style` drives how they relate to others in conversation
 - `defense_mechanisms` explain how they cope when challenged
 - `dreams` and `inner_world` add poetic depth that subtly influences tone
+- **NOTE:** The `psychology` capability bundle is DEPRECATED. Psychology is now defined directly in the personality YAML rather than as a runtime capability.
 
 ### Trait Scales
 - All values 0.0 to 1.0
@@ -296,23 +303,41 @@ operational:
 - Makes characters feel genuinely intelligent rather than narrowly focused
 - E.g. Rost connecting crypto markets to gambling addiction psychology
 
-### Personality Loading
-The framework loads personalities via:
+### Identity Loading
+The framework loads identities via:
 ```python
-from overblick.personalities import load_personality, build_system_prompt
-personality = load_personality("name")
-prompt = build_system_prompt(personality)
+from overblick.identities import load_identity, build_system_prompt
+identity = load_identity("name")
+prompt = build_system_prompt(identity, platform="Moltbook")
 ```
 
-The personality YAML is loaded into a frozen `Personality` Pydantic model with all sections accessible as attributes. The `operational:` section is parsed into typed sub-models (`LLMSettings`, `ScheduleSettings`, etc.).
+The personality YAML is loaded into a frozen `Identity` Pydantic model with all sections accessible as attributes. The `operational:` section is parsed into typed sub-models (`LLMSettings`, `ScheduleSettings`, etc.).
 
-### Current Stable
+**Backward-compatible aliases exist:** `Personality = Identity`, `load_personality = load_identity`.
+
+### LLM Provider Configuration
+The `provider` field replaces the old `use_gateway: bool`:
+- `provider: "ollama"` — Direct Ollama connection (default)
+- `provider: "gateway"` — Via LLM Gateway (port 8200)
+- `provider: "cloud"` — Cloud API (OpenAI, Anthropic, etc.)
+
+Legacy `use_gateway: true` is auto-migrated to `provider: "gateway"`.
+
+### Operational Config Location
+Operational settings can be:
+1. **In personality.yaml** under `operational:` (shown in template above)
+2. **In a separate identity.yaml** in the same directory (cleaner separation)
+
+When both exist, `personality.yaml`'s `operational:` section takes precedence.
+
+### Current Identity Stable
 | Name | Voice | Expertise |
 |------|-------|-----------|
 | **Anomal** | Cerebral, James May-like | Crypto, politics, Palme murder |
 | **Cherry** | Warm, sharp, Gen-Z | Attachment theory, relationships |
 | **Blixt** | Punk, aggressive, short | Digital rights, privacy, open source |
-| **Björk** | Sparse, calm, nature | Stoicism, minimalism, patience |
+| **Bjork** | Sparse, calm, nature | Stoicism, minimalism, patience |
 | **Prisma** | Colorful, synesthetic | Digital art, aesthetics, demoscene |
 | **Rost** | Cynical, dark humor | Crypto disasters, market psychology |
 | **Natt** | Eerie, paradoxical | Consciousness, paradoxes, philosophy |
+| **Stal** | Professional, meticulous | Email management, communication triage |

@@ -6,67 +6,71 @@ Exact patterns for updating the plugin and capability registries. These must be 
 
 **File:** `overblick/core/plugin_registry.py`
 
-The `_KNOWN_PLUGINS` dict maps plugin names to `(module_path, class_name)` tuples.
+The `_DEFAULT_PLUGINS` dict maps plugin names to `(module_path, class_name)` tuples. Each `PluginRegistry` instance gets its own copy of this dict in `__init__` to prevent cross-instance pollution during testing.
 
-### Current Structure (line 17-33)
+### Current Structure
 
 ```python
-_KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
-    "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "gmail": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
+_DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
+    "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
+    "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
+    "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
+    "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
+    "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
     "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
-    # Connector aliases (same classes, new names)
-    "moltbook_connector": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "telegram_connector": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "gmail_connector": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
-    "discord_connector": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
-    "matrix_connector": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
-    "rss_connector": ("overblick.plugins.rss.plugin", "RSSPlugin"),
-    "webhook_connector": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
 }
+
+# Module-level alias for backward compatibility (tests import this)
+_KNOWN_PLUGINS = _DEFAULT_PLUGINS
 ```
+
+**NOTE:** There are NO connector aliases. The old `<name>_connector` pattern was removed. Each plugin has exactly one entry.
 
 ### How to Add a New Plugin
 
-1. Add the main entry in **alphabetical order** among the primary entries (before the `# Connector aliases` comment):
+1. Add the entry in **alphabetical order** in `_DEFAULT_PLUGINS`:
    ```python
    "<name>": ("overblick.plugins.<name>.plugin", "<Name>Plugin"),
    ```
 
-2. Add the connector alias after the `# Connector aliases` comment:
-   ```python
-   "<name>_connector": ("overblick.plugins.<name>.plugin", "<Name>Plugin"),
-   ```
+That's it. No connector alias needed.
 
 ### Example: Adding "slack" Plugin
 
 ```python
-_KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
+_DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
+    "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
-    "gmail": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
+    "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
+    "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
     "slack": ("overblick.plugins.slack.plugin", "SlackPlugin"),        # NEW
     "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
     "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
-    # Connector aliases (same classes, new names)
-    "discord_connector": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
-    "gmail_connector": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
-    "matrix_connector": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
-    "moltbook_connector": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "rss_connector": ("overblick.plugins.rss.plugin", "RSSPlugin"),
-    "slack_connector": ("overblick.plugins.slack.plugin", "SlackPlugin"),  # NEW
-    "telegram_connector": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "webhook_connector": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
 }
 ```
 
-**CRITICAL:** Plugins NOT in `_KNOWN_PLUGINS` cannot be loaded. This is a security whitelist.
+**CRITICAL:** Plugins NOT in `_DEFAULT_PLUGINS` cannot be loaded. This is a security whitelist.
+
+### How PluginRegistry Works
+
+```python
+class PluginRegistry:
+    def __init__(self):
+        self._loaded: dict[str, PluginBase] = {}
+        self._plugins: dict[str, tuple[str, str]] = dict(_DEFAULT_PLUGINS)  # Per-instance copy
+
+    def register(self, name, module_path, class_name):
+        self._plugins[name] = (module_path, class_name)
+
+    def load(self, name, ctx) -> PluginBase:
+        # Validates name is in whitelist, imports module, instantiates class
+```
 
 ## Capability Registry
 
@@ -137,6 +141,13 @@ from overblick.capabilities.content.summarizer import SummarizerCapability
 from overblick.capabilities.speech.stt import SpeechToTextCapability
 from overblick.capabilities.speech.tts import TextToSpeechCapability
 from overblick.capabilities.vision.analyzer import VisionCapability
+from overblick.capabilities.communication.boss_request import BossRequestCapability
+from overblick.capabilities.communication.email import EmailCapability
+from overblick.capabilities.communication.gmail import GmailCapability
+from overblick.capabilities.communication.telegram_notifier import TelegramNotifier
+from overblick.capabilities.consulting.personality_consultant import PersonalityConsultantCapability
+from overblick.capabilities.monitoring.inspector import HostInspectionCapability
+from overblick.capabilities.system.clock import SystemClockCapability
 
 CAPABILITY_REGISTRY: dict[str, type] = {
     "dream_system": DreamCapability,
@@ -152,10 +163,19 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "stt": SpeechToTextCapability,
     "tts": TextToSpeechCapability,
     "vision": VisionCapability,
+    "boss_request": BossRequestCapability,
+    "email": EmailCapability,
+    "gmail": GmailCapability,
+    "telegram_notifier": TelegramNotifier,
+    "host_inspection": HostInspectionCapability,
+    "system_clock": SystemClockCapability,
+    "personality_consultant": PersonalityConsultantCapability,
 }
 
+# NOTE: "psychology" bundle is DEPRECATED as of v1.1.
+# Use psychological_framework in personality.yaml instead.
 CAPABILITY_BUNDLES: dict[str, list[str]] = {
-    "psychology": ["dream_system", "therapy_system", "emotional_state"],
+    "psychology": ["dream_system", "therapy_system", "emotional_state"],  # DEPRECATED
     "knowledge": ["safe_learning", "knowledge_loader"],
     "social": ["openings"],
     "engagement": ["analyzer", "composer"],
@@ -163,6 +183,10 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "content": ["summarizer"],
     "speech": ["stt", "tts"],
     "vision": ["vision"],
+    "communication": ["boss_request", "email", "gmail", "telegram_notifier"],
+    "consulting": ["personality_consultant"],
+    "monitoring": ["host_inspection"],
+    "system": ["system_clock"],
 }
 ```
 

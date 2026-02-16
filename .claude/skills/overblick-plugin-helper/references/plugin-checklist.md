@@ -44,7 +44,7 @@ Use this checklist when creating or reviewing Överblick plugins.
 - [ ] Has `plugin.py` with the main plugin class
 - [ ] Plugin class extends `PluginBase`
 - [ ] Plugin has `name` class attribute (lowercase)
-- [ ] Registered in `overblick/core/plugin_registry.py` `_KNOWN_PLUGINS`
+- [ ] Registered in `overblick/core/plugin_registry.py` `_DEFAULT_PLUGINS`
 
 ### Code Standards
 - [ ] All code, comments, logs, variable names in **English**
@@ -82,7 +82,7 @@ Use this checklist when creating or reviewing Överblick plugins.
 1. **Using raw `llm_client` instead of `llm_pipeline`** — bypasses all security stages
 2. **Forgetting to wrap external content** — leaves prompt injection vectors open
 3. **Hardcoding secrets** — use `ctx.get_secret()` always
-4. **Not registering in `_KNOWN_PLUGINS`** — plugin won't load
+4. **Not registering in `_DEFAULT_PLUGINS`** — plugin won't load
 5. **Doing I/O in `__init__`** — context may not be fully populated yet
 6. **Not handling quiet hours** — agent acts when it shouldn't
 7. **Swedish in code** — all code must be in English (see CLAUDE.md)

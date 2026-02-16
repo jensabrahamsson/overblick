@@ -33,8 +33,8 @@ __init__(ctx: CapabilityContext) → setup() → tick() [optional] → on_event(
 ### Step 1: Gather Requirements
 Ask the user:
 - **Capability name** (lowercase, descriptive — e.g., `summarizer`, `mood_tracker`)
-- **Bundle** (which bundle? existing: psychology, knowledge, social, engagement, conversation, content, speech — or new)
-- **Does it need LLM?** (use `ctx.llm_pipeline` if available, else `ctx.llm_client`)
+- **Bundle** (which bundle? existing: system, knowledge, social, engagement, conversation, content, speech, vision, communication, consulting, monitoring — or new. Note: psychology is DEPRECATED)
+- **Does it need LLM?** (use `ctx.llm_pipeline` — NEVER use `ctx.llm_client` directly)
 - **Does it need periodic work?** (override `tick()`)
 - **Does it react to events?** (override `on_event()`)
 - **Does it contribute to prompts?** (override `get_prompt_context()`)
@@ -213,18 +213,31 @@ When reviewing, check:
 | `summarizer` | `SummarizerCapability` | content | Text summarization via LLM |
 | `stt` | `SpeechToTextCapability` | speech | Speech-to-text conversion |
 | `tts` | `TextToSpeechCapability` | speech | Text-to-speech synthesis |
+| `vision` | `VisionCapability` | vision | Image/video analysis |
+| `boss_request` | `BossRequestCapability` | communication | Request approval from supervisor |
+| `email` | `EmailCapability` | communication | Email sending capability |
+| `gmail` | `GmailCapability` | communication | Gmail-specific email |
+| `telegram_notifier` | `TelegramNotifier` | communication | Telegram notifications |
+| `host_inspection` | `HostInspectionCapability` | monitoring | System health monitoring |
+| `system_clock` | `SystemClockCapability` | system | Time awareness for agents |
+| `personality_consultant` | `PersonalityConsultantCapability` | consulting | Cross-identity consulting |
 
 ### Bundles
 
-| Bundle | Capabilities |
-|--------|-------------|
-| `psychology` | dream_system, therapy_system, emotional_state |
-| `knowledge` | safe_learning, knowledge_loader |
-| `social` | openings |
-| `engagement` | analyzer, composer |
-| `conversation` | conversation_tracker |
-| `content` | summarizer |
-| `speech` | stt, tts |
+| Bundle | Capabilities | Notes |
+|--------|-------------|-------|
+| `system` | system_clock | Core capabilities injected into all agents |
+| `psychology` | dream_system, therapy_system, emotional_state | **DEPRECATED** — use personality.yaml |
+| `knowledge` | safe_learning, knowledge_loader | |
+| `social` | openings | |
+| `engagement` | analyzer, composer | |
+| `conversation` | conversation_tracker | |
+| `content` | summarizer | |
+| `speech` | stt, tts | |
+| `vision` | vision | |
+| `communication` | boss_request, email, gmail, telegram_notifier | |
+| `consulting` | personality_consultant | |
+| `monitoring` | host_inspection | |
 
 ## CapabilityBase Quick Reference
 

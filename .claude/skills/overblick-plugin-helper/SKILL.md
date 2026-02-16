@@ -124,16 +124,16 @@ class <Name>Plugin(PluginBase):
 
 ### Step 3: Register in Plugin Registry
 
-Edit `overblick/core/plugin_registry.py` — add to `_KNOWN_PLUGINS`:
+Edit `overblick/core/plugin_registry.py` — add to `_DEFAULT_PLUGINS` in alphabetical order:
 
 ```python
-_KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
-    # ... existing plugins ...
+_DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
+    # ... existing plugins (alphabetical) ...
     "<name>": ("overblick.plugins.<name>.plugin", "<Name>Plugin"),
 }
 ```
 
-**CRITICAL:** Plugins NOT in `_KNOWN_PLUGINS` cannot be loaded. This is a security whitelist.
+**CRITICAL:** Plugins NOT in `_DEFAULT_PLUGINS` cannot be loaded. This is a security whitelist. No connector aliases needed.
 
 ### Step 4: Create Test Fixtures
 
@@ -147,27 +147,31 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-from overblick.personalities import Identity
+from overblick.identities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
 from overblick.core.plugin_base import PluginContext
-from overblick.core.llm.pipeline import SafeLLMPipeline, PipelineResult
+from overblick.core.llm.pipeline import PipelineResult
 
 
 @pytest.fixture
 def <name>_identity():
-    """Mock identity for <name> plugin."""
-    identity = MagicMock(spec=Identity)
-    identity.name = "test"
-    identity.raw_config = {}
-    identity.llm = MagicMock()
-    identity.llm.temperature = 0.7
-    identity.llm.max_tokens = 500
-    return identity
+    """Test identity for <name> plugin."""
+    return Identity(
+        name="test",
+        display_name="Test",
+        description="Test identity for <name> plugin",
+        engagement_threshold=35,
+        llm=LLMSettings(model="qwen3:8b", temperature=0.7, max_tokens=500),
+        quiet_hours=QuietHoursSettings(enabled=True, start_hour=21, end_hour=7),
+        schedule=ScheduleSettings(heartbeat_hours=4, feed_poll_minutes=5),
+        security=SecuritySettings(enable_preflight=True, enable_output_safety=True),
+        raw_config={},
+    )
 
 
 @pytest.fixture
 def <name>_context(<name>_identity, tmp_path, mock_llm_client, mock_audit_log):
     """Full plugin context for <name> tests."""
-    pipeline = AsyncMock(spec=SafeLLMPipeline)
+    pipeline = AsyncMock()
     pipeline.chat = AsyncMock(return_value=PipelineResult(content="Test response"))
 
     ctx = PluginContext(
@@ -176,9 +180,12 @@ def <name>_context(<name>_identity, tmp_path, mock_llm_client, mock_audit_log):
         log_dir=tmp_path / "logs",
         llm_client=mock_llm_client,
         llm_pipeline=pipeline,
+        event_bus=MagicMock(),
+        scheduler=MagicMock(),
         audit_log=mock_audit_log,
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=<name>_identity,
+        engagement_db=MagicMock(),
     )
     ctx._secrets_getter = lambda k: {"<name>_api_key": "test-key"}.get(k)
     return ctx

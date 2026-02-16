@@ -210,24 +210,30 @@ def mock_quiet_hours_checker():
 ### Plugin-Specific Fixtures (`tests/plugins/<name>/conftest.py`)
 
 ```python
+from overblick.identities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+
 @pytest.fixture
 def telegram_identity():
-    identity = MagicMock(spec=Identity)
-    identity.name = "test"
-    identity.raw_config = {
-        "telegram": {
-            "allowed_chat_ids": [12345],
-            "rate_limit_per_minute": 10,
-        }
-    }
-    identity.llm = MagicMock()
-    identity.llm.temperature = 0.7
-    identity.llm.max_tokens = 500
-    return identity
+    return Identity(
+        name="test",
+        display_name="Test",
+        description="Test identity for Telegram plugin",
+        engagement_threshold=35,
+        llm=LLMSettings(model="qwen3:8b", temperature=0.7, max_tokens=500),
+        quiet_hours=QuietHoursSettings(enabled=True, start_hour=21, end_hour=7),
+        schedule=ScheduleSettings(heartbeat_hours=4, feed_poll_minutes=5),
+        security=SecuritySettings(enable_preflight=True, enable_output_safety=True),
+        raw_config={
+            "telegram": {
+                "allowed_chat_ids": [12345],
+                "rate_limit_per_minute": 10,
+            }
+        },
+    )
 
 @pytest.fixture
 def telegram_context(telegram_identity, tmp_path, mock_llm_client, mock_audit_log):
-    pipeline = AsyncMock(spec=SafeLLMPipeline)
+    pipeline = AsyncMock()
     pipeline.chat = AsyncMock(return_value=PipelineResult(content="Test response"))
 
     ctx = PluginContext(
@@ -236,9 +242,12 @@ def telegram_context(telegram_identity, tmp_path, mock_llm_client, mock_audit_lo
         log_dir=tmp_path / "logs",
         llm_client=mock_llm_client,
         llm_pipeline=pipeline,
+        event_bus=MagicMock(),
+        scheduler=MagicMock(),
         audit_log=mock_audit_log,
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=telegram_identity,
+        engagement_db=MagicMock(),
     )
     ctx._secrets_getter = lambda k: {"telegram_bot_token": "test-token"}.get(k)
     return ctx

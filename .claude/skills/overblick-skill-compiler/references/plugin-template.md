@@ -150,10 +150,6 @@ class <Name>Plugin(PluginBase):
         if self._client:
             await self._client.close()
         logger.info("<Name>Plugin teardown complete")
-
-
-# Connector alias (backward-compatible)
-<Name>Connector = <Name>Plugin
 ```
 
 ## overblick/plugins/\<name\>/\_\_init\_\_.py
@@ -219,3 +215,43 @@ threshold = config.get("<name>_threshold", 50.0)
 ```
 - Read from `identity.raw_config` for plugin-specific settings
 - Always provide sensible defaults
+
+### Accessing Capabilities
+```python
+# Get a capability registered by the orchestrator
+email_cap = self.ctx.get_capability("email")
+if email_cap:
+    await email_cap.send(to="user@example.com", subject="Hello", body="...")
+```
+- Use `ctx.get_capability(name)` to access shared capabilities
+- Always check for None (capability may not be configured for this identity)
+
+### Loading Other Identities
+```python
+# Load another identity for cross-agent interaction
+other = self.ctx.load_identity("cherry")
+prompt = self.ctx.build_system_prompt(other, platform="Telegram")
+```
+- Use `ctx.load_identity()` and `ctx.build_system_prompt()` — never import directly
+- This maintains plugin isolation from framework internals
+
+### PluginContext Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `identity_name` | `str` | Current identity name |
+| `data_dir` | `Path` | Data directory (isolated per identity) |
+| `log_dir` | `Path` | Log directory (isolated per identity) |
+| `llm_client` | `LLMClient` | Raw LLM client (avoid in new code) |
+| `llm_pipeline` | `SafeLLMPipeline` | Safe pipeline (preferred) |
+| `event_bus` | `EventBus` | Pub/sub event bus |
+| `scheduler` | `Any` | Scheduler for periodic work |
+| `audit_log` | `AuditLog` | Audit logging |
+| `quiet_hours_checker` | `QuietHoursChecker` | Quiet hours check |
+| `response_router` | `ResponseRouter` | Response routing decisions |
+| `identity` | `Identity` | Full identity config |
+| `engagement_db` | `EngagementDB` | Engagement tracking DB |
+| `preflight_checker` | `PreflightChecker` | Prompt safety checks |
+| `output_safety` | `OutputSafety` | Output safety checks |
+| `permissions` | `PermissionChecker` | Permission system |
+| `ipc_client` | `IPCClient` | IPC for supervisor communication |
+| `capabilities` | `dict[str, Any]` | Shared capabilities dict |
