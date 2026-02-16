@@ -140,7 +140,7 @@ After the frontmatter, include any of these sections:
 
 | File | Purpose |
 |------|---------|
-| `overblick/personalities/<name>/personality.yaml` | Full character YAML |
+| `overblick/identities/<name>/personality.yaml` | Full character YAML |
 
 ### For Composite Features
 

@@ -171,7 +171,7 @@ overblick/
 │   │   └── secrets_manager.py   # Fernet-encrypted secrets
 │   └── database/            # Abstract DB with SQLite + PostgreSQL
 ├── personalities/           # The personality stable (YAML-driven)
-│   ├── __init__.py          # Personality class, load_personality(), build_system_prompt()
+│   ├── __init__.py          # Identity class, load_identity(), build_system_prompt()
 │   ├── anomal/              # Each personality is a directory
 │   │   ├── personality.yaml # Character definition
 │   │   └── llm_hints/       # Model-specific tuning
@@ -247,7 +247,7 @@ A personality defines everything about who an agent IS: voice, backstory, psycho
 ### File Structure
 
 ```
-overblick/personalities/<name>/
+overblick/identities/<name>/
 ├── personality.yaml         # The complete character definition
 └── llm_hints/               # Model-specific tuning (optional)
     └── qwen3_8b.yaml        # Hints for Qwen3 8B
@@ -328,17 +328,17 @@ ethos:
 
 ### How it Works
 
-1. `load_personality("anomal")` reads the YAML and creates a frozen `Personality` Pydantic model
-2. `build_system_prompt(personality, platform="Moltbook")` generates a complete system prompt from the structured data
+1. `load_identity("anomal")` reads the YAML and creates a frozen `Identity` Pydantic model
+2. `build_system_prompt(identity, platform="Moltbook")` generates a complete system prompt from the structured data
 3. Traits with values >= 0.8 are highlighted as "strong", <= 0.25 as "low"
 4. Only the first 4 example conversations are included (for token efficiency)
 5. Security anti-injection rules are automatically appended to every prompt
 
 ### Creating a New Personality
 
-1. Create `overblick/personalities/<name>/personality.yaml`
+1. Create `overblick/identities/<name>/personality.yaml`
 2. Fill in all sections (identity, backstory, voice, traits, interests, vocabulary, examples)
-3. Verify it loads: `python -c "from overblick.personalities import load_personality; p = load_personality('<name>'); print(p.display_name)"`
+3. Verify it loads: `python -c "from overblick.identities import load_identity; p = load_identity('<name>'); print(p.display_name)"`
 4. Add test scenarios in `tests/personalities/scenarios/qwen3_8b/<name>.yaml`
 5. Test with the LLM: `./venv/bin/python3 -m pytest tests/personalities/ -v -s -m llm -k <name>`
 
@@ -458,7 +458,7 @@ Different LLM models have different quirks. Qwen3 8B might be too sycophantic. M
 ### How LLM Hints Work
 
 ```
-overblick/personalities/<name>/llm_hints/<model_slug>.yaml
+overblick/identities/<name>/llm_hints/<model_slug>.yaml
 ```
 
 The model slug is derived from the model name: `qwen3:8b` → `qwen3_8b`.
@@ -498,7 +498,7 @@ style_notes: |
 
 1. Run the personality with the new model and observe the output
 2. Note where the model deviates from the intended voice
-3. Create `overblick/personalities/<name>/llm_hints/<model_slug>.yaml`
+3. Create `overblick/identities/<name>/llm_hints/<model_slug>.yaml`
 4. Add voice reinforcement targeting the specific issues
 5. Add extra examples demonstrating the correct voice
 6. Test with scenarios: `./venv/bin/python3 -m pytest tests/personalities/ -v -s -m llm -k <name>`
@@ -888,9 +888,9 @@ This is the most common contribution. You're adding a new character to the stabl
 
 **Quick start:**
 1. Tell Claude Code: `create personality` — the skill guides you
-2. Or manually create `overblick/personalities/<name>/personality.yaml`
+2. Or manually create `overblick/identities/<name>/personality.yaml`
 3. Add scenario tests in `tests/personalities/scenarios/qwen3_8b/<name>.yaml`
-4. Add LLM hints if needed: `overblick/personalities/<name>/llm_hints/qwen3_8b.yaml`
+4. Add LLM hints if needed: `overblick/identities/<name>/llm_hints/qwen3_8b.yaml`
 5. Run tests: `./venv/bin/python3 -m pytest tests/personalities/ -v -s -m llm -k <name>`
 
 **Tips:**
@@ -906,7 +906,7 @@ Adding support for a different model (e.g., Llama 3, Mistral, Gemma):
 
 1. Chat with the personality using the new model
 2. Note where the model deviates from the intended voice
-3. Create `overblick/personalities/<name>/llm_hints/<model_slug>.yaml`
+3. Create `overblick/identities/<name>/llm_hints/<model_slug>.yaml`
 4. Add voice reinforcement, extra examples, and avoid rules
 5. Create scenario files: `tests/personalities/scenarios/<model_slug>/<name>.yaml`
 6. Test iteratively until the personality sounds right
@@ -1023,7 +1023,7 @@ python -m overblick.gateway             # Start LLM Gateway (port 8200)
 
 | File | Purpose |
 |------|---------|
-| `overblick/personalities/__init__.py` | `Personality`, `load_personality()`, `build_system_prompt()` |
+| `overblick/identities/__init__.py` | `Identity`, `load_identity()`, `build_system_prompt()` |
 | `overblick/core/plugin_base.py` | `PluginBase`, `PluginContext` |
 | `overblick/core/plugin_registry.py` | `_KNOWN_PLUGINS` whitelist |
 | `overblick/core/capability.py` | `CapabilityBase`, `CapabilityContext`, `CapabilityRegistry` |

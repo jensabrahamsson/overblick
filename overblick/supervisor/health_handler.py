@@ -54,9 +54,9 @@ class HealthInquiryHandler:
             self._inspector = HostInspectionCapability()
 
             # Load Anomal's personality for the supervisor's voice
-            from overblick.personalities import load_personality, build_system_prompt
+            from overblick.identities import load_identity, build_system_prompt
 
-            anomal = load_personality("anomal")
+            anomal = load_identity("anomal")
             base_prompt = build_system_prompt(anomal, platform="Supervisor IPC")
 
             self._system_prompt = (

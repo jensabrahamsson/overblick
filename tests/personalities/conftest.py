@@ -10,7 +10,7 @@ Tests are marked with @pytest.mark.llm and skipped if the gateway is not running
 
 Set OVERBLICK_TEST_MODEL to select a model (default: qwen3_8b). This controls:
 - Which scenario directory is used (tests/personalities/scenarios/<model>/)
-- Which LLM hints are loaded (overblick/personalities/<name>/llm_hints/<model>.yaml)
+- Which LLM hints are loaded (overblick/identities/<name>/llm_hints/<model>.yaml)
 
 Purpose: prompt engineering validation — iterate on personality YAML until
 the LLM consistently stays in character.
@@ -22,7 +22,7 @@ import os
 import pytest
 
 from overblick.core.llm.gateway_client import GatewayClient
-from overblick.personalities import build_system_prompt, load_personality, list_personalities
+from overblick.identities import build_system_prompt, load_personality, list_personalities
 
 logger = logging.getLogger(__name__)
 

@@ -25,12 +25,12 @@ async def test_full_digest():
     print("⚠️  Using reasoning=ON for deep thinking\n")
     
     # Load Anomal personality YAML directly to get raw_config
-    personality_file = Path("/Users/jens/kod/blick/overblick/personalities/anomal/personality.yaml")
+    personality_file = Path("/Users/jens/kod/blick/overblick/identities/anomal/personality.yaml")
     with open(personality_file) as f:
         personality_data = yaml.safe_load(f)
     
     # Create a minimal identity object with raw_config
-    from overblick.personalities import Personality, LLMSettings
+    from overblick.identities import Personality, LLMSettings
     identity = Personality(
         name="anomal",
         display_name="Anomal",

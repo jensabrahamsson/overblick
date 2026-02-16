@@ -78,7 +78,7 @@ python -m overblick list
 
 For advanced users who prefer editing YAML directly:
 
-1. Copy a personality template from `overblick/personalities/`
+1. Copy an identity template from `overblick/identities/`
 2. Edit `personality.yaml` with your custom settings
 3. Create secrets manually:
    ```bash

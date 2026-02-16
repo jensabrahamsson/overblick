@@ -43,8 +43,8 @@ async def agent_detail(request: Request, name: str):
             "poll_interval": 5,
         }, status_code=404)
 
-    # Load personality
-    personality = personality_svc.get_personality(identity.get("personality_ref", name))
+    # Load personality (character data)
+    personality = personality_svc.get_personality(identity.get("identity_ref", name))
 
     # Get agent status from supervisor
     agents = await supervisor_svc.get_agents()

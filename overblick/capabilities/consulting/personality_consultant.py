@@ -124,11 +124,11 @@ class PersonalityConsultantCapability(CapabilityBase):
         if name in self._prompt_cache:
             return self._prompt_cache[name]
 
-        personality = self._load_personality(name)
+        personality = self._load_identity(name)
         if personality is None:
             return None
 
-        from overblick.personalities import build_system_prompt
+        from overblick.identities import build_system_prompt
 
         prompt = build_system_prompt(
             personality, platform="Internal Consultation",
@@ -136,15 +136,15 @@ class PersonalityConsultantCapability(CapabilityBase):
         self._prompt_cache[name] = prompt
         return prompt
 
-    def _load_personality(self, name: str) -> Any:
+    def _load_identity(self, name: str) -> Any:
         """Load and cache a personality by name."""
         if name in self._personality_cache:
             return self._personality_cache[name]
 
-        from overblick.personalities import load_personality
+        from overblick.identities import load_identity
 
         try:
-            personality = load_personality(name)
+            personality = load_identity(name)
             self._personality_cache[name] = personality
             logger.info(
                 "PersonalityConsultant: loaded personality '%s'", name,

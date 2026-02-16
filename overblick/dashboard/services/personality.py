@@ -1,5 +1,8 @@
 """
-Personality service — read-only access to personality definitions.
+Personality service — read-only access to personality character definitions.
+
+This service provides access to the character/personality aspects of identities
+(voice, traits, backstory, etc.) as distinct from the operational config.
 """
 
 import logging
@@ -9,22 +12,22 @@ logger = logging.getLogger(__name__)
 
 
 class PersonalityService:
-    """Read-only access to personality configurations."""
+    """Read-only access to personality (character) configurations."""
 
-    def list_personalities(self) -> list[str]:
-        """List available personality names."""
-        from overblick.personalities import list_personalities
-        return list_personalities()
+    def list_identities(self) -> list[str]:
+        """List available identity names."""
+        from overblick.identities import list_identities
+        return list_identities()
 
     def get_personality(self, name: str) -> Optional[dict[str, Any]]:
         """
-        Get personality as a serializable dict.
+        Get personality character data as a serializable dict.
 
-        Returns None if personality not found.
+        Returns None if identity not found.
         """
         try:
-            from overblick.personalities import load_personality
-            p = load_personality(name)
+            from overblick.identities import load_identity
+            p = load_identity(name)
             return {
                 "name": p.name,
                 "display_name": p.display_name,
@@ -41,16 +44,16 @@ class PersonalityService:
                 "raw": dict(p.raw) if p.raw else {},
             }
         except FileNotFoundError:
-            logger.debug("Personality not found: %s", name)
+            logger.debug("Identity not found: %s", name)
             return None
         except Exception as e:
-            logger.error("Error loading personality '%s': %s", name, e)
+            logger.error("Error loading identity '%s': %s", name, e)
             return None
 
     def get_all_personalities(self) -> list[dict[str, Any]]:
-        """Get all personalities as serializable dicts."""
+        """Get all personality character data as serializable dicts."""
         results = []
-        for name in self.list_personalities():
+        for name in self.list_identities():
             p = self.get_personality(name)
             if p:
                 results.append(p)

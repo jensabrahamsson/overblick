@@ -31,10 +31,10 @@ import aiohttp
 # Ensure the project root is importable
 sys.path.insert(0, str(Path(__file__).parent))
 
-from overblick.personalities import (
+from overblick.identities import (
     build_system_prompt,
-    list_personalities,
-    load_personality,
+    list_identities,
+    load_identity,
 )
 
 # Terminal codes
@@ -58,10 +58,10 @@ def print_banner(name: str, display_name: str) -> None:
 
 def print_personas() -> None:
     """List available personalities."""
-    names = list_personalities()
-    print(f"\n{BOLD}Available personalities:{RESET}")
+    names = list_identities()
+    print(f"\n{BOLD}Available identities:{RESET}")
     for name in sorted(names):
-        p = load_personality(name)
+        p = load_identity(name)
         desc = ""
         if p.identity_info:
             desc = p.identity_info.get("description", "")
@@ -71,12 +71,12 @@ def print_personas() -> None:
     print()
 
 
-def pick_personality() -> str:
-    """Interactive personality picker."""
-    names = sorted(list_personalities())
-    print(f"\n{BOLD}Pick a personality:{RESET}\n")
+def pick_identity() -> str:
+    """Interactive identity picker."""
+    names = sorted(list_identities())
+    print(f"\n{BOLD}Pick an identity:{RESET}\n")
     for i, name in enumerate(names, 1):
-        p = load_personality(name)
+        p = load_identity(name)
         desc = ""
         if p.identity_info:
             desc = p.identity_info.get("role", "")
@@ -203,7 +203,7 @@ async def chat_loop(
     max_tokens: int,
 ) -> None:
     """Main chat loop with streaming responses."""
-    personality = load_personality(personality_name)
+    personality = load_identity(personality_name)
     system_prompt = build_system_prompt(personality, platform="CLI")
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
 
@@ -238,7 +238,7 @@ async def chat_loop(
                         continue
                     new_name = cmd_parts[1].strip()
                     try:
-                        personality = load_personality(new_name)
+                        personality = load_identity(new_name)
                         personality_name = personality.name
                         system_prompt = build_system_prompt(personality, platform="CLI")
                         messages = [{"role": "system", "content": system_prompt}]
@@ -346,13 +346,13 @@ def main() -> None:
 
     name = args.personality
     if not name:
-        name = pick_personality()
+        name = pick_identity()
 
-    # Validate personality exists
+    # Validate identity exists
     try:
-        load_personality(name)
+        load_identity(name)
     except Exception as e:
-        print(f"{RED}Error loading personality '{name}': {e}{RESET}")
+        print(f"{RED}Error loading identity '{name}': {e}{RESET}")
         print_personas()
         sys.exit(1)
 

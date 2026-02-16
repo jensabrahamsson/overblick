@@ -17,8 +17,8 @@ class IdentityService:
 
     def list_identities(self) -> list[str]:
         """List available identity names."""
-        from overblick.personalities import list_personalities
-        return list_personalities()
+        from overblick.identities import list_identities
+        return list_identities()
 
     def get_identity(self, name: str) -> Optional[dict[str, Any]]:
         """
@@ -27,8 +27,8 @@ class IdentityService:
         Returns None if identity not found.
         """
         try:
-            from overblick.personalities import load_personality
-            identity = load_personality(name)
+            from overblick.identities import load_identity
+            identity = load_identity(name)
             return {
                 "name": identity.name,
                 "display_name": identity.display_name,
@@ -37,7 +37,7 @@ class IdentityService:
                 "engagement_threshold": identity.engagement_threshold,
                 "plugins": list(identity.plugins),
                 "capability_names": list(identity.capability_names),
-                "traits": dict(identity.traits),  # Big Five personality traits
+                "traits": dict(identity.traits),
                 "llm": {
                     "model": identity.llm.model,
                     "temperature": identity.llm.temperature,
@@ -58,7 +58,7 @@ class IdentityService:
                     "enable_preflight": identity.security.enable_preflight,
                     "enable_output_safety": identity.security.enable_output_safety,
                 },
-                "personality_ref": identity.personality_ref,
+                "identity_ref": identity.identity_ref,
             }
         except FileNotFoundError:
             logger.warning("Identity not found: %s", name)

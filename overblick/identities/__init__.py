@@ -1,26 +1,29 @@
 """
-Personality system — unified personality and identity management.
+Identity system — unified identity and personality management.
 
-Each personality defines BOTH who the agent IS (character) and HOW it
+Each identity defines BOTH who the agent IS (character) and HOW it
 operates (LLM settings, schedules, security). This unified model replaces
 the old split Identity + Personality system.
 
-Search order for personalities:
-1. overblick/personalities/<name>/personality.yaml  (directory-based, preferred)
-2. overblick/personalities/<name>.yaml              (standalone file)
-3. overblick/identities/<name>/personality.yaml     (legacy location)
+Search order for identities:
+1. overblick/identities/<name>/personality.yaml  (directory-based, preferred)
+2. overblick/identities/<name>.yaml              (standalone file)
+3. overblick/personalities/<name>/personality.yaml (legacy location)
+
+The character definition file is still called personality.yaml because it
+defines the agent's personality traits, voice, and backstory.
 
 For identities with operational config in a separate identity.yaml,
 the loader merges both files automatically.
 
 Usage:
-    personality = load_personality("anomal")
-    print(personality.voice["base_tone"])
-    print(personality.traits["openness"])
-    print(personality.llm.temperature)
+    identity = load_identity("anomal")
+    print(identity.voice["base_tone"])
+    print(identity.traits["openness"])
+    print(identity.llm.temperature)
 
     # Build a generic system prompt for any platform
-    prompt = build_system_prompt(personality, platform="Telegram")
+    prompt = build_system_prompt(identity, platform="Telegram")
 """
 
 import importlib
@@ -34,11 +37,11 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 logger = logging.getLogger(__name__)
 
-# Legacy location: identity directories
-_IDENTITIES_DIR = Path(__file__).parent.parent / "identities"
+# Primary location: identity directories
+_IDENTITIES_DIR = Path(__file__).parent
 
-# Primary location: personality directories
-_PERSONALITIES_DIR = Path(__file__).parent
+# Legacy location: personalities directories (backward compat)
+_PERSONALITIES_DIR = Path(__file__).parent.parent / "personalities"
 
 # Alias map for backward compatibility after Swedish rename
 _ALIASES: dict[str, str] = {
@@ -51,7 +54,7 @@ _ALIASES: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
-# Operational sub-models (moved from identity.py)
+# Operational sub-models
 # ---------------------------------------------------------------------------
 
 class LLMSettings(BaseModel):
@@ -70,7 +73,7 @@ class LLMSettings(BaseModel):
 
 
 class QuietHoursSettings(BaseModel):
-    """Quiet hours (bedroom mode) per personality."""
+    """Quiet hours (bedroom mode) per identity."""
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     enabled: bool = True
@@ -101,12 +104,12 @@ class SecuritySettings(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Unified Personality model
+# Unified Identity model
 # ---------------------------------------------------------------------------
 
-class Personality(BaseModel):
+class Identity(BaseModel):
     """
-    Unified personality and identity configuration.
+    Unified identity and personality configuration.
 
     Contains everything about the agent — both character and operational config:
 
@@ -181,10 +184,10 @@ class Personality(BaseModel):
     opsec: dict[str, Any] = {}
     knowledge: dict[str, Any] = {}
 
-    # Personality reference (for backward compat — defaults to self.name)
-    personality_ref: str = ""
+    # Identity reference (defaults to self.name)
+    identity_ref: str = ""
 
-    # Loaded personality reference (for backward compat — points to self)
+    # Loaded identity reference (backward compat — points to self)
     loaded_personality: Any = None
 
     # Raw YAML data for arbitrary access
@@ -197,8 +200,11 @@ class Personality(BaseModel):
         if isinstance(data, dict):
             if not data.get("display_name"):
                 data["display_name"] = data.get("name", "").capitalize()
-            if not data.get("personality_ref"):
-                data["personality_ref"] = data.get("name", "")
+            # Support both old and new field names
+            if not data.get("identity_ref"):
+                data["identity_ref"] = data.get("personality_ref", data.get("name", ""))
+            # Remove old field if present to avoid Pydantic error
+            data.pop("personality_ref", None)
         return data
 
     @model_validator(mode="after")
@@ -224,7 +230,7 @@ class Personality(BaseModel):
         for trait_name, value in self.traits.items():
             if not (0 <= value <= 1):
                 logger.warning(
-                    "Personality '%s' trait '%s' = %.2f is outside valid range [0, 1]",
+                    "Identity '%s' trait '%s' = %.2f is outside valid range [0, 1]",
                     self.name, trait_name, value
                 )
 
@@ -236,13 +242,20 @@ class Personality(BaseModel):
 
             if not (expected_min <= trait_sum <= expected_max):
                 logger.warning(
-                    "Personality '%s' Big Five traits sum to %.2f (expected ~%.1f-%.1f for %d traits). "
+                    "Identity '%s' Big Five traits sum to %.2f (expected ~%.1f-%.1f for %d traits). "
                     "Traits: %s",
                     self.name, trait_sum, expected_min, expected_max,
                     len(big_five_traits), big_five_traits
                 )
 
         return self
+
+    # --- Backward compatibility property ---
+
+    @property
+    def personality_ref(self) -> str:
+        """Backward-compatible alias for identity_ref."""
+        return self.identity_ref
 
     # --- Character accessors ---
 
@@ -267,7 +280,7 @@ class Personality(BaseModel):
         interest = self.interests.get(area, {})
         return interest.get("topics", [])
 
-    # --- Operational accessors (backward compat with Identity) ---
+    # --- Operational accessors ---
 
     def get_prompts_module(self) -> ModuleType:
         """Import and return the identity-specific prompts module."""
@@ -281,15 +294,15 @@ class Personality(BaseModel):
 
     @property
     def identity_dir(self) -> Path:
-        """Path to this personality's directory (checks personalities/ first, then identities/)."""
-        personalities_dir = _PERSONALITIES_DIR / self.name
-        if personalities_dir.exists():
-            return personalities_dir
-        return _IDENTITIES_DIR / self.name
+        """Path to this identity's directory (checks identities/ first, then personalities/)."""
+        identities_dir = _IDENTITIES_DIR / self.name
+        if identities_dir.exists():
+            return identities_dir
+        return _PERSONALITIES_DIR / self.name
 
 
-# Type alias for backward compatibility
-Identity = Personality
+# Backward-compatible alias
+Personality = Identity
 
 
 # ---------------------------------------------------------------------------
@@ -304,93 +317,97 @@ def _load_yaml(path: Path) -> dict:
         return yaml.safe_load(f) or {}
 
 
-def _find_personality_dir(name: str) -> Optional[Path]:
-    """Find the directory containing personality files, or None."""
-    # Check personalities/ directory first
-    p_dir = _PERSONALITIES_DIR / name
-    if p_dir.is_dir() and (p_dir / "personality.yaml").exists():
-        return p_dir
-
-    # Check identities/ directory (legacy)
+def _find_identity_dir(name: str) -> Optional[Path]:
+    """Find the directory containing identity files, or None."""
+    # Check identities/ directory first (primary)
     i_dir = _IDENTITIES_DIR / name
     if i_dir.is_dir() and (i_dir / "personality.yaml").exists():
         return i_dir
 
+    # Check personalities/ directory (legacy)
+    p_dir = _PERSONALITIES_DIR / name
+    if p_dir.is_dir() and (p_dir / "personality.yaml").exists():
+        return p_dir
+
     return None
 
 
-def load_personality(name: str) -> "Personality":
+# Backward-compatible alias
+_find_personality_dir = _find_identity_dir
+
+
+def load_identity(name: str) -> "Identity":
     """
-    Load a unified personality by name.
+    Load a unified identity by name.
 
     Loads character data from personality.yaml and merges operational config
     from identity.yaml (if present in the same directory).
 
     Search order:
-    1. overblick/personalities/<name>/personality.yaml (directory-based)
-    2. overblick/personalities/<name>.yaml (standalone file)
-    3. overblick/identities/<name>/personality.yaml (legacy location)
+    1. overblick/identities/<name>/personality.yaml (directory-based)
+    2. overblick/identities/<name>.yaml (standalone file)
+    3. overblick/personalities/<name>/personality.yaml (legacy location)
 
     Returns:
-        Frozen Personality with both character and operational fields
+        Frozen Identity with both character and operational fields
 
     Raises:
-        FileNotFoundError: If no personality file found
+        FileNotFoundError: If no identity file found
     """
-    # Resolve aliases (old English names → new Swedish names)
+    # Resolve aliases (old English names -> new Swedish names)
     name = _ALIASES.get(name, name)
 
-    # Try directory-based personality first (preferred)
-    dir_based = _PERSONALITIES_DIR / name / "personality.yaml"
+    # Try directory-based identity first (preferred)
+    dir_based = _IDENTITIES_DIR / name / "personality.yaml"
     if dir_based.exists():
         data = _load_yaml(dir_based)
         base_dir = dir_based.parent
-        logger.info("Loaded personality from directory: %s", name)
-        return _build_personality(name, data, base_dir)
+        logger.info("Loaded identity from directory: %s", name)
+        return _build_identity(name, data, base_dir)
 
-    # Try standalone personality file
-    standalone = _PERSONALITIES_DIR / f"{name}.yaml"
+    # Try standalone file
+    standalone = _IDENTITIES_DIR / f"{name}.yaml"
     if standalone.exists():
         data = _load_yaml(standalone)
-        logger.info("Loaded standalone personality: %s", name)
-        return _build_personality(name, data)
+        logger.info("Loaded standalone identity: %s", name)
+        return _build_identity(name, data)
 
-    # Fall back to identity directory (legacy)
-    identity_file = _IDENTITIES_DIR / name / "personality.yaml"
-    if identity_file.exists():
-        data = _load_yaml(identity_file)
-        base_dir = identity_file.parent
-        logger.info("Loaded personality from identity dir: %s", name)
-        return _build_personality(name, data, base_dir)
+    # Fall back to personalities directory (legacy)
+    legacy_file = _PERSONALITIES_DIR / name / "personality.yaml"
+    if legacy_file.exists():
+        data = _load_yaml(legacy_file)
+        base_dir = legacy_file.parent
+        logger.info("Loaded identity from legacy personalities dir: %s", name)
+        return _build_identity(name, data, base_dir)
 
     raise FileNotFoundError(
-        f"No personality found for '{name}'. "
-        f"Searched: {dir_based}, {standalone}, {identity_file}"
+        f"No identity found for '{name}'. "
+        f"Searched: {dir_based}, {standalone}, {legacy_file}"
     )
 
 
 # Backward-compatible alias
-load_identity = load_personality
+load_personality = load_identity
 
 
-def list_personalities() -> list[str]:
-    """List available personality names."""
+def list_identities() -> list[str]:
+    """List available identity names."""
     names = set()
 
-    # Directory-based personalities (overblick/personalities/<name>/personality.yaml)
-    if _PERSONALITIES_DIR.exists():
-        for d in _PERSONALITIES_DIR.iterdir():
+    # Directory-based identities (overblick/identities/<name>/personality.yaml)
+    if _IDENTITIES_DIR.exists():
+        for d in _IDENTITIES_DIR.iterdir():
             if d.is_dir() and (d / "personality.yaml").exists():
                 names.add(d.name)
 
-    # Standalone personality files (overblick/personalities/<name>.yaml)
-    if _PERSONALITIES_DIR.exists():
-        for f in _PERSONALITIES_DIR.glob("*.yaml"):
+    # Standalone identity files (overblick/identities/<name>.yaml)
+    if _IDENTITIES_DIR.exists():
+        for f in _IDENTITIES_DIR.glob("*.yaml"):
             names.add(f.stem)
 
-    # Identity-based personalities (legacy: overblick/identities/<name>/personality.yaml)
-    if _IDENTITIES_DIR.exists():
-        for d in _IDENTITIES_DIR.iterdir():
+    # Legacy personalities (overblick/personalities/<name>/personality.yaml)
+    if _PERSONALITIES_DIR.exists():
+        for d in _PERSONALITIES_DIR.iterdir():
             if d.is_dir() and (d / "personality.yaml").exists():
                 names.add(d.name)
 
@@ -398,34 +415,34 @@ def list_personalities() -> list[str]:
 
 
 # Backward-compatible alias
-list_identities = list_personalities
+list_personalities = list_identities
 
 
-def load_llm_hints(personality: Personality, model_slug: str = "") -> dict[str, Any]:
+def load_llm_hints(identity: "Identity", model_slug: str = "") -> dict[str, Any]:
     """
-    Load LLM-specific prompt hints for a personality.
+    Load LLM-specific prompt hints for an identity.
 
     Hints are stored in:
-        overblick/personalities/<name>/llm_hints/<model_slug>.yaml
+        overblick/identities/<name>/llm_hints/<model_slug>.yaml
 
     The model_slug is derived from the LLM model name (e.g. 'qwen3:8b' -> 'qwen3_8b').
-    If no model_slug is given, uses the personality's configured LLM model.
+    If no model_slug is given, uses the identity's configured LLM model.
 
     Args:
-        personality: Loaded Personality object.
+        identity: Loaded Identity object.
         model_slug: Normalized model name (e.g. 'qwen3_8b'). If empty,
-            derived from personality.llm.model.
+            derived from identity.llm.model.
 
     Returns:
         Dict of hint data, or empty dict if no hints file exists.
     """
     if not model_slug:
         # Derive from configured model: 'qwen3:8b' -> 'qwen3_8b'
-        model_slug = personality.llm.model.replace(":", "_").replace("-", "_").split("_")[0:2]
+        model_slug = identity.llm.model.replace(":", "_").replace("-", "_").split("_")[0:2]
         model_slug = "_".join(model_slug) if model_slug else "qwen3_8b"
 
-    identity_dir = personality.identity_dir
-    hints_file = identity_dir / "llm_hints" / f"{model_slug}.yaml"
+    ident_dir = identity.identity_dir
+    hints_file = ident_dir / "llm_hints" / f"{model_slug}.yaml"
     if not hints_file.exists():
         return {}
 
@@ -433,12 +450,12 @@ def load_llm_hints(personality: Personality, model_slug: str = "") -> dict[str, 
 
 
 def build_system_prompt(
-    personality: Personality,
+    identity: "Identity",
     platform: str = "Moltbook",
     model_slug: str = "",
 ) -> str:
     """
-    Build a generic system prompt from personality data.
+    Build a generic system prompt from identity data.
 
     Creates a system prompt usable by any plugin (Telegram, Gmail, etc.)
     without requiring a hand-written prompts.py file. For Moltbook-specific
@@ -448,18 +465,18 @@ def build_system_prompt(
     appended to reinforce voice and style for that specific model.
 
     Args:
-        personality: Loaded Personality object
+        identity: Loaded Identity object
         platform: Platform name for context (e.g. "Moltbook", "Telegram")
         model_slug: LLM model slug for model-specific hints (e.g. "qwen3_8b").
-            If empty, derived from personality.llm.model.
+            If empty, derived from identity.llm.model.
 
     Returns:
         System prompt string
     """
     parts: list[str] = []
-    name = personality.display_name or personality.name.capitalize()
-    role = personality.identity_info.get("role", "")
-    description = personality.identity_info.get("description", "")
+    name = identity.display_name or identity.name.capitalize()
+    role = identity.identity_info.get("role", "")
+    description = identity.identity_info.get("description", "")
 
     # Identity
     parts.append(f"You are {name}, participating on {platform}.")
@@ -469,7 +486,7 @@ def build_system_prompt(
         parts.append(f"Description: {description}")
 
     # Backstory summary
-    backstory = personality.backstory
+    backstory = identity.backstory
     if backstory:
         origin = backstory.get("origin", "")
         goals = backstory.get("current_goals", "")
@@ -488,7 +505,7 @@ def build_system_prompt(
             parts.append(f"Current goals: {goals_text}")
 
     # Voice
-    voice = personality.voice
+    voice = identity.voice
     if voice:
         tone = voice.get("base_tone", "")
         if tone:
@@ -504,7 +521,7 @@ def build_system_prompt(
             parts.append(f"Response length: {length}")
 
     # Traits summary (only strong/weak for brevity)
-    traits = personality.traits
+    traits = identity.traits
     if traits:
         high = [k for k, v in traits.items() if v >= 0.8]
         low = [k for k, v in traits.items() if v <= 0.25]
@@ -514,7 +531,7 @@ def build_system_prompt(
             parts.append(f"Low traits: {', '.join(low)}")
 
     # Interests overview
-    interests = personality.interests
+    interests = identity.interests
     if interests:
         interest_lines = []
         for area, info in list(interests.items())[:6]:
@@ -528,7 +545,7 @@ def build_system_prompt(
             parts.extend(interest_lines)
 
     # Ethos / core beliefs
-    ethos = personality.ethos
+    ethos = identity.ethos
     if ethos:
         if isinstance(ethos, dict) and "core_principles" in ethos:
             principles = ethos["core_principles"]
@@ -545,21 +562,21 @@ def build_system_prompt(
                 parts.append(f"- {e}")
 
     # Signature phrases for voice consistency
-    greetings = personality.signature_phrases.get("greetings", [])
+    greetings = identity.signature_phrases.get("greetings", [])
     if greetings:
         parts.append(f"\nTypical openings: {', '.join(repr(g) for g in greetings[:5])}")
 
     # Vocabulary constraints
-    banned = personality.get_banned_words()
+    banned = identity.get_banned_words()
     if banned:
         parts.append(f"\nNEVER use these words: {', '.join(banned[:20])}")
 
-    preferred = personality.get_preferred_words()
+    preferred = identity.get_preferred_words()
     if preferred:
         parts.append(f"Preferred vocabulary: {', '.join(preferred[:15])}")
 
     # Example conversations (pick up to 4 for few-shot guidance)
-    examples = personality.examples
+    examples = identity.examples
     if examples:
         example_items = list(examples.items())[:4]
         parts.append("\nExample exchanges (for voice reference):")
@@ -576,8 +593,8 @@ def build_system_prompt(
                 parts.append(f"{name}: {resp_text}")
 
     # Cross-domain parallel instruction
-    if personality.parallel_examples:
-        areas = list(personality.interests.keys()) if personality.interests else []
+    if identity.parallel_examples:
+        areas = list(identity.interests.keys()) if identity.interests else []
         if len(areas) >= 2:
             parts.append(
                 f"\nYou naturally draw connections between "
@@ -586,7 +603,7 @@ def build_system_prompt(
             )
 
     # LLM-specific hints (model-tuned reinforcement)
-    hints = load_llm_hints(personality, model_slug)
+    hints = load_llm_hints(identity, model_slug)
     if hints:
         hint_parts = []
         # Voice reinforcement
@@ -632,9 +649,9 @@ def build_system_prompt(
     return "\n".join(parts)
 
 
-def _build_personality(name: str, data: dict, base_dir: Optional[Path] = None) -> Personality:
+def _build_identity(name: str, data: dict, base_dir: Optional[Path] = None) -> Identity:
     """
-    Build a unified Personality from raw YAML data.
+    Build a unified Identity from raw YAML data.
 
     If base_dir is provided, also looks for identity.yaml (operational config)
     and auxiliary files (opinions.yaml, opsec.yaml, knowledge_*.yaml) in that directory.
@@ -732,7 +749,7 @@ def _build_personality(name: str, data: dict, base_dir: Optional[Path] = None) -
     if operational:
         raw_config.update(operational)
 
-    p = Personality(
+    ident = Identity(
         name=name,
         display_name=identity_info.get("display_name", name.capitalize()),
         version=identity_info.get("version", identity_config.get("version", "1.0")),
@@ -766,11 +783,15 @@ def _build_personality(name: str, data: dict, base_dir: Optional[Path] = None) -
         opinions=opinions,
         opsec=opsec,
         knowledge=knowledge,
-        personality_ref=name,
+        identity_ref=name,
         raw=data,
         raw_config=raw_config,
     )
 
     # Set loaded_personality to point to self (backward compat)
-    # Since the model is frozen, we use model_construct for this circular ref
-    return p.model_copy(update={"loaded_personality": p})
+    # Since the model is frozen, we use model_copy for this circular ref
+    return ident.model_copy(update={"loaded_personality": ident})
+
+
+# Backward-compatible alias
+_build_personality = _build_identity

@@ -55,7 +55,7 @@ class TestSetup:
     @pytest.mark.asyncio
     async def test_setup_default_feeds(self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline):
         """Plugin uses default feeds when none configured."""
-        from overblick.personalities import Personality, LLMSettings
+        from overblick.identities import Personality, LLMSettings
         identity = Personality(
             name="test",
             llm=LLMSettings(),
@@ -338,7 +338,7 @@ class TestSendDigest:
     async def test_handles_missing_capability(self, tmp_path, mock_llm_client,
                                                mock_audit_log, mock_pipeline):
         """Logs error when email capability is not available."""
-        from overblick.personalities import Personality, LLMSettings
+        from overblick.identities import Personality, LLMSettings
         identity = Personality(
             name="test",
             llm=LLMSettings(),

@@ -88,7 +88,7 @@ async def onboard_page(request: Request):
     # Step-specific data
     if step_name == "personality":
         personality_svc = request.app.state.personality_service
-        context["available_personalities"] = personality_svc.list_personalities()
+        context["available_personalities"] = personality_svc.list_identities()
 
     elif step_name == "plugins":
         system_svc = request.app.state.system_service

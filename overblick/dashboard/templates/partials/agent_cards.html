@@ -10,8 +10,8 @@
     <p class="agent-card-desc">{{ card.description[:80] }}{% if card.description|length > 80 %}...{% endif %}</p>
     <div class="agent-card-meta">
         <span class="meta-item mono">{{ card.llm_model }}</span>
-        {% if card.personality_ref %}
-        <span class="meta-item">{{ card.personality_ref }}</span>
+        {% if card.identity_ref %}
+        <span class="meta-item">{{ card.identity_ref }}</span>
         {% endif %}
         {% if card.state == 'running' and card.uptime %}
         <span class="meta-item">{{ _format_uptime(card.uptime) }}</span>

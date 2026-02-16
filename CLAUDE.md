@@ -12,13 +12,13 @@
 - **LLM:** Abstract client with Ollama + LLM Gateway backends. SafeLLMPipeline wraps ALL LLM calls (sanitize → preflight → rate limit → LLM → output safety → audit).
 - **Database:** Abstract backend (SQLite + PostgreSQL) with migration system
 - **Plugins:** Self-contained modules (Moltbook, Telegram, Gmail, Email Agent) that receive PluginContext as their only framework interface.
-- **Personalities:** Unified personality stable — YAML-driven character definitions (voice, traits, interests, backstory, psychology, key_knowledge, operational config) loadable by any plugin via `load_personality()` + `build_system_prompt()`. Each personality is a single `personality.yaml` containing both character AND operational config.
+- **Identities:** Unified identity stable — YAML-driven character definitions (voice, traits, interests, backstory, psychology, key_knowledge, operational config) loadable by any plugin via `load_identity()` + `build_system_prompt()`. Each identity is a single `personality.yaml` containing both character AND operational config.
 - **Supervisor:** Multi-process boss agent with IPC (authenticated Unix sockets), permission management, agent audit system.
 - **Dashboard:** FastAPI + Jinja2 + htmx web dashboard (localhost only). Read-only agent monitoring, audit trail, identity browsing, and 7-step onboarding wizard. No npm — vendored htmx, hand-crafted dark theme CSS.
 
 ## Running
 ```bash
-# Run with specific personality
+# Run with specific identity
 python -m overblick run anomal
 python -m overblick run cherry
 
@@ -29,7 +29,7 @@ python -m overblick.gateway
 python -m overblick dashboard
 python -m overblick dashboard --port 9090
 
-# Chat with a personality (dev tool)
+# Chat with an identity (dev tool)
 ./chat.sh cherry
 ./chat.sh blixt --temperature 0.9
 
@@ -58,9 +58,9 @@ python -m overblick dashboard --port 9090
 - **Perfection:** Every module tested, every edge case handled, every prompt tuned
 - **Security-first:** Fail-closed pipeline, Fernet-encrypted secrets, boundary markers for external content, authenticated IPC, default-deny permissions
 - **Plugin isolation:** Plugins only access framework through PluginContext
-- **Personality-driven:** Characters are reusable building blocks in the personality stable — unified YAML with both character and operational config
-- **No cross-contamination:** Each personality has isolated data/, logs/, secrets/
-- **Documentation:** Every personality, capability, and plugin MUST have its own README.md explaining purpose, usage, configuration, and examples
+- **Identity-driven:** Characters are reusable building blocks in the identity stable — unified YAML with both character and operational config
+- **No cross-contamination:** Each identity has isolated data/, logs/, secrets/
+- **Documentation:** Every identity, capability, and plugin MUST have its own README.md explaining purpose, usage, configuration, and examples
 
 ## Secrets Management
 - Secrets are per-identity, stored in `config/<identity>/secrets.yaml` (Fernet-encrypted at rest)
@@ -117,7 +117,7 @@ Qwen3 supports a `think` parameter that enables/disables internal reasoning (`<t
 - Python 3.13+
 - Type hints on all public interfaces
 - Tests for every module — no exceptions
-- LLM personality tests go through the LLM Gateway (port 8200), marked @pytest.mark.llm
+- LLM identity tests go through the LLM Gateway (port 8200), marked @pytest.mark.llm
 - Slow LLM tests (multi-turn, forum posts) marked @pytest.mark.llm_slow
 - Security: all external content wrapped in boundary markers via `wrap_external_content()`
 

@@ -40,7 +40,7 @@ from typing import Any
 import pytest
 import yaml
 
-from overblick.personalities import Personality
+from overblick.identities import Personality
 
 # Base directory for scenario YAML files
 _SCENARIOS_BASE = Path(__file__).parent / "scenarios"

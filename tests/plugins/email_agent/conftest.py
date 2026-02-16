@@ -10,7 +10,7 @@ import pytest
 
 from overblick.core.plugin_base import PluginContext
 from overblick.core.llm.pipeline import PipelineResult
-from overblick.personalities import (
+from overblick.identities import (
     Personality,
     LLMSettings,
     QuietHoursSettings,

@@ -171,7 +171,7 @@ An Identity is a frozen Pydantic model loaded from YAML that controls all operat
 | `quiet_hours` | `QuietHoursSettings` | Start/end hours, timezone |
 | `schedule` | `ScheduleSettings` | Heartbeat, feed poll intervals |
 | `security` | `SecuritySettings` | Preflight/output safety toggle, admin IDs |
-| `personality_ref` | `str` | Name of personality to load |
+| `identity_ref` | `str` | Name of identity/personality to load |
 | `interest_keywords` | `list[str]` | Keywords for engagement scoring |
 | `deflections` | `dict/list` | Identity-specific deflection phrases |
 | `raw_config` | `dict` | Full YAML for arbitrary plugin access |
@@ -191,17 +191,17 @@ Each settings group is its own frozen Pydantic model:
 identity = load_identity("anomal")
 # Reads: overblick/identities/anomal/identity.yaml (required)
 # Also loads: personality.yaml, opinions.yaml, opsec.yaml, knowledge_*.yaml
-# Auto-loads: personality via personality_ref
+# Auto-loads: personality via identity_ref
 ```
 
 ### Identity-Personality Wiring
 
-The `personality_ref` field (defaults to the identity name) tells the loader which personality to attach:
+The `identity_ref` field (defaults to the identity name) tells the loader which personality to attach:
 
 ```yaml
 # identity.yaml
 name: anomal
-personality_ref: anomal  # → loads personalities/anomal/personality.yaml
+identity_ref: anomal  # → loads identities/anomal/personality.yaml
 ```
 
 After loading:
@@ -214,16 +214,16 @@ identity.loaded_personality.voice  # Voice config dict
 
 ## Personality System
 
-**File:** `overblick/personalities/__init__.py`
+**File:** `overblick/identities/__init__.py`
 
-Personalities define *who the agent is* — voice, backstory, traits, interests, vocabulary, and conversational examples. They are reusable: the same personality can be referenced by multiple identities.
+Identities define *who the agent is* — voice, backstory, traits, interests, vocabulary, and conversational examples. They are reusable: the same identity can be referenced by multiple configurations.
 
-### Personality Class
+### Identity Class
 
 Frozen Pydantic model containing all character data:
 
 ```python
-class Personality(BaseModel):
+class Identity(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str
@@ -244,11 +244,11 @@ class Personality(BaseModel):
 
 ### Loading Search Order
 
-`load_personality(name)` searches three locations:
+`load_identity(name)` searches three locations:
 
-1. `overblick/personalities/<name>/personality.yaml` (directory-based, preferred)
-2. `overblick/personalities/<name>.yaml` (standalone file)
-3. `overblick/identities/<name>/personality.yaml` (legacy location)
+1. `overblick/identities/<name>/personality.yaml` (directory-based, preferred)
+2. `overblick/identities/<name>.yaml` (standalone file)
+3. `overblick/personalities/<name>/personality.yaml` (legacy location)
 
 ### System Prompt Generation
 
@@ -940,7 +940,7 @@ supervisor:
 ```yaml
 name: anomal
 display_name: Anomal
-personality_ref: anomal
+identity_ref: anomal
 engagement_threshold: 35
 interest_keywords: [artificial intelligence, philosophy, crypto]
 connectors: [moltbook]
@@ -976,7 +976,7 @@ permissions:
 
 ### Personality Config
 
-**`overblick/personalities/<name>/personality.yaml`** — Character definition:
+**`overblick/identities/<name>/personality.yaml`** — Character definition:
 
 ```yaml
 identity:

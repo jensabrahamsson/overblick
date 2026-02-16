@@ -17,12 +17,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from overblick.core.event_bus import EventBus
-from overblick.personalities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.identities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage, SafeLLMPipeline
 from overblick.core.permissions import PermissionChecker, PermissionSet
 from overblick.core.plugin_base import PluginContext
 from overblick.core.security.input_sanitizer import sanitize, wrap_external_content
-from overblick.personalities import build_system_prompt, list_personalities, load_personality
+from overblick.identities import build_system_prompt, list_personalities, load_personality
 from overblick.supervisor.audit import AgentAuditor, AuditSeverity
 from overblick.supervisor.routing import MessageRouter, RouteStatus
 

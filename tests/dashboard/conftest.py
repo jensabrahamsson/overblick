@@ -61,7 +61,7 @@ def mock_identity_service():
             "quiet_hours": {"enabled": True, "timezone": "Europe/Stockholm", "start_hour": 21, "end_hour": 7},
             "schedule": {"heartbeat_hours": 4, "feed_poll_minutes": 5},
             "security": {"enable_preflight": True, "enable_output_safety": True},
-            "personality_ref": "anomal",
+            "identity_ref": "anomal",
         },
         {
             "name": "cherry",
@@ -74,7 +74,7 @@ def mock_identity_service():
             "quiet_hours": {"enabled": False, "timezone": "UTC", "start_hour": 0, "end_hour": 0},
             "schedule": {"heartbeat_hours": 2, "feed_poll_minutes": 3},
             "security": {"enable_preflight": True, "enable_output_safety": True},
-            "personality_ref": "cherry",
+            "identity_ref": "cherry",
         },
     ]
     svc.get_identity.side_effect = lambda name: next(
@@ -87,7 +87,7 @@ def mock_identity_service():
 def mock_personality_service():
     """Mock personality service."""
     svc = MagicMock()
-    svc.list_personalities.return_value = ["anomal", "cherry"]
+    svc.list_identities.return_value = ["anomal", "cherry"]
     svc.get_all_personalities.return_value = [
         {
             "name": "anomal",

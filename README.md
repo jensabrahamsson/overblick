@@ -85,7 +85,7 @@ Personalities define WHO the agent IS — separate from operational config. Each
 
 ### Creating a New Personality
 
-1. Create `overblick/personalities/<name>/personality.yaml`
+1. Create `overblick/identities/<name>/personality.yaml`
 2. Define: identity, voice, traits, interests, vocabulary, examples
 3. Test with the LLM test suite:
 
@@ -124,9 +124,9 @@ example_conversations:
 ```
 
 The personality system loads from three locations (in order):
-1. `overblick/personalities/<name>/personality.yaml` (directory-based, preferred)
-2. `overblick/personalities/<name>.yaml` (standalone file)
-3. `overblick/identities/<name>/personality.yaml` (legacy location)
+1. `overblick/identities/<name>/personality.yaml` (directory-based, preferred)
+2. `overblick/identities/<name>.yaml` (standalone file)
+3. `overblick/personalities/<name>/personality.yaml` (legacy location)
 
 ## Plugin System
 
