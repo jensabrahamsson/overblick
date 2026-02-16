@@ -148,7 +148,7 @@ async def test_full_digest():
     print("\n" + "="*60)
     print("✅ FULL WORKFLOW COMPLETE!")
     print("="*60)
-    print("\nCheck you@example.com for the AI digest email.")
+    print("\nCheck your configured recipient for the AI digest email.")
     print("\nDigest contains:")
     print(f"  - {len(ranked)} ranked articles")
     print(f"  - Generated in Anomal's voice (with reasoning)")
