@@ -95,7 +95,7 @@ class HealthInquiryHandler:
             return True
 
         except Exception as e:
-            logger.error("Failed to initialize HealthInquiryHandler: %s", e)
+            logger.error("Failed to initialize HealthInquiryHandler: %s", e, exc_info=True)
             return False
 
     async def handle(self, msg: IPCMessage) -> Optional[IPCMessage]:
@@ -154,7 +154,7 @@ class HealthInquiryHandler:
         try:
             health = await self._inspector.inspect()
         except Exception as e:
-            logger.error("Host inspection failed: %s", e)
+            logger.error("Host inspection failed: %s", e, exc_info=True)
             return self._error_response(f"Host inspection failed: {e}", sender)
 
         # Generate response via LLM (full security pipeline)
@@ -245,7 +245,7 @@ class HealthInquiryHandler:
                 )
             return None
         except Exception as e:
-            logger.error("LLM call failed for health response: %s", e)
+            logger.error("LLM call failed for health response: %s", e, exc_info=True)
             return None
 
     def _error_response(self, error: str, sender: str) -> IPCMessage:

@@ -176,7 +176,7 @@ class SafeLLMPipeline:
                 priority=priority,
             )
         except Exception as e:
-            logger.error("LLM call failed: %s", e)
+            logger.error("LLM call failed: %s", e, exc_info=True)
             result = PipelineResult(
                 blocked=True,
                 block_reason=f"LLM error: {e}",
@@ -292,7 +292,7 @@ class SafeLLMPipeline:
                     deflection=check.deflection,
                 )
         except Exception as e:
-            logger.error("Preflight check error: %s", e)
+            logger.error("Preflight check error: %s", e, exc_info=True)
             # Fail CLOSED — block if preflight crashes (security-first)
             return PipelineResult(
                 blocked=True,
@@ -316,7 +316,7 @@ class SafeLLMPipeline:
             if result.replaced:
                 return (False, result.text, None)
         except Exception as e:
-            logger.error("Output safety error: %s", e)
+            logger.error("Output safety error: %s", e, exc_info=True)
             # Fail CLOSED — block if output safety crashes (security-first)
             return (True, "", f"Output safety unavailable: {e}")
 

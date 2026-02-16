@@ -40,7 +40,7 @@ class AuditService:
             self._connections[identity] = conn
             return conn
         except Exception as e:
-            logger.error("Failed to open audit DB for '%s': %s", identity, e)
+            logger.error("Failed to open audit DB for '%s': %s", identity, e, exc_info=True)
             return None
 
     def query(
@@ -114,7 +114,7 @@ class AuditService:
                     results.append(entry)
 
             except Exception as e:
-                logger.error("Error querying audit for '%s': %s", ident, e)
+                logger.error("Error querying audit for '%s': %s", ident, e, exc_info=True)
 
         # Sort all results by timestamp descending, limit total
         results.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
@@ -155,7 +155,7 @@ class AuditService:
                 )
                 total += cursor.fetchone()[0]
             except Exception as e:
-                logger.error("Error counting audit for '%s': %s", ident, e)
+                logger.error("Error counting audit for '%s': %s", ident, e, exc_info=True)
 
         return total
 

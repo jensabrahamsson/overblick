@@ -83,7 +83,7 @@ class ReplyQueueManager:
                     await self._db.update_queue_retry(queue_id, "Reply callback returned False")
                     results["failed"] += 1
             except Exception as e:
-                logger.warning("Reply queue error for %s: %s", comment_id, e)
+                logger.warning("Reply queue error for %s: %s", comment_id, e, exc_info=True)
                 await self._db.update_queue_retry(queue_id, str(e)[:200])
                 results["failed"] += 1
 

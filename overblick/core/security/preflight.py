@@ -297,7 +297,7 @@ class PreflightChecker:
             )
 
         except Exception as e:
-            logger.error(f"AI analysis failed: {e}")
+            logger.error(f"AI analysis failed: {e}", exc_info=True)
             return PreflightResult(
                 allowed=True, threat_level=ThreatLevel.SUSPICIOUS,
                 threat_type=ThreatType.NONE, threat_score=0.3,

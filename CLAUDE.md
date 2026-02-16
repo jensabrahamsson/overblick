@@ -33,8 +33,8 @@ python -m overblick dashboard --port 9090
 ./chat.sh cherry
 ./chat.sh blixt --temperature 0.9
 
-# Run tests (fast — excludes LLM tests)
-./venv/bin/python3 -m pytest tests/ -v -m "not llm"
+# Run tests (fast — excludes LLM and E2E browser tests)
+./venv/bin/python3 -m pytest tests/ -v -m "not llm and not e2e"
 
 # Run LLM personality tests (requires Gateway + Ollama + qwen3:8b)
 ./venv/bin/python3 -m pytest tests/ -v -s -m llm
@@ -42,8 +42,11 @@ python -m overblick dashboard --port 9090
 # Run slow LLM tests (multi-turn, forum posts)
 ./venv/bin/python3 -m pytest tests/ -v -s -m llm_slow
 
-# Run ALL tests
-./venv/bin/python3 -m pytest tests/ -v
+# Run E2E browser tests (requires Playwright + running dashboard/wizard)
+./venv/bin/python3 -m pytest tests/ -v -m e2e
+
+# Run ALL unit tests (excludes E2E)
+./venv/bin/python3 -m pytest tests/ -v -m "not e2e"
 
 # Run dashboard tests only
 ./venv/bin/python3 -m pytest tests/dashboard/ -v

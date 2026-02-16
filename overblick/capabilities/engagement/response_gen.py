@@ -105,7 +105,7 @@ class ResponseGenerator:
             if result and result.get("content"):
                 return result["content"].strip()
         except Exception as e:
-            logger.error("%s failed: %s", audit_action, e)
+            logger.error("%s failed: %s", audit_action, e, exc_info=True)
 
         return None
 

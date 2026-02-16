@@ -98,7 +98,7 @@ class ResearchHandler:
             return True
 
         except Exception as e:
-            logger.error("Failed to initialize ResearchHandler: %s", e)
+            logger.error("Failed to initialize ResearchHandler: %s", e, exc_info=True)
             return False
 
     async def handle(self, msg: IPCMessage) -> Optional[IPCMessage]:
@@ -239,10 +239,10 @@ class ResearchHandler:
                     return self._extract_ddg_results(data)
 
         except aiohttp.ClientError as e:
-            logger.error("DuckDuckGo search failed: %s", e)
+            logger.error("DuckDuckGo search failed: %s", e, exc_info=True)
             return ""
         except Exception as e:
-            logger.error("Unexpected error in web search: %s", e)
+            logger.error("Unexpected error in web search: %s", e, exc_info=True)
             return ""
 
     def _extract_ddg_results(self, data: dict) -> str:
@@ -310,7 +310,7 @@ class ResearchHandler:
                 )
             return None
         except Exception as e:
-            logger.error("LLM call failed for research summary: %s", e)
+            logger.error("LLM call failed for research summary: %s", e, exc_info=True)
             return None
 
     def _error_response(self, error: str, sender: str) -> IPCMessage:

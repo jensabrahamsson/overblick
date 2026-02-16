@@ -112,7 +112,7 @@ class SecretsManager:
             self._cache.setdefault(identity, {})[key] = decrypted
             return decrypted
         except Exception as e:
-            logger.error(f"Failed to decrypt secret '{key}' for '{identity}': {e}")
+            logger.error(f"Failed to decrypt secret '{key}' for '{identity}': {e}", exc_info=True)
             return None
 
     def set(self, identity: str, key: str, value: str) -> None:

@@ -129,7 +129,7 @@ class TelegramNotifier:
                         )
                         return False
         except aiohttp.ClientError as e:
-            logger.error("Telegram notification failed: %s", e)
+            logger.error("Telegram notification failed: %s", e, exc_info=True)
             return False
 
     async def send_notification_tracked(
@@ -174,7 +174,7 @@ class TelegramNotifier:
                         )
                         return None
         except aiohttp.ClientError as e:
-            logger.error("Tracked notification failed: %s", e)
+            logger.error("Tracked notification failed: %s", e, exc_info=True)
             return None
 
     async def fetch_updates(self, limit: int = 10) -> list[TelegramUpdate]:
@@ -261,10 +261,10 @@ class TelegramNotifier:
                     return updates
 
         except aiohttp.ClientError as e:
-            logger.error("Telegram getUpdates failed: %s", e)
+            logger.error("Telegram getUpdates failed: %s", e, exc_info=True)
             return []
         except Exception as e:
-            logger.error("Unexpected error fetching Telegram updates: %s", e)
+            logger.error("Unexpected error fetching Telegram updates: %s", e, exc_info=True)
             return []
 
     async def send_html(self, message: str) -> bool:
@@ -300,5 +300,5 @@ class TelegramNotifier:
                 async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     return resp.status == 200
         except aiohttp.ClientError as e:
-            logger.error("Telegram HTML notification failed: %s", e)
+            logger.error("Telegram HTML notification failed: %s", e, exc_info=True)
             return False

@@ -194,7 +194,7 @@ class QueueManager:
                 logger.info("Completed request %s in %.0fms", queued.request_id, elapsed_ms)
 
         except Exception as e:
-            logger.error("Failed to process request %s: %s", queued.request_id, e)
+            logger.error("Failed to process request %s: %s", queued.request_id, e, exc_info=True)
             if not queued.future.done():
                 queued.future.set_exception(e)
 

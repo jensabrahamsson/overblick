@@ -116,7 +116,7 @@ class GatewayClient(LLMClient):
             logger.error(f"Gateway: Timeout ({self.timeout_seconds}s)")
             return None
         except aiohttp.ClientError as e:
-            logger.error(f"Gateway: Connection error: {e}")
+            logger.error(f"Gateway: Connection error: {e}", exc_info=True)
             return None
         except Exception as e:
             logger.error(f"Gateway: Unexpected error: {e}", exc_info=True)

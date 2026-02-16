@@ -134,7 +134,7 @@ class OllamaClient(LLMClient):
             logger.error(f"LLM: Request timeout ({self.timeout_seconds}s)")
             return None
         except aiohttp.ClientError as e:
-            logger.error(f"LLM: Connection error: {e}")
+            logger.error(f"LLM: Connection error: {e}", exc_info=True)
             return None
         except Exception as e:
             logger.error(f"LLM: Unexpected error: {e}", exc_info=True)

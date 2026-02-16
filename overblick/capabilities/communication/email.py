@@ -73,7 +73,7 @@ class EmailCapability:
                 self._smtp_config["port"],
             )
         except Exception as e:
-            logger.error("Failed to load SMTP secrets: %s", e)
+            logger.error("Failed to load SMTP secrets: %s", e, exc_info=True)
             raise RuntimeError(
                 "Email capability requires SMTP secrets: "
                 "smtp_server, smtp_port, smtp_login, smtp_password, smtp_from_email"
@@ -138,7 +138,7 @@ class EmailCapability:
             return True
 
         except Exception as e:
-            logger.error("Failed to send email to %s: %s", to, e)
+            logger.error("Failed to send email to %s: %s", to, e, exc_info=True)
             return False
 
     def _send_smtp(self, msg: MIMEMultipart) -> None:

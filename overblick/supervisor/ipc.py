@@ -233,7 +233,7 @@ class IPCServer:
         except json.JSONDecodeError as e:
             logger.warning("Invalid IPC message: %s", e)
         except Exception as e:
-            logger.error("IPC handler error: %s", e)
+            logger.error("IPC handler error: %s", e, exc_info=True)
         finally:
             writer.close()
             await writer.wait_closed()
@@ -298,7 +298,7 @@ class IPCClient:
         except asyncio.TimeoutError:
             logger.warning("IPC timeout connecting to %s", self._socket_path)
         except Exception as e:
-            logger.error("IPC client error: %s", e)
+            logger.error("IPC client error: %s", e, exc_info=True)
 
         return None
 

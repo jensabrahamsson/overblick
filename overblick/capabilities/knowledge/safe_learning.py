@@ -157,7 +157,7 @@ class SafeLearningModule:
             return learning.review_result
 
         except Exception as e:
-            logger.error("Review error: %s", e)
+            logger.error("Review error: %s", e, exc_info=True)
             learning.review_result = ReviewResult.REJECTED
             learning.review_reason = f"Review error: {e}"
             return ReviewResult.REJECTED

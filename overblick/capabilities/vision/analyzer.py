@@ -140,7 +140,7 @@ class VisionCapability(CapabilityBase):
                     return None
                 image_data = await resp.read()
         except Exception as e:
-            logger.error("Error downloading image from %s: %s", image_url, e)
+            logger.error("Error downloading image from %s: %s", image_url, e, exc_info=True)
             return None
 
         # Detect media type from URL extension
@@ -224,10 +224,10 @@ class VisionCapability(CapabilityBase):
                 return None
 
         except aiohttp.ClientError as e:
-            logger.error("Claude API request failed: %s", e)
+            logger.error("Claude API request failed: %s", e, exc_info=True)
             return None
         except Exception as e:
-            logger.error("Unexpected error in vision analysis: %s", e)
+            logger.error("Unexpected error in vision analysis: %s", e, exc_info=True)
             return None
 
     async def teardown(self) -> None:

@@ -19,8 +19,8 @@ pip install -e ".[dev]"
 pip install -r requirements.txt        # core only
 pip install -r requirements-dev.txt    # core + test/dev tools
 
-# Run tests (796 unit + scenario tests)
-pytest tests/ -v
+# Run tests (1400+ unit + scenario tests)
+pytest tests/ -v -m "not e2e"
 
 # Run LLM personality tests (requires Ollama with qwen3:8b)
 pytest tests/ -v -m llm --timeout=300
@@ -41,7 +41,7 @@ python -m overblick run anomal
               │             │             │
         ┌─────▼──────┐ ┌───▼─────┐ ┌────▼──────┐
         │  Identity   │ │Identity │ │ Identity  │
-        │  "anomal"   │ │"cherry" │ │  "volt"   │
+        │  "anomal"   │ │"cherry" │ │  "blixt"  │
         └─────┬──────┘ └───┬─────┘ └────┬──────┘
               │             │             │
         ┌─────▼─────────────▼─────────────▼──────┐
@@ -73,15 +73,16 @@ Pipeline is **fail-closed**: if any security stage crashes, the request is block
 
 Personalities define WHO the agent IS — separate from operational config. Each personality can optionally have a psychological framework (Jungian, Attachment Theory, Stoic, Existential) that shapes how they think, not just what they can do.
 
-| Personality | Voice | Style |
-|-------------|-------|-------|
+| Identity | Voice | Style |
+|----------|-------|-------|
 | **Anomal** | Intellectual humanist (James May energy) | Measured, curious, cross-domain parallels |
 | **Cherry** | 28yo Stockholm woman | Flirty, emoji-heavy, Swedish pop culture |
-| **Volt** | Punk tech critic | Sharp, aggressive, anti-corporate, privacy-obsessed |
-| **Birch** | Forest philosopher | Sparse, calm, nature metaphors, Swedish stoicism |
-| **Prism** | Digital artist | Colorful, synesthetic, warm, encouraging |
-| **Rust** | Jaded ex-trader | Cynical, dark humor, cautionary tales |
-| **Nyx** | Uncanny philosopher | Eerie, paradoxical, recursive, existential |
+| **Blixt** | Punk tech critic | Sharp, aggressive, anti-corporate, privacy-obsessed |
+| **Bjork** | Forest philosopher | Sparse, calm, nature metaphors, Swedish stoicism |
+| **Prisma** | Digital artist | Colorful, synesthetic, warm, encouraging |
+| **Rost** | Jaded ex-trader | Cynical, dark humor, cautionary tales |
+| **Natt** | Uncanny philosopher | Eerie, paradoxical, recursive, existential |
+| **Stal** | Email secretary | Formal, precise, diplomatic — acts on the principal's behalf |
 
 ### Creating a New Personality
 
@@ -138,7 +139,9 @@ Plugins are self-contained modules. Each receives `PluginContext` as its ONLY fr
 |--------|--------|-------------|
 | **Moltbook** | Production | Autonomous social engagement (OBSERVE → THINK → DECIDE → ACT → LEARN) |
 | **Telegram** | Complete | Bot with commands, conversation tracking, rate limiting |
-| **Gmail** | Complete | Email processing, draft mode, boss agent approval workflow |
+| **Email Agent** | Complete | Email processing, classification, boss agent consultation |
+| **Host Health** | Complete | System monitoring with LLM-powered health analysis |
+| **AI Digest** | Complete | Periodic AI-generated digest summaries |
 | **Discord** | Shell | Bot with guild/channel management (community contribution welcome) |
 | **RSS** | Shell | Feed monitoring with keyword filtering (community contribution welcome) |
 | **Webhook** | Shell | HTTP endpoint for external integrations (community contribution welcome) |
@@ -184,7 +187,7 @@ class MyPlugin(PluginBase):
 The supervisor manages multiple agent identities as subprocesses:
 
 ```python
-supervisor = Supervisor(identities=["anomal", "cherry", "volt"])
+supervisor = Supervisor(identities=["anomal", "cherry", "blixt"])
 await supervisor.start()   # Start all agents
 await supervisor.run()     # Block until shutdown
 ```
@@ -252,8 +255,8 @@ Both backends share the same migration system and API.
 ## Testing
 
 ```bash
-# All unit + scenario tests (796)
-pytest tests/ -v
+# All unit + scenario tests (1400+)
+pytest tests/ -v -m "not e2e"
 
 # LLM personality tests (requires Ollama + qwen3:8b)
 pytest tests/ -v -m llm --timeout=300
@@ -311,22 +314,22 @@ overblick/
   plugins/
     moltbook/               # Autonomous social engagement (production)
     telegram/               # Telegram bot (complete)
-    gmail/                  # Email agent (complete)
+    email_agent/            # Email processing and classification (complete)
+    host_health/            # System health monitoring (complete)
+    ai_digest/              # AI-generated digests (complete)
     discord/                # Discord bot (shell)
     rss/                    # RSS feed monitor (shell)
     webhook/                # HTTP webhook receiver (shell)
     matrix/                 # Matrix chat (shell)
-  personalities/            # Reusable personality stable
+  identities/               # Identity stable (personality YAML + knowledge files)
     anomal/                 # Intellectual humanist
+    bjork/                  # Forest philosopher
+    blixt/                  # Punk tech critic
     cherry/                 # Flirty Stockholmer
-    volt/                   # Punk tech critic
-    birch/                  # Forest philosopher
-    prism/                  # Digital artist
-    rust/                   # Jaded ex-trader
-    nyx/                    # Uncanny philosopher
-  identities/
-    anomal/                 # Identity config + knowledge files
-    cherry/                 # Identity config + knowledge files
+    natt/                   # Uncanny philosopher
+    prisma/                 # Digital artist
+    rost/                   # Jaded ex-trader
+    stal/                   # Email secretary
   supervisor/
     supervisor.py           # Multi-process manager (Boss Agent)
     ipc.py                  # IPC layer (Unix sockets + HMAC)
@@ -334,7 +337,7 @@ overblick/
     audit.py                # Agent audit system
 config/
   overblick.yaml            # Global framework config
-tests/                      # 796+ unit + scenario + LLM tests
+tests/                      # 1400+ unit + scenario + LLM tests
 ```
 
 ## Configuration

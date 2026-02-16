@@ -214,7 +214,7 @@ class ResponseRouter:
             )
 
         except Exception as e:
-            logger.error(f"ResponseRouter: LLM inspection failed: {e}")
+            logger.error(f"ResponseRouter: LLM inspection failed: {e}", exc_info=True)
             return None
 
     @staticmethod
