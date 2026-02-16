@@ -191,8 +191,11 @@ class TestBjorkLLM:
         has_nature = any(w in response_lower for w in nature_words)
         # Not every response must have nature, but it's strongly expected
         if not has_nature:
-            # Allow it but log a warning — the prompt may need tuning
-            pytest.xfail(f"Björk didn't use nature metaphors (prompt may need tuning): {response}")
+            import warnings
+            warnings.warn(
+                f"Björk didn't use nature metaphors (prompt may need tuning): {response[:200]}",
+                stacklevel=1,
+            )
 
 
 @pytest.mark.llm

@@ -242,7 +242,7 @@ class TestPluginRegistryRegister:
     ):
         """A newly registered plugin should appear in available_plugins()."""
         registry.register("zzz_test_plugin", "some.module", "SomeClass")
-        available = PluginRegistry.available_plugins()
+        available = registry.available_plugins()
         assert "zzz_test_plugin" in available
 
     def test_register_overwrites_existing(self, registry, _cleanup_known_plugins):
@@ -330,14 +330,14 @@ class TestPluginRegistryAllLoaded:
 class TestPluginRegistryAvailablePlugins:
     """Tests for PluginRegistry.available_plugins()."""
 
-    def test_returns_sorted_list(self):
+    def test_returns_sorted_list(self, registry):
         """available_plugins() should return plugin names in sorted order."""
-        available = PluginRegistry.available_plugins()
+        available = registry.available_plugins()
         assert available == sorted(available)
 
-    def test_contains_core_plugins(self):
+    def test_contains_core_plugins(self, registry):
         """The default registry should contain all core plugin names."""
-        available = PluginRegistry.available_plugins()
+        available = registry.available_plugins()
         expected_core = [
             "ai_digest",
             "discord",
@@ -352,16 +352,15 @@ class TestPluginRegistryAvailablePlugins:
         for name in expected_core:
             assert name in available, f"Core plugin '{name}' missing from available list"
 
-    def test_returns_list_type(self):
+    def test_returns_list_type(self, registry):
         """available_plugins() should return a plain list of strings."""
-        available = PluginRegistry.available_plugins()
+        available = registry.available_plugins()
         assert isinstance(available, list)
         assert all(isinstance(name, str) for name in available)
 
-    def test_is_static_method(self):
-        """available_plugins() should be callable without an instance."""
-        # Verify it works as a static method (no self required)
-        result = PluginRegistry.available_plugins()
+    def test_instance_method(self, registry):
+        """available_plugins() should be callable on an instance."""
+        result = registry.available_plugins()
         assert len(result) > 0
 
 
@@ -473,14 +472,17 @@ class TestPluginRegistryIsolation:
         assert reg_a.get("iso_test") is not None
         assert reg_b.get("iso_test") is None
 
-    def test_available_plugins_shared_across_instances(self, _cleanup_known_plugins):
+    def test_instances_have_separate_registrations(self, _cleanup_known_plugins):
         """
-        available_plugins() reads from the module-level dict,
-        so registrations are visible across all instances.
+        Each PluginRegistry instance has its own plugins dict.
+        Registrations on one instance don't affect another.
         """
         reg_a = PluginRegistry()
         reg_b = PluginRegistry()
 
-        reg_a.register("shared_vis", "some.module", "SomeClass")
-        # Both instances should see it (static method reads module-level dict)
-        assert "shared_vis" in reg_b.available_plugins()
+        reg_a.register("instance_only", "some.module", "SomeClass")
+        assert "instance_only" in reg_a.available_plugins()
+        # reg_b should NOT see it (per-instance isolation)
+        # Note: it IS in _KNOWN_PLUGINS for backward compat, but
+        # reg_b's instance dict was created before the registration
+        assert "instance_only" not in reg_b.available_plugins()

@@ -17,6 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
+from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
+
 from overblick.core.llm.gateway_client import GatewayClient
 
 
@@ -331,29 +333,27 @@ class TestGatewayClientErrors:
     """Test error handling in chat()."""
 
     async def test_chat_http_error(self):
-        """chat() returns None on HTTP error status."""
+        """chat() raises LLMConnectionError on HTTP error status."""
         session = _make_mock_session(response_status=500, response_text="Internal Server Error")
         client = _make_client(session)
 
-        result = await client.chat(
-            messages=[{"role": "user", "content": "Hi"}],
-        )
-
-        assert result is None
+        with pytest.raises(LLMConnectionError, match="500"):
+            await client.chat(
+                messages=[{"role": "user", "content": "Hi"}],
+            )
 
     async def test_chat_http_429_rate_limited(self):
-        """chat() returns None on HTTP 429 (rate limited)."""
+        """chat() raises LLMConnectionError on HTTP 429 (rate limited)."""
         session = _make_mock_session(response_status=429, response_text="Too Many Requests")
         client = _make_client(session)
 
-        result = await client.chat(
-            messages=[{"role": "user", "content": "Hi"}],
-        )
-
-        assert result is None
+        with pytest.raises(LLMConnectionError, match="429"):
+            await client.chat(
+                messages=[{"role": "user", "content": "Hi"}],
+            )
 
     async def test_chat_timeout(self):
-        """chat() returns None on asyncio.TimeoutError."""
+        """chat() raises LLMTimeoutError on asyncio.TimeoutError."""
         mock_response = AsyncMock()
         mock_response.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError())
         mock_response.__aexit__ = AsyncMock(return_value=False)
@@ -364,14 +364,13 @@ class TestGatewayClientErrors:
 
         client = _make_client(session, timeout_seconds=5)
 
-        result = await client.chat(
-            messages=[{"role": "user", "content": "Hi"}],
-        )
-
-        assert result is None
+        with pytest.raises(LLMTimeoutError, match="timeout"):
+            await client.chat(
+                messages=[{"role": "user", "content": "Hi"}],
+            )
 
     async def test_chat_connection_error(self):
-        """chat() returns None on aiohttp.ClientError."""
+        """chat() raises LLMConnectionError on aiohttp.ClientError."""
         mock_response = AsyncMock()
         mock_response.__aenter__ = AsyncMock(
             side_effect=aiohttp.ClientError("Connection refused"),
@@ -384,14 +383,13 @@ class TestGatewayClientErrors:
 
         client = _make_client(session)
 
-        result = await client.chat(
-            messages=[{"role": "user", "content": "Hi"}],
-        )
-
-        assert result is None
+        with pytest.raises(LLMConnectionError, match="connection error"):
+            await client.chat(
+                messages=[{"role": "user", "content": "Hi"}],
+            )
 
     async def test_chat_unexpected_exception(self):
-        """chat() returns None on unexpected exceptions."""
+        """chat() raises LLMConnectionError on unexpected exceptions."""
         mock_response = AsyncMock()
         mock_response.__aenter__ = AsyncMock(
             side_effect=RuntimeError("Something unexpected"),
@@ -404,11 +402,10 @@ class TestGatewayClientErrors:
 
         client = _make_client(session)
 
-        result = await client.chat(
-            messages=[{"role": "user", "content": "Hi"}],
-        )
-
-        assert result is None
+        with pytest.raises(LLMConnectionError, match="unexpected"):
+            await client.chat(
+                messages=[{"role": "user", "content": "Hi"}],
+            )
 
 
 # ---------------------------------------------------------------------------

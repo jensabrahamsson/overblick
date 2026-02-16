@@ -1198,7 +1198,7 @@ class TestSenderReputation:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        rep = plugin._get_sender_reputation("unknown@example.com")
+        rep = await plugin._get_sender_reputation("unknown@example.com")
         assert rep["known"] is False
 
     @pytest.mark.asyncio
@@ -1218,7 +1218,7 @@ class TestSenderReputation:
         profile_path = plugin._profiles_dir / f"{safe_name}.json"
         profile_path.write_text(json.dumps(profile.model_dump(), indent=2))
 
-        rep = plugin._get_sender_reputation("newsletter@spam.com")
+        rep = await plugin._get_sender_reputation("newsletter@spam.com")
         assert rep["known"] is True
         assert rep["total"] == 10
         assert rep["ignore_rate"] == 0.9

@@ -9,12 +9,14 @@ Provides REST endpoints for:
 """
 
 import asyncio
+import hmac
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Security
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 
 from .config import get_config
 from .models import ChatRequest, ChatResponse, Priority, GatewayStats
@@ -73,6 +75,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# API key authentication
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def verify_api_key(api_key: Optional[str] = Security(_api_key_header)) -> None:
+    """Verify API key if one is configured."""
+    config = get_config()
+    if not config.api_key:
+        return  # No key configured — allow (localhost-only)
+    if not api_key or not hmac.compare_digest(api_key, config.api_key):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
 
 @app.get("/health")
 async def health_check() -> dict:
@@ -114,14 +128,14 @@ async def health_check() -> dict:
     }
 
 
-@app.get("/stats", response_model=GatewayStats)
+@app.get("/stats", response_model=GatewayStats, dependencies=[Depends(verify_api_key)])
 async def get_stats() -> GatewayStats:
     """Get gateway statistics: queue size, request counts, response times."""
     qm = get_queue_manager()
     return qm.get_stats()
 
 
-@app.get("/models")
+@app.get("/models", dependencies=[Depends(verify_api_key)])
 async def list_models() -> dict:
     """List available Ollama models."""
     qm = get_queue_manager()
@@ -132,7 +146,7 @@ async def list_models() -> dict:
         raise HTTPException(status_code=503, detail=str(e))
 
 
-@app.post("/v1/chat/completions", response_model=ChatResponse)
+@app.post("/v1/chat/completions", response_model=ChatResponse, dependencies=[Depends(verify_api_key)])
 async def chat_completion(
     request: ChatRequest,
     priority: str = Query(default="low", description="Priority: high or low"),

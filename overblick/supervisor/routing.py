@@ -96,6 +96,9 @@ class MessageRouter:
     when the target agent polls or when pushed via IPC.
     """
 
+    MAX_DELIVERED = 1000
+    MAX_DEAD_LETTERS = 1000
+
     def __init__(self, audit_log: Any = None):
         self._capabilities: dict[str, AgentCapabilities] = {}
         self._pending: list[RoutedMessage] = []
@@ -186,6 +189,7 @@ class MessageRouter:
             return msg
 
         self._pending.append(msg)
+        self._cleanup_if_needed()
         self._log_route(msg, success=True)
         return msg
 
@@ -281,7 +285,22 @@ class MessageRouter:
             msg.status = RouteStatus.EXPIRED
             self._dead_letters.append(msg)
         self._pending = [m for m in self._pending if not m.is_expired]
+        self._cap_lists()
         return len(expired)
+
+    def _cleanup_if_needed(self) -> None:
+        """Periodic cleanup: expire pending + cap lists."""
+        # Run expiry check every 100 messages
+        if self._message_counter % 100 == 0:
+            self.cleanup_expired()
+        self._cap_lists()
+
+    def _cap_lists(self) -> None:
+        """FIFO eviction for delivered and dead_letters lists."""
+        if len(self._delivered) > self.MAX_DELIVERED:
+            self._delivered = self._delivered[-self.MAX_DELIVERED:]
+        if len(self._dead_letters) > self.MAX_DEAD_LETTERS:
+            self._dead_letters = self._dead_letters[-self.MAX_DEAD_LETTERS:]
 
     def _log_route(self, msg: RoutedMessage, success: bool) -> None:
         """Log routing action to audit."""

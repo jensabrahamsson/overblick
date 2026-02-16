@@ -157,5 +157,5 @@ class SupervisorService:
             return {"success": False, "error": str(e)}
 
     async def close(self) -> None:
-        """Cleanup IPC client."""
-        self._client = None
+        """Cleanup (no persistent state to release)."""
+        pass

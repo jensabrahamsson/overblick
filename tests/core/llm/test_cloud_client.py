@@ -31,10 +31,26 @@ class TestCloudLLMClient:
             await client.chat([{"role": "user", "content": "Hello"}])
 
     @pytest.mark.asyncio
-    async def test_health_check_raises(self):
-        client = CloudLLMClient(api_url="", model="")
-        with pytest.raises(NotImplementedError, match="health_check"):
-            await client.health_check()
+    async def test_health_check_configured(self):
+        client = CloudLLMClient(
+            api_url="https://api.openai.com/v1",
+            model="gpt-4o",
+            api_key="sk-test",
+        )
+        result = await client.health_check()
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_health_check_not_configured(self):
+        client = CloudLLMClient(api_url="", model="", api_key="")
+        result = await client.health_check()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_health_check_missing_api_key(self):
+        client = CloudLLMClient(api_url="https://api.openai.com/v1", model="gpt-4o")
+        result = await client.health_check()
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_close_does_not_raise(self):

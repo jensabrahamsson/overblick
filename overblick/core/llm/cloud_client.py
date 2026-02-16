@@ -77,12 +77,16 @@ class CloudLLMClient(LLMClient):
     async def health_check(self) -> bool:
         """Check if the cloud provider is reachable.
 
-        Not yet implemented — raises NotImplementedError with guidance.
+        Stub returns True if api_url and api_key are configured, False otherwise.
+        Override this to verify actual cloud provider connectivity.
         """
-        raise NotImplementedError(
-            "Cloud LLM health_check() not yet implemented. "
-            "Implement this to verify your cloud provider API key and connectivity."
-        )
+        configured = bool(self.api_url and self.api_key)
+        if not configured:
+            logger.warning(
+                "Cloud LLM health_check: not configured (api_url=%s, api_key=%s)",
+                bool(self.api_url), bool(self.api_key),
+            )
+        return configured
 
     async def close(self) -> None:
         """Close any open connections. No-op by default."""

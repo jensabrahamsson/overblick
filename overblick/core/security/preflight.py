@@ -136,6 +136,10 @@ class PreflightChecker:
     Identity-aware: deflection phrases loaded from identity config.
     """
 
+    # Maximum number of entries in caches to prevent unbounded growth
+    MAX_CACHE_SIZE = 10_000
+    MAX_USER_CONTEXTS = 5_000
+
     def __init__(
         self,
         llm_client=None,
@@ -298,9 +302,11 @@ class PreflightChecker:
 
         except Exception as e:
             logger.error(f"AI analysis failed: {e}", exc_info=True)
+            # Fail CLOSED — if AI analysis crashes, block the suspicious message
             return PreflightResult(
-                allowed=True, threat_level=ThreatLevel.SUSPICIOUS,
-                threat_type=ThreatType.NONE, threat_score=0.3,
+                allowed=False, threat_level=ThreatLevel.BLOCKED,
+                threat_type=ThreatType.NONE, threat_score=0.8,
+                reason=f"AI analysis unavailable: {e}",
             )
 
     def _generate_deflection(self, threat_type: ThreatType) -> str:
@@ -329,12 +335,24 @@ class PreflightChecker:
 
     def _get_user_context(self, user_id: str) -> SecurityContext:
         if user_id not in self._user_contexts:
+            # Evict stale contexts if over limit
+            if len(self._user_contexts) >= self.MAX_USER_CONTEXTS:
+                self._evict_stale_contexts()
             self._user_contexts[user_id] = SecurityContext(user_id=user_id)
         ctx = self._user_contexts[user_id]
         hours_elapsed = (time.time() - ctx.last_interaction) / 3600
         ctx.suspicion_score = max(0.0, ctx.suspicion_score - 0.1 * hours_elapsed)
         ctx.last_interaction = time.time()
         return ctx
+
+    def _evict_stale_contexts(self) -> None:
+        """Remove oldest user contexts when over limit."""
+        sorted_ids = sorted(
+            self._user_contexts,
+            key=lambda uid: self._user_contexts[uid].last_interaction,
+        )
+        for uid in sorted_ids[:len(sorted_ids) // 2]:
+            del self._user_contexts[uid]
 
     def _update_user_context(self, ctx: SecurityContext, result: PreflightResult) -> None:
         if result.threat_level in (ThreatLevel.SUSPICIOUS, ThreatLevel.HOSTILE, ThreatLevel.BLOCKED):
@@ -350,4 +368,22 @@ class PreflightChecker:
         return None
 
     def _cache_result(self, key: str, result: PreflightResult) -> None:
+        # Evict expired entries if cache exceeds max size
+        if len(self._message_cache) >= self.MAX_CACHE_SIZE:
+            self._evict_expired_cache()
         self._message_cache[key] = (result, time.time())
+
+    def _evict_expired_cache(self) -> None:
+        """Remove expired cache entries; if still over limit, drop oldest."""
+        now = time.time()
+        self._message_cache = {
+            k: (r, ts) for k, (r, ts) in self._message_cache.items()
+            if now - ts < self.cache_ttl
+        }
+        # If still over limit after TTL eviction, drop oldest half
+        if len(self._message_cache) >= self.MAX_CACHE_SIZE:
+            sorted_keys = sorted(
+                self._message_cache, key=lambda k: self._message_cache[k][1]
+            )
+            for k in sorted_keys[:len(sorted_keys) // 2]:
+                del self._message_cache[k]

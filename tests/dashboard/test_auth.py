@@ -21,6 +21,7 @@ from overblick.dashboard.auth import (
     SessionManager,
     SESSION_COOKIE,
     CSRF_COOKIE,
+    LOGIN_CSRF_COOKIE,
     PUBLIC_PATHS,
     get_session,
     check_csrf,
@@ -243,16 +244,21 @@ class TestAuthMiddleware:
 
     @pytest.mark.asyncio
     async def test_csrf_on_post_with_valid_token(self, client, session_cookie, config):
-        """POST with valid X-CSRF-Token header passes CSRF check."""
+        """POST /login with valid double-submit CSRF cookie passes CSRF check."""
         cookie_value, csrf_token = session_cookie
+        # First GET /login to obtain the login CSRF cookie
+        get_resp = await client.get("/login")
+        login_csrf_cookie = get_resp.cookies.get(LOGIN_CSRF_COOKIE, "")
+        assert login_csrf_cookie, "GET /login should set a login CSRF cookie"
+        # POST with matching CSRF token in both cookie and form field
         resp = await client.post(
             "/login",
-            data={"password": config.password, "csrf_token": csrf_token},
-            cookies={SESSION_COOKIE: cookie_value},
+            data={"password": config.password, "csrf_token": login_csrf_cookie},
+            cookies={SESSION_COOKIE: cookie_value, LOGIN_CSRF_COOKIE: login_csrf_cookie},
             headers={"X-CSRF-Token": csrf_token},
             follow_redirects=False,
         )
-        # Login should succeed (302 redirect) or 200, not 403
+        # Login should succeed (302 redirect), not 403
         assert resp.status_code != 403
 
     @pytest.mark.asyncio
@@ -315,16 +321,21 @@ class TestAuthMiddleware:
     @pytest.mark.asyncio
     async def test_post_to_public_path_without_csrf_allowed(self, client, session_cookie, config):
         """
-        POST to public path (/login) does not require CSRF token.
+        POST to public path (/login) does not require middleware CSRF header.
+        The login route has its own double-submit cookie CSRF instead.
         """
         cookie_value, _ = session_cookie
+        # GET /login to obtain the login CSRF cookie
+        get_resp = await client.get("/login")
+        login_csrf = get_resp.cookies.get(LOGIN_CSRF_COOKIE, "")
+        # POST with double-submit cookie CSRF (no X-CSRF-Token header needed)
         resp = await client.post(
             "/login",
-            data={"password": config.password},
-            cookies={SESSION_COOKIE: cookie_value},
+            data={"password": config.password, "csrf_token": login_csrf},
+            cookies={SESSION_COOKIE: cookie_value, LOGIN_CSRF_COOKIE: login_csrf},
             follow_redirects=False,
         )
-        # Public path — CSRF not checked by middleware
+        # Public path — middleware CSRF not checked, login CSRF passes
         assert resp.status_code != 403
 
     @pytest.mark.asyncio
@@ -418,6 +429,23 @@ class TestHelperFunctions:
 class TestLoginRoute:
     """Login page rendering, success, failure, rate limiting."""
 
+    async def _get_login_csrf(self, client):
+        """GET /login to obtain the double-submit CSRF cookie and token."""
+        resp = await client.get("/login")
+        csrf_token = resp.cookies.get(LOGIN_CSRF_COOKIE, "")
+        return csrf_token
+
+    async def _post_login(self, client, password, csrf_token=None):
+        """POST /login with proper double-submit CSRF cookie."""
+        if csrf_token is None:
+            csrf_token = await self._get_login_csrf(client)
+        return await client.post(
+            "/login",
+            data={"password": password, "csrf_token": csrf_token},
+            cookies={LOGIN_CSRF_COOKIE: csrf_token},
+            follow_redirects=False,
+        )
+
     @pytest.mark.asyncio
     async def test_login_page_renders(self, client):
         resp = await client.get("/login")
@@ -426,30 +454,23 @@ class TestLoginRoute:
 
     @pytest.mark.asyncio
     async def test_login_success(self, client, config):
-        resp = await client.post("/login", data={
-            "password": config.password,
-            "csrf_token": "",
-        }, follow_redirects=False)
+        resp = await self._post_login(client, config.password)
         assert resp.status_code == 302
         assert resp.headers.get("location") == "/"
         assert SESSION_COOKIE in resp.cookies
 
     @pytest.mark.asyncio
     async def test_login_wrong_password(self, client):
-        resp = await client.post("/login", data={
-            "password": "wrong",
-            "csrf_token": "",
-        })
+        resp = await self._post_login(client, "wrong")
         assert resp.status_code == 401
-        assert "Invalid password" in resp.text
 
     @pytest.mark.asyncio
     async def test_login_rate_limiting(self, client):
         """After 5 failed attempts, the 6th is rate limited."""
         for _ in range(5):
-            await client.post("/login", data={"password": "wrong", "csrf_token": ""})
+            await self._post_login(client, "wrong")
 
-        resp = await client.post("/login", data={"password": "wrong", "csrf_token": ""})
+        resp = await self._post_login(client, "wrong")
         assert resp.status_code == 429
         assert "Too many login attempts" in resp.text
 

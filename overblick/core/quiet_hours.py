@@ -63,15 +63,16 @@ class QuietHoursChecker:
             return None
 
         now = datetime.now(self.timezone)
+        end_time = now.replace(
+            hour=self.end_hour, minute=0, second=0, microsecond=0
+        )
 
-        if now.hour >= self.start_hour:
-            end_time = now.replace(
-                hour=self.end_hour, minute=0, second=0, microsecond=0
-            ) + timedelta(days=1)
-        else:
-            end_time = now.replace(
-                hour=self.end_hour, minute=0, second=0, microsecond=0
-            )
+        if self.start_hour > self.end_hour:
+            # Overnight window (e.g. 22:00-07:00): if we're past start,
+            # end_hour is tomorrow; if before end, end_hour is today
+            if now.hour >= self.start_hour:
+                end_time += timedelta(days=1)
+        # Daytime window (e.g. 06:00-08:00): end_hour is always today
 
         return int((end_time - now).total_seconds())
 

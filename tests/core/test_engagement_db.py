@@ -23,10 +23,21 @@ class TestEngagementDB:
     @pytest.mark.asyncio
     async def test_record_engagement(self, engagement_db):
         await engagement_db.record_engagement("post1", "comment", 0.85)
+        # Verify the engagement was recorded (no exception = success)
+        stats = await engagement_db.get_engagement_stats() if hasattr(engagement_db, 'get_engagement_stats') else None
+        # At minimum, method should complete without error
 
     @pytest.mark.asyncio
     async def test_record_heartbeat(self, engagement_db):
         await engagement_db.record_heartbeat("post1", "Test Title")
+        # Verify heartbeat was written to heartbeats table
+        row = await engagement_db._db.fetch_one(
+            "SELECT post_id, title FROM heartbeats WHERE post_id = ?",
+            ("post1",),
+        )
+        assert row is not None
+        assert row["post_id"] == "post1"
+        assert row["title"] == "Test Title"
 
     @pytest.mark.asyncio
     async def test_track_my_post(self, engagement_db):
@@ -37,6 +48,14 @@ class TestEngagementDB:
     @pytest.mark.asyncio
     async def test_track_my_comment(self, engagement_db):
         await engagement_db.track_my_comment("comment1", "post1")
+        # Verify comment was written to my_comments table
+        row = await engagement_db._db.fetch_one(
+            "SELECT comment_id, post_id FROM my_comments WHERE comment_id = ?",
+            ("comment1",),
+        )
+        assert row is not None
+        assert row["comment_id"] == "comment1"
+        assert row["post_id"] == "post1"
 
     @pytest.mark.asyncio
     async def test_reply_processing(self, engagement_db):

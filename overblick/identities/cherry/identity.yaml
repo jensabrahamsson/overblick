@@ -62,8 +62,8 @@ security:
   max_response_length: 2000
 
 # Plugins (thin I/O adapters)
-plugins:
-  - moltbook
+plugins: []
+  # - moltbook  # Disabled — not running Moltbook
 
 # Capabilities (composable Lego blocks)
 capabilities:

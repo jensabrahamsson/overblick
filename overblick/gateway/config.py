@@ -46,6 +46,9 @@ class GatewayConfig(BaseModel):
     api_host: str = "127.0.0.1"
     api_port: int = 8200
 
+    # Authentication
+    api_key: str = ""
+
     # Logging
     log_level: str = "INFO"
 
@@ -74,6 +77,7 @@ class GatewayConfig(BaseModel):
             max_queue_size=_get_env_int("MAX_QUEUE_SIZE", 100),
             request_timeout_seconds=_get_env_float("REQUEST_TIMEOUT", 300.0),
             max_concurrent_requests=_get_env_int("MAX_CONCURRENT", 1),
+            api_key=_get_env("API_KEY", os.getenv("OVERBLICK_GATEWAY_KEY", "")),
             api_host=_get_env("API_HOST", "127.0.0.1"),
             api_port=_get_env_int("API_PORT", 8200),
             log_level=_get_env("LOG_LEVEL", "INFO"),

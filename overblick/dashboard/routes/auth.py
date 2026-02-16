@@ -8,8 +8,8 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from ..auth import SESSION_COOKIE, SessionManager, get_session
-from ..security import LoginForm, RateLimiter
+from ..auth import LOGIN_CSRF_COOKIE, SESSION_COOKIE, SessionManager, get_session
+from ..security import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +41,21 @@ async def login_page(request: Request):
     if get_session(request):
         return RedirectResponse("/", status_code=302)
 
-    return templates.TemplateResponse("login.html", {
+    # Generate double-submit CSRF token for the login form
+    login_csrf = SessionManager.generate_login_csrf()
+    response = templates.TemplateResponse("login.html", {
         "request": request,
         "error": None,
+        "csrf_token": login_csrf,
     })
+    response.set_cookie(
+        LOGIN_CSRF_COOKIE,
+        login_csrf,
+        httponly=True,
+        samesite="strict",
+        max_age=600,  # 10 minutes
+    )
+    return response
 
 
 @router.post("/login", response_class=HTMLResponse)
@@ -64,10 +75,19 @@ async def login_submit(request: Request):
             "error": "Too many login attempts. Please wait before trying again.",
         }, status_code=429)
 
-    # Parse form
+    # Parse and validate form
     form = await request.form()
     password = form.get("password", "")
     csrf_token = form.get("csrf_token", "")
+
+    # Validate CSRF token via double-submit cookie pattern
+    cookie_csrf = request.cookies.get(LOGIN_CSRF_COOKIE, "")
+    if not SessionManager.validate_login_csrf(cookie_csrf, csrf_token):
+        logger.warning("Login CSRF validation failed from %s", client_ip)
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Invalid form submission. Please try again.",
+        }, status_code=403)
 
     # Validate password (constant-time comparison to prevent timing attacks)
     if not hmac.compare_digest(password, config.password):
@@ -79,7 +99,7 @@ async def login_submit(request: Request):
 
     # Create session
     session_mgr: SessionManager = request.app.state.session_manager
-    cookie_value, csrf_token = session_mgr.create_session()
+    cookie_value, session_csrf = session_mgr.create_session()
 
     response = RedirectResponse("/", status_code=302)
     response.set_cookie(
@@ -89,6 +109,7 @@ async def login_submit(request: Request):
         samesite="strict",
         max_age=config.session_hours * 3600,
     )
+    response.delete_cookie(LOGIN_CSRF_COOKIE)
 
     logger.info("Successful login from %s", client_ip)
     return response
