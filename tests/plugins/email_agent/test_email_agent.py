@@ -255,8 +255,6 @@ class TestEmailAgentActions:
         assert call_kwargs["subject"] == "Re: Meeting next Tuesday?"
         assert call_kwargs["thread_id"] == "thread-001"
         assert call_kwargs["message_id"] == "msg-001"
-        # Verify mark_as_read was called after successful reply
-        mock_gmail_capability.mark_as_read.assert_called_once_with("msg-001")
 
     @pytest.mark.asyncio
     async def test_consult_boss(self, stal_plugin_context, mock_ipc_client_email):
@@ -728,6 +726,148 @@ class TestSmartSenderFiltering:
         records = await plugin._db.get_recent_emails(limit=1)
         assert len(records) == 1
         assert records[0].classified_intent == "notify"
+
+
+class TestDeduplicationAndMarkRead:
+    """Test email deduplication and mark-as-read behavior."""
+
+    @pytest.mark.asyncio
+    async def test_duplicate_email_skipped(self, stal_plugin_context):
+        """Already-processed emails are skipped via message_id dedup."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Mock LLM for classification
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
+            content='{"intent": "ignore", "confidence": 0.9, "reasoning": "Spam", "priority": "low"}'
+        ))
+
+        email = {
+            "sender": "test@example.com",
+            "subject": "Test",
+            "body": "Hello",
+            "snippet": "Hello",
+            "message_id": "dedup-test-001",
+            "thread_id": "thread-001",
+        }
+
+        # Process the first time — should work
+        await plugin._process_email(email)
+        records = await plugin._db.get_recent_emails(limit=10)
+        assert len(records) == 1
+
+        # Process the same email again — should be skipped
+        stal_plugin_context.llm_pipeline.chat.reset_mock()
+        await plugin._process_email(email)
+
+        # No new record, LLM not called again
+        records = await plugin._db.get_recent_emails(limit=10)
+        assert len(records) == 1
+        stal_plugin_context.llm_pipeline.chat.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_mark_as_read_after_processing(
+        self, stal_plugin_context, mock_gmail_capability,
+    ):
+        """Emails are marked as read in Gmail after processing (any action)."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
+            content='{"intent": "ignore", "confidence": 0.95, "reasoning": "Newsletter", "priority": "low"}'
+        ))
+
+        email = {
+            "sender": "newsletter@example.com",
+            "subject": "Newsletter",
+            "body": "Weekly update",
+            "snippet": "Weekly update",
+            "message_id": "mark-read-test-001",
+            "thread_id": "thread-001",
+        }
+
+        await plugin._process_email(email)
+
+        # mark_as_read should be called even for IGNORE intent
+        mock_gmail_capability.mark_as_read.assert_called_once_with("mark-read-test-001")
+
+    @pytest.mark.asyncio
+    async def test_ask_boss_fallback_to_notify(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """When boss consultation fails, falls back to notification."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Make IPC fail
+        stal_plugin_context.ipc_client.send = AsyncMock(side_effect=Exception("Connection refused"))
+
+        # Mock LLM: first call for classification (ask_boss), second for question, third for notification
+        call_count = 0
+        async def _mock_chat(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # Classification
+                return PipelineResult(
+                    content='{"intent": "ask_boss", "confidence": 0.3, "reasoning": "Uncertain", "priority": "high"}'
+                )
+            # Boss question generation or notification
+            return PipelineResult(content="Notification summary for the principal.")
+
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=_mock_chat)
+
+        email = {
+            "sender": "unknown@example.com",
+            "subject": "Uncertain Email",
+            "body": "Something we need to think about",
+            "snippet": "Something",
+            "message_id": "fallback-test-001",
+            "thread_id": "thread-001",
+        }
+
+        await plugin._process_email(email)
+
+        # Should have recorded with a fallback action
+        records = await plugin._db.get_recent_emails(limit=1)
+        assert len(records) == 1
+        assert "boss_unavailable" in records[0].action_taken
+
+        # Notification should have been sent as fallback
+        mock_telegram_notifier.send_notification_tracked.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_has_been_processed_database_method(self, tmp_path):
+        """has_been_processed() returns True for known message IDs."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+
+        db_path = tmp_path / "test_dedup.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        # Not processed yet
+        assert await db.has_been_processed("msg-123") is False
+
+        # Record it
+        await db.record_email(EmailRecord(
+            gmail_message_id="msg-123",
+            email_from="test@example.com",
+            email_subject="Test",
+            classified_intent="ignore",
+            confidence=0.9,
+            reasoning="Test",
+        ))
+
+        # Now it should be found
+        assert await db.has_been_processed("msg-123") is True
+
+        # Empty message_id always returns False
+        assert await db.has_been_processed("") is False
+
+        await db.close()
 
 
 class TestResearchIntegration:

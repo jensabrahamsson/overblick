@@ -86,6 +86,15 @@ class TelegramNotifier:
         """Whether the notifier has valid credentials."""
         return self._base_url is not None
 
+    def _prefix_identity(self, message: str) -> str:
+        """Prefix message with identity display name so the recipient knows who sent it."""
+        display_name = ""
+        if self.ctx.identity:
+            display_name = getattr(self.ctx.identity, "display_name", "") or ""
+        if not display_name:
+            display_name = self.ctx.identity_name.capitalize()
+        return f"*[{display_name}]*\n{message}"
+
     async def send_notification(self, message: str) -> bool:
         """
         Send a text message to the configured Telegram chat.
@@ -103,7 +112,7 @@ class TelegramNotifier:
         url = f"{self._base_url}/sendMessage"
         payload = {
             "chat_id": self._chat_id,
-            "text": message,
+            "text": self._prefix_identity(message),
             "parse_mode": "Markdown",
         }
 
@@ -143,7 +152,7 @@ class TelegramNotifier:
         url = f"{self._base_url}/sendMessage"
         payload = {
             "chat_id": self._chat_id,
-            "text": message,
+            "text": self._prefix_identity(message),
             "parse_mode": "Markdown",
         }
 
@@ -272,10 +281,17 @@ class TelegramNotifier:
             logger.warning("TelegramNotifier: not configured, cannot send")
             return False
 
+        display_name = ""
+        if self.ctx.identity:
+            display_name = getattr(self.ctx.identity, "display_name", "") or ""
+        if not display_name:
+            display_name = self.ctx.identity_name.capitalize()
+        prefixed = f"<b>[{display_name}]</b>\n{message}"
+
         url = f"{self._base_url}/sendMessage"
         payload = {
             "chat_id": self._chat_id,
-            "text": message,
+            "text": prefixed,
             "parse_mode": "HTML",
         }
 

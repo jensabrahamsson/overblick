@@ -23,6 +23,7 @@ def _make_ctx(bot_token="test-token", chat_id="12345", owner_id=None):
     """Create a mock capability context with Telegram secrets."""
     ctx = MagicMock()
     ctx.identity_name = "stal"
+    ctx.identity.display_name = "Stål"
 
     secrets = {
         "telegram_bot_token": bot_token,
@@ -764,7 +765,8 @@ class TestTelegramNotifierPayloads:
 
         assert captured_payload["parse_mode"] == "Markdown"
         assert captured_payload["chat_id"] == "12345"
-        assert captured_payload["text"] == "*bold* _italic_"
+        assert "*bold* _italic_" in captured_payload["text"]
+        assert "*[Stål]*" in captured_payload["text"]
 
     @pytest.mark.asyncio
     async def test_send_html_uses_html_parse_mode(self):
@@ -796,7 +798,8 @@ class TestTelegramNotifierPayloads:
             await notifier.send_html("<b>Bold</b>")
 
         assert captured_payload["parse_mode"] == "HTML"
-        assert captured_payload["text"] == "<b>Bold</b>"
+        assert "<b>Bold</b>" in captured_payload["text"]
+        assert "<b>[Stål]</b>" in captured_payload["text"]
 
 
 class TestTelegramNotifierTrackedNetworkError:

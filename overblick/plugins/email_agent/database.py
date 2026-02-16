@@ -89,6 +89,17 @@ MIGRATIONS = [
         """,
         down_sql="DROP TABLE IF EXISTS notification_tracking;",
     ),
+    Migration(
+        version=5,
+        name="gmail_message_id_dedup",
+        up_sql="""
+            ALTER TABLE email_records ADD COLUMN gmail_message_id TEXT DEFAULT '';
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_email_records_gmail_id
+                ON email_records(gmail_message_id)
+                WHERE gmail_message_id != '';
+        """,
+        down_sql="DROP INDEX IF EXISTS idx_email_records_gmail_id;",
+    ),
 ]
 
 
@@ -106,14 +117,25 @@ class EmailAgentDB:
 
     # -- Email records --
 
+    async def has_been_processed(self, gmail_message_id: str) -> bool:
+        """Check if an email has already been processed (deduplication)."""
+        if not gmail_message_id:
+            return False
+        count = await self._db.fetch_scalar(
+            "SELECT COUNT(*) FROM email_records WHERE gmail_message_id = ?",
+            (gmail_message_id,),
+        )
+        return (count or 0) > 0
+
     async def record_email(self, record: EmailRecord) -> int:
         """Record a processed email classification."""
         row_id = await self._db.execute_returning_id(
             "INSERT INTO email_records "
-            "(email_from, email_subject, email_snippet, classified_intent, "
-            "confidence, reasoning, action_taken) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "(gmail_message_id, email_from, email_subject, email_snippet, "
+            "classified_intent, confidence, reasoning, action_taken) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
+                record.gmail_message_id,
                 record.email_from,
                 record.email_subject,
                 record.email_snippet,
