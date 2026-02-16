@@ -1,0 +1,231 @@
+<!-- System Overview -->
+<div class="section">
+    <div class="system-overview-bar card">
+        <div class="system-overview-items">
+            <div class="system-overview-item">
+                <span class="system-overview-label">Health</span>
+                <span class="health-grade health-grade-{{ health_grade }}">{{ health_grade | upper }}</span>
+            </div>
+            <div class="system-overview-item">
+                <span class="system-overview-label">Hostname</span>
+                <span class="system-overview-value mono">{{ health.hostname or 'unknown' }}</span>
+            </div>
+            <div class="system-overview-item">
+                <span class="system-overview-label">Platform</span>
+                <span class="system-overview-value">{{ health.platform or 'unknown' }}</span>
+            </div>
+            <div class="system-overview-item">
+                <span class="system-overview-label">Uptime</span>
+                <span class="system-overview-value">{{ health.uptime or 'unknown' }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resource Gauges -->
+<div class="section">
+    <h2 class="section-title">Resources</h2>
+    <div class="system-gauge-grid">
+        <!-- RAM Gauge -->
+        {% set ram_pct = health.memory.percent_used %}
+        {% set ram_status = 'healthy' if ram_pct < 70 else ('warning' if ram_pct < 85 else 'critical') %}
+        {% set ram_color = 'var(--green)' if ram_pct < 70 else ('var(--amber)' if ram_pct < 85 else 'var(--red)') %}
+        <div class="system-gauge-card card">
+            <div class="system-gauge-ring">
+                <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="RAM usage {{ '%.0f' | format(ram_pct) }} percent, {{ ram_status }}">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
+                    <circle cx="60" cy="60" r="52" fill="none"
+                            stroke="{{ ram_color }}" stroke-width="8"
+                            stroke-linecap="round"
+                            stroke-dasharray="326.73"
+                            stroke-dashoffset="{{ 326.73 - (326.73 * ram_pct / 100) }}"
+                            class="gauge-ring-fill"
+                            transform="rotate(-90 60 60)"/>
+                    <text x="60" y="55" text-anchor="middle" class="gauge-percent" aria-hidden="true">{{ "%.0f" | format(ram_pct) }}%</text>
+                    <text x="60" y="72" text-anchor="middle" class="gauge-sublabel" aria-hidden="true">RAM</text>
+                </svg>
+            </div>
+            <div class="system-gauge-details">
+                <span class="gauge-detail-line">{{ "%.1f" | format(health.memory.used_mb / 1024) }} / {{ "%.1f" | format(health.memory.total_mb / 1024) }} GB</span>
+                <span class="gauge-detail-sub">{{ "%.1f" | format(health.memory.available_mb / 1024) }} GB available</span>
+            </div>
+        </div>
+
+        <!-- CPU Gauge -->
+        {% set cpu_pct = cpu_percent %}
+        {% set cpu_status = 'healthy' if cpu_pct < 70 else ('warning' if cpu_pct < 85 else 'critical') %}
+        {% set cpu_color = 'var(--green)' if cpu_pct < 70 else ('var(--amber)' if cpu_pct < 85 else 'var(--red)') %}
+        <div class="system-gauge-card card">
+            <div class="system-gauge-ring">
+                <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="CPU load {{ '%.0f' | format(cpu_pct) }} percent, {{ cpu_status }}">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
+                    <circle cx="60" cy="60" r="52" fill="none"
+                            stroke="{{ cpu_color }}" stroke-width="8"
+                            stroke-linecap="round"
+                            stroke-dasharray="326.73"
+                            stroke-dashoffset="{{ 326.73 - (326.73 * cpu_pct / 100) }}"
+                            class="gauge-ring-fill"
+                            transform="rotate(-90 60 60)"/>
+                    <text x="60" y="55" text-anchor="middle" class="gauge-percent" aria-hidden="true">{{ "%.0f" | format(cpu_pct) }}%</text>
+                    <text x="60" y="72" text-anchor="middle" class="gauge-sublabel" aria-hidden="true">CPU</text>
+                </svg>
+            </div>
+            <div class="system-gauge-details">
+                <span class="gauge-detail-line">Load {{ "%.2f" | format(health.cpu.load_1m) }} / {{ "%.2f" | format(health.cpu.load_5m) }} / {{ "%.2f" | format(health.cpu.load_15m) }}</span>
+                <span class="gauge-detail-sub">{{ health.cpu.core_count }} cores</span>
+            </div>
+        </div>
+
+        <!-- Disk Gauge -->
+        {% if root_disk %}
+        {% set disk_pct = root_disk.percent_used %}
+        {% set disk_status = 'healthy' if disk_pct < 70 else ('warning' if disk_pct < 85 else 'critical') %}
+        {% set disk_color = 'var(--green)' if disk_pct < 70 else ('var(--amber)' if disk_pct < 85 else 'var(--red)') %}
+        <div class="system-gauge-card card">
+            <div class="system-gauge-ring">
+                <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="Disk usage {{ '%.0f' | format(disk_pct) }} percent, {{ disk_status }}">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
+                    <circle cx="60" cy="60" r="52" fill="none"
+                            stroke="{{ disk_color }}" stroke-width="8"
+                            stroke-linecap="round"
+                            stroke-dasharray="326.73"
+                            stroke-dashoffset="{{ 326.73 - (326.73 * disk_pct / 100) }}"
+                            class="gauge-ring-fill"
+                            transform="rotate(-90 60 60)"/>
+                    <text x="60" y="55" text-anchor="middle" class="gauge-percent" aria-hidden="true">{{ "%.0f" | format(disk_pct) }}%</text>
+                    <text x="60" y="72" text-anchor="middle" class="gauge-sublabel" aria-hidden="true">Disk</text>
+                </svg>
+            </div>
+            <div class="system-gauge-details">
+                <span class="gauge-detail-line">{{ "%.1f" | format(root_disk.used_gb) }} / {{ "%.1f" | format(root_disk.total_gb) }} GB</span>
+                <span class="gauge-detail-sub">{{ "%.1f" | format(root_disk.available_gb) }} GB free</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Battery Gauge (macOS only) -->
+        {% if health.power.battery_percent is not none %}
+        {% set batt_pct = health.power.battery_percent %}
+        {% set batt_status = 'critical' if batt_pct < 20 else ('warning' if batt_pct < 40 else 'healthy') %}
+        {% set batt_color = 'var(--red)' if batt_pct < 20 else ('var(--amber)' if batt_pct < 40 else 'var(--green)') %}
+        {% set batt_source = 'on battery' if health.power.on_battery else 'AC power' %}
+        <div class="system-gauge-card card">
+            <div class="system-gauge-ring">
+                <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="Battery {{ '%.0f' | format(batt_pct) }} percent, {{ batt_source }}, {{ batt_status }}">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
+                    <circle cx="60" cy="60" r="52" fill="none"
+                            stroke="{{ batt_color }}" stroke-width="8"
+                            stroke-linecap="round"
+                            stroke-dasharray="326.73"
+                            stroke-dashoffset="{{ 326.73 - (326.73 * batt_pct / 100) }}"
+                            class="gauge-ring-fill"
+                            transform="rotate(-90 60 60)"/>
+                    <text x="60" y="55" text-anchor="middle" class="gauge-percent" aria-hidden="true">{{ "%.0f" | format(batt_pct) }}%</text>
+                    <text x="60" y="72" text-anchor="middle" class="gauge-sublabel" aria-hidden="true">Battery</text>
+                </svg>
+            </div>
+            <div class="system-gauge-details">
+                <span class="gauge-detail-line">{{ 'On Battery' if health.power.on_battery else 'AC Power' }}</span>
+                {% if health.power.time_remaining %}
+                <span class="gauge-detail-sub">{{ health.power.time_remaining }} remaining</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- LLM Gateway -->
+<div class="section">
+    <h2 class="section-title">LLM Gateway</h2>
+    {% if gateway_available %}
+    <div class="card">
+        <div class="system-llm-stats">
+            <div class="system-llm-stat">
+                <span class="system-llm-stat-label">Status</span>
+                {% set gw_status = gateway.get('status', 'unknown') %}
+                <span class="status-badge {% if gw_status == 'healthy' %}status-running{% elif gw_status == 'degraded' %}status-starting{% else %}status-stopped{% endif %}">
+                    {{ gw_status }}
+                </span>
+            </div>
+            <div class="system-llm-stat">
+                <span class="system-llm-stat-label">Ollama</span>
+                {% set ollama = gateway.get('ollama', 'unknown') %}
+                <span class="status-badge {% if ollama == 'connected' %}status-running{% else %}status-stopped{% endif %}">
+                    {{ ollama }}
+                </span>
+            </div>
+            <div class="system-llm-stat">
+                <span class="system-llm-stat-label">Queue</span>
+                <span class="system-llm-stat-value">{{ gateway.get('queue_size', 0) }}</span>
+            </div>
+            <div class="system-llm-stat">
+                <span class="system-llm-stat-label">Active</span>
+                <span class="system-llm-stat-value">{{ gateway.get('active_requests', 0) }}</span>
+            </div>
+            <div class="system-llm-stat">
+                <span class="system-llm-stat-label">Avg Response</span>
+                <span class="system-llm-stat-value mono">{{ "%.0f" | format(gateway.get('avg_response_time_ms', 0)) }} ms</span>
+            </div>
+            <div class="system-llm-stat">
+                <span class="system-llm-stat-label">GPU Starvation</span>
+                {% set risk = gateway.get('gpu_starvation_risk', 'unknown') %}
+                {% set risk_class = 'health-grade-good' if risk == 'low' else ('health-grade-fair' if risk == 'medium' else 'health-grade-poor') %}
+                <span class="health-grade {{ risk_class }}">{{ risk | upper }}</span>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="system-unavailable">
+            <span class="status-badge status-offline">Unavailable</span>
+            <span class="text-muted">Gateway not reachable at 127.0.0.1:8200</span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if health.disks | length > 1 %}
+<!-- Disk Volumes -->
+<div class="section">
+    <h2 class="section-title">Disk Volumes</h2>
+    <div class="card">
+        <table class="system-disk-table" aria-label="Disk volumes">
+            <thead>
+                <tr>
+                    <th scope="col">Mount</th>
+                    <th scope="col">Total</th>
+                    <th scope="col">Used</th>
+                    <th scope="col">Free</th>
+                    <th scope="col">Usage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for disk in health.disks %}
+                <tr>
+                    <td class="mono">{{ disk.mount }}</td>
+                    <td>{{ "%.1f" | format(disk.total_gb) }} GB</td>
+                    <td>{{ "%.1f" | format(disk.used_gb) }} GB</td>
+                    <td>{{ "%.1f" | format(disk.available_gb) }} GB</td>
+                    <td>
+                        <div class="system-disk-bar-container">
+                            {% set d_color = 'var(--green)' if disk.percent_used < 70 else ('var(--amber)' if disk.percent_used < 85 else 'var(--red)') %}
+                            <div class="system-disk-bar" style="width: {{ disk.percent_used }}%; background: {{ d_color }};" role="progressbar" aria-valuenow="{{ '%.1f' | format(disk.percent_used) }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ disk.mount }} usage"></div>
+                            <span class="system-disk-bar-label">{{ "%.1f" | format(disk.percent_used) }}%</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if health.errors %}
+<div class="section">
+    <div class="flash flash-error" role="alert">
+        Collection errors: {{ health.errors | join(', ') }}
+    </div>
+</div>
+{% endif %}

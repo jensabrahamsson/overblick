@@ -18,12 +18,14 @@ def register_routes(app: FastAPI) -> None:
     from .api import router as api_router
     from .conversations import router as conversations_router
     from .llm import router as llm_router
+    from .system import router as system_router
 
     app.include_router(auth_router)
     app.include_router(dashboard_router)
     app.include_router(agents_router)
     app.include_router(audit_router)
     app.include_router(llm_router)
+    app.include_router(system_router)
     app.include_router(conversations_router)
     app.include_router(identities_router)
     app.include_router(onboarding_router)

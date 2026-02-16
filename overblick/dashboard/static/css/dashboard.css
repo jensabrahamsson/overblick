@@ -917,6 +917,163 @@ button:focus-visible,
     overflow-y: auto;
 }
 
+/* --- System Health Page --- */
+.system-overview-bar {
+    padding: var(--space-md) var(--space-lg);
+}
+.system-overview-items {
+    display: flex;
+    gap: var(--space-xl);
+    flex-wrap: wrap;
+    align-items: center;
+}
+.system-overview-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.system-overview-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+.system-overview-value {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+/* Health grade badges */
+.health-grade {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.health-grade-good { background: var(--green-dim); color: var(--green); }
+.health-grade-fair { background: var(--amber-dim); color: var(--amber); }
+.health-grade-poor { background: var(--red-dim); color: var(--red); }
+
+/* SVG gauge grid */
+.system-gauge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--space-lg);
+}
+.system-gauge-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-lg) var(--space-md);
+    text-align: center;
+}
+.system-gauge-ring {
+    width: 120px;
+    height: 120px;
+    margin-bottom: var(--space-sm);
+}
+.gauge-svg { width: 100%; height: 100%; }
+.gauge-ring-fill {
+    transition: stroke-dashoffset 0.6s ease;
+}
+.gauge-percent {
+    fill: var(--text-primary);
+    font-size: 1.4rem;
+    font-weight: 700;
+    font-family: var(--font-sans);
+}
+.gauge-sublabel {
+    fill: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: var(--font-sans);
+}
+.system-gauge-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.gauge-detail-line {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+.gauge-detail-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* LLM Gateway stats */
+.system-llm-stats {
+    display: flex;
+    gap: var(--space-xl);
+    flex-wrap: wrap;
+    align-items: center;
+}
+.system-llm-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.system-llm-stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+.system-llm-stat-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.system-unavailable {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+/* Disk table */
+.system-disk-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.system-disk-table th {
+    text-align: left;
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+.system-disk-table td {
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+}
+.system-disk-table tr:last-child td { border-bottom: none; }
+.system-disk-bar-container {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+.system-disk-bar {
+    height: 6px;
+    border-radius: 3px;
+    min-width: 4px;
+    max-width: 100px;
+    transition: width 0.3s ease;
+}
+.system-disk-bar-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
 /* --- htmx transitions --- */
 .htmx-swapping { opacity: 0; transition: opacity 0.15s ease-out; }
 .htmx-settling { opacity: 1; transition: opacity 0.2s ease-in; }
@@ -929,8 +1086,24 @@ button:focus-visible,
     .agent-grid { grid-template-columns: 1fr; }
     .detail-grid { grid-template-columns: 1fr; }
     .identity-grid { grid-template-columns: 1fr; }
+    .system-gauge-grid { grid-template-columns: 1fr 1fr; }
     .form-row { flex-direction: column; }
     .wizard-step-label { display: none; }
     .health-items { flex-direction: column; gap: var(--space-sm); }
+    .system-overview-items { flex-direction: column; gap: var(--space-sm); }
+    .system-llm-stats { flex-direction: column; gap: var(--space-sm); }
     .filter-bar { flex-direction: column; }
+}
+
+@media (max-width: 480px) {
+    .system-gauge-grid { grid-template-columns: 1fr; }
+}
+
+/* --- Reduced Motion --- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
