@@ -45,9 +45,8 @@ llm:
 
 # Schedule settings (more frequent heartbeats = more chatty)
 schedule:
-  heartbeat_interval_hours: 3
-  feed_poll_interval_minutes: 5
-  requests_per_minute: 100
+  heartbeat_hours: 3
+  feed_poll_minutes: 5
 
 # Quiet hours (shorter than Anomal — night owl)
 quiet_hours:

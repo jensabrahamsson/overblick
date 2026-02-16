@@ -299,7 +299,7 @@ button:focus-visible,
 }
 .status-badge.status-running { background: var(--green-dim); color: var(--green); }
 .status-badge.status-stopped { background: var(--red-dim); color: #ff7b72; }
-.status-badge.status-offline { background: var(--bg-tertiary); color: var(--text-muted); }
+.status-badge.status-offline { background: var(--bg-tertiary); color: var(--text-secondary); }
 .status-badge.status-starting { background: var(--amber-dim); color: var(--amber); }
 
 /* --- Tags --- */
@@ -547,6 +547,7 @@ button:focus-visible,
     gap: var(--space-sm);
 }
 .radio-card {
+    position: relative;
     display: block;
     padding: var(--space-md);
     background: var(--bg-card);
@@ -560,7 +561,7 @@ button:focus-visible,
     border-color: var(--accent);
     background: rgba(88, 166, 255, 0.05);
 }
-.radio-card input { display: none; }
+.radio-card input { position: absolute; opacity: 0; pointer-events: none; }
 .radio-card-title { display: block; font-weight: 600; margin-bottom: 4px; }
 .radio-card-desc { display: block; font-size: 0.85rem; color: var(--text-muted); }
 

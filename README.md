@@ -19,8 +19,8 @@ pip install -e ".[dev]"
 pip install -r requirements.txt        # core only
 pip install -r requirements-dev.txt    # core + test/dev tools
 
-# Run tests (1400+ unit + scenario tests)
-pytest tests/ -v -m "not e2e"
+# Run tests (1400+ unit + scenario tests, no LLM/browser required)
+pytest tests/ -v -m "not llm and not e2e"
 
 # Run LLM personality tests (requires Ollama with qwen3:8b)
 pytest tests/ -v -m llm --timeout=300
@@ -218,7 +218,7 @@ await supervisor.run()     # Block until shutdown
 
 ## Identity System
 
-Each identity is a frozen dataclass loaded from YAML:
+Each identity is a frozen Pydantic BaseModel loaded from YAML:
 
 ```yaml
 # overblick/identities/anomal/identity.yaml
@@ -239,7 +239,7 @@ quiet_hours:
   end_hour: 7
 
 schedule:
-  heartbeat_hours: 4
+  heartbeat_hours: 2
   feed_poll_minutes: 5
 ```
 
@@ -282,18 +282,21 @@ pytest tests/ --cov=overblick
 overblick/
   core/
     orchestrator.py         # Main agent loop coordinator
-    identity.py             # YAML → frozen Identity dataclass
+    capability.py           # CapabilityBase ABC + CapabilityContext
     plugin_base.py          # PluginBase ABC + PluginContext
     plugin_registry.py      # Plugin discovery and registration
     event_bus.py            # Pub/sub event system
     scheduler.py            # Periodic task scheduler
     quiet_hours.py          # Time-based activity gating
+    permissions.py          # Default-deny permission system
     db/
-      backend.py            # DatabaseBackend ABC
-      sqlite_backend.py     # SQLite implementation
-      postgres_backend.py   # PostgreSQL implementation
-      migrations.py         # Migration system
       engagement_db.py      # Engagement tracking
+    database/
+      base.py               # DatabaseBackend ABC
+      factory.py            # Backend factory (SQLite / PostgreSQL)
+      sqlite_backend.py     # SQLite implementation
+      pg_backend.py         # PostgreSQL implementation
+      migrations.py         # Migration system
     llm/
       client.py             # Abstract LLM client
       ollama_client.py      # Ollama backend
@@ -307,10 +310,7 @@ overblick/
       audit_log.py          # Structured audit logging
       secrets_manager.py    # Fernet-encrypted secrets
       rate_limiter.py       # Token bucket rate limiting
-    permissions/
-      model.py              # Permission, PermissionSet dataclasses
-      checker.py            # PermissionChecker (default-deny)
-      store.py              # YAML permission store
+  capabilities/             # Composable behavioral blocks (bundles)
   plugins/
     moltbook/               # Autonomous social engagement (production)
     telegram/               # Telegram bot (complete)
@@ -321,7 +321,7 @@ overblick/
     rss/                    # RSS feed monitor (shell)
     webhook/                # HTTP webhook receiver (shell)
     matrix/                 # Matrix chat (shell)
-  identities/               # Identity stable (personality YAML + knowledge files)
+  identities/               # Identity stable — YAML-driven characters
     anomal/                 # Intellectual humanist
     bjork/                  # Forest philosopher
     blixt/                  # Punk tech critic
@@ -330,6 +330,9 @@ overblick/
     prisma/                 # Digital artist
     rost/                   # Jaded ex-trader
     stal/                   # Email secretary
+  dashboard/                # FastAPI + Jinja2 + htmx web dashboard
+  gateway/                  # LLM Gateway service (port 8200)
+  setup/                    # Onboarding wizard (7-step setup)
   supervisor/
     supervisor.py           # Multi-process manager (Boss Agent)
     ipc.py                  # IPC layer (Unix sockets + HMAC)

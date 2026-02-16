@@ -52,9 +52,8 @@ llm:
 
 # Schedule settings
 schedule:
-  heartbeat_interval_hours: 2
-  feed_poll_interval_minutes: 5
-  requests_per_minute: 100
+  heartbeat_hours: 2
+  feed_poll_minutes: 5
 
 # Quiet hours (GPU bedroom mode)
 quiet_hours:

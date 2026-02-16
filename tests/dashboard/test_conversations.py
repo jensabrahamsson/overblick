@@ -14,7 +14,7 @@ from overblick.dashboard.auth import SESSION_COOKIE
 async def test_conversations_page_unauthenticated(client):
     """Unauthenticated access redirects to login."""
     response = await client.get("/conversations")
-    assert response.status_code in (302, 303, 307)
+    assert response.status_code == 302
 
 
 @pytest.mark.asyncio

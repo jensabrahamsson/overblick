@@ -275,8 +275,7 @@ class TestAuthMiddleware:
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": "bogus-csrf"},
         )
-        # Either 403 (CSRF fail) or 404 (no route), but not a successful pass-through
-        assert resp.status_code in (403, 404, 405)
+        assert resp.status_code == 403
 
     @pytest.mark.asyncio
     async def test_csrf_on_delete_with_invalid_token_rejected(self, client, session_cookie):
@@ -287,7 +286,7 @@ class TestAuthMiddleware:
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": "bogus-csrf"},
         )
-        assert resp.status_code in (403, 404, 405)
+        assert resp.status_code == 403
 
     @pytest.mark.asyncio
     async def test_csrf_not_checked_on_get(self, client, session_cookie):
