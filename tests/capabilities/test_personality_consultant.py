@@ -271,3 +271,128 @@ class TestPersonalityConsultantCapability:
         assert call_kwargs.get("skip_preflight") is True
         assert call_kwargs.get("priority") == "low"
         assert call_kwargs.get("audit_action") == "consult_cherry"
+
+
+class TestDiscoverConsultants:
+    """Test auto-discovery of identity consultants."""
+
+    @pytest.mark.asyncio
+    async def test_discover_consultants_returns_keywords(self):
+        """discover_consultants() returns dict of identity → keywords."""
+        ctx = make_ctx(identity_name="stal")
+        cap = PersonalityConsultantCapability(ctx)
+
+        mock_anomal = _mock_personality("anomal")
+        mock_anomal.interest_keywords = ["crypto", "ai", "tech"]
+        mock_cherry = _mock_personality("cherry")
+        mock_cherry.interest_keywords = ["dating", "relationships"]
+
+        def _load(name):
+            return {"anomal": mock_anomal, "cherry": mock_cherry}.get(name)
+
+        with patch(
+            "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
+            side_effect=_load,
+        ), patch(
+            "overblick.identities.list_identities",
+            return_value=["anomal", "cherry", "stal"],
+        ):
+            result = cap.discover_consultants()
+
+        assert "anomal" in result
+        assert result["anomal"] == ["crypto", "ai", "tech"]
+        assert "cherry" in result
+        assert result["cherry"] == ["dating", "relationships"]
+
+    @pytest.mark.asyncio
+    async def test_discover_consultants_excludes_self(self):
+        """discover_consultants() excludes the capability owner's identity."""
+        ctx = make_ctx(identity_name="stal")
+        cap = PersonalityConsultantCapability(ctx)
+
+        mock_anomal = _mock_personality("anomal")
+        mock_anomal.interest_keywords = ["crypto"]
+        mock_stal = _mock_personality("stal")
+        mock_stal.interest_keywords = ["email", "protocol"]
+
+        def _load(name):
+            return {"anomal": mock_anomal, "stal": mock_stal}.get(name)
+
+        with patch(
+            "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
+            side_effect=_load,
+        ), patch(
+            "overblick.identities.list_identities",
+            return_value=["anomal", "stal"],
+        ):
+            result = cap.discover_consultants()
+
+        assert "stal" not in result
+        assert "anomal" in result
+
+    @pytest.mark.asyncio
+    async def test_discover_consultants_excludes_specified(self):
+        """discover_consultants() excludes identities from the exclude set."""
+        ctx = make_ctx(identity_name="stal")
+        cap = PersonalityConsultantCapability(ctx)
+
+        mock_anomal = _mock_personality("anomal")
+        mock_anomal.interest_keywords = ["crypto"]
+        mock_supervisor = _mock_personality("supervisor")
+        mock_supervisor.interest_keywords = ["management"]
+
+        def _load(name):
+            return {"anomal": mock_anomal, "supervisor": mock_supervisor}.get(name)
+
+        with patch(
+            "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
+            side_effect=_load,
+        ), patch(
+            "overblick.identities.list_identities",
+            return_value=["anomal", "supervisor"],
+        ):
+            result = cap.discover_consultants(exclude={"supervisor"})
+
+        assert "supervisor" not in result
+        assert "anomal" in result
+
+    @pytest.mark.asyncio
+    async def test_discover_consultants_skips_no_keywords(self):
+        """discover_consultants() skips identities without interest_keywords."""
+        ctx = make_ctx(identity_name="stal")
+        cap = PersonalityConsultantCapability(ctx)
+
+        mock_anomal = _mock_personality("anomal")
+        mock_anomal.interest_keywords = ["crypto"]
+        mock_empty = _mock_personality("empty")
+        mock_empty.interest_keywords = []
+
+        def _load(name):
+            return {"anomal": mock_anomal, "empty": mock_empty}.get(name)
+
+        with patch(
+            "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
+            side_effect=_load,
+        ), patch(
+            "overblick.identities.list_identities",
+            return_value=["anomal", "empty"],
+        ):
+            result = cap.discover_consultants()
+
+        assert "anomal" in result
+        assert "empty" not in result
+
+    def test_score_match_counts_keywords(self):
+        """score_match() counts keyword occurrences in text."""
+        assert PersonalityConsultantCapability.score_match(
+            "Bitcoin and blockchain technology", ["bitcoin", "blockchain", "defi"],
+        ) == 2
+
+        assert PersonalityConsultantCapability.score_match(
+            "A nice day for a picnic", ["bitcoin", "blockchain"],
+        ) == 0
+
+        # Case-insensitive
+        assert PersonalityConsultantCapability.score_match(
+            "BITCOIN and BLOCKCHAIN", ["bitcoin", "blockchain"],
+        ) == 2
