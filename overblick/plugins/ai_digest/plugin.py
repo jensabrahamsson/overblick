@@ -386,10 +386,9 @@ class AiDigestPlugin(PluginBase):
 
     def _build_digest_prompt(self, personality_name: str) -> str:
         """Build a system prompt from the configured personality."""
-        from overblick.identities import load_identity, build_system_prompt
         try:
-            personality = load_identity(personality_name)
-            base_prompt = build_system_prompt(personality, platform="Email Digest")
+            personality = self.ctx.load_identity(personality_name)
+            base_prompt = self.ctx.build_system_prompt(personality, platform="Email Digest")
             return (
                 f"{base_prompt}\n\n"
                 "You are writing a daily AI news digest email. "

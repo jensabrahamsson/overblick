@@ -1403,11 +1403,9 @@ class EmailAgentPlugin(PluginBase):
 
     def _build_system_prompt(self) -> str:
         """Build system prompt from Stål's personality."""
-        from overblick.identities import build_system_prompt, load_identity
-
         try:
-            personality = load_identity("stal")
-            return build_system_prompt(personality, platform="Email")
+            personality = self.ctx.load_identity("stal")
+            return self.ctx.build_system_prompt(personality, platform="Email")
         except FileNotFoundError:
             principal = self._principal_name or "the principal"
             return (

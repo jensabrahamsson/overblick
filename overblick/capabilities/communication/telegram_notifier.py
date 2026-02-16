@@ -54,6 +54,7 @@ class TelegramNotifier:
         self._base_url: Optional[str] = None
         self._update_offset: int = 0
         self._bot_id: Optional[int] = None
+        self._session: Optional[aiohttp.ClientSession] = None
 
     async def setup(self) -> None:
         """Load Telegram credentials from secrets."""
@@ -86,6 +87,18 @@ class TelegramNotifier:
         """Whether the notifier has valid credentials."""
         return self._base_url is not None
 
+    async def _ensure_session(self) -> aiohttp.ClientSession:
+        """Ensure a persistent HTTP session exists and return it."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def close(self) -> None:
+        """Close the persistent HTTP session."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
+
     def _prefix_identity(self, message: str) -> str:
         """Prefix message with identity display name so the recipient knows who sent it."""
         display_name = ""
@@ -117,17 +130,17 @@ class TelegramNotifier:
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status == 200:
-                        logger.info("Telegram notification sent to chat %s", self._chat_id)
-                        return True
-                    else:
-                        body = await resp.text()
-                        logger.error(
-                            "Telegram API error %d: %s", resp.status, body[:200],
-                        )
-                        return False
+            session = await self._ensure_session()
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    logger.info("Telegram notification sent to chat %s", self._chat_id)
+                    return True
+                else:
+                    body = await resp.text()
+                    logger.error(
+                        "Telegram API error %d: %s", resp.status, body[:200],
+                    )
+                    return False
         except aiohttp.ClientError as e:
             logger.error("Telegram notification failed: %s", e, exc_info=True)
             return False
@@ -157,22 +170,22 @@ class TelegramNotifier:
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        tg_message_id = data.get("result", {}).get("message_id")
-                        logger.info(
-                            "Tracked notification sent (tg_msg=%s, ref=%s)",
-                            tg_message_id, ref_id,
-                        )
-                        return tg_message_id
-                    else:
-                        body = await resp.text()
-                        logger.error(
-                            "Telegram API error %d: %s", resp.status, body[:200],
-                        )
-                        return None
+            session = await self._ensure_session()
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    tg_message_id = data.get("result", {}).get("message_id")
+                    logger.info(
+                        "Tracked notification sent (tg_msg=%s, ref=%s)",
+                        tg_message_id, ref_id,
+                    )
+                    return tg_message_id
+                else:
+                    body = await resp.text()
+                    logger.error(
+                        "Telegram API error %d: %s", resp.status, body[:200],
+                    )
+                    return None
         except aiohttp.ClientError as e:
             logger.error("Tracked notification failed: %s", e, exc_info=True)
             return None
@@ -203,62 +216,62 @@ class TelegramNotifier:
             params["offset"] = self._update_offset
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    url,
-                    params=params,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as resp:
-                    if resp.status != 200:
-                        return []
+            session = await self._ensure_session()
+            async with session.get(
+                url,
+                params=params,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    return []
 
-                    data = await resp.json()
-                    if not data.get("ok"):
-                        return []
+                data = await resp.json()
+                if not data.get("ok"):
+                    return []
 
-                    updates = []
-                    for update in data.get("result", []):
-                        update_id = update.get("update_id", 0)
-                        # Always advance offset past this update
-                        self._update_offset = max(
-                            self._update_offset, update_id + 1,
-                        )
+                updates = []
+                for update in data.get("result", []):
+                    update_id = update.get("update_id", 0)
+                    # Always advance offset past this update
+                    self._update_offset = max(
+                        self._update_offset, update_id + 1,
+                    )
 
-                        msg = update.get("message", {})
-                        if not msg:
+                    msg = update.get("message", {})
+                    if not msg:
+                        continue
+
+                    # Filter: only from our configured chat
+                    chat_id = str(msg.get("chat", {}).get("id", ""))
+                    if chat_id != str(self._chat_id):
+                        continue
+
+                    # Filter: skip our own bot messages
+                    from_user = msg.get("from", {})
+                    if from_user.get("is_bot", False):
+                        continue
+
+                    # Filter: only accept messages from the owner
+                    if self._owner_id:
+                        sender_id = str(from_user.get("id", ""))
+                        if sender_id != str(self._owner_id):
                             continue
 
-                        # Filter: only from our configured chat
-                        chat_id = str(msg.get("chat", {}).get("id", ""))
-                        if chat_id != str(self._chat_id):
-                            continue
+                    text = msg.get("text", "")
+                    if not text:
+                        continue
 
-                        # Filter: skip our own bot messages
-                        from_user = msg.get("from", {})
-                        if from_user.get("is_bot", False):
-                            continue
+                    reply_to = msg.get("reply_to_message", {})
+                    reply_to_id = reply_to.get("message_id") if reply_to else None
 
-                        # Filter: only accept messages from the owner
-                        if self._owner_id:
-                            sender_id = str(from_user.get("id", ""))
-                            if sender_id != str(self._owner_id):
-                                continue
+                    updates.append(TelegramUpdate(
+                        message_id=msg.get("message_id", 0),
+                        text=text,
+                        reply_to_message_id=reply_to_id,
+                        timestamp=str(msg.get("date", "")),
+                    ))
 
-                        text = msg.get("text", "")
-                        if not text:
-                            continue
-
-                        reply_to = msg.get("reply_to_message", {})
-                        reply_to_id = reply_to.get("message_id") if reply_to else None
-
-                        updates.append(TelegramUpdate(
-                            message_id=msg.get("message_id", 0),
-                            text=text,
-                            reply_to_message_id=reply_to_id,
-                            timestamp=str(msg.get("date", "")),
-                        ))
-
-                    return updates
+                return updates
 
         except aiohttp.ClientError as e:
             logger.error("Telegram getUpdates failed: %s", e, exc_info=True)
@@ -296,9 +309,9 @@ class TelegramNotifier:
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    return resp.status == 200
+            session = await self._ensure_session()
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                return resp.status == 200
         except aiohttp.ClientError as e:
             logger.error("Telegram HTML notification failed: %s", e, exc_info=True)
             return False

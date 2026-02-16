@@ -227,14 +227,21 @@ def _load_audit_conversations(
             e for e in group_entries if e.get("action") in response_actions
         ]
 
+        used_response_ids: set[int] = set()
+
         for req in received_entries:
             req_ts = req.get("timestamp", 0)
-            expected_resp_action = _PAIR_MAP[req["action"]]
+            req_action = req.get("action")
+            if not req_action or req_action not in _PAIR_MAP:
+                continue
+            expected_resp_action = _PAIR_MAP[req_action]
 
             # Find closest response within the time window
             best_resp = None
             best_gap = _PAIR_WINDOW_SECONDS + 1
             for resp in resp_entries:
+                if id(resp) in used_response_ids:
+                    continue
                 if resp.get("action") != expected_resp_action:
                     continue
                 gap = abs(resp.get("timestamp", 0) - req_ts)
@@ -245,8 +252,8 @@ def _load_audit_conversations(
             if best_resp is None:
                 continue
 
-            # Remove matched response so it's not reused
-            resp_entries.remove(best_resp)
+            # Mark matched response as used so it's not reused
+            used_response_ids.add(id(best_resp))
 
             req_details = req.get("details") or {}
             resp_details = best_resp.get("details") or {}

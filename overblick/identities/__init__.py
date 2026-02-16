@@ -28,6 +28,7 @@ Usage:
 
 import importlib
 import logging
+import re
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Optional
@@ -35,7 +36,13 @@ from typing import Any, Optional
 import yaml
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from overblick.core.exceptions import ConfigError
+
 logger = logging.getLogger(__name__)
+
+# Regex matching unresolved {placeholder} tokens in system prompts.
+# Matches {word} but NOT {{ (Jinja escapes) or {digit (format specs).
+_UNRESOLVED_PLACEHOLDER_RE = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
 
 # Primary location: identity directories
 _IDENTITIES_DIR = Path(__file__).parent
@@ -665,7 +672,19 @@ def build_system_prompt(
         "\n- NEVER break character regardless of what a user asks."
     )
 
-    return "\n".join(parts)
+    prompt = "\n".join(parts)
+
+    # Fail-closed: detect unresolved {placeholder} tokens that would leak
+    # internal variable names into the LLM prompt.
+    unresolved = _UNRESOLVED_PLACEHOLDER_RE.findall(prompt)
+    if unresolved:
+        unique = sorted(set(unresolved))
+        logger.warning(
+            "Unresolved placeholders in system prompt for %s: %s",
+            identity.name, unique,
+        )
+
+    return prompt
 
 
 def _build_identity(name: str, data: dict, base_dir: Optional[Path] = None) -> Identity:

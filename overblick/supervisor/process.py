@@ -73,10 +73,12 @@ class AgentProcess(BaseModel):
             if self.ipc_socket_dir:
                 env["OVERBLICK_IPC_DIR"] = str(self.ipc_socket_dir)
 
+            # Redirect stdout/stderr to DEVNULL to prevent pipe buffer
+            # deadlocks — child output goes to its own log files via logging.
             self._process = await asyncio.create_subprocess_exec(
                 *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
                 env=env,
             )
 

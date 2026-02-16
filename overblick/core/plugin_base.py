@@ -106,6 +106,42 @@ class PluginContext(BaseModel):
         """
         return self.capabilities.get(name)
 
+    def load_identity(self, name: str) -> Any:
+        """
+        Load an identity by name via the framework identity system.
+
+        Plugins should use this instead of importing load_identity directly,
+        to maintain plugin isolation from framework internals.
+
+        Args:
+            name: Identity name (e.g. "anomal", "cherry")
+
+        Returns:
+            Loaded Identity object
+        """
+        from overblick.identities import load_identity
+        return load_identity(name)
+
+    def build_system_prompt(
+        self, identity: Any, platform: str = "Moltbook", model_slug: str = "",
+    ) -> str:
+        """
+        Build a system prompt from an identity object.
+
+        Plugins should use this instead of importing build_system_prompt directly,
+        to maintain plugin isolation from framework internals.
+
+        Args:
+            identity: Loaded Identity object
+            platform: Platform name for context (e.g. "Telegram", "Gmail")
+            model_slug: LLM model slug for model-specific hints
+
+        Returns:
+            System prompt string
+        """
+        from overblick.identities import build_system_prompt
+        return build_system_prompt(identity, platform=platform, model_slug=model_slug)
+
     def model_post_init(self, __context) -> None:
         # Ensure directories exist
         self.data_dir.mkdir(parents=True, exist_ok=True)
