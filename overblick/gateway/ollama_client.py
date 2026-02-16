@@ -160,7 +160,7 @@ class OllamaClient:
             ) from e
 
         except httpx.HTTPStatusError as e:
-            logger.error("Ollama HTTP error: %s - %s", e.response.status_code, e.response.text)
+            logger.error("Ollama HTTP error: %s - %s", e.response.status_code, e.response.text, exc_info=True)
             raise OllamaError(
                 f"Ollama returned error {e.response.status_code}: {e.response.text}"
             ) from e

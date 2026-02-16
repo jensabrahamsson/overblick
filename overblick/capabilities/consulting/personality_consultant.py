@@ -116,6 +116,7 @@ class PersonalityConsultantCapability(CapabilityBase):
         except Exception as e:
             logger.error(
                 "PersonalityConsultant: %s consultation failed: %s", name, e,
+                exc_info=True,
             )
             return None
 

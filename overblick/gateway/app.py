@@ -168,7 +168,7 @@ async def chat_completion(
         )
 
     except asyncio.TimeoutError:
-        logger.error("Request timed out")
+        logger.error("Request timed out", exc_info=True)
         raise HTTPException(
             status_code=504,
             detail="Request timed out waiting for LLM response.",

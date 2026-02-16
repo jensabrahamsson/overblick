@@ -134,7 +134,7 @@ class QueueManager:
             )
             return response
         except asyncio.TimeoutError:
-            logger.error("Request %s timed out", queued.request_id)
+            logger.error("Request %s timed out", queued.request_id, exc_info=True)
             raise
 
     async def _worker_loop(self) -> None:

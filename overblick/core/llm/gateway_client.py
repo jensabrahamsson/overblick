@@ -113,7 +113,7 @@ class GatewayClient(LLMClient):
             }
 
         except asyncio.TimeoutError:
-            logger.error(f"Gateway: Timeout ({self.timeout_seconds}s)")
+            logger.error(f"Gateway: Timeout ({self.timeout_seconds}s)", exc_info=True)
             return None
         except aiohttp.ClientError as e:
             logger.error(f"Gateway: Connection error: {e}", exc_info=True)

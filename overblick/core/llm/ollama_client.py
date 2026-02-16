@@ -131,7 +131,7 @@ class OllamaClient(LLMClient):
             }
 
         except asyncio.TimeoutError:
-            logger.error(f"LLM: Request timeout ({self.timeout_seconds}s)")
+            logger.error(f"LLM: Request timeout ({self.timeout_seconds}s)", exc_info=True)
             return None
         except aiohttp.ClientError as e:
             logger.error(f"LLM: Connection error: {e}", exc_info=True)

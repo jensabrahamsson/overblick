@@ -449,8 +449,11 @@ class EmailAgentPlugin(PluginBase):
         subject = email.get("subject", "")
         body = email.get("body", "")
 
+        safe_sender = wrap_external_content(sender, "email_sender")
+        safe_subject = wrap_external_content(subject, "email_subject")
+        safe_body = wrap_external_content(body[:1000], "email_body")
         messages = notification_prompt(
-            sender=sender, subject=subject, body=body[:1000],
+            sender=safe_sender, subject=safe_subject, body=safe_body,
             principal_name=self._principal_name,
         )
 
@@ -546,11 +549,14 @@ class EmailAgentPlugin(PluginBase):
                 else tone_guidance
             )
 
+        safe_sender = wrap_external_content(sender, "email_sender")
+        safe_subject = wrap_external_content(subject, "email_subject")
+        safe_body = wrap_external_content(body[:3000], "email_body")
         if research_context:
             messages = reply_prompt_with_research(
-                sender=sender,
-                subject=subject,
-                body=body[:3000],
+                sender=safe_sender,
+                subject=safe_subject,
+                body=safe_body,
                 sender_context=sender_context,
                 interaction_history=interaction_history,
                 principal_name=self._principal_name,
@@ -558,9 +564,9 @@ class EmailAgentPlugin(PluginBase):
             )
         else:
             messages = reply_prompt(
-                sender=sender,
-                subject=subject,
-                body=body[:3000],
+                sender=safe_sender,
+                subject=safe_subject,
+                body=safe_body,
                 sender_context=sender_context,
                 interaction_history=interaction_history,
                 principal_name=self._principal_name,
