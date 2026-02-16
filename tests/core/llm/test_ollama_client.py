@@ -248,29 +248,29 @@ class TestOllamaClientChat:
 class TestThinkTokenStripping:
     def test_strip_think_tokens(self):
         text = "<think>I need to reason about this</think>The actual answer"
-        assert OllamaClient._strip_think_tokens(text) == "The actual answer"
+        assert OllamaClient.strip_think_tokens(text) == "The actual answer"
 
     def test_strip_multiline_think(self):
         text = (
             "<think>\nStep 1: Consider options\nStep 2: Choose best\n</think>\n"
             "Here is my response."
         )
-        assert OllamaClient._strip_think_tokens(text) == "Here is my response."
+        assert OllamaClient.strip_think_tokens(text) == "Here is my response."
 
     def test_strip_multiple_think_blocks(self):
         text = "<think>first</think>Hello <think>second</think>World"
-        assert OllamaClient._strip_think_tokens(text) == "Hello World"
+        assert OllamaClient.strip_think_tokens(text) == "Hello World"
 
     def test_no_think_tokens(self):
         text = "Just a plain response with no thinking"
-        assert OllamaClient._strip_think_tokens(text) == text
+        assert OllamaClient.strip_think_tokens(text) == text
 
     def test_empty_think_block(self):
         text = "<think></think>Response"
-        assert OllamaClient._strip_think_tokens(text) == "Response"
+        assert OllamaClient.strip_think_tokens(text) == "Response"
 
     def test_empty_string(self):
-        assert OllamaClient._strip_think_tokens("") == ""
+        assert OllamaClient.strip_think_tokens("") == ""
 
     @pytest.mark.asyncio
     async def test_chat_strips_think_tokens(self):

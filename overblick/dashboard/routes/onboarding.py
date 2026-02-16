@@ -115,20 +115,7 @@ async def onboard_submit(request: Request):
     step = max(1, min(step, len(STEPS)))
     step_name = STEPS[step - 1]
 
-    # Validate CSRF
-    csrf_token = form.get("csrf_token", "")
-    session_mgr = request.app.state.session_manager
-    if not session_mgr.validate_csrf(request.state.session, csrf_token):
-        return templates.TemplateResponse("onboarding/step1_name.html", {
-            "request": request,
-            "csrf_token": request.state.session.get("csrf_token", ""),
-            "step": 1,
-            "total_steps": len(STEPS),
-            "step_name": "name",
-            "steps": STEPS,
-            "wizard": {},
-            "error": "CSRF validation failed. Please try again.",
-        }, status_code=403)
+    # CSRF is enforced by AuthMiddleware via X-CSRF-Token header
 
     wizard_state = _get_wizard_state(request)
     error = None

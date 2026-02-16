@@ -11,12 +11,20 @@ Reasoning policy:
     Ollama's native API (see chat.py).
 """
 
+import re
 from abc import ABC, abstractmethod
 from typing import Optional
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class LLMClient(ABC):
     """Abstract LLM client interface."""
+
+    @staticmethod
+    def strip_think_tokens(text: str) -> str:
+        """Strip Qwen3 <think>...</think> reasoning blocks from output."""
+        return _THINK_RE.sub("", text).strip()
 
     @abstractmethod
     async def chat(

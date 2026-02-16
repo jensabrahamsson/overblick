@@ -140,7 +140,7 @@ class Supervisor:
             self._monitor_tasks[identity] = task
             return agent
 
-        logger.error("Failed to start agent '%s'", identity)
+        logger.warning("Failed to start agent '%s'", identity)
         return None
 
     async def stop_agent(self, identity: str) -> bool:
