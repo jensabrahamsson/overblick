@@ -63,7 +63,7 @@ Every LLM interaction passes through:
 1. **Input Sanitize** — Strip null bytes, control chars, normalize unicode
 2. **Preflight Check** — Detect jailbreak/injection attempts
 3. **Rate Limit** — Token bucket throttling per identity
-4. **LLM Call** — Invoke the language model (Ollama, Gateway)
+4. **LLM Call** — Invoke the language model (Ollama, Gateway, or Cloud provider)
 5. **Output Safety** — Filter AI leakage, persona breaks, blocked content
 6. **Audit Log** — Record the interaction for review
 

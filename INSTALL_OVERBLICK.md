@@ -5,7 +5,8 @@ Security-focused multi-identity agent framework.
 ## Prerequisites
 
 - **Python 3.13+**
-- **Ollama** (local LLM) — [install guide](https://ollama.com/download)
+- **Ollama** (local LLM) — [install guide](https://ollama.com/download) — *optional if using cloud LLM provider*
+- *Optional:* Cloud LLM API key (OpenAI, Anthropic, etc.) — **Note:** Cloud provider support is a stub implementation not yet functional
 - *Optional:* Gmail account with [App Password](https://myaccount.google.com/apppasswords)
 - *Optional:* Telegram bot via [@BotFather](https://t.me/BotFather)
 
@@ -42,7 +43,7 @@ Multiple agents can share the same personality (e.g. both Notifications and Rese
 The setup wizard opens in your browser and walks you through:
 1. **Welcome** — overview and ambient music
 2. **Your identity** — name, email, timezone
-3. **AI engine** — Ollama or LLM Gateway configuration
+3. **AI engine** — Ollama, LLM Gateway, or Cloud LLM provider configuration
 4. **Channels** — Gmail and Telegram (both optional)
 5. **Use cases** — what should your agents do?
 6. **Assign agents** — pick a personality for each agent via the character carousel
@@ -108,6 +109,12 @@ curl http://localhost:11434/api/tags
 4. Send a message to your bot, then visit:
    `https://api.telegram.org/bot<TOKEN>/getUpdates`
 5. Find your `chat_id` in the response
+
+**Cloud LLM provider:**
+If you selected "Cloud LLM" in the wizard, note that the cloud client is currently a stub implementation. You'll need to:
+1. Implement `CloudLLMClient` in `overblick/core/llm/cloud_client.py`
+2. Add your provider's API client (e.g., `openai`, `anthropic`)
+3. Configure `cloud_api_url`, `cloud_model`, and `cloud_secret_key` in your identity's LLM settings
 
 **Port conflicts:**
 The setup wizard automatically picks a random available port.

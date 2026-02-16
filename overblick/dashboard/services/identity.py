@@ -42,7 +42,7 @@ class IdentityService:
                     "model": identity.llm.model,
                     "temperature": identity.llm.temperature,
                     "max_tokens": identity.llm.max_tokens,
-                    "use_gateway": identity.llm.use_gateway,
+                    "provider": identity.llm.provider,
                 },
                 "quiet_hours": {
                     "enabled": identity.quiet_hours.enabled,

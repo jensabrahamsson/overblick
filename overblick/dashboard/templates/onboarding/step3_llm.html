@@ -13,6 +13,7 @@
     <input type="hidden" name="step" value="3">
 
     {% set llm = wizard.get('llm', {}) %}
+    {% set current_provider = llm.get('provider', 'ollama') %}
 
     <div class="form-group">
         <label for="model" class="form-label">Model</label>
@@ -39,12 +40,45 @@
     </div>
 
     <div class="form-group">
-        <label class="form-checkbox">
-            <input type="checkbox" name="use_gateway"
-                   {% if llm.get('use_gateway') %}checked{% endif %}>
-            <span>Use LLM Gateway (priority queue)</span>
-        </label>
-        <span class="form-hint">Route through the shared LLM Gateway instead of direct Ollama.</span>
+        <label class="form-label">Provider</label>
+        <div class="radio-group">
+            <label class="form-radio">
+                <input type="radio" name="provider" value="ollama"
+                       {% if current_provider == 'ollama' %}checked{% endif %}
+                       onchange="switchProvider('ollama')">
+                <span>Ollama (Local)</span>
+            </label>
+            <label class="form-radio">
+                <input type="radio" name="provider" value="gateway"
+                       {% if current_provider == 'gateway' %}checked{% endif %}
+                       onchange="switchProvider('gateway')">
+                <span>LLM Gateway</span>
+            </label>
+            <label class="form-radio">
+                <input type="radio" name="provider" value="cloud"
+                       {% if current_provider == 'cloud' %}checked{% endif %}
+                       onchange="switchProvider('cloud')">
+                <span>Cloud LLM</span>
+            </label>
+        </div>
+        <span class="form-hint">Ollama runs locally. Gateway adds priority queuing. Cloud connects to external APIs.</span>
+    </div>
+
+    <div id="cloud-config" style="display: {{ 'block' if current_provider == 'cloud' else 'none' }};">
+        <div class="form-group">
+            <label for="cloud_api_url" class="form-label">API URL</label>
+            <input type="text" id="cloud_api_url" name="cloud_api_url" class="form-input"
+                   value="{{ llm.get('cloud_api_url', '') }}"
+                   placeholder="https://api.openai.com/v1">
+            <span class="form-hint">Base URL for the cloud provider API.</span>
+        </div>
+        <div class="form-group">
+            <label for="cloud_model" class="form-label">Cloud Model Name</label>
+            <input type="text" id="cloud_model" name="cloud_model" class="form-input"
+                   value="{{ llm.get('cloud_model', '') }}"
+                   placeholder="gpt-4o">
+            <span class="form-hint">The API key will be configured as an encrypted secret.</span>
+        </div>
     </div>
 
     <div class="wizard-actions">
@@ -52,4 +86,10 @@
         <button type="submit" class="btn btn-primary">Next: Plugins</button>
     </div>
 </form>
+
+<script>
+function switchProvider(provider) {
+    document.getElementById('cloud-config').style.display = provider === 'cloud' ? 'block' : 'none';
+}
+</script>
 {% endblock %}

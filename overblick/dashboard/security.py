@@ -86,7 +86,9 @@ class OnboardingLLMForm(BaseModel):
     model: str = Field(min_length=1, max_length=100, default="qwen3:8b")
     temperature: float = Field(ge=0.0, le=2.0, default=0.7)
     max_tokens: int = Field(ge=100, le=8000, default=2000)
-    use_gateway: bool = False
+    provider: str = Field(default="ollama", pattern=r"^(ollama|gateway|cloud)$")
+    cloud_api_url: str = Field(default="", max_length=256)
+    cloud_model: str = Field(default="", max_length=100)
 
 
 class OnboardingSecretsForm(BaseModel):

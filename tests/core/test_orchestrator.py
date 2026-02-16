@@ -1,8 +1,11 @@
-"""Tests for orchestrator state machine and IPC client discovery."""
+"""Tests for orchestrator state machine, LLM routing, and IPC client discovery."""
 
 import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from overblick.core.orchestrator import Orchestrator, OrchestratorState
+from overblick.identities import Identity, LLMSettings
 
 
 class TestOrchestratorState:
@@ -40,6 +43,70 @@ class TestOrchestratorStop:
         await orch.stop()
         await orch.stop()  # Should not raise
         assert orch.state == OrchestratorState.STOPPED
+
+
+class TestOrchestratorLLMRouting:
+    """Tests for _create_llm_client provider routing."""
+
+    @pytest.mark.asyncio
+    async def test_routes_to_ollama(self, tmp_path):
+        orch = Orchestrator("anomal", base_dir=tmp_path)
+        orch._identity = Identity(
+            name="test",
+            llm=LLMSettings(provider="ollama"),
+        )
+        with patch("overblick.core.llm.ollama_client.OllamaClient") as mock_cls:
+            mock_instance = MagicMock()
+            mock_instance.health_check = AsyncMock(return_value=True)
+            mock_cls.return_value = mock_instance
+            client = await orch._create_llm_client()
+            mock_cls.assert_called_once()
+            assert client is mock_instance
+
+    @pytest.mark.asyncio
+    async def test_routes_to_gateway(self, tmp_path):
+        orch = Orchestrator("anomal", base_dir=tmp_path)
+        orch._identity = Identity(
+            name="test",
+            llm=LLMSettings(provider="gateway", gateway_url="http://10.0.0.1:8200"),
+        )
+        with patch("overblick.core.llm.gateway_client.GatewayClient") as mock_cls:
+            mock_instance = MagicMock()
+            mock_instance.health_check = AsyncMock(return_value=True)
+            mock_cls.return_value = mock_instance
+            client = await orch._create_llm_client()
+            mock_cls.assert_called_once()
+            assert client is mock_instance
+
+    @pytest.mark.asyncio
+    async def test_routes_to_cloud(self, tmp_path):
+        orch = Orchestrator("anomal", base_dir=tmp_path)
+        orch._identity_name = "test"
+        orch._identity = Identity(
+            name="test",
+            llm=LLMSettings(
+                provider="cloud",
+                cloud_api_url="https://api.openai.com/v1",
+                cloud_model="gpt-4o",
+            ),
+        )
+        with patch("overblick.core.llm.cloud_client.CloudLLMClient") as mock_cls:
+            mock_instance = MagicMock()
+            mock_instance.health_check = AsyncMock(return_value=True)
+            mock_cls.return_value = mock_instance
+            client = await orch._create_llm_client()
+            mock_cls.assert_called_once()
+            assert client is mock_instance
+
+    @pytest.mark.asyncio
+    async def test_unknown_provider_raises(self, tmp_path):
+        orch = Orchestrator("anomal", base_dir=tmp_path)
+        orch._identity = Identity(
+            name="test",
+            llm=LLMSettings.model_validate({"provider": "nonexistent"}),
+        )
+        with pytest.raises(ValueError, match="Unknown LLM provider: nonexistent"):
+            await orch._create_llm_client()
 
 
 class TestOrchestratorIPCDiscovery:

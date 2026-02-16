@@ -80,13 +80,13 @@ This document describes every layer of the system.
           │  (Fernet + keyring) (SQLite)    (default-deny) │
           └───────────────────────────────────────────────┘
                     │
-          ┌─────────▼──────────────┐
-          │     LLM Backend        │
-          │  ┌────────┐ ┌────────┐ │
-          │  │ Ollama  │ │Gateway │ │
-          │  │(local)  │ │(remote)│ │
-          │  └────────┘ └────────┘ │
-          └────────────────────────┘
+          ┌─────────▼──────────────────────┐
+          │       LLM Backend              │
+          │  ┌────────┐ ┌────────┐ ┌─────┐ │
+          │  │ Ollama  │ │Gateway │ │Cloud│ │
+          │  │(local)  │ │(queue) │ │(API)│ │
+          │  └────────┘ └────────┘ └─────┘ │
+          └────────────────────────────────┘
 ```
 
 **Key design principles:**
@@ -167,7 +167,7 @@ An Identity is a frozen Pydantic model loaded from YAML that controls all operat
 | `engagement_threshold` | `int` | Score above which agent engages with content |
 | `connectors` | `tuple[str, ...]` | Plugins/connectors to load |
 | `capability_names` | `tuple[str, ...]` | Capabilities to enable (bundles expand) |
-| `llm` | `LLMSettings` | Model, temperature, max_tokens, timeout |
+| `llm` | `LLMSettings` | Model, provider, temperature, max_tokens, timeout |
 | `quiet_hours` | `QuietHoursSettings` | Start/end hours, timezone |
 | `schedule` | `ScheduleSettings` | Heartbeat, feed poll intervals |
 | `security` | `SecuritySettings` | Preflight/output safety toggle, admin IDs |
@@ -180,7 +180,7 @@ An Identity is a frozen Pydantic model loaded from YAML that controls all operat
 
 Each settings group is its own frozen Pydantic model:
 
-- **`LLMSettings`** — model, temperature, top_p, max_tokens, timeout_seconds
+- **`LLMSettings`** — provider ("ollama"|"gateway"|"cloud"), model, temperature, top_p, max_tokens, timeout_seconds, cloud_api_url, cloud_model, cloud_secret_key
 - **`QuietHoursSettings`** — enabled, timezone, start_hour, end_hour, mode
 - **`ScheduleSettings`** — heartbeat_hours, feed_poll_minutes, enabled
 - **`SecuritySettings`** — enable_preflight, enable_output_safety, admin_user_ids, block_threshold
@@ -634,6 +634,28 @@ Local LLM via Ollama HTTP API. Default model: `qwen3:8b`.
 **File:** `overblick/core/llm/gateway_client.py`
 
 For remote LLM services. Implements the same `LLMClient` interface for when multiple agents share a centralized LLM gateway (avoiding GPU contention).
+
+### Cloud LLM Client (Stub)
+
+**File:** `overblick/core/llm/cloud_client.py`
+
+Stub implementation for cloud LLM providers (OpenAI, Anthropic, etc.). Currently raises `NotImplementedError` on all methods — designed for future implementation. The orchestrator routes to this client when `llm.provider: "cloud"` is configured.
+
+**Provider routing in Orchestrator:**
+
+```python
+match llm_cfg.provider:
+    case "ollama":
+        llm_client = OllamaClient(...)
+    case "gateway":
+        llm_client = GatewayClient(...)
+    case "cloud":
+        llm_client = CloudLLMClient(...)  # Stub — not yet functional
+    case _:
+        raise ValueError(f"Unknown LLM provider: {llm_cfg.provider}")
+```
+
+Backward compatibility: Old configs with `use_gateway: true` are automatically migrated to `provider: "gateway"` at load time.
 
 ### Response Router
 

@@ -122,11 +122,22 @@ def _build_global_config(state: dict[str, Any]) -> dict[str, Any]:
         "llm": {},
     }
 
-    if llm.get("llm_provider") == "ollama":
+    provider = llm.get("llm_provider", "ollama")
+
+    if provider == "ollama":
         config["llm"] = {
             "provider": "ollama",
             "host": llm.get("ollama_host", "127.0.0.1"),
             "port": llm.get("ollama_port", 11434),
+            "model": llm.get("model", "qwen3:8b"),
+            "temperature": llm.get("default_temperature", 0.7),
+            "max_tokens": llm.get("default_max_tokens", 2000),
+        }
+    elif provider == "cloud":
+        config["llm"] = {
+            "provider": "cloud",
+            "cloud_api_url": llm.get("cloud_api_url", ""),
+            "cloud_model": llm.get("cloud_model", ""),
             "model": llm.get("model", "qwen3:8b"),
             "temperature": llm.get("default_temperature", 0.7),
             "max_tokens": llm.get("default_max_tokens", 2000),

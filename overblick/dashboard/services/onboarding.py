@@ -95,12 +95,16 @@ class OnboardingService:
         # LLM settings
         llm = state.get("llm", {})
         if llm:
+            provider = llm.get("provider", "ollama")
             config["llm"] = {
                 "model": llm.get("model", "qwen3:8b"),
                 "temperature": llm.get("temperature", 0.7),
                 "max_tokens": llm.get("max_tokens", 2000),
-                "use_gateway": llm.get("use_gateway", False),
+                "provider": provider,
             }
+            if provider == "cloud":
+                config["llm"]["cloud_api_url"] = llm.get("cloud_api_url", "")
+                config["llm"]["cloud_model"] = llm.get("cloud_model", "")
 
         # Personality reference
         personality = state.get("personality", "")
@@ -137,11 +141,16 @@ class OnboardingService:
             import aiohttp
 
             model = llm_config.get("model", "qwen3:8b")
-            use_gateway = llm_config.get("use_gateway", False)
+            provider = llm_config.get("provider", "ollama")
 
-            if use_gateway:
+            if provider == "gateway":
                 url = llm_config.get("gateway_url", "http://127.0.0.1:8200")
                 health_url = f"{url}/health"
+            elif provider == "cloud":
+                cloud_url = llm_config.get("cloud_api_url", "")
+                if not cloud_url:
+                    return {"success": False, "message": "Cloud API URL is required"}
+                health_url = f"{cloud_url.rstrip('/')}/models"
             else:
                 url = "http://127.0.0.1:11434"
                 health_url = f"{url}/v1/models"
