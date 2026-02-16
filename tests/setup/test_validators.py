@@ -64,9 +64,19 @@ class TestLLMData:
         data = LLMData(llm_provider="gateway")
         assert data.gateway_url == "http://127.0.0.1:8200"
 
+    def test_valid_cloud(self):
+        data = LLMData(
+            llm_provider="cloud",
+            cloud_api_url="https://api.openai.com/v1",
+            cloud_model="gpt-4o",
+        )
+        assert data.llm_provider == "cloud"
+        assert data.cloud_api_url == "https://api.openai.com/v1"
+        assert data.cloud_model == "gpt-4o"
+
     def test_invalid_provider(self):
-        with pytest.raises(ValidationError, match="ollama.*gateway"):
-            LLMData(llm_provider="openai")
+        with pytest.raises(ValidationError, match="ollama.*gateway.*cloud"):
+            LLMData(llm_provider="something_else")
 
     def test_temperature_bounds(self):
         data = LLMData(default_temperature=0.0)

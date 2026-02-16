@@ -721,16 +721,30 @@ class TestOnboardingLLMForm:
         assert form.model == "qwen3:8b"
         assert form.temperature == 0.7
         assert form.max_tokens == 2000
-        assert form.use_gateway is False
+        assert form.provider == "ollama"
 
     def test_valid_custom_values(self):
         form = OnboardingLLMForm(
-            model="llama3:70b", temperature=1.5, max_tokens=4000, use_gateway=True,
+            model="llama3:70b", temperature=1.5, max_tokens=4000, provider="gateway",
         )
         assert form.model == "llama3:70b"
         assert form.temperature == 1.5
         assert form.max_tokens == 4000
-        assert form.use_gateway is True
+        assert form.provider == "gateway"
+
+    def test_provider_cloud(self):
+        form = OnboardingLLMForm(
+            provider="cloud",
+            cloud_api_url="https://api.openai.com/v1",
+            cloud_model="gpt-4o",
+        )
+        assert form.provider == "cloud"
+        assert form.cloud_api_url == "https://api.openai.com/v1"
+        assert form.cloud_model == "gpt-4o"
+
+    def test_provider_invalid(self):
+        with pytest.raises(ValidationError):
+            OnboardingLLMForm(provider="invalid")
 
     def test_temperature_lower_bound(self):
         form = OnboardingLLMForm(temperature=0.0)

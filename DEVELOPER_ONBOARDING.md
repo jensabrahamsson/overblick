@@ -53,6 +53,8 @@ The name "Överblick" is Swedish for "overview" or "bird's-eye view" — the ide
 
 A key motivation was **independence from cloud AI providers**. Överblick runs on Ollama with local models (currently Qwen3 8B). No OpenAI API keys. No monthly bills that scale with usage. No dependency on a company's pricing decisions or content policies. The agent runs on your hardware, under your control.
 
+**Cloud provider support:** While Överblick now supports a `cloud` LLM provider option in configuration, the `CloudLLMClient` is currently a stub implementation that raises `NotImplementedError`. This is a placeholder for future cloud integration (OpenAI, Anthropic, etc.) — users who need cloud providers can implement the client themselves. The framework's default remains local-first.
+
 This matters because the personalities in Överblick have strong opinions. Anomal will critique socialism. Rost will mock crypto hype. Natt will explore uncomfortable philosophical territory. A cloud AI provider might refuse to generate some of this content. With local models, the personality system has creative freedom.
 
 ---
@@ -158,8 +160,9 @@ overblick/
 │   ├── quiet_hours.py       # GPU bedroom mode
 │   ├── llm/                 # LLM abstraction layer
 │   │   ├── client.py        # Abstract LLMClient
-│   │   ├── ollama_client.py # Ollama backend
+│   │   ├── ollama_client.py # Ollama backend (local)
 │   │   ├── gateway_client.py# LLM Gateway backend (priority queue)
+│   │   ├── cloud_client.py  # Cloud provider stub (not yet functional)
 │   │   ├── pipeline.py      # SafeLLMPipeline (THE security layer)
 │   │   └── response_router.py
 │   ├── security/            # Security modules
@@ -793,16 +796,21 @@ python -m overblick.gateway  # Starts on port 8200
 
 ### Configuration
 
-Agents opt into Gateway mode in their personality YAML:
+Agents configure their LLM provider in identity YAML:
 
 ```yaml
-operational:
-  llm:
-    use_gateway: true
-    gateway_url: "http://127.0.0.1:8200"
+llm:
+  provider: "ollama"          # or "gateway" or "cloud"
+  model: "qwen3:8b"
+  # For gateway:
+  gateway_url: "http://127.0.0.1:8200"
+  # For cloud (stub implementation):
+  cloud_api_url: "https://api.openai.com/v1"
+  cloud_model: "gpt-4"
+  cloud_secret_key: "openai_api_key"  # Key name in secrets
 ```
 
-Or connect directly to Ollama (default) if only running one agent.
+Or use Ollama directly (default) if only running one agent.
 
 ---
 

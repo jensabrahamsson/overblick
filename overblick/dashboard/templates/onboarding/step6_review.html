@@ -43,8 +43,8 @@
             <span class="review-value">{{ summary.llm.get('max_tokens', 2000) }}</span>
         </div>
         <div class="review-item">
-            <span class="review-label">Gateway</span>
-            <span class="review-value">{{ 'Yes' if summary.llm.get('use_gateway') else 'No' }}</span>
+            <span class="review-label">Provider</span>
+            <span class="review-value">{{ summary.llm.get('provider', 'ollama')|capitalize }}</span>
         </div>
     </div>
 

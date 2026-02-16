@@ -9,7 +9,7 @@
 ## Architecture
 - **Core:** Orchestrator, identity system, plugin registry, event bus, scheduler, capability system, permission system
 - **Security:** SafeLLMPipeline (fail-closed), preflight checks, output safety, audit log, secrets manager, input sanitizer with boundary markers, rate limiter
-- **LLM:** Abstract client with Ollama + LLM Gateway backends. SafeLLMPipeline wraps ALL LLM calls (sanitize → preflight → rate limit → LLM → output safety → audit).
+- **LLM:** Abstract client with Ollama, LLM Gateway, and Cloud provider backends. Cloud LLM stub supports future integration with OpenAI, Anthropic, etc. SafeLLMPipeline wraps ALL LLM calls (sanitize → preflight → rate limit → LLM → output safety → audit).
 - **Database:** Abstract backend (SQLite + PostgreSQL) with migration system
 - **Plugins:** Self-contained modules (Moltbook, Telegram, Email Agent, Host Health, AI Digest) that receive PluginContext as their only framework interface.
 - **Identities:** Unified identity stable — YAML-driven character definitions (voice, traits, interests, backstory, psychology, key_knowledge, operational config) loadable by any plugin via `load_identity()` + `build_system_prompt()`. Each identity is a single `personality.yaml` containing both character AND operational config.

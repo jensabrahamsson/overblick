@@ -98,13 +98,70 @@ Plugins are the primary attack surface (they interact with external APIs). Secur
 - **PluginContext as sole interface**: Plugins cannot import framework internals directly. They receive a `PluginContext` with controlled access to services.
 - **Capability-based access**: Plugins request specific capabilities, and the framework grants only what's configured in the identity's YAML.
 
+## Cloud LLM Provider Risks
+
+While Överblick is **local-first by design**, it now supports cloud LLM providers (OpenAI, Anthropic, etc.) as an optional configuration. This introduces new security considerations:
+
+### Data Exfiltration Risk
+
+**Problem:** When using cloud providers, all prompts and responses leave your local machine and travel over the internet to a third-party API. This includes:
+- User messages (potentially containing sensitive information)
+- System prompts (revealing your personality configuration)
+- Agent responses (which may contain operational details)
+- All conversation context (multi-turn conversations build up significant context)
+
+**Mitigation:**
+- **Default remains local**: Ollama is the recommended and default LLM backend. Cloud providers are opt-in only.
+- **Encrypted secrets**: Cloud API keys must be stored in encrypted secrets (`config/secrets/<identity>.yaml`), never in plaintext configuration files.
+- **Audit trail**: All cloud LLM calls are logged to the audit database with the same detail as local calls — you can review what was sent to third parties.
+- **No cloud by default**: The setup wizard defaults to Ollama. Users must explicitly choose "Cloud LLM" to opt into cloud providers.
+
+### API Key Security
+
+**Problem:** Cloud LLM API keys are bearer tokens — anyone with the key can make API calls on your account, potentially racking up costs or accessing your data.
+
+**Mitigation:**
+- **Fernet encryption**: Cloud API keys are stored encrypted at rest using Fernet symmetric encryption (AES-128-CBC with HMAC-SHA256).
+- **Master key in macOS Keychain**: The encryption master key is stored in the macOS Keychain, not in a file.
+- **No environment variable fallback**: Unlike many frameworks, Überblick does NOT fall back to `os.getenv("OPENAI_API_KEY")`. Keys are ONLY accessible through the encrypted `SecretsManager`.
+- **Per-identity isolation**: Each identity has its own encrypted secrets file. An attacker compromising one identity's secrets cannot access another's.
+- **Secret values never logged**: The audit log records that a secret was accessed (by key name), but never logs the decrypted value.
+
+### Content Policy Risk
+
+**Problem:** Cloud LLM providers enforce content policies. Some of Överblick's personalities (Rost, Natt, Volt) have strong opinions and dark humor that cloud providers may refuse to generate or may flag for review.
+
+**Mitigation:**
+- **Local models are default**: Personalities were designed for local models with no content policies. If you need controversial content, use Ollama.
+- **Provider selection per identity**: You can configure some identities to use cloud providers (for boring tasks) and others to use local models (for edgy content).
+- **Preflight checks still apply**: Even with cloud providers, the SafeLLMPipeline's preflight checks run before prompts are sent. This prevents you from sending content that would violate provider terms of service and potentially get your API key banned.
+
+### Cost Control
+
+**Problem:** Cloud LLM APIs charge per token. A chatty agent or a prompt injection attack could run up a large bill.
+
+**Mitigation:**
+- **Rate limiting**: The SafeLLMPipeline's rate limiter applies to ALL LLM calls, including cloud providers. This bounds the maximum requests per time period.
+- **Quiet hours**: The "GPU bedroom mode" feature also applies to cloud providers — agents can be configured to sleep during certain hours, preventing overnight API costs.
+- **Audit trail**: Every cloud LLM call is logged with timestamp, token count (if available), and duration. You can monitor costs by reviewing the audit log.
+
+### Recommendation
+
+**Use cloud providers only if:**
+1. You don't have local GPU resources for Ollama
+2. You need models not available locally (e.g., GPT-4, Claude Opus)
+3. You're comfortable with your prompts/data leaving your machine
+4. You trust the provider's content policies and data handling
+
+**Otherwise:** Use Ollama with local models. It's faster, more private, and has no recurring costs beyond electricity.
+
 ## Supply Chain Decisions
 
 | Area | Choice | Why |
 |------|--------|-----|
 | Frontend | No npm, no Node.js | npm is the #1 supply chain attack vector in modern web development. By using Jinja2 server rendering + vendored htmx, we eliminate this entire category of risk. |
 | Python deps | Minimal, audited | Core deps are `pydantic`, `pyyaml`, `cryptography` (NIST-audited), `aiohttp`. Dashboard adds `fastapi`, `uvicorn`, `jinja2`, `itsdangerous`. All are well-maintained, widely audited packages. |
-| LLM backend | Local Ollama | No cloud LLM API calls by default. All inference happens locally, preventing prompt/data exfiltration to third parties. |
+| LLM backend | Local Ollama (default) | No cloud LLM API calls by default. All inference happens locally, preventing prompt/data exfiltration to third parties. Cloud providers are opt-in only. |
 | CSS | Hand-written | No CSS framework dependencies. Single `dashboard.css` file, fully auditable. |
 
 ## What We Deliberately Don't Do

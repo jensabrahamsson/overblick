@@ -376,6 +376,8 @@ def register_routes(app: FastAPI) -> None:
         gateway_url: str = Form("http://127.0.0.1:8200"),
         default_temperature: float = Form(0.7),
         default_max_tokens: int = Form(2000),
+        cloud_api_url: str = Form(""),
+        cloud_model: str = Form(""),
     ):
         state = _get_state(request.app)
         try:
@@ -387,6 +389,8 @@ def register_routes(app: FastAPI) -> None:
                 gateway_url=gateway_url,
                 default_temperature=default_temperature,
                 default_max_tokens=default_max_tokens,
+                cloud_api_url=cloud_api_url,
+                cloud_model=cloud_model,
             )
             state["llm"] = data.model_dump()
             return RedirectResponse("/step/4", status_code=303)

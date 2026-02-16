@@ -67,9 +67,28 @@ class LLMSettings(BaseModel):
     max_tokens: int = 2000
     timeout_seconds: int = 180
 
-    # Gateway mode: use the LLM Gateway priority queue instead of direct Ollama
-    use_gateway: bool = False
+    # Provider: "ollama" (default), "gateway", or "cloud"
+    provider: str = "ollama"
     gateway_url: str = "http://127.0.0.1:8200"
+
+    # Cloud LLM settings (used when provider="cloud")
+    cloud_api_url: str = ""           # e.g. "https://api.openai.com/v1"
+    cloud_model: str = ""             # e.g. "gpt-4o", "claude-sonnet-4-5-20250929"
+    cloud_secret_key: str = "cloud_api_key"  # Secret key name in SecretsManager
+
+    # DEPRECATED — kept for backward compatibility with existing YAML configs.
+    # Migrated to provider="gateway" by the model validator below.
+    use_gateway: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_use_gateway(cls, data):
+        """Migrate legacy use_gateway=True to provider='gateway'."""
+        if isinstance(data, dict):
+            # Only migrate if provider is not explicitly set
+            if data.get("use_gateway") and not data.get("provider"):
+                data["provider"] = "gateway"
+        return data
 
 
 class QuietHoursSettings(BaseModel):

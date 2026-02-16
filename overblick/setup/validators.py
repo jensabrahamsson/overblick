@@ -44,11 +44,15 @@ class LLMData(BaseModel):
     default_temperature: float = 0.7
     default_max_tokens: int = 2000
 
+    # Cloud LLM fields
+    cloud_api_url: str = ""
+    cloud_model: str = ""
+
     @field_validator("llm_provider")
     @classmethod
     def valid_provider(cls, v: str) -> str:
-        if v not in ("ollama", "gateway"):
-            raise ValueError("Provider must be 'ollama' or 'gateway'")
+        if v not in ("ollama", "gateway", "cloud"):
+            raise ValueError("Provider must be 'ollama', 'gateway', or 'cloud'")
         return v
 
     @field_validator("default_temperature")

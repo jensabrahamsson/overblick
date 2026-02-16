@@ -60,6 +60,10 @@ ollama serve
 ollama pull qwen3:8b
 ```
 
+#### Cloud LLM Alternative
+
+If you prefer to use a cloud provider (OpenAI, Anthropic, etc.) instead of Ollama, configure `provider: "cloud"` in your identity's LLM settings. **Note:** The cloud LLM client is currently a stub implementation that raises `NotImplementedError` — this is a placeholder for future cloud provider integration. For now, use Ollama or the LLM Gateway.
+
 ### 3. Set Up SMTP (Brevo)
 
 **Why Brevo?** Free 300 emails/day, no credit card required, works out of the box.

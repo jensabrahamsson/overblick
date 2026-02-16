@@ -148,7 +148,9 @@ async def onboard_submit(request: Request):
                 model=form.get("model", "qwen3:8b"),
                 temperature=float(form.get("temperature", "0.7")),
                 max_tokens=int(form.get("max_tokens", "2000")),
-                use_gateway=form.get("use_gateway") == "on",
+                provider=form.get("provider", "ollama"),
+                cloud_api_url=form.get("cloud_api_url", ""),
+                cloud_model=form.get("cloud_model", ""),
             )
             wizard_state["llm"] = data.model_dump()
         except Exception as e:

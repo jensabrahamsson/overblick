@@ -4,35 +4,43 @@
 {% block content %}
 <h2 class="step-heading">Choose Your AI Engine</h2>
 <p class="step-description">
-    Överblick agents are powered by local LLMs. Choose between direct Ollama connection
-    or the LLM Gateway (which adds priority queuing for multiple agents).
+    Överblick agents can use local LLMs (via Ollama or LLM Gateway)
+    or cloud providers (OpenAI, Anthropic, etc.).
 </p>
 
 <form method="post" action="/step/3">
     {% set llm = state.llm or {} %}
+    {% set provider = llm.get('llm_provider', 'ollama') %}
 
     <div class="form-group">
         <label class="form-label">Provider</label>
         <div class="radio-cards">
             <label class="radio-card">
                 <input type="radio" name="llm_provider" value="ollama"
-                       {{ 'checked' if llm.get('llm_provider', 'ollama') == 'ollama' }}
-                       onchange="document.getElementById('ollama-config').style.display='block';document.getElementById('gateway-config').style.display='none';">
+                       {{ 'checked' if provider == 'ollama' }}
+                       onchange="switchProvider('ollama')">
                 <div class="radio-card-title">Ollama (Local)</div>
                 <div class="radio-card-desc">Direct connection to Ollama. Simple, no extra setup.</div>
             </label>
             <label class="radio-card">
                 <input type="radio" name="llm_provider" value="gateway"
-                       {{ 'checked' if llm.get('llm_provider') == 'gateway' }}
-                       onchange="document.getElementById('gateway-config').style.display='block';document.getElementById('ollama-config').style.display='none';">
+                       {{ 'checked' if provider == 'gateway' }}
+                       onchange="switchProvider('gateway')">
                 <div class="radio-card-title">LLM Gateway</div>
                 <div class="radio-card-desc">Priority queue for multiple agents. Better for production.</div>
+            </label>
+            <label class="radio-card">
+                <input type="radio" name="llm_provider" value="cloud"
+                       {{ 'checked' if provider == 'cloud' }}
+                       onchange="switchProvider('cloud')">
+                <div class="radio-card-title">Cloud LLM</div>
+                <div class="radio-card-desc">Connect to a cloud provider (OpenAI, Anthropic, etc.). Requires API key.</div>
             </label>
         </div>
     </div>
 
     <!-- Ollama config -->
-    <div id="ollama-config" style="display: {{ 'none' if llm.get('llm_provider') == 'gateway' else 'block' }};">
+    <div id="ollama-config" style="display: {{ 'block' if provider == 'ollama' else 'none' }};">
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-md);">
             <div class="form-group">
                 <label class="form-label" for="ollama_host">Ollama Host</label>
@@ -60,11 +68,29 @@
     </div>
 
     <!-- Gateway config -->
-    <div id="gateway-config" style="display: {{ 'block' if llm.get('llm_provider') == 'gateway' else 'none' }};">
+    <div id="gateway-config" style="display: {{ 'block' if provider == 'gateway' else 'none' }};">
         <div class="form-group">
             <label class="form-label" for="gateway_url">Gateway URL</label>
             <input type="text" class="form-input" id="gateway_url" name="gateway_url"
                    value="{{ llm.get('gateway_url', 'http://127.0.0.1:8200') }}">
+        </div>
+    </div>
+
+    <!-- Cloud config -->
+    <div id="cloud-config" style="display: {{ 'block' if provider == 'cloud' else 'none' }};">
+        <div class="form-group">
+            <label class="form-label" for="cloud_api_url">API URL</label>
+            <input type="text" class="form-input" id="cloud_api_url" name="cloud_api_url"
+                   value="{{ llm.get('cloud_api_url', '') }}"
+                   placeholder="https://api.openai.com/v1">
+            <span class="form-hint">Base URL for the cloud provider API.</span>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="cloud_model">Cloud Model Name</label>
+            <input type="text" class="form-input" id="cloud_model" name="cloud_model"
+                   value="{{ llm.get('cloud_model', '') }}"
+                   placeholder="gpt-4o">
+            <span class="form-hint">The API key will be configured as an encrypted secret after setup.</span>
         </div>
     </div>
 
@@ -108,4 +134,12 @@
         <button type="submit" class="btn btn-primary">Next: Channels</button>
     </div>
 </form>
+
+<script>
+function switchProvider(provider) {
+    document.getElementById('ollama-config').style.display = provider === 'ollama' ? 'block' : 'none';
+    document.getElementById('gateway-config').style.display = provider === 'gateway' ? 'block' : 'none';
+    document.getElementById('cloud-config').style.display = provider === 'cloud' ? 'block' : 'none';
+}
+</script>
 {% endblock %}

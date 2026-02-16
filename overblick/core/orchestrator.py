@@ -382,35 +382,66 @@ class Orchestrator:
     async def _create_llm_client(self) -> object:
         """Create the appropriate LLM client based on identity config.
 
-        When use_gateway=True, uses GatewayClient which routes through the
-        priority queue (HIGH for interactive, LOW for background). Otherwise
-        connects directly to Ollama.
+        Routes to one of three backends based on llm.provider:
+        - "ollama": Direct local Ollama connection
+        - "gateway": LLM Gateway with priority queue
+        - "cloud": Cloud LLM provider (stub — not yet implemented)
         """
         llm_cfg = self._identity.llm
 
-        if llm_cfg.use_gateway:
-            from overblick.core.llm.gateway_client import GatewayClient
+        match llm_cfg.provider:
+            case "ollama":
+                from overblick.core.llm.ollama_client import OllamaClient
 
-            client = GatewayClient(
-                base_url=llm_cfg.gateway_url,
-                model=llm_cfg.model,
-                default_priority="low",
-                max_tokens=llm_cfg.max_tokens,
-                temperature=llm_cfg.temperature,
-                top_p=llm_cfg.top_p,
-                timeout_seconds=llm_cfg.timeout_seconds,
-            )
-            logger.info("Using LLM Gateway at %s (priority queue enabled)", llm_cfg.gateway_url)
-        else:
-            from overblick.core.llm.ollama_client import OllamaClient
+                client = OllamaClient(
+                    model=llm_cfg.model,
+                    temperature=llm_cfg.temperature,
+                    top_p=llm_cfg.top_p,
+                    max_tokens=llm_cfg.max_tokens,
+                    timeout_seconds=llm_cfg.timeout_seconds,
+                )
 
-            client = OllamaClient(
-                model=llm_cfg.model,
-                temperature=llm_cfg.temperature,
-                top_p=llm_cfg.top_p,
-                max_tokens=llm_cfg.max_tokens,
-                timeout_seconds=llm_cfg.timeout_seconds,
-            )
+            case "gateway":
+                from overblick.core.llm.gateway_client import GatewayClient
+
+                client = GatewayClient(
+                    base_url=llm_cfg.gateway_url,
+                    model=llm_cfg.model,
+                    default_priority="low",
+                    max_tokens=llm_cfg.max_tokens,
+                    temperature=llm_cfg.temperature,
+                    top_p=llm_cfg.top_p,
+                    timeout_seconds=llm_cfg.timeout_seconds,
+                )
+                logger.info("Using LLM Gateway at %s (priority queue enabled)", llm_cfg.gateway_url)
+
+            case "cloud":
+                from overblick.core.llm.cloud_client import CloudLLMClient
+
+                # Load API key from secrets manager
+                api_key = ""
+                if self._secrets:
+                    api_key = self._secrets.get(
+                        self._identity_name, llm_cfg.cloud_secret_key
+                    ) or ""
+
+                client = CloudLLMClient(
+                    api_url=llm_cfg.cloud_api_url,
+                    model=llm_cfg.cloud_model or llm_cfg.model,
+                    api_key=api_key,
+                    temperature=llm_cfg.temperature,
+                    max_tokens=llm_cfg.max_tokens,
+                    top_p=llm_cfg.top_p,
+                    timeout_seconds=llm_cfg.timeout_seconds,
+                )
+                logger.info(
+                    "Using Cloud LLM provider at %s (model: %s)",
+                    llm_cfg.cloud_api_url,
+                    llm_cfg.cloud_model or llm_cfg.model,
+                )
+
+            case _:
+                raise ValueError(f"Unknown LLM provider: {llm_cfg.provider}")
 
         # Health check
         if await client.health_check():
