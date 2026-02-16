@@ -503,6 +503,8 @@ style_notes: |
 5. Add extra examples demonstrating the correct voice
 6. Test with scenarios: `./venv/bin/python3 -m pytest tests/personalities/ -v -s -m llm -k <name>`
 
+For the full voice tuning workflow — including all YAML fields, diagnostic tables, and advanced techniques — see **[The Voice Tuner's Handbook](VOICE_TUNING.md)**.
+
 ---
 
 ## Security Architecture
@@ -902,7 +904,7 @@ This is the most common contribution. You're adding a new character to the stabl
 
 ### Training a Personality for a New LLM
 
-Adding support for a different model (e.g., Llama 3, Mistral, Gemma):
+Adding support for a different model (e.g., Llama 3, Mistral, Gemma). See **[The Voice Tuner's Handbook](VOICE_TUNING.md)** for the full guide.
 
 1. Chat with the personality using the new model
 2. Note where the model deviates from the intended voice

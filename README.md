@@ -88,7 +88,8 @@ Personalities define WHO the agent IS — separate from operational config. Each
 
 1. Create `overblick/identities/<name>/personality.yaml`
 2. Define: identity, voice, traits, interests, vocabulary, examples
-3. Test with the LLM test suite:
+3. Tune the voice for your LLM — see [The Voice Tuner's Handbook](VOICE_TUNING.md)
+4. Test with the LLM test suite:
 
 ```bash
 # Add your personality to the test parametrize lists

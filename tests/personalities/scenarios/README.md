@@ -1,5 +1,7 @@
 # LLM-Specific Scenario Tests
 
+> For a comprehensive guide to voice tuning — including the full workflow, common problems, and how to work with LLM hints — see **[The Voice Tuner's Handbook](../../../../VOICE_TUNING.md)**.
+
 Scenario files are organized by LLM model. Each model gets its own directory
 with tuned assertion thresholds and expectations.
 
