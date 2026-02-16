@@ -1,18 +1,22 @@
 """
 Conversations route — inter-agent communication viewer.
 
-Reads conversation history from agent data directories and displays
-them in a chat-style timeline. Scans multiple conversation sources:
-- host_health/host_health_state.json (health inquiries)
-- Any **/conversations.json files (email consultations, etc.)
+Reads conversation history from agent data directories AND from audit
+databases, then merges them into a unified chat-style timeline.
+
+Sources:
+- host_health/host_health_state.json (health inquiries from JSON files)
+- Any **/conversations.json files (plugin conversations)
+- Supervisor audit.db IPC entries (email consultations, health, research)
 
 Future-proof: automatically discovers new conversation sources.
 """
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -27,18 +31,22 @@ _CONVERSATION_SOURCES = [
 ]
 
 
-def _relative_time(timestamp_str: str) -> str:
+def _relative_time(timestamp_val: str | float | int) -> str:
     """
-    Convert an ISO timestamp to a human-readable relative time string.
+    Convert a timestamp to a human-readable relative time string.
 
     Args:
-        timestamp_str: ISO format timestamp (e.g. "2026-02-15T10:30:00")
+        timestamp_val: ISO format string (e.g. "2026-02-15T10:30:00")
+                       or epoch float/int (e.g. 1739500000.0)
 
     Returns:
         Relative time string (e.g. "2 min ago", "3h ago", "yesterday")
     """
     try:
-        ts = datetime.fromisoformat(timestamp_str)
+        if isinstance(timestamp_val, (int, float)):
+            ts = datetime.fromtimestamp(timestamp_val)
+        else:
+            ts = datetime.fromisoformat(timestamp_val)
         now = datetime.now()
         delta = now - ts
 
@@ -93,8 +101,8 @@ def _load_conversations(data_dir: Path, identity_filter: str = "") -> tuple[list
 
         ident_name = ident_dir.name
 
-        # Skip non-identity directories (like "supervisor")
-        if ident_name.startswith(".") or ident_name == "supervisor":
+        # Skip hidden directories
+        if ident_name.startswith("."):
             continue
 
         found_convos = False
@@ -152,6 +160,173 @@ def _load_conversations(data_dir: Path, identity_filter: str = "") -> tuple[list
     return conversations, sorted(identities)
 
 
+# Maps received→response action names for IPC audit pairing
+_PAIR_MAP = {
+    "email_consultation_received": "email_consultation_response",
+    "health_inquiry_received": "health_response_sent",
+    "research_request_received": "research_response_sent",
+}
+
+# Maximum time gap (seconds) between request and response to consider them paired
+_PAIR_WINDOW_SECONDS = 120
+
+
+def _load_audit_conversations(
+    audit_service: Any,
+    identity_filter: str = "",
+) -> tuple[list[dict], set[str]]:
+    """
+    Load conversations from supervisor audit database IPC entries.
+
+    Queries the audit service for IPC-category entries, pairs request/response
+    events by (plugin, sender) within a time window, and maps them to the
+    conversation dict format expected by the template.
+
+    Args:
+        audit_service: The AuditService instance from app state.
+        identity_filter: If set, only include conversations involving this identity.
+
+    Returns:
+        Tuple of (conversations list, identity names set)
+    """
+    conversations: list[dict] = []
+    identities: set[str] = set()
+
+    try:
+        entries = audit_service.query(
+            identity="supervisor",
+            category="ipc",
+            since_hours=168,  # 1 week
+            limit=200,
+        )
+    except Exception as e:
+        logger.warning("Failed to query audit service for IPC entries: %s", e)
+        return [], set()
+
+    if not entries:
+        return [], set()
+
+    # Group entries by (plugin, sender) for pairing
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for entry in entries:
+        details = entry.get("details") or {}
+        if not isinstance(details, dict):
+            continue
+        sender = details.get("sender", "")
+        plugin = entry.get("plugin", "") or ""
+        key = (plugin, sender)
+        groups.setdefault(key, []).append(entry)
+
+    # Within each group, pair received→response by timestamp proximity
+    for (_plugin, _sender), group_entries in groups.items():
+        received_entries = [
+            e for e in group_entries if e.get("action") in _PAIR_MAP
+        ]
+        response_actions = set(_PAIR_MAP.values())
+        resp_entries = [
+            e for e in group_entries if e.get("action") in response_actions
+        ]
+
+        for req in received_entries:
+            req_ts = req.get("timestamp", 0)
+            expected_resp_action = _PAIR_MAP[req["action"]]
+
+            # Find closest response within the time window
+            best_resp = None
+            best_gap = _PAIR_WINDOW_SECONDS + 1
+            for resp in resp_entries:
+                if resp.get("action") != expected_resp_action:
+                    continue
+                gap = abs(resp.get("timestamp", 0) - req_ts)
+                if gap < best_gap:
+                    best_gap = gap
+                    best_resp = resp
+
+            if best_resp is None:
+                continue
+
+            # Remove matched response so it's not reused
+            resp_entries.remove(best_resp)
+
+            req_details = req.get("details") or {}
+            resp_details = best_resp.get("details") or {}
+            sender = req_details.get("sender", "unknown")
+
+            if identity_filter and sender != identity_filter:
+                continue
+
+            identities.add(sender)
+
+            # Map to conversation format based on action type
+            conv = _map_audit_pair(req["action"], req_ts, sender, req_details, resp_details)
+            if conv:
+                conversations.append(conv)
+
+    return conversations, identities
+
+
+def _map_audit_pair(
+    action: str,
+    timestamp: float,
+    sender: str,
+    req_details: dict,
+    resp_details: dict,
+) -> dict | None:
+    """
+    Map a paired audit request/response to a conversation dict.
+
+    Returns None if the action type is unrecognized.
+    """
+    iso_ts = datetime.fromtimestamp(timestamp).isoformat()
+
+    if action == "email_consultation_received":
+        email_from = req_details.get("email_from", "unknown")
+        email_subject = req_details.get("email_subject", "")
+        advised = resp_details.get("advised_action", "")
+        reasoning = resp_details.get("reasoning", "")
+        response_text = f"{advised}: {reasoning}" if advised and reasoning else advised or reasoning
+        return {
+            "timestamp": iso_ts,
+            "sender": sender,
+            "motivation": f"Email from {email_from}: '{email_subject}'",
+            "responder": "supervisor",
+            "response": response_text,
+            "conversation_type": "email",
+            "identity": sender,
+            "source": "audit",
+            "relative_time": _relative_time(timestamp),
+        }
+
+    if action == "health_inquiry_received":
+        return {
+            "timestamp": iso_ts,
+            "sender": sender,
+            "motivation": req_details.get("motivation", ""),
+            "responder": "supervisor",
+            "response": resp_details.get("response_preview", ""),
+            "health_grade": resp_details.get("health_grade"),
+            "conversation_type": "health",
+            "identity": sender,
+            "source": "audit",
+            "relative_time": _relative_time(timestamp),
+        }
+
+    if action == "research_request_received":
+        return {
+            "timestamp": iso_ts,
+            "sender": sender,
+            "motivation": req_details.get("query", ""),
+            "responder": "supervisor",
+            "response": resp_details.get("summary_preview", ""),
+            "conversation_type": "research",
+            "identity": sender,
+            "source": "audit",
+            "relative_time": _relative_time(timestamp),
+        }
+
+    return None
+
+
 @router.get("/conversations", response_class=HTMLResponse)
 async def conversations_page(request: Request):
     """Render the agent conversations page."""
@@ -166,12 +341,37 @@ async def conversations_page(request: Request):
     # Optional identity filter
     identity_filter = request.query_params.get("identity", "")
 
-    conversations, identities = _load_conversations(data_dir, identity_filter)
+    json_conversations, json_identities = _load_conversations(data_dir, identity_filter)
+
+    # Load audit-based conversations
+    audit_service = getattr(request.app.state, "audit_service", None)
+    audit_conversations: list[dict] = []
+    audit_identities: set[str] = set()
+    if audit_service:
+        audit_conversations, audit_identities = _load_audit_conversations(
+            audit_service, identity_filter
+        )
+
+    # Deduplicate: skip audit health entries if JSON health exists for same identity
+    json_health_identities = {
+        c["identity"] for c in json_conversations
+        if c.get("source") == "host_health"
+    }
+    deduped_audit = [
+        c for c in audit_conversations
+        if not (c.get("conversation_type") == "health" and c["identity"] in json_health_identities)
+    ]
+
+    # Merge and sort by timestamp descending
+    all_conversations = json_conversations + deduped_audit
+    all_conversations.sort(key=lambda c: c.get("timestamp", ""), reverse=True)
+
+    all_identities = sorted(set(json_identities) | audit_identities)
 
     return templates.TemplateResponse("conversations.html", {
         "request": request,
         "csrf_token": request.state.session.get("csrf_token", ""),
-        "conversations": conversations,
-        "identities": identities,
+        "conversations": all_conversations,
+        "identities": all_identities,
         "selected_identity": identity_filter,
     })
