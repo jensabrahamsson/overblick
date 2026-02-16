@@ -24,6 +24,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from overblick.capabilities.consulting.personality_consultant import (
+    PersonalityConsultantCapability,
+)
 from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.security.input_sanitizer import wrap_external_content
 from overblick.plugins.email_agent.database import EmailAgentDB
@@ -92,6 +95,19 @@ class EmailAgentPlugin(PluginBase):
         self._profiles_dir: Optional[Path] = None
         self._principal_name: str = ""
         self._dry_run: bool = False
+        # Reputation system config (learned thresholds)
+        self._auto_ignore_sender_threshold: float = 0.9
+        self._auto_ignore_sender_min_count: int = 5
+        self._auto_ignore_domain_threshold: float = 0.9
+        self._auto_ignore_domain_min_count: int = 10
+        # Cross-identity consultation config
+        self._relevance_consultants: list[dict] = []
+        self._consultation_confidence_low: float = 0.5
+        self._consultation_confidence_high: float = 0.8
+        self._consultation_identities: str = "explicit"  # "all" or "explicit"
+        self._discovered_consultants: dict[str, list[str]] = {}
+        # Cached auto-ignore domains
+        self._auto_ignore_domains: set[str] = set()
 
     async def setup(self) -> None:
         """Initialize the email agent: database, state, goals, prompt."""
@@ -142,6 +158,40 @@ class EmailAgentPlugin(PluginBase):
         self._dry_run = ea_config.get("dry_run", False)
         if self._dry_run:
             logger.info("EmailAgentPlugin running in DRY RUN mode — no emails will be sent")
+
+        # Reputation thresholds (configurable, not hardcoded)
+        reputation_config = ea_config.get("reputation", {})
+        self._auto_ignore_sender_threshold = reputation_config.get(
+            "sender_ignore_rate", 0.9,
+        )
+        self._auto_ignore_sender_min_count = reputation_config.get(
+            "sender_min_interactions", 5,
+        )
+        self._auto_ignore_domain_threshold = reputation_config.get(
+            "domain_ignore_rate", 0.9,
+        )
+        self._auto_ignore_domain_min_count = reputation_config.get(
+            "domain_min_interactions", 10,
+        )
+
+        # Cross-identity consultation config
+        self._relevance_consultants = ea_config.get("relevance_consultants", [])
+        consultation_config = ea_config.get("consultation", {})
+        self._consultation_confidence_low = consultation_config.get(
+            "confidence_low", 0.5,
+        )
+        self._consultation_confidence_high = consultation_config.get(
+            "confidence_high", 0.8,
+        )
+        self._consultation_identities = consultation_config.get(
+            "identities", "explicit",
+        )
+
+        # Load cached auto-ignore domains from DB
+        if self._db:
+            self._auto_ignore_domains = set(
+                await self._db.get_auto_ignore_domains()
+            )
 
         # Run GDPR cleanup on startup
         await self._db.purge_gdpr_data(self.GDPR_RETENTION_DAYS)
@@ -213,6 +263,7 @@ class EmailAgentPlugin(PluginBase):
                 "subject": msg.subject,
                 "body": msg.body,
                 "snippet": msg.snippet,
+                "headers": msg.headers,
             }
             for msg in messages
         ]
@@ -230,29 +281,105 @@ class EmailAgentPlugin(PluginBase):
             logger.warning("EmailAgent: failed to mark email %s as read: %s", message_id, e)
 
     async def _process_email(self, email: dict[str, Any]) -> None:
-        """Process a single email through the classification pipeline."""
+        """
+        Process a single email through the classification pipeline.
+
+        Flow:
+        1. Deduplication check
+        2. Get sender + domain reputation
+        3. If auto-ignore (learned) → skip LLM entirely
+        4. Classify via LLM with reputation context + header signals
+        5. If NOTIFY with moderate confidence → consult relevant identity
+        6. Confidence check → ASK_BOSS if low
+        7. Execute action
+        8. Update sender + domain reputation
+        """
         sender = email.get("sender", "")
         subject = email.get("subject", "")
         body = email.get("body", "")
         snippet = email.get("snippet", body[:200])
         message_id = email.get("message_id", "")
+        headers = email.get("headers", {})
 
-        # Deduplication: skip emails already processed
+        # 1. Deduplication: skip emails already processed
         if message_id and self._db and await self._db.has_been_processed(message_id):
             logger.debug("EmailAgent: skipping already-processed email %s", message_id)
             return
 
-        # Wrap external content in boundary markers
+        # 2. Get sender + domain reputation
+        sender_rep = self._get_sender_reputation(sender)
+        domain_rep = await self._get_domain_reputation(sender)
+
+        # 3. Auto-ignore check (learned, not hardcoded)
+        domain = self._extract_domain(sender)
+        if (
+            self._should_auto_ignore_sender(sender_rep)
+            or self._should_auto_ignore_domain(domain_rep)
+            or domain in self._auto_ignore_domains
+        ):
+            logger.info(
+                "EmailAgent: auto-ignoring email from %s (learned reputation)",
+                sender,
+            )
+            classification = EmailClassification(
+                intent=EmailIntent.IGNORE,
+                confidence=0.99,
+                reasoning="Auto-ignored based on learned sender/domain reputation",
+                priority="low",
+            )
+            # Record and update stats without LLM call
+            email_record_id = None
+            if self._db:
+                email_record_id = await self._db.record_email(EmailRecord(
+                    gmail_message_id=message_id,
+                    email_from=sender,
+                    email_subject=subject,
+                    email_snippet=snippet,
+                    classified_intent="ignore",
+                    confidence=0.99,
+                    reasoning="Auto-ignored (learned reputation)",
+                    action_taken="auto_ignored",
+                ))
+            self._state.emails_processed += 1
+            await self._mark_email_read(message_id)
+            await self._update_sender_profile(sender, classification)
+            if self._db and domain:
+                await self._db.update_domain_stats(domain, "ignore")
+            return
+
+        # 4. Wrap external content and classify via LLM with context
         safe_subject = wrap_external_content(subject, "email_subject")
         safe_body = wrap_external_content(body[:3000], "email_body")
 
-        # Classify via LLM
-        classification = await self._classify_email(sender, safe_subject, safe_body)
+        reputation_context = self._build_reputation_context(sender_rep, domain_rep)
+        email_signals = self._build_email_signals(headers)
+
+        classification = await self._classify_email(
+            sender, safe_subject, safe_body,
+            sender_reputation=reputation_context,
+            email_signals=email_signals,
+        )
         if not classification:
             logger.warning("EmailAgent: classification failed for email from %s", sender)
             return
 
-        # Confidence check — below threshold triggers ask_boss
+        # 5. Cross-identity consultation for moderate-confidence NOTIFY
+        if (
+            classification.intent == EmailIntent.NOTIFY
+            and self._consultation_confidence_low
+            <= classification.confidence
+            <= self._consultation_confidence_high
+        ):
+            advice = await self._consult_identity_relevance(email, classification)
+            if advice and advice.strip().upper().startswith("NO"):
+                logger.info(
+                    "EmailAgent: identity consultation downgraded NOTIFY → IGNORE for %s",
+                    sender,
+                )
+                classification.intent = EmailIntent.IGNORE
+                classification.reasoning += " [downgraded by identity consultation]"
+
+        # 6. Confidence check — below threshold triggers ask_boss
         if classification.confidence < self._state.confidence_threshold:
             classification.intent = EmailIntent.ASK_BOSS
             logger.info(
@@ -274,7 +401,7 @@ class EmailAgentPlugin(PluginBase):
                 action_taken="pending",
             ))
 
-        # Execute action (pass record_id for notification tracking)
+        # 7. Execute action (pass record_id for notification tracking)
         action_taken = await self._execute_action(
             email, classification, email_record_id=email_record_id,
         )
@@ -286,19 +413,262 @@ class EmailAgentPlugin(PluginBase):
         self._state.emails_processed += 1
 
         # Always mark email as read in Gmail after processing
-        # This prevents re-processing the same email on the next tick
         await self._mark_email_read(message_id)
 
-        # Update sender profile (GDPR-safe consolidated data)
+        # 8. Update sender profile + domain reputation
         await self._update_sender_profile(sender, classification)
+        if self._db and domain:
+            await self._db.update_domain_stats(domain, classification.intent.value)
 
         logger.info(
             "EmailAgent: processed email from %s — %s (confidence: %.2f)",
             sender, classification.intent.value, classification.confidence,
         )
 
+    @staticmethod
+    def _extract_domain(sender: str) -> str:
+        """Extract domain from an email sender string like 'Name <user@domain.com>'."""
+        addr = sender
+        if "<" in addr and ">" in addr:
+            addr = addr[addr.index("<") + 1:addr.index(">")]
+        if "@" in addr:
+            return addr.split("@", 1)[1].lower().strip()
+        return ""
+
+    @staticmethod
+    def _safe_sender_name(sender: str) -> str:
+        """Create a filesystem-safe filename from an email sender string.
+
+        Strips display name parts, quotes, angle brackets, and replaces
+        problematic characters with underscores.
+        """
+        import re
+        # Extract just the email address if present
+        addr = sender
+        if "<" in addr and ">" in addr:
+            addr = addr[addr.index("<") + 1:addr.index(">")]
+        # Replace @ and . with readable alternatives
+        safe = addr.replace("@", "_at_").replace(".", "_")
+        # Remove any remaining problematic filesystem characters
+        safe = re.sub(r'[<>:"/\\|?*\'"&()!,\s]', '_', safe)
+        # Collapse multiple underscores
+        safe = re.sub(r'_+', '_', safe).strip('_')
+        return safe[:200]  # Filesystem path length safety
+
+    def _get_sender_reputation(self, sender: str) -> dict[str, Any]:
+        """Calculate reputation for a specific sender from profile data."""
+        profile = self._load_sender_profile(sender)
+        if profile.total_interactions == 0:
+            return {"known": False}
+
+        total = profile.total_interactions
+        ignore_count = profile.intent_distribution.get("ignore", 0)
+        notify_count = profile.intent_distribution.get("notify", 0)
+        reply_count = profile.intent_distribution.get("reply", 0)
+        ignore_rate = ignore_count / total if total > 0 else 0.0
+
+        return {
+            "known": True,
+            "total": total,
+            "ignore_rate": round(ignore_rate, 2),
+            "ignore_count": ignore_count,
+            "notify_count": notify_count,
+            "reply_count": reply_count,
+            "avg_confidence": round(profile.avg_confidence, 2),
+        }
+
+    async def _get_domain_reputation(self, sender: str) -> dict[str, Any]:
+        """Get aggregate reputation for a sender's domain from DB."""
+        domain = self._extract_domain(sender)
+        if not domain or not self._db:
+            return {"known": False}
+
+        stats = await self._db.get_domain_stats(domain)
+        if not stats:
+            return {"known": False, "domain": domain}
+
+        total = (
+            stats["ignore_count"]
+            + stats["notify_count"]
+            + stats["reply_count"]
+        )
+        if total == 0:
+            return {"known": False, "domain": domain}
+
+        ignore_rate = stats["ignore_count"] / total
+
+        return {
+            "known": True,
+            "domain": domain,
+            "total": total,
+            "ignore_rate": round(ignore_rate, 2),
+            "ignore_count": stats["ignore_count"],
+            "notify_count": stats["notify_count"],
+            "reply_count": stats["reply_count"],
+            "negative_feedback": stats["negative_feedback_count"],
+            "positive_feedback": stats["positive_feedback_count"],
+            "auto_ignore": bool(stats["auto_ignore"]),
+        }
+
+    def _should_auto_ignore_sender(self, reputation: dict[str, Any]) -> bool:
+        """Check if sender should be auto-ignored based on learned reputation."""
+        if not reputation.get("known"):
+            return False
+        total = reputation.get("total", 0)
+        ignore_rate = reputation.get("ignore_rate", 0.0)
+        return (
+            total >= self._auto_ignore_sender_min_count
+            and ignore_rate >= self._auto_ignore_sender_threshold
+        )
+
+    def _should_auto_ignore_domain(self, reputation: dict[str, Any]) -> bool:
+        """Check if domain should be auto-ignored based on learned reputation."""
+        if not reputation.get("known"):
+            return False
+        if reputation.get("auto_ignore"):
+            return True
+        total = reputation.get("total", 0)
+        ignore_rate = reputation.get("ignore_rate", 0.0)
+        positive = reputation.get("positive_feedback", 0)
+        return (
+            total >= self._auto_ignore_domain_min_count
+            and ignore_rate >= self._auto_ignore_domain_threshold
+            and positive == 0
+        )
+
+    def _build_reputation_context(
+        self,
+        sender_rep: dict[str, Any],
+        domain_rep: dict[str, Any],
+    ) -> str:
+        """Build a reputation context string for the classification prompt."""
+        parts = []
+        if sender_rep.get("known"):
+            parts.append(
+                f"Sender: {sender_rep['total']} previous emails, "
+                f"{sender_rep['ignore_rate']*100:.0f}% ignored, "
+                f"{sender_rep.get('notify_count', 0)} notified, "
+                f"{sender_rep.get('reply_count', 0)} replied"
+            )
+        if domain_rep.get("known"):
+            feedback = ""
+            neg = domain_rep.get("negative_feedback", 0)
+            pos = domain_rep.get("positive_feedback", 0)
+            if neg or pos:
+                feedback = f", feedback: {pos} positive / {neg} negative"
+            parts.append(
+                f"Domain ({domain_rep['domain']}): {domain_rep['total']} total emails, "
+                f"{domain_rep['ignore_rate']*100:.0f}% ignored{feedback}"
+            )
+        return "\n".join(parts)
+
+    def _build_email_signals(self, headers: dict[str, str]) -> str:
+        """Build email signal context from headers for the classification prompt."""
+        if not headers:
+            return ""
+        parts = []
+        if "List-Unsubscribe" in headers:
+            parts.append("- Has List-Unsubscribe header (likely newsletter/mailing list)")
+        if "Precedence" in headers:
+            val = headers["Precedence"].lower()
+            parts.append(f"- Precedence: {val} (automated/bulk email)")
+        if "List-Id" in headers:
+            parts.append(f"- List-Id: {headers['List-Id']} (mailing list)")
+        if "X-Mailer" in headers:
+            parts.append(f"- X-Mailer: {headers['X-Mailer']}")
+        return "\n".join(parts)
+
+    def _build_consultant_registry(self) -> dict[str, list[str]]:
+        """
+        Build the identity → keywords registry for consultation.
+
+        In "all" mode, auto-discovers from disk (lazy, cached).
+        In "explicit" mode, uses the legacy relevance_consultants list.
+        """
+        if self._consultation_identities == "all":
+            if not self._discovered_consultants:
+                consultant = self.ctx.get_capability("personality_consultant")
+                if consultant and hasattr(consultant, "discover_consultants"):
+                    self._discovered_consultants = consultant.discover_consultants(
+                        exclude={"supervisor"},
+                    )
+            return self._discovered_consultants
+
+        # Explicit mode: convert legacy list format to dict
+        return {
+            entry["identity"]: entry.get("keywords", [])
+            for entry in self._relevance_consultants
+        }
+
+    async def _consult_identity_relevance(
+        self,
+        email: dict[str, Any],
+        classification: EmailClassification,
+    ) -> Optional[str]:
+        """
+        Consult a relevant identity about whether an email is worth notifying.
+
+        Only triggered for NOTIFY with moderate confidence. Returns the identity's
+        advice, or None if consultation unavailable or not triggered.
+        """
+        consultant = self.ctx.get_capability("personality_consultant")
+        if not consultant:
+            return None
+
+        registry = self._build_consultant_registry()
+        if not registry:
+            return None
+
+        subject_lower = email.get("subject", "").lower()
+        body_lower = email.get("body", "")[:500].lower()
+        text = f"{subject_lower} {body_lower}"
+
+        # Score each identity by keyword count — pick highest
+        best_identity = None
+        best_score = 0
+        for identity_name, keywords in registry.items():
+            score = PersonalityConsultantCapability.score_match(text, keywords)
+            if score > best_score:
+                best_score = score
+                best_identity = identity_name
+
+        if not best_identity:
+            return None
+
+        query = (
+            "Is this email content relevant and worth notifying the principal about? "
+            "Consider whether it contains actionable information, important updates, "
+            "or genuinely interesting content — or if it's just noise.\n\n"
+            f"From: {email.get('sender', '')}\n"
+            f"Subject: {email.get('subject', '')}\n"
+            f"Snippet: {email.get('snippet', '')[:300]}\n\n"
+            "Respond YES or NO with brief reasoning."
+        )
+
+        try:
+            response = await consultant.consult(
+                query=query,
+                consultant_name=best_identity,
+            )
+            if response:
+                logger.info(
+                    "EmailAgent: %s consultation on '%s' (score=%d) → %s",
+                    best_identity,
+                    email.get("subject", ""),
+                    best_score,
+                    response[:100],
+                )
+            return response
+        except Exception as e:
+            logger.debug(
+                "EmailAgent: identity consultation failed: %s", e,
+            )
+            return None
+
     async def _classify_email(
         self, sender: str, subject: str, body: str,
+        sender_reputation: str = "",
+        email_signals: str = "",
     ) -> Optional[EmailClassification]:
         """Run classification prompt — pure LLM decision."""
         # Build context strings
@@ -331,6 +701,8 @@ class EmailAgentPlugin(PluginBase):
             body=body,
             principal_name=self._principal_name,
             allowed_senders=", ".join(self._allowed_senders),
+            sender_reputation=sender_reputation,
+            email_signals=email_signals,
         )
 
         try:
@@ -367,8 +739,16 @@ class EmailAgentPlugin(PluginBase):
                 return None
 
         try:
-            intent_str = data.get("intent", "ignore").lower()
-            intent = EmailIntent(intent_str)
+            intent_str = data.get("intent", "ignore").lower().strip()
+            # Normalize hallucinated intents to valid values
+            normalized = self._normalize_intent(intent_str)
+            if not normalized:
+                normalized = "ignore"  # Safe default
+                logger.info(
+                    "EmailAgent: unrecognizable LLM intent '%s' — defaulting to ignore",
+                    intent_str,
+                )
+            intent = EmailIntent(normalized)
             return EmailClassification(
                 intent=intent,
                 confidence=float(data.get("confidence", 0.5)),
@@ -710,6 +1090,51 @@ class EmailAgentPlugin(PluginBase):
 
         return False
 
+    # Map common LLM-hallucinated intents to valid EmailIntent values
+    _INTENT_ALIASES: dict[str, str] = {
+        "escalate": "ask_boss",
+        "verify": "ask_boss",
+        "flag": "ask_boss",
+        "report": "ask_boss",
+        "block": "ignore",
+        "spam": "ignore",
+        "delete": "ignore",
+        "archive": "ignore",
+        "skip": "ignore",
+        "forward": "notify",
+        "alert": "notify",
+        "respond": "reply",
+        "answer": "reply",
+    }
+
+    def _normalize_intent(self, raw_intent: str) -> Optional[str]:
+        """Normalize a raw intent string to a valid EmailIntent value.
+
+        Returns the normalized intent string or None if unrecognizable.
+        """
+        clean = raw_intent.strip().lower()
+
+        # Direct match
+        try:
+            EmailIntent(clean)
+            return clean
+        except ValueError:
+            pass
+
+        # Alias match
+        mapped = self._INTENT_ALIASES.get(clean)
+        if mapped:
+            logger.debug(
+                "EmailAgent: mapped boss intent '%s' → '%s'", raw_intent, mapped,
+            )
+            return mapped
+
+        logger.warning(
+            "EmailAgent: unrecognizable boss intent '%s' — ignoring advice",
+            raw_intent,
+        )
+        return None
+
     async def _process_boss_response(
         self,
         email: dict[str, Any],
@@ -720,11 +1145,16 @@ class EmailAgentPlugin(PluginBase):
         advised_action = response.payload.get("advised_action", "")
         reasoning = response.payload.get("reasoning", "")
 
-        # Store learning from boss feedback
-        if self._db and advised_action:
+        # Normalize the advised action to a valid EmailIntent
+        normalized = self._normalize_intent(advised_action) if advised_action else None
+        if not normalized:
+            return
+
+        # Store learning from boss feedback (only valid actions)
+        if self._db:
             await self._db.store_learning(AgentLearning(
                 learning_type="classification",
-                content=f"Boss advised '{advised_action}' for email from {email.get('sender', '')}: {reasoning}",
+                content=f"Boss advised '{normalized}' for email from {email.get('sender', '')}: {reasoning}",
                 source="boss_feedback",
                 email_from=email.get("sender"),
             ))
@@ -733,14 +1163,13 @@ class EmailAgentPlugin(PluginBase):
             self._learnings = await self._db.get_learnings(limit=50)
 
         # Execute the advised action
-        if advised_action:
-            advised_classification = EmailClassification(
-                intent=EmailIntent(advised_action),
-                confidence=1.0,
-                reasoning=f"Boss directed: {reasoning}",
-                priority=classification.priority,
-            )
-            await self._execute_action(email, advised_classification)
+        advised_classification = EmailClassification(
+            intent=EmailIntent(normalized),
+            confidence=1.0,
+            reasoning=f"Boss directed: {reasoning}",
+            priority=classification.priority,
+        )
+        await self._execute_action(email, advised_classification)
 
     async def _update_sender_profile(
         self, sender: str, classification: EmailClassification,
@@ -770,7 +1199,7 @@ class EmailAgentPlugin(PluginBase):
         profile.intent_distribution[intent] = profile.intent_distribution.get(intent, 0) + 1
 
         # Save profile
-        safe_name = sender.replace("@", "_at_").replace(".", "_")
+        safe_name = self._safe_sender_name(sender)
         profile_path = self._profiles_dir / f"{safe_name}.json"
         try:
             profile_path.write_text(json.dumps(profile.model_dump(), indent=2))
@@ -782,7 +1211,7 @@ class EmailAgentPlugin(PluginBase):
         if not self._profiles_dir:
             return SenderProfile(email=sender)
 
-        safe_name = sender.replace("@", "_at_").replace(".", "_")
+        safe_name = self._safe_sender_name(sender)
         profile_path = self._profiles_dir / f"{safe_name}.json"
 
         if profile_path.exists():
@@ -845,16 +1274,58 @@ class EmailAgentPlugin(PluginBase):
                     was_correct=was_correct,
                 )
 
-            # Store as learning
+            # Store as learning (structured for reputation system)
+            email_from = tracking.get("email_from", "")
             if learning_text:
+                learning_type = "classification"
+                if sentiment == "negative":
+                    learning_type = "sender_reputation"
+                    learning_text = (
+                        f"IGNORE emails from {email_from}: {learning_text}"
+                    )
                 await self._db.store_learning(AgentLearning(
-                    learning_type="classification",
+                    learning_type=learning_type,
                     content=learning_text,
                     source="principal_feedback",
-                    email_from=tracking.get("email_from"),
+                    email_from=email_from,
                 ))
                 # Refresh learnings cache
                 self._learnings = await self._db.get_learnings(limit=50)
+
+            # Update domain reputation with feedback
+            if email_from:
+                domain = self._extract_domain(email_from)
+                if domain:
+                    await self._db.update_domain_stats(
+                        domain, "", feedback=sentiment,
+                    )
+                    # Check if domain should now be auto-ignored
+                    domain_rep = await self._get_domain_reputation(email_from)
+                    if self._should_auto_ignore_domain(domain_rep):
+                        await self._db.set_auto_ignore(domain, True)
+                        self._auto_ignore_domains.add(domain)
+                        logger.info(
+                            "EmailAgent: auto-ignore enabled for domain %s "
+                            "after negative feedback",
+                            domain,
+                        )
+
+            # Update sender profile on negative feedback
+            if sentiment == "negative" and email_from:
+                profile = self._load_sender_profile(email_from)
+                profile.intent_distribution["ignore"] = (
+                    profile.intent_distribution.get("ignore", 0) + 1
+                )
+                safe_name = self._safe_sender_name(email_from)
+                profile_path = self._profiles_dir / f"{safe_name}.json"
+                try:
+                    profile_path.write_text(
+                        json.dumps(profile.model_dump(), indent=2),
+                    )
+                except Exception as e:
+                    logger.debug(
+                        "EmailAgent: failed to update sender profile: %s", e,
+                    )
 
             # Acknowledge if appropriate
             if should_ack and notifier.configured:

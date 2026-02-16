@@ -137,6 +137,46 @@ class PersonalityConsultantCapability(CapabilityBase):
         self._prompt_cache[name] = prompt
         return prompt
 
+    def discover_consultants(
+        self,
+        exclude: Optional[set[str]] = None,
+    ) -> dict[str, list[str]]:
+        """
+        Auto-discover all identities that have interest_keywords.
+
+        Returns a dict mapping identity name → keyword list.
+        Excludes self (ctx.identity_name) and any names in the exclude set.
+        """
+        from overblick.identities import list_identities
+
+        exclude_set = {self.ctx.identity_name}
+        if exclude:
+            exclude_set |= exclude
+
+        result: dict[str, list[str]] = {}
+        for name in list_identities():
+            if name in exclude_set:
+                continue
+            personality = self._load_identity(name)
+            if personality is None:
+                continue
+            keywords = getattr(personality, "interest_keywords", [])
+            if keywords:
+                result[name] = list(keywords)
+
+        logger.info(
+            "PersonalityConsultant: discovered %d consultants for %s",
+            len(result),
+            self.ctx.identity_name,
+        )
+        return result
+
+    @staticmethod
+    def score_match(text: str, keywords: list[str]) -> int:
+        """Count how many keywords appear in the text (case-insensitive)."""
+        text_lower = text.lower()
+        return sum(1 for kw in keywords if kw.lower() in text_lower)
+
     def _load_identity(self, name: str) -> Any:
         """Load and cache a personality by name."""
         if name in self._personality_cache:

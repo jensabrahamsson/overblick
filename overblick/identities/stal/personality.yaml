@@ -497,6 +497,19 @@ email_agent:
   allowed_senders: []                  # Populate with approved senders
   blocked_senders: []                  # Used when filter_mode = opt_out
 
+  # Learned reputation thresholds (auto-ignore is learned, not hardcoded)
+  reputation:
+    sender_ignore_rate: 0.9            # Auto-ignore sender if >=90% ignored
+    sender_min_interactions: 5         # ...and at least 5 previous emails
+    domain_ignore_rate: 0.9            # Strong IGNORE hint for domain if >=90%
+    domain_min_interactions: 10        # ...and at least 10 emails from domain
+
+  # Cross-identity consultation (triggered on moderate-confidence NOTIFY)
+  consultation:
+    confidence_low: 0.5                # Only consult when confidence is between
+    confidence_high: 0.8               # these bounds (moderate uncertainty)
+    identities: "all"                  # Auto-discover all identities with interest_keywords
+
 ################################################################################
 # END OF PERSONALITY CONFIGURATION
 ################################################################################

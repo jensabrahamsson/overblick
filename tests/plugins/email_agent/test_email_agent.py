@@ -1,10 +1,11 @@
 """
-Tests for the email_agent plugin — lifecycle, classification, database, IPC.
+Tests for the email_agent plugin — lifecycle, classification, database, IPC,
+sender reputation, cross-identity consultation, and enhanced feedback.
 """
 
 import json
 import time
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -17,6 +18,10 @@ from overblick.plugins.email_agent.models import (
     EmailClassification,
     EmailIntent,
     EmailRecord,
+    SenderProfile,
+)
+from overblick.capabilities.consulting.personality_consultant import (
+    PersonalityConsultantCapability,
 )
 from overblick.plugins.email_agent.plugin import EmailAgentPlugin
 from overblick.plugins.email_agent.prompts import (
@@ -1070,3 +1075,911 @@ class TestDatabaseNotificationTracking:
         assert result is None
 
         await db.close()
+
+
+class TestIntentNormalization:
+    """Test normalization of hallucinated LLM intents to valid EmailIntent values."""
+
+    @pytest.mark.asyncio
+    async def test_valid_intents_pass_through(self, stal_plugin_context):
+        """Valid intent strings return unchanged."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._normalize_intent("ignore") == "ignore"
+        assert plugin._normalize_intent("notify") == "notify"
+        assert plugin._normalize_intent("reply") == "reply"
+        assert plugin._normalize_intent("ask_boss") == "ask_boss"
+
+    @pytest.mark.asyncio
+    async def test_alias_escalate_maps_to_ask_boss(self, stal_plugin_context):
+        """'escalate' (common LLM hallucination) maps to 'ask_boss'."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._normalize_intent("escalate") == "ask_boss"
+
+    @pytest.mark.asyncio
+    async def test_alias_verify_maps_to_ask_boss(self, stal_plugin_context):
+        """'verify' maps to 'ask_boss'."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._normalize_intent("verify") == "ask_boss"
+
+    @pytest.mark.asyncio
+    async def test_alias_block_maps_to_ignore(self, stal_plugin_context):
+        """'block' maps to 'ignore'."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._normalize_intent("block") == "ignore"
+
+    @pytest.mark.asyncio
+    async def test_alias_spam_maps_to_ignore(self, stal_plugin_context):
+        """'spam' maps to 'ignore'."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._normalize_intent("spam") == "ignore"
+
+    @pytest.mark.asyncio
+    async def test_case_insensitive(self, stal_plugin_context):
+        """Intent normalization is case-insensitive."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._normalize_intent("IGNORE") == "ignore"
+        assert plugin._normalize_intent("Escalate") == "ask_boss"
+
+    @pytest.mark.asyncio
+    async def test_unknown_intent_returns_none(self, stal_plugin_context):
+        """Completely unrecognizable intents return None."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._normalize_intent("do_a_backflip") is None
+
+    @pytest.mark.asyncio
+    async def test_whitespace_stripped(self, stal_plugin_context):
+        """Whitespace is stripped from intents."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._normalize_intent("  escalate  ") == "ask_boss"
+
+
+class TestSafeSenderName:
+    """Test filename sanitization for sender profiles."""
+
+    @pytest.mark.asyncio
+    async def test_simple_email(self, stal_plugin_context):
+        """Simple email address produces clean filename."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        result = plugin._safe_sender_name("user@example.com")
+        assert result == "user_at_example_com"
+
+    @pytest.mark.asyncio
+    async def test_display_name_with_angle_brackets(self, stal_plugin_context):
+        """Display name + angle brackets extracts just the email."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        result = plugin._safe_sender_name("Alice <alice@acme.org>")
+        assert result == "alice_at_acme_org"
+
+    @pytest.mark.asyncio
+    async def test_complex_display_name(self, stal_plugin_context):
+        """Complex display names with quotes and special chars are handled."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        result = plugin._safe_sender_name(
+            '"Adam Mancini from Adam Mancini\'s S&P 500" <tradecompanion@substack.com>'
+        )
+        assert result == "tradecompanion_at_substack_com"
+
+    @pytest.mark.asyncio
+    async def test_no_slashes_or_quotes(self, stal_plugin_context):
+        """Result never contains filesystem-dangerous characters."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        result = plugin._safe_sender_name(
+            'Test "Quoted" <user/path@domain.com>'
+        )
+        assert "/" not in result
+        assert '"' not in result
+        assert "'" not in result
+
+
+class TestSenderReputation:
+    """Test sender and domain reputation system."""
+
+    @pytest.mark.asyncio
+    async def test_extract_domain_simple(self, stal_plugin_context):
+        """Extracts domain from plain email address."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._extract_domain("user@example.com") == "example.com"
+
+    @pytest.mark.asyncio
+    async def test_extract_domain_with_name(self, stal_plugin_context):
+        """Extracts domain from 'Name <email>' format."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._extract_domain("Alice <alice@acme.org>") == "acme.org"
+
+    @pytest.mark.asyncio
+    async def test_extract_domain_no_at(self, stal_plugin_context):
+        """Returns empty string when no @ found."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._extract_domain("invalid-sender") == ""
+
+    @pytest.mark.asyncio
+    async def test_unknown_sender_reputation(self, stal_plugin_context):
+        """Unknown sender returns known=False."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        rep = plugin._get_sender_reputation("unknown@example.com")
+        assert rep["known"] is False
+
+    @pytest.mark.asyncio
+    async def test_known_sender_reputation(self, stal_plugin_context):
+        """Known sender returns calculated reputation."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Create a sender profile with history
+        profile = SenderProfile(
+            email="newsletter@spam.com",
+            total_interactions=10,
+            intent_distribution={"ignore": 9, "notify": 1},
+            avg_confidence=0.85,
+        )
+        safe_name = "newsletter@spam.com".replace("@", "_at_").replace(".", "_")
+        profile_path = plugin._profiles_dir / f"{safe_name}.json"
+        profile_path.write_text(json.dumps(profile.model_dump(), indent=2))
+
+        rep = plugin._get_sender_reputation("newsletter@spam.com")
+        assert rep["known"] is True
+        assert rep["total"] == 10
+        assert rep["ignore_rate"] == 0.9
+        assert rep["ignore_count"] == 9
+        assert rep["notify_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_should_auto_ignore_sender_true(self, stal_plugin_context):
+        """Auto-ignore triggered when ignore rate high enough."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        rep = {"known": True, "total": 10, "ignore_rate": 0.95}
+        assert plugin._should_auto_ignore_sender(rep) is True
+
+    @pytest.mark.asyncio
+    async def test_should_auto_ignore_sender_false_low_count(self, stal_plugin_context):
+        """Auto-ignore NOT triggered when insufficient interactions."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        rep = {"known": True, "total": 3, "ignore_rate": 1.0}
+        assert plugin._should_auto_ignore_sender(rep) is False
+
+    @pytest.mark.asyncio
+    async def test_should_auto_ignore_sender_false_low_rate(self, stal_plugin_context):
+        """Auto-ignore NOT triggered when ignore rate below threshold."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        rep = {"known": True, "total": 10, "ignore_rate": 0.5}
+        assert plugin._should_auto_ignore_sender(rep) is False
+
+    @pytest.mark.asyncio
+    async def test_auto_ignore_skips_llm(self, stal_plugin_context):
+        """Auto-ignored emails skip LLM classification entirely."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Create a sender profile with high ignore rate
+        profile = SenderProfile(
+            email="spam@marketing.com",
+            total_interactions=10,
+            intent_distribution={"ignore": 10},
+            avg_confidence=0.95,
+        )
+        safe_name = "spam@marketing.com".replace("@", "_at_").replace(".", "_")
+        profile_path = plugin._profiles_dir / f"{safe_name}.json"
+        profile_path.write_text(json.dumps(profile.model_dump(), indent=2))
+
+        email = {
+            "sender": "spam@marketing.com",
+            "subject": "SALE! 50% off!",
+            "body": "Buy now!",
+            "snippet": "Buy now!",
+            "message_id": "auto-ignore-test-001",
+            "thread_id": "thread-001",
+            "headers": {},
+        }
+
+        await plugin._process_email(email)
+
+        # LLM should NOT have been called (auto-ignore skips it)
+        stal_plugin_context.llm_pipeline.chat.assert_not_called()
+
+        # Should still be recorded in DB
+        records = await plugin._db.get_recent_emails(limit=1)
+        assert len(records) == 1
+        assert records[0].classified_intent == "ignore"
+        assert records[0].action_taken == "auto_ignored"
+
+    @pytest.mark.asyncio
+    async def test_domain_auto_ignore_from_cache(self, stal_plugin_context):
+        """Cached auto-ignore domains bypass LLM."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Manually add domain to auto-ignore cache
+        plugin._auto_ignore_domains.add("spam-domain.com")
+
+        email = {
+            "sender": "anyone@spam-domain.com",
+            "subject": "Another spam",
+            "body": "Content",
+            "snippet": "Content",
+            "message_id": "domain-ignore-test-001",
+            "thread_id": "thread-001",
+            "headers": {},
+        }
+
+        await plugin._process_email(email)
+
+        stal_plugin_context.llm_pipeline.chat.assert_not_called()
+        records = await plugin._db.get_recent_emails(limit=1)
+        assert len(records) == 1
+        assert records[0].action_taken == "auto_ignored"
+
+
+class TestDomainReputationDB:
+    """Test domain reputation database operations."""
+
+    @pytest.mark.asyncio
+    async def test_update_and_get_domain_stats(self, tmp_path):
+        """Can update and retrieve domain stats."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+
+        db_path = tmp_path / "test_domain.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        # First update creates the record
+        await db.update_domain_stats("spam.com", "ignore")
+        stats = await db.get_domain_stats("spam.com")
+        assert stats is not None
+        assert stats["ignore_count"] == 1
+        assert stats["notify_count"] == 0
+
+        # Second update increments
+        await db.update_domain_stats("spam.com", "ignore")
+        await db.update_domain_stats("spam.com", "notify")
+        stats = await db.get_domain_stats("spam.com")
+        assert stats["ignore_count"] == 2
+        assert stats["notify_count"] == 1
+
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_domain_stats_feedback(self, tmp_path):
+        """Domain stats track negative/positive feedback."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+
+        db_path = tmp_path / "test_domain_fb.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        await db.update_domain_stats("example.com", "notify")
+        await db.update_domain_stats("example.com", "", feedback="negative")
+        await db.update_domain_stats("example.com", "", feedback="positive")
+
+        stats = await db.get_domain_stats("example.com")
+        assert stats["negative_feedback_count"] == 1
+        assert stats["positive_feedback_count"] == 1
+
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_auto_ignore_domains(self, tmp_path):
+        """Can set and retrieve auto-ignore domains."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+
+        db_path = tmp_path / "test_auto_ignore.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        # Create a domain record first
+        await db.update_domain_stats("spam.com", "ignore")
+        await db.set_auto_ignore("spam.com", True)
+
+        domains = await db.get_auto_ignore_domains()
+        assert "spam.com" in domains
+
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_unknown_domain_returns_none(self, tmp_path):
+        """get_domain_stats() returns None for unknown domain."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+
+        db_path = tmp_path / "test_unknown_domain.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        stats = await db.get_domain_stats("nonexistent.com")
+        assert stats is None
+
+        await db.close()
+
+
+class TestCrossIdentityConsultation:
+    """Test cross-identity relevance consultation."""
+
+    @pytest.mark.asyncio
+    async def test_consultation_downgrade_notify_to_ignore(
+        self, stal_plugin_context, mock_personality_consultant,
+    ):
+        """Identity consultation can downgrade NOTIFY to IGNORE."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Consultant says NO
+        mock_personality_consultant.consult = AsyncMock(
+            return_value="NO — this is just a generic crypto newsletter, not worth notifying."
+        )
+
+        email = {
+            "sender": "updates@crypto-news.com",
+            "subject": "Bitcoin weekly digest",
+            "body": "This week in crypto...",
+            "snippet": "This week in crypto...",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY,
+            confidence=0.65,
+            reasoning="Contains crypto content",
+        )
+
+        advice = await plugin._consult_identity_relevance(email, classification)
+        assert advice is not None
+        assert advice.startswith("NO")
+
+        # Verify anomal was consulted (crypto keyword match)
+        mock_personality_consultant.consult.assert_called_once()
+        call_kwargs = mock_personality_consultant.consult.call_args.kwargs
+        assert call_kwargs["consultant_name"] == "anomal"
+
+    @pytest.mark.asyncio
+    async def test_consultation_keeps_notify(
+        self, stal_plugin_context, mock_personality_consultant,
+    ):
+        """Identity consultation keeps NOTIFY when identity says YES."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Consultant says YES (default mock)
+        email = {
+            "sender": "expert@security.org",
+            "subject": "Critical security vulnerability in Linux kernel",
+            "body": "A new zero-day has been discovered...",
+            "snippet": "A new zero-day...",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY,
+            confidence=0.7,
+            reasoning="Security content",
+        )
+
+        advice = await plugin._consult_identity_relevance(email, classification)
+        assert advice is not None
+        assert advice.startswith("YES")
+
+        # Verify blixt was consulted (security keyword match)
+        call_kwargs = mock_personality_consultant.consult.call_args.kwargs
+        assert call_kwargs["consultant_name"] == "blixt"
+
+    @pytest.mark.asyncio
+    async def test_consultation_no_keyword_match(
+        self, stal_plugin_context, mock_personality_consultant,
+    ):
+        """No consultation when no keywords match."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        email = {
+            "sender": "hr@company.com",
+            "subject": "Company picnic next Friday",
+            "body": "Join us for the annual company picnic...",
+            "snippet": "Join us for the annual...",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY,
+            confidence=0.6,
+            reasoning="Company event",
+        )
+
+        advice = await plugin._consult_identity_relevance(email, classification)
+        assert advice is None  # No keyword match, no consultation
+        mock_personality_consultant.consult.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_consultation_not_triggered_high_confidence(
+        self, stal_plugin_context,
+    ):
+        """Consultation NOT triggered for high-confidence NOTIFY."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Mock LLM: high confidence NOTIFY
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
+            content='{"intent": "notify", "confidence": 0.95, "reasoning": "Clearly important", "priority": "high"}'
+        ))
+
+        mock_notifier = stal_plugin_context.get_capability("telegram_notifier")
+        mock_notifier.send_notification_tracked = AsyncMock(return_value=42)
+
+        mock_consultant = stal_plugin_context.get_capability("personality_consultant")
+
+        email = {
+            "sender": "ceo@crypto-exchange.com",
+            "subject": "Important: Bitcoin custody update",
+            "body": "Immediate action required for your crypto holdings...",
+            "snippet": "Immediate action required",
+            "message_id": "high-conf-001",
+            "thread_id": "thread-001",
+            "headers": {},
+        }
+
+        await plugin._process_email(email)
+
+        # Consultation should NOT have been called (confidence 0.95 > 0.8 threshold)
+        mock_consultant.consult.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_full_flow_consultation_downgrades(
+        self, stal_plugin_context, mock_personality_consultant,
+    ):
+        """Full _process_email flow: moderate NOTIFY + NO consultation → IGNORE."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # LLM classifies as moderate-confidence NOTIFY (0.75 is within 0.5-0.8
+        # consultation range AND above 0.7 confidence threshold)
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
+            content='{"intent": "notify", "confidence": 0.75, "reasoning": "Crypto content", "priority": "normal"}'
+        ))
+
+        # Consultant says NO
+        mock_personality_consultant.consult = AsyncMock(
+            return_value="NO — this is a generic newsletter."
+        )
+
+        email = {
+            "sender": "news@crypto-weekly.com",
+            "subject": "Your weekly Bitcoin update",
+            "body": "This week: Bitcoin rose 3%...",
+            "snippet": "This week: Bitcoin rose",
+            "message_id": "consult-flow-001",
+            "thread_id": "thread-001",
+            "headers": {"List-Unsubscribe": "<mailto:unsub@crypto-weekly.com>"},
+        }
+
+        await plugin._process_email(email)
+
+        # Should have been downgraded to IGNORE
+        records = await plugin._db.get_recent_emails(limit=1)
+        assert len(records) == 1
+        assert records[0].classified_intent == "ignore"
+        assert "downgraded by identity consultation" in records[0].reasoning
+
+
+class TestScoredConsultation:
+    """Test scored keyword matching and auto-discovery for consultation."""
+
+    @pytest.mark.asyncio
+    async def test_consultation_scored_matching(
+        self, stal_plugin_context, mock_personality_consultant,
+    ):
+        """Highest-scoring identity is selected via keyword count."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Anomal has 3 matches (crypto, bitcoin, blockchain), blixt has 0
+        email = {
+            "sender": "news@crypto-weekly.com",
+            "subject": "Bitcoin and blockchain weekly: crypto market update",
+            "body": "This week in crypto: Bitcoin rose 3%, blockchain adoption...",
+            "snippet": "This week in crypto: Bitcoin rose 3%...",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY,
+            confidence=0.65,
+            reasoning="Crypto content",
+        )
+
+        mock_personality_consultant.consult = AsyncMock(
+            return_value="NO — generic newsletter."
+        )
+
+        await plugin._consult_identity_relevance(email, classification)
+
+        call_kwargs = mock_personality_consultant.consult.call_args.kwargs
+        assert call_kwargs["consultant_name"] == "anomal"
+
+    @pytest.mark.asyncio
+    async def test_consultation_auto_discover_mode(
+        self, stal_plugin_context, mock_personality_consultant,
+    ):
+        """identities: "all" triggers auto-discovery via discover_consultants()."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Switch to auto-discover mode
+        plugin._consultation_identities = "all"
+        plugin._discovered_consultants = {}
+
+        # Mock discover_consultants on the consultant capability
+        mock_personality_consultant.discover_consultants = MagicMock(
+            return_value={
+                "anomal": ["crypto", "bitcoin", "ai"],
+                "blixt": ["privacy", "security"],
+                "cherry": ["dating", "relationships"],
+            },
+        )
+        mock_personality_consultant.score_match = (
+            PersonalityConsultantCapability.score_match
+        )
+
+        email = {
+            "sender": "expert@security.org",
+            "subject": "Critical security vulnerability discovered",
+            "body": "A new zero-day affects privacy settings...",
+            "snippet": "A new zero-day...",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY,
+            confidence=0.7,
+            reasoning="Security content",
+        )
+
+        await plugin._consult_identity_relevance(email, classification)
+
+        # Should have called discover_consultants and picked blixt (security + privacy)
+        mock_personality_consultant.discover_consultants.assert_called_once()
+        call_kwargs = mock_personality_consultant.consult.call_args.kwargs
+        assert call_kwargs["consultant_name"] == "blixt"
+
+    @pytest.mark.asyncio
+    async def test_consultation_explicit_mode_backward_compat(
+        self, stal_plugin_context, mock_personality_consultant,
+    ):
+        """Explicit mode (default) uses legacy relevance_consultants list."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Ensure explicit mode is active (default from fixture)
+        assert plugin._consultation_identities == "explicit"
+
+        email = {
+            "sender": "news@crypto-weekly.com",
+            "subject": "Bitcoin weekly digest",
+            "body": "This week in crypto...",
+            "snippet": "This week in crypto...",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY,
+            confidence=0.65,
+            reasoning="Crypto content",
+        )
+
+        await plugin._consult_identity_relevance(email, classification)
+
+        # Should use the legacy list — anomal is configured with crypto keywords
+        call_kwargs = mock_personality_consultant.consult.call_args.kwargs
+        assert call_kwargs["consultant_name"] == "anomal"
+
+
+class TestReputationContext:
+    """Test reputation context building for prompts."""
+
+    @pytest.mark.asyncio
+    async def test_build_reputation_context_known_sender(self, stal_plugin_context):
+        """Builds reputation context string for known sender."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+
+        sender_rep = {
+            "known": True, "total": 10, "ignore_rate": 0.8,
+            "notify_count": 2, "reply_count": 0,
+        }
+        domain_rep = {"known": False}
+
+        context = plugin._build_reputation_context(sender_rep, domain_rep)
+        assert "10 previous emails" in context
+        assert "80%" in context
+
+    @pytest.mark.asyncio
+    async def test_build_reputation_context_with_domain(self, stal_plugin_context):
+        """Builds context with both sender and domain info."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+
+        sender_rep = {
+            "known": True, "total": 5, "ignore_rate": 0.6,
+            "notify_count": 2, "reply_count": 0,
+        }
+        domain_rep = {
+            "known": True, "domain": "example.com", "total": 50,
+            "ignore_rate": 0.9, "negative_feedback": 3, "positive_feedback": 0,
+        }
+
+        context = plugin._build_reputation_context(sender_rep, domain_rep)
+        assert "example.com" in context
+        assert "50 total emails" in context
+        assert "3 negative" in context
+
+    @pytest.mark.asyncio
+    async def test_build_email_signals_with_headers(self, stal_plugin_context):
+        """Builds signal context from email headers."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+
+        headers = {
+            "List-Unsubscribe": "<mailto:unsub@example.com>",
+            "Precedence": "bulk",
+            "List-Id": "marketing.example.com",
+        }
+
+        signals = plugin._build_email_signals(headers)
+        assert "List-Unsubscribe" in signals
+        assert "newsletter" in signals.lower()
+        assert "bulk" in signals
+        assert "marketing.example.com" in signals
+
+    @pytest.mark.asyncio
+    async def test_build_email_signals_empty(self, stal_plugin_context):
+        """Returns empty string when no headers."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        assert plugin._build_email_signals({}) == ""
+
+
+class TestEnhancedPrompts:
+    """Test that enhanced prompts include reputation and signals."""
+
+    def test_classification_prompt_with_reputation(self):
+        """Classification prompt includes reputation context."""
+        messages = classification_prompt(
+            goals="- Classify accurately",
+            learnings="- No learnings yet",
+            sender_history="No history",
+            sender="test@example.com",
+            subject="Test",
+            body="Hello world",
+            principal_name="Test Principal",
+            allowed_senders="test@example.com",
+            sender_reputation="Sender: 10 emails, 80% ignored",
+            email_signals="- Has List-Unsubscribe header (likely newsletter)",
+        )
+        assert "80% ignored" in messages[0]["content"]
+        assert "List-Unsubscribe" in messages[0]["content"]
+
+    def test_classification_prompt_ignore_categories(self):
+        """Classification prompt has detailed IGNORE categories."""
+        messages = classification_prompt(
+            goals="- Classify",
+            learnings="None",
+            sender_history="None",
+            sender="test@example.com",
+            subject="Test",
+            body="Test",
+            principal_name="Test Principal",
+        )
+        system = messages[0]["content"]
+        assert "Newsletters and marketing" in system
+        assert "Cold outreach" in system
+        assert "Automated notifications" in system
+        assert "prefer IGNORE" in system
+
+    def test_classification_prompt_without_reputation(self):
+        """Classification prompt works without reputation context."""
+        messages = classification_prompt(
+            goals="- Classify",
+            learnings="None",
+            sender_history="None",
+            sender="test@example.com",
+            subject="Test",
+            body="Test",
+        )
+        assert len(messages) == 2
+        # Should not have "reputation" section when empty
+        assert "Sender:" not in messages[0]["content"] or "reputation" not in messages[0]["content"].lower()
+
+
+class TestDatabaseMigrationV6:
+    """Test that migration v6 (sender_reputation) applies correctly."""
+
+    @pytest.mark.asyncio
+    async def test_migration_creates_sender_reputation_table(self, tmp_path):
+        """Migration v6 creates the sender_reputation table."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+
+        db_path = tmp_path / "test_migration_v6.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        assert await backend.table_exists("sender_reputation")
+
+        # Verify columns by inserting a row
+        await db.update_domain_stats("test.com", "ignore")
+        stats = await db.get_domain_stats("test.com")
+        assert stats is not None
+        assert "ignore_count" in stats
+        assert "positive_feedback_count" in stats
+        assert "auto_ignore" in stats
+
+        await db.close()
+
+
+class TestGmailMessageHeaders:
+    """Test GmailMessage headers field."""
+
+    def test_gmail_message_with_headers(self):
+        """GmailMessage includes headers field."""
+        from overblick.capabilities.communication.gmail import GmailMessage
+
+        msg = GmailMessage(
+            message_id="<test@example.com>",
+            thread_id="<test@example.com>",
+            sender="alice@example.com",
+            subject="Hello",
+            body="Body text",
+            snippet="Body text",
+            timestamp="Mon, 10 Feb 2026 14:30:00 +0100",
+            headers={"List-Unsubscribe": "<mailto:unsub@example.com>"},
+        )
+        assert "List-Unsubscribe" in msg.headers
+
+    def test_gmail_message_default_empty_headers(self):
+        """GmailMessage defaults to empty headers."""
+        from overblick.capabilities.communication.gmail import GmailMessage
+
+        msg = GmailMessage(
+            message_id="<test@example.com>",
+            thread_id="<test@example.com>",
+            sender="alice@example.com",
+            subject="Hello",
+            body="Body text",
+            snippet="Body text",
+            timestamp="Mon, 10 Feb 2026 14:30:00 +0100",
+        )
+        assert msg.headers == {}
+
+
+class TestGmailHeaderExtraction:
+    """Test that _imap_fetch_message extracts classification-relevant headers."""
+
+    @pytest.mark.asyncio
+    async def test_fetch_extracts_list_unsubscribe(self):
+        """fetch_unread() extracts List-Unsubscribe header."""
+        from unittest.mock import patch
+        from overblick.capabilities.communication.gmail import GmailCapability
+
+        from email.mime.text import MIMEText
+
+        # Build email with List-Unsubscribe header
+        email_msg = MIMEText("Newsletter content", "plain", "utf-8")
+        email_msg["From"] = "news@example.com"
+        email_msg["To"] = "test@gmail.com"
+        email_msg["Subject"] = "Weekly Newsletter"
+        email_msg["Message-ID"] = "<newsletter-001@example.com>"
+        email_msg["Date"] = "Mon, 10 Feb 2026 14:30:00 +0100"
+        email_msg["List-Unsubscribe"] = "<mailto:unsub@example.com>"
+        email_msg["Precedence"] = "bulk"
+        raw_bytes = email_msg.as_bytes()
+
+        # Use helper from test_gmail_capability
+        from tests.capabilities.test_gmail_capability import _make_ctx, _mock_imap
+
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        mock_imap = _mock_imap(
+            search_uids=[b"1"],
+            fetch_data={b"1": raw_bytes},
+        )
+
+        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+            results = await cap.fetch_unread()
+
+        assert len(results) == 1
+        assert "List-Unsubscribe" in results[0].headers
+        assert results[0].headers["List-Unsubscribe"] == "<mailto:unsub@example.com>"
+        assert "Precedence" in results[0].headers
+        assert results[0].headers["Precedence"] == "bulk"
+
+    @pytest.mark.asyncio
+    async def test_fetch_no_signal_headers(self):
+        """fetch_unread() returns empty headers when none present."""
+        from unittest.mock import patch
+        from overblick.capabilities.communication.gmail import GmailCapability
+
+        from tests.capabilities.test_gmail_capability import (
+            _make_ctx, _mock_imap, _build_raw_email,
+        )
+
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        raw_email = _build_raw_email(
+            sender="person@example.com",
+            subject="Personal email",
+            body="Hey, how are you?",
+        )
+
+        mock_imap = _mock_imap(
+            search_uids=[b"1"],
+            fetch_data={b"1": raw_email},
+        )
+
+        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+            results = await cap.fetch_unread()
+
+        assert len(results) == 1
+        assert results[0].headers == {}
+
+
+class TestReputationConfigLoading:
+    """Test that reputation config is loaded from personality YAML."""
+
+    @pytest.mark.asyncio
+    async def test_reputation_thresholds_loaded(self, stal_plugin_context):
+        """setup() loads reputation thresholds from config."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        assert plugin._auto_ignore_sender_threshold == 0.9
+        assert plugin._auto_ignore_sender_min_count == 5
+        assert plugin._auto_ignore_domain_threshold == 0.9
+        assert plugin._auto_ignore_domain_min_count == 10
+
+    @pytest.mark.asyncio
+    async def test_consultation_config_loaded(self, stal_plugin_context):
+        """setup() loads consultation config from personality."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        assert plugin._consultation_confidence_low == 0.5
+        assert plugin._consultation_confidence_high == 0.8
+        assert len(plugin._relevance_consultants) == 2
+        assert plugin._relevance_consultants[0]["identity"] == "anomal"
+
+    @pytest.mark.asyncio
+    async def test_headers_passed_to_process_email(self, stal_plugin_context):
+        """Headers from email dict are passed through to classification."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Mock LLM
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
+            content='{"intent": "ignore", "confidence": 0.95, "reasoning": "Newsletter with unsubscribe", "priority": "low"}'
+        ))
+
+        email = {
+            "sender": "news@updates.com",
+            "subject": "Weekly digest",
+            "body": "Content here",
+            "snippet": "Content here",
+            "message_id": "headers-test-001",
+            "thread_id": "thread-001",
+            "headers": {"List-Unsubscribe": "<mailto:unsub@updates.com>"},
+        }
+
+        await plugin._process_email(email)
+
+        # Verify LLM was called (not auto-ignored since new sender)
+        stal_plugin_context.llm_pipeline.chat.assert_called_once()
+
+        # The classification prompt should include email signals
+        call_args = stal_plugin_context.llm_pipeline.chat.call_args
+        messages = call_args.kwargs.get("messages", call_args.args[0] if call_args.args else [])
+        system_content = messages[0]["content"]
+        assert "List-Unsubscribe" in system_content
