@@ -118,7 +118,7 @@ Every test file must:
 
 Update the registries using exact patterns from `references/registry-wiring.md`:
 
-- **Plugin**: Add to `_KNOWN_PLUGINS` dict in `overblick/core/plugin_registry.py` (alphabetical order, plus connector alias)
+- **Plugin**: Add to `_DEFAULT_PLUGINS` dict in `overblick/core/plugin_registry.py` (alphabetical order)
 - **Capability**: Add import, registry entry, bundle entry, and `__all__` entry in `overblick/capabilities/__init__.py`
 
 ### Step 5: Verify

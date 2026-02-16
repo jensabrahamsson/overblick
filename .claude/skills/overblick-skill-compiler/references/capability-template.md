@@ -122,6 +122,27 @@ If the capability uses LLM, add this pattern:
             return None
 ```
 
+### Variant: Capability with Secrets
+
+If the capability needs secrets (e.g., API tokens for notifications):
+
+```python
+    async def setup(self) -> None:
+        """Initialize capability — load secrets and config."""
+        self._config_value = self.ctx.config.get("config_key", "default")
+
+        # Load secret (degrade gracefully if missing)
+        try:
+            self._api_token = self.ctx.get_secret("<name>_token")
+            self._configured = True
+        except KeyError:
+            logger.warning("<Name>Capability: no <name>_token secret, operating in degraded mode")
+            self._api_token = None
+            self._configured = False
+
+        logger.info("<Name>Capability initialized (configured=%s)", self._configured)
+```
+
 ## Bundle \_\_init\_\_.py
 
 If adding to an **existing bundle**, no `__init__.py` changes needed — just add the import to `overblick/capabilities/__init__.py`.
@@ -150,18 +171,35 @@ self._max_items = self.ctx.config.get("max_items", 10)
 - Config comes from the plugin that creates the capability
 - Always provide defaults
 
+### Creating CapabilityContext from PluginContext
+```python
+from overblick.core.capability import CapabilityContext
+
+# Method 1: Using classmethod (preferred)
+cap_ctx = CapabilityContext.from_plugin_context(ctx, config={"key": "value"})
+
+# Method 2: Manual construction
+cap_ctx = CapabilityContext(
+    identity_name=ctx.identity_name,
+    data_dir=ctx.data_dir,
+    llm_pipeline=ctx.llm_pipeline,
+    config={"key": "value"},
+)
+```
+
 ### CapabilityContext Fields
 | Field | Type | Description |
 |-------|------|-------------|
 | `identity_name` | `str` | Current identity name |
 | `data_dir` | `Path` | Data directory |
-| `llm_client` | `Any` | Raw LLM client (avoid in new code) |
-| `llm_pipeline` | `Any` | SafeLLMPipeline (preferred) |
-| `event_bus` | `Any` | EventBus for pub/sub |
-| `audit_log` | `Any` | AuditLog |
-| `quiet_hours_checker` | `Any` | Quiet hours checker |
-| `identity` | `Any` | Full Identity config |
+| `llm_client` | `LLMClient` | Raw LLM client (avoid in new code) |
+| `llm_pipeline` | `SafeLLMPipeline` | Safe pipeline (preferred) |
+| `event_bus` | `EventBus` | EventBus for pub/sub |
+| `audit_log` | `AuditLog` | AuditLog |
+| `quiet_hours_checker` | `QuietHoursChecker` | Quiet hours checker |
+| `identity` | `Identity` | Full Identity config |
 | `config` | `dict` | Capability-specific config |
+| `get_secret(key)` | method | Get secret value (raises KeyError if not found) |
 
 ### Event Handling
 ```python

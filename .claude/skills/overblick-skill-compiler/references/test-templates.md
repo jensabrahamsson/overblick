@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from overblick.personalities import (
+from overblick.identities import (
     Identity,
     LLMSettings,
     QuietHoursSettings,
@@ -382,6 +382,13 @@ class TestWithLLM:
 - Plugin-specific fixtures go in `tests/plugins/<name>/conftest.py`
 - Capability tests use a `make_ctx()` helper instead of fixtures (simpler, more explicit)
 
+### Root Conftest Fixtures Available
+These are defined in `tests/conftest.py` and available to all tests:
+- `mock_llm_client` — AsyncMock LLM client
+- `mock_audit_log` — MagicMock audit log
+- `mock_engagement_db` — AsyncMock engagement DB
+- `mock_event_bus` — MagicMock event bus
+
 ### Async Tests
 ```python
 @pytest.mark.asyncio
@@ -406,4 +413,19 @@ mock.some_method.assert_not_called()
 # Verify exception
 with pytest.raises(RuntimeError, match="expected message"):
     await plugin.setup()
+```
+
+### Import Paths
+```python
+# Identity system (NOT overblick.personalities)
+from overblick.identities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+
+# Plugin base
+from overblick.core.plugin_base import PluginContext
+
+# Pipeline results
+from overblick.core.llm.pipeline import PipelineResult, PipelineStage
+
+# Capability base
+from overblick.core.capability import CapabilityContext, CapabilityBase
 ```

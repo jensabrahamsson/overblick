@@ -112,14 +112,14 @@ example_conversations:
 ### Step 3: Verify Loading
 
 ```python
-from overblick.personalities import load_personality, build_system_prompt
+from overblick.identities import load_identity, build_system_prompt
 
-p = load_personality("<name>")
-print(p.display_name)
-print(p.voice["base_tone"])
-print(p.get_trait("openness"))
+identity = load_identity("<name>")
+print(identity.display_name)
+print(identity.voice["base_tone"])
+print(identity.get_trait("openness"))
 
-prompt = build_system_prompt(p)
+prompt = build_system_prompt(identity)
 print(prompt)
 ```
 
@@ -174,17 +174,20 @@ The security section is automatically added:
 - NEVER break character
 ```
 
-## Current Personality Stable
+## Current Identity Stable
 
-| Name | Voice | Key Traits |
-|------|-------|------------|
-| **Anomal** | Intellectual humanist (James May energy) | openness 0.92, cerebral 0.88, warmth 0.75 |
-| **Cherry** | 28yo Stockholm woman | extraversion 0.85, warmth 0.80, humor 0.75 |
-| **Volt** | Punk tech critic | openness 0.85, agreeableness 0.30, neuroticism 0.55 |
-| **Birch** | Forest philosopher | introversion 0.90, patience 0.95, calm 0.95 |
-| **Prism** | Digital artist | openness 0.98, creativity 0.98, curiosity 0.95 |
-| **Rust** | Jaded ex-trader | neuroticism 0.55, genuineness 0.90, humor(dark) 0.75 |
-| **Nyx** | Uncanny philosopher | openness 0.90, cerebral 0.95, warmth 0.25 |
+| Name | Swedish | Voice | Key Traits |
+|------|---------|-------|------------|
+| **Anomal** | anomal | Intellectual humanist (James May energy) | openness 0.92, cerebral 0.88, warmth 0.75 |
+| **Cherry** | cherry | Warm, sharp, Gen-Z | extraversion 0.85, warmth 0.80, humor 0.75 |
+| **Blixt** | blixt (lightning) | Punk, aggressive, short | openness 0.85, agreeableness 0.30, neuroticism 0.55 |
+| **Bjork** | bjork (birch) | Sparse, calm, nature | patience 0.95, extraversion 0.15 |
+| **Prisma** | prisma (prism) | Colorful, synesthetic | openness 0.98, curiosity 0.95 |
+| **Rost** | rost (rust) | Cynical, dark humor | genuineness 0.90, neuroticism 0.55 |
+| **Natt** | natt (night) | Eerie, paradoxical | cerebral 0.95, warmth 0.25 |
+| **Stal** | stal (steel) | Professional, meticulous | conscientiousness 0.90, precision 0.85 |
+
+**Note:** Old English names (Volt, Birch, Prism, Rust, Nyx) are auto-aliased to their Swedish equivalents.
 
 ## Key Files
 

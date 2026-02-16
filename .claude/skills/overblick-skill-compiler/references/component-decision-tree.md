@@ -60,7 +60,8 @@ Q8: Which bundle should it belong to?
 
 | Bundle | Contains | Purpose |
 |--------|----------|---------|
-| `psychology` | dream, therapy, emotional | Internal mental state |
+| `system` | system_clock | Core capabilities injected into all agents |
+| `psychology` | dream, therapy, emotional | Internal mental state (**DEPRECATED** — use personality.yaml) |
 | `knowledge` | learning, loader | Knowledge acquisition and storage |
 | `social` | openings | Social interaction patterns |
 | `engagement` | analyzer, composer | Engagement scoring and composition |
@@ -68,6 +69,9 @@ Q8: Which bundle should it belong to?
 | `content` | summarizer | Content processing |
 | `speech` | stt, tts | Speech-to-text and text-to-speech |
 | `vision` | vision | Image/video analysis |
+| `communication` | boss_request, email, gmail, telegram_notifier | Communication channels and notifications |
+| `consulting` | personality_consultant | Cross-identity consulting |
+| `monitoring` | host_inspection | System health monitoring |
 
 ## Component Matrix
 
@@ -83,6 +87,7 @@ Q8: Which bundle should it belong to?
 | RSS feed monitor | X | | | External service polling |
 | Image description service | | X | | Reusable across plugins |
 | Custom knowledge indexer | | X | | Reusable knowledge processing |
+| Email triage agent | X | X | X | External API (Gmail) + classification capability + personality |
 
 ## Quick Decision Rules
 

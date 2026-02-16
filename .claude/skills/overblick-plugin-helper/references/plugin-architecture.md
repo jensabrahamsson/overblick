@@ -61,7 +61,7 @@ class PluginContext(BaseModel):
     log_dir: Path               # Log dir (auto-created)
 
     # Framework services (set by orchestrator)
-    llm_client: Any = None      # Raw LLM client (Ollama/Gateway)
+    llm_client: Any = None      # LLMClient (raw — prefer llm_pipeline)
     event_bus: Any = None        # EventBus for pub/sub
     scheduler: Any = None        # Task scheduler
     audit_log: Any = None        # AuditLog for recording actions
@@ -75,14 +75,17 @@ class PluginContext(BaseModel):
     identity: Any = None         # Full Identity object
 
     # Per-identity engagement database
-    engagement_db: Any = None
+    engagement_db: Any = None    # EngagementDB
 
     # Security subsystems
-    preflight_checker: Any = None  # Preflight injection detection
-    output_safety: Any = None      # Output filtering
+    preflight_checker: Any = None  # PreflightChecker
+    output_safety: Any = None      # OutputSafety
 
     # Permission checker
     permissions: Any = None        # PermissionChecker
+
+    # Supervisor IPC client
+    ipc_client: Any = None         # IPCClient
 
     # Shared capabilities (populated by orchestrator)
     capabilities: dict[str, Any] = {}
@@ -96,6 +99,18 @@ class PluginContext(BaseModel):
 ```python
 def get_secret(self, key: str) -> Optional[str]:
     """Get decrypted secret by key. Returns None if not found."""
+
+def get_capability(self, name: str) -> Optional[Any]:
+    """Get a capability by name from the shared capabilities dict."""
+
+def load_identity(self, name: str) -> Any:
+    """Load an identity by name. Plugins should use this instead of
+    importing load_identity directly to maintain isolation."""
+
+def build_system_prompt(
+    self, identity: Any, platform: str = "Moltbook", model_slug: str = "",
+) -> str:
+    """Build a system prompt from an identity object."""
 
 def model_post_init(self, __context) -> None:
     """Auto-creates data_dir and log_dir on initialization."""
@@ -118,29 +133,37 @@ logs/anomal/            # Shared log directory
 
 **File:** `overblick/core/plugin_registry.py`
 
-Security-first plugin discovery. Only loads from `_KNOWN_PLUGINS` whitelist.
+Security-first plugin discovery. Only loads from `_DEFAULT_PLUGINS` whitelist.
 
-### _KNOWN_PLUGINS Whitelist
+### _DEFAULT_PLUGINS Whitelist
 
 ```python
-_KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
-    "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "gmail": ("overblick.plugins.gmail.plugin", "GmailPlugin"),
+_DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
+    "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
+    "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
+    "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
+    "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
+    "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
     "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
-    # Connector aliases (backward-compatible naming)
-    "moltbook_connector": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    # ... etc
 }
+
+# Module-level alias for backward compatibility
+_KNOWN_PLUGINS = _DEFAULT_PLUGINS
 ```
+
+**Note:** Each PluginRegistry instance gets its own copy of `_DEFAULT_PLUGINS` in `__init__` to prevent cross-instance pollution during testing.
 
 ### Registry API
 
 ```python
 class PluginRegistry:
+    def __init__(self):
+        self._loaded: dict[str, PluginBase] = {}
+        self._plugins: dict[str, tuple[str, str]] = dict(_DEFAULT_PLUGINS)
+
     def register(self, name: str, module_path: str, class_name: str) -> None:
         """Add a plugin to the whitelist (for testing/extensions)."""
 
@@ -153,14 +176,13 @@ class PluginRegistry:
     def all_loaded(self) -> dict[str, PluginBase]:
         """Get all loaded plugins."""
 
-    @staticmethod
-    def available_plugins() -> list[str]:
+    def available_plugins(self) -> list[str]:
         """List all known plugin names."""
 ```
 
 ### Load Flow
 
-1. Check name exists in `_KNOWN_PLUGINS` (security gate)
+1. Check name exists in `self._plugins` (per-instance whitelist)
 2. `importlib.import_module(module_path)` — dynamic but controlled
 3. `getattr(module, class_name)` — get the class
 4. Verify `issubclass(cls, PluginBase)` — type safety
@@ -190,6 +212,7 @@ ctx = PluginContext(
     preflight_checker=self._preflight,
     output_safety=self._output_safety,
     permissions=self._permissions,
+    ipc_client=self._ipc_client,
     capabilities=shared_capabilities,
 )
 ```
