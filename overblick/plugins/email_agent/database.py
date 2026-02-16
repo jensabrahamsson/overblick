@@ -100,6 +100,23 @@ MIGRATIONS = [
         """,
         down_sql="DROP INDEX IF EXISTS idx_email_records_gmail_id;",
     ),
+    Migration(
+        version=6,
+        name="sender_reputation",
+        up_sql="""
+            CREATE TABLE IF NOT EXISTS sender_reputation (
+                sender_domain TEXT PRIMARY KEY,
+                ignore_count INTEGER DEFAULT 0,
+                notify_count INTEGER DEFAULT 0,
+                reply_count INTEGER DEFAULT 0,
+                negative_feedback_count INTEGER DEFAULT 0,
+                positive_feedback_count INTEGER DEFAULT 0,
+                auto_ignore BOOLEAN DEFAULT FALSE,
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
+        """,
+        down_sql="DROP TABLE IF EXISTS sender_reputation;",
+    ),
 ]
 
 
@@ -348,6 +365,97 @@ class EmailAgentDB:
             "WHERE id = ?",
             (text, sentiment, tracking_id),
         )
+
+    # -- Sender reputation --
+
+    async def get_domain_stats(self, domain: str) -> Optional[dict]:
+        """Get reputation stats for a sender domain."""
+        row = await self._db.fetch_one(
+            "SELECT * FROM sender_reputation WHERE sender_domain = ?",
+            (domain,),
+        )
+        return dict(row) if row else None
+
+    # Whitelist of valid intent-to-column mappings for sender reputation.
+    # Used by update_domain_stats to avoid dynamic SQL construction.
+    _INTENT_COLUMN_WHITELIST = frozenset({"ignore_count", "notify_count", "reply_count"})
+
+    async def update_domain_stats(
+        self, domain: str, intent: str, feedback: str = "",
+    ) -> None:
+        """Update domain reputation based on classification or feedback."""
+        existing = await self.get_domain_stats(domain)
+
+        if existing:
+            # Update existing record using parameterized CASE to avoid f-string SQL
+            col_map = {
+                "ignore": "ignore_count",
+                "notify": "notify_count",
+                "reply": "reply_count",
+            }
+            col = col_map.get(intent)
+            if col and col in self._INTENT_COLUMN_WHITELIST:
+                await self._db.execute(
+                    "UPDATE sender_reputation SET "
+                    "ignore_count = CASE WHEN ? = 'ignore_count' THEN ignore_count + 1 ELSE ignore_count END, "
+                    "notify_count = CASE WHEN ? = 'notify_count' THEN notify_count + 1 ELSE notify_count END, "
+                    "reply_count = CASE WHEN ? = 'reply_count' THEN reply_count + 1 ELSE reply_count END, "
+                    "updated_at = datetime('now') WHERE sender_domain = ?",
+                    (col, col, col, domain),
+                )
+
+            if feedback == "negative":
+                await self._db.execute(
+                    "UPDATE sender_reputation SET negative_feedback_count = "
+                    "negative_feedback_count + 1, updated_at = datetime('now') "
+                    "WHERE sender_domain = ?",
+                    (domain,),
+                )
+            elif feedback == "positive":
+                await self._db.execute(
+                    "UPDATE sender_reputation SET positive_feedback_count = "
+                    "positive_feedback_count + 1, updated_at = datetime('now') "
+                    "WHERE sender_domain = ?",
+                    (domain,),
+                )
+        else:
+            # Insert new record
+            counts = {"ignore_count": 0, "notify_count": 0, "reply_count": 0}
+            col_map = {
+                "ignore": "ignore_count",
+                "notify": "notify_count",
+                "reply": "reply_count",
+            }
+            col = col_map.get(intent)
+            if col:
+                counts[col] = 1
+
+            neg = 1 if feedback == "negative" else 0
+            pos = 1 if feedback == "positive" else 0
+
+            await self._db.execute(
+                "INSERT INTO sender_reputation "
+                "(sender_domain, ignore_count, notify_count, reply_count, "
+                "negative_feedback_count, positive_feedback_count) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (domain, counts["ignore_count"], counts["notify_count"],
+                 counts["reply_count"], neg, pos),
+            )
+
+    async def set_auto_ignore(self, domain: str, auto_ignore: bool) -> None:
+        """Set or clear the auto_ignore flag for a domain."""
+        await self._db.execute(
+            "UPDATE sender_reputation SET auto_ignore = ?, "
+            "updated_at = datetime('now') WHERE sender_domain = ?",
+            (auto_ignore, domain),
+        )
+
+    async def get_auto_ignore_domains(self) -> list[str]:
+        """Get all domains marked for auto-ignore."""
+        rows = await self._db.fetch_all(
+            "SELECT sender_domain FROM sender_reputation WHERE auto_ignore = TRUE",
+        )
+        return [r["sender_domain"] for r in rows]
 
     # -- GDPR retention --
 

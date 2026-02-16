@@ -18,14 +18,14 @@
 
     --text-primary: #e6edf3;
     --text-secondary: #8b949e;
-    --text-muted: #7d8590;
+    --text-muted: #9198a1;  /* WCAG AA 4.5:1 on --bg-card */
     --text-link: #58a6ff;
 
     --accent: #58a6ff;
     --accent-hover: #79c0ff;
     --green: #3fb950;
     --green-dim: #238636;
-    --red: #f85149;
+    --red: #f97583;         /* WCAG AA 4.5:1 on --bg-card */
     --red-dim: #da3633;
     --amber: #d29922;
     --amber-dim: #9e6a03;
