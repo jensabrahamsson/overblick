@@ -83,7 +83,7 @@ class EmailConsultationHandler:
             return True
 
         except Exception as e:
-            logger.error("Failed to initialize EmailConsultationHandler: %s", e)
+            logger.error("Failed to initialize EmailConsultationHandler: %s", e, exc_info=True)
             return False
 
     async def handle(self, msg: IPCMessage) -> Optional[IPCMessage]:
@@ -187,7 +187,7 @@ class EmailConsultationHandler:
             if result and not result.blocked and result.content:
                 return self._parse_advice(result.content, tentative_intent)
         except Exception as e:
-            logger.error("Email consultation LLM call failed: %s", e)
+            logger.error("Email consultation LLM call failed: %s", e, exc_info=True)
 
         return tentative_intent or "notify", "LLM call failed, using agent's tentative intent"
 

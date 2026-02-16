@@ -72,7 +72,7 @@ class OnboardingService:
                         sm.set(name, key, value)
                 created_files.append(f"secrets/{name}.yaml (encrypted)")
             except Exception as e:
-                logger.error("Failed to store secrets for '%s': %s", name, e)
+                logger.error("Failed to store secrets for '%s': %s", name, e, exc_info=True)
 
         logger.info("Created identity '%s' with files: %s", name, created_files)
 

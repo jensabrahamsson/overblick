@@ -19,6 +19,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from starlette.responses import Response
+
 from .auth import AuthMiddleware, SessionManager
 from .config import DashboardConfig, get_config
 from .security import RateLimiter
@@ -27,6 +29,25 @@ logger = logging.getLogger(__name__)
 
 # Package directory (for templates and static files)
 _PKG_DIR = Path(__file__).parent
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses (defense-in-depth)."""
+
+    async def dispatch(self, request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "font-src 'self'; "
+            "connect-src 'self'"
+        )
+        return response
 
 
 def _format_uptime(seconds: int | float) -> str:
@@ -146,6 +167,9 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
 
     # Store config on app state
     app.state.config = config
+
+    # Security headers middleware (outermost — runs on every response)
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # Auth middleware (must be added before routes)
     app.add_middleware(AuthMiddleware)

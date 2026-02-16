@@ -47,7 +47,7 @@ class PersonalityService:
             logger.debug("Identity not found: %s", name)
             return None
         except Exception as e:
-            logger.error("Error loading identity '%s': %s", name, e)
+            logger.error("Error loading identity '%s': %s", name, e, exc_info=True)
             return None
 
     def get_all_personalities(self) -> list[dict[str, Any]]:

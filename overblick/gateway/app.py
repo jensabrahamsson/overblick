@@ -175,14 +175,14 @@ async def chat_completion(
         )
 
     except OllamaConnectionError as e:
-        logger.error("Ollama connection error: %s", e)
+        logger.error("Ollama connection error: %s", e, exc_info=True)
         raise HTTPException(
             status_code=503,
             detail=f"Cannot connect to Ollama: {e}",
         )
 
     except OllamaError as e:
-        logger.error("Ollama error: %s", e)
+        logger.error("Ollama error: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"LLM error: {e}",

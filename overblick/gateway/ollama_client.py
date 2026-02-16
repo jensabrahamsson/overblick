@@ -83,7 +83,7 @@ class OllamaClient:
         except httpx.ConnectError as e:
             raise OllamaConnectionError(f"Cannot connect to Ollama: {e}") from e
         except Exception as e:
-            logger.error("Failed to list models: %s", e)
+            logger.error("Failed to list models: %s", e, exc_info=True)
             return []
 
     async def chat_completion(self, request: ChatRequest) -> ChatResponse:
@@ -148,13 +148,13 @@ class OllamaClient:
             )
 
         except httpx.ConnectError as e:
-            logger.error("Connection to Ollama failed: %s", e)
+            logger.error("Connection to Ollama failed: %s", e, exc_info=True)
             raise OllamaConnectionError(
                 f"Cannot connect to Ollama at {self.config.ollama_base_url}: {e}"
             ) from e
 
         except httpx.TimeoutException as e:
-            logger.error("Ollama request timed out: %s", e)
+            logger.error("Ollama request timed out: %s", e, exc_info=True)
             raise OllamaTimeoutError(
                 f"Request timed out after {self.config.request_timeout_seconds}s: {e}"
             ) from e
@@ -166,5 +166,5 @@ class OllamaClient:
             ) from e
 
         except Exception as e:
-            logger.error("Unexpected error calling Ollama: %s", e)
+            logger.error("Unexpected error calling Ollama: %s", e, exc_info=True)
             raise OllamaError(f"Failed to call Ollama: {e}") from e

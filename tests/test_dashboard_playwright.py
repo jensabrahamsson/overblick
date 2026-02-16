@@ -1,9 +1,15 @@
 """
 Playwright test to inspect dashboard plugin cards.
+
+Requires a running dashboard at localhost:8080 and Playwright Chromium.
+Run separately: pytest tests/test_dashboard_playwright.py -v -m e2e
 """
 
 import pytest
 from playwright.sync_api import sync_playwright, expect
+
+# Exclude from default test runs — requires running server + browser
+pytestmark = [pytest.mark.e2e]
 
 
 def test_dashboard_plugin_cards():

@@ -74,7 +74,7 @@ class SummarizerCapability(CapabilityBase):
                     return None
                 return result.content.strip() if result.content else None
             except Exception as e:
-                logger.error("Summarization pipeline error: %s", e)
+                logger.error("Summarization pipeline error: %s", e, exc_info=True)
                 return None
 
         if llm_client:
@@ -87,7 +87,7 @@ class SummarizerCapability(CapabilityBase):
                 if result and result.get("content"):
                     return result["content"].strip()
             except Exception as e:
-                logger.error("Summarization LLM error: %s", e)
+                logger.error("Summarization LLM error: %s", e, exc_info=True)
 
         logger.warning("SummarizerCapability: no LLM available")
         return None

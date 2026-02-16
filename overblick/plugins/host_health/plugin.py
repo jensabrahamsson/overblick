@@ -352,4 +352,4 @@ class HostHealthPlugin(PluginBase):
             }
             self._state_file.write_text(json.dumps(data, indent=2))
         except Exception as e:
-            logger.error("HostHealth: failed to save state: %s", e)
+            logger.error("HostHealth: failed to save state: %s", e, exc_info=True)

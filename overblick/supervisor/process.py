@@ -88,7 +88,7 @@ class AgentProcess(BaseModel):
             return True
 
         except Exception as e:
-            logger.error("Failed to start agent '%s': %s", self.identity, e)
+            logger.error("Failed to start agent '%s': %s", self.identity, e, exc_info=True)
             self.state = ProcessState.CRASHED
             return False
 
@@ -118,7 +118,7 @@ class AgentProcess(BaseModel):
             return True
 
         except Exception as e:
-            logger.error("Error stopping agent '%s': %s", self.identity, e)
+            logger.error("Error stopping agent '%s': %s", self.identity, e, exc_info=True)
             self.state = ProcessState.CRASHED
             return False
 

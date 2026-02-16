@@ -229,7 +229,7 @@ class TherapySystem:
             return title, body, "ai"
 
         except Exception as e:
-            logger.error("Therapy post generation failed: %s", e)
+            logger.error("Therapy post generation failed: %s", e, exc_info=True)
             return None, None, "ai"
 
     def _generate_summary(self, session: TherapySession) -> str:

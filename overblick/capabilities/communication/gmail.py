@@ -137,7 +137,7 @@ class GmailCapability:
                 self._imap_fetch_unread, max_results,
             )
         except Exception as e:
-            logger.error("Gmail fetch_unread failed: %s", e)
+            logger.error("Gmail fetch_unread failed: %s", e, exc_info=True)
             return []
 
     def _imap_fetch_unread(self, max_results: int) -> list[GmailMessage]:
@@ -284,7 +284,7 @@ class GmailCapability:
             logger.info("Gmail reply sent to %s: %s", to, reply_subject)
             return True
         except Exception as e:
-            logger.error("Gmail send_reply failed: %s", e)
+            logger.error("Gmail send_reply failed: %s", e, exc_info=True)
             return False
 
     def _smtp_send(self, msg: MIMEText) -> None:
@@ -323,7 +323,7 @@ class GmailCapability:
             logger.debug("Gmail message marked as read: %s", message_id)
             return True
         except Exception as e:
-            logger.error("Gmail mark_as_read failed: %s", e)
+            logger.error("Gmail mark_as_read failed: %s", e, exc_info=True)
             return False
 
     def _imap_mark_read(self, uid: bytes) -> None:

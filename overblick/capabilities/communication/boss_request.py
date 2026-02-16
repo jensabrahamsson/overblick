@@ -107,7 +107,7 @@ class BossRequestCapability:
                     logger.warning("Research request failed: %s", error)
                     return None
         except Exception as e:
-            logger.error("Research request IPC failed: %s", e)
+            logger.error("Research request IPC failed: %s", e, exc_info=True)
 
         return None
 

@@ -193,7 +193,7 @@ class TelegramPlugin(PluginBase):
                 await self._handle_update(update)
         except Exception as e:
             self._errors += 1
-            logger.error("Telegram polling error: %s", e)
+            logger.error("Telegram polling error: %s", e, exc_info=True)
 
     async def _poll_updates(self) -> list[dict]:
         """Poll Telegram Bot API for new updates."""
@@ -390,7 +390,7 @@ class TelegramPlugin(PluginBase):
                             logger.warning("Telegram send failed: %d", retry_resp.status)
                             return False
         except Exception as e:
-            logger.error("Telegram send error: %s", e)
+            logger.error("Telegram send error: %s", e, exc_info=True)
             self._errors += 1
             return False
 

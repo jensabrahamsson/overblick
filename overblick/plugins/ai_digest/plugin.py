@@ -207,7 +207,7 @@ class AiDigestPlugin(PluginBase):
                 )
 
             except Exception as e:
-                logger.error("AiDigestPlugin: failed to fetch %s: %s", feed_url, e)
+                logger.error("AiDigestPlugin: failed to fetch %s: %s", feed_url, e, exc_info=True)
 
         # Sort by recency, limit to prevent token overflow
         articles.sort(key=lambda a: a.timestamp, reverse=True)
@@ -258,7 +258,7 @@ class AiDigestPlugin(PluginBase):
             selected_indices = self._parse_selection(result.content or "", len(articles))
             return [articles[i] for i in selected_indices]
         except Exception as e:
-            logger.error("AiDigestPlugin: failed to parse ranking: %s", e)
+            logger.error("AiDigestPlugin: failed to parse ranking: %s", e, exc_info=True)
             return articles[:self._top_n]
 
     async def _generate_digest(self, articles: list[FeedArticle]) -> Optional[str]:

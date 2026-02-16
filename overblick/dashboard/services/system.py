@@ -26,7 +26,7 @@ class SystemService:
             with open(self._config_path) as f:
                 return yaml.safe_load(f) or {}
         except Exception as e:
-            logger.error("Failed to load system config: %s", e)
+            logger.error("Failed to load system config: %s", e, exc_info=True)
             return {}
 
     def get_available_plugins(self) -> list[str]:
@@ -35,7 +35,7 @@ class SystemService:
             from overblick.core.plugin_registry import PluginRegistry
             return PluginRegistry.available_plugins()
         except Exception as e:
-            logger.error("Failed to list plugins: %s", e)
+            logger.error("Failed to list plugins: %s", e, exc_info=True)
             return []
 
     def get_capability_bundles(self) -> dict[str, list[str]]:
@@ -44,7 +44,7 @@ class SystemService:
             from overblick.capabilities import CAPABILITY_BUNDLES
             return dict(CAPABILITY_BUNDLES)
         except Exception as e:
-            logger.error("Failed to load capability bundles: %s", e)
+            logger.error("Failed to load capability bundles: %s", e, exc_info=True)
             return {}
 
     def get_capability_registry(self) -> list[str]:
@@ -53,5 +53,5 @@ class SystemService:
             from overblick.capabilities import CAPABILITY_REGISTRY
             return sorted(CAPABILITY_REGISTRY.keys())
         except Exception as e:
-            logger.error("Failed to load capability registry: %s", e)
+            logger.error("Failed to load capability registry: %s", e, exc_info=True)
             return []

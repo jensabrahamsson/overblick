@@ -342,7 +342,7 @@ class EmailAgentPlugin(PluginBase):
             if result and not result.blocked and result.content:
                 return self._parse_classification(result.content)
         except Exception as e:
-            logger.error("EmailAgent: classification LLM call failed: %s", e)
+            logger.error("EmailAgent: classification LLM call failed: %s", e, exc_info=True)
 
         return None
 
@@ -492,7 +492,7 @@ class EmailAgentPlugin(PluginBase):
             return tg_message_id is not None
 
         except Exception as e:
-            logger.error("EmailAgent: notification generation failed: %s", e)
+            logger.error("EmailAgent: notification generation failed: %s", e, exc_info=True)
             return False
 
     async def _request_research(self, query: str, context: str = "") -> Optional[str]:
@@ -593,7 +593,7 @@ class EmailAgentPlugin(PluginBase):
                 return False
 
         except Exception as e:
-            logger.error("EmailAgent: reply generation failed: %s", e)
+            logger.error("EmailAgent: reply generation failed: %s", e, exc_info=True)
             return False
 
     async def _consult_tone(
@@ -700,7 +700,7 @@ class EmailAgentPlugin(PluginBase):
                 await self._process_boss_response(email, classification, response)
                 return True
         except Exception as e:
-            logger.error("EmailAgent: IPC consultation failed: %s", e)
+            logger.error("EmailAgent: IPC consultation failed: %s", e, exc_info=True)
 
         return False
 
@@ -769,7 +769,7 @@ class EmailAgentPlugin(PluginBase):
         try:
             profile_path.write_text(json.dumps(profile.model_dump(), indent=2))
         except Exception as e:
-            logger.error("EmailAgent: failed to save sender profile for %s: %s", sender, e)
+            logger.error("EmailAgent: failed to save sender profile for %s: %s", sender, e, exc_info=True)
 
     def _load_sender_profile(self, sender: str) -> SenderProfile:
         """Load a sender profile from disk, or create a new one."""

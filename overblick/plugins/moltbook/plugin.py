@@ -214,7 +214,7 @@ class MoltbookPlugin(PluginBase):
         except RateLimitError as e:
             logger.warning("Rate limited during tick: %s", e)
         except MoltbookError as e:
-            logger.error("Moltbook error during tick: %s", e)
+            logger.error("Moltbook error during tick: %s", e, exc_info=True)
         except Exception as e:
             logger.error("Unexpected error in tick: %s", e, exc_info=True)
 
@@ -282,7 +282,7 @@ class MoltbookPlugin(PluginBase):
         except RateLimitError as e:
             logger.warning("Rate limited posting comment: %s", e)
         except MoltbookError as e:
-            logger.error("Failed to post comment: %s", e)
+            logger.error("Failed to post comment: %s", e, exc_info=True)
 
     async def _check_own_post_replies(self) -> None:
         """Check for new replies to our posts."""
@@ -354,7 +354,7 @@ class MoltbookPlugin(PluginBase):
                 return True
 
         except Exception as e:
-            logger.error("Reply handling failed: %s", e)
+            logger.error("Reply handling failed: %s", e, exc_info=True)
 
         return False
 
@@ -394,7 +394,7 @@ class MoltbookPlugin(PluginBase):
         except RateLimitError:
             logger.warning("Rate limited posting heartbeat")
         except MoltbookError as e:
-            logger.error("Heartbeat failed: %s", e)
+            logger.error("Heartbeat failed: %s", e, exc_info=True)
 
         return False
 

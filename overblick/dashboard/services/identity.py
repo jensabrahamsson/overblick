@@ -64,7 +64,7 @@ class IdentityService:
             logger.warning("Identity not found: %s", name)
             return None
         except Exception as e:
-            logger.error("Error loading identity '%s': %s", name, e)
+            logger.error("Error loading identity '%s': %s", name, e, exc_info=True)
             return None
 
     def get_all_identities(self) -> list[dict[str, Any]]:

@@ -269,21 +269,21 @@ class Orchestrator:
                 await plugin.teardown()
                 logger.info(f"Plugin '{plugin.name}' torn down")
             except Exception as e:
-                logger.error(f"Error tearing down '{plugin.name}': {e}")
+                logger.error(f"Error tearing down '{plugin.name}': {e}", exc_info=True)
 
         # Close LLM client
         if self._llm_client and hasattr(self._llm_client, "close"):
             try:
                 await self._llm_client.close()
             except Exception as e:
-                logger.error(f"Error closing LLM client: {e}")
+                logger.error(f"Error closing LLM client: {e}", exc_info=True)
 
         # Close engagement DB backend
         if self._engagement_db_backend:
             try:
                 await self._engagement_db_backend.close()
             except Exception as e:
-                logger.error("Error closing engagement DB backend: %s", e)
+                logger.error("Error closing engagement DB backend: %s", e, exc_info=True)
 
         # Final audit log
         if self._audit_log:
