@@ -234,10 +234,13 @@ def apply_scenario_result(result: ScenarioResult, response: str) -> None:
     detail = "\n".join(f"  - {f}" for f in result.failures)
 
     if result.is_soft_failure:
-        pytest.xfail(
+        import warnings
+        warnings.warn(
             f"Soft assertion failed (prompt tuning signal):\n"
-            f"{detail}\nResponse: {response[:500]}"
+            f"{detail}\nResponse: {response[:500]}",
+            stacklevel=2,
         )
+        return  # Soft failures are warnings, not test failures
     else:
         raise AssertionError(
             f"Hard assertion failed:\n{detail}\nResponse: {response[:500]}"

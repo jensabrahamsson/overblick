@@ -27,10 +27,6 @@ class TestOpeningSelector:
 
     def test_empty_string_not_tracked(self):
         selector = OpeningSelector(phrases=["", "A", "B"], history_size=2)
-        # Empty string should always be available
-        found_empty = False
-        for _ in range(20):
-            if selector.select() == "":
-                found_empty = True
-        # The empty string should appear sometimes
-        # (not guaranteed in 20 tries, but very likely)
+        # Empty string should always be available and appear sometimes
+        selections = [selector.select() for _ in range(30)]
+        assert "" in selections, "Empty string should appear in selections"

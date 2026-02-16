@@ -122,7 +122,7 @@ class TestIdentityConfiguration:
     def test_identity_is_frozen(self):
         """Identity instances are frozen (immutable)."""
         p = load_personality("anomal")
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError, ValueError)):
             p.display_name = "Changed"
 
 
@@ -164,7 +164,7 @@ class TestEdgeCases:
 
     def test_nonexistent_identity_raises(self):
         """Loading a non-existent identity raises an error."""
-        with pytest.raises(Exception):
+        with pytest.raises((FileNotFoundError, ValueError)):
             load_personality("does_not_exist_999")
 
     def test_list_personalities_returns_list(self):

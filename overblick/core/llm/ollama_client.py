@@ -21,6 +21,7 @@ from typing import Optional
 
 import aiohttp
 
+from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
 from overblick.core.llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
@@ -98,7 +99,9 @@ class OllamaClient(LLMClient):
                 if response.status != 200:
                     error_text = await response.text()
                     logger.warning("LLM: API error %d: %s", response.status, error_text)
-                    return None
+                    raise LLMConnectionError(
+                        f"Ollama API error {response.status}: {error_text[:200]}"
+                    )
 
                 data = await response.json()
 
@@ -131,13 +134,15 @@ class OllamaClient(LLMClient):
 
         except asyncio.TimeoutError:
             logger.error(f"LLM: Request timeout ({self.timeout_seconds}s)", exc_info=True)
-            return None
+            raise LLMTimeoutError(f"Ollama request timeout ({self.timeout_seconds}s)")
         except aiohttp.ClientError as e:
             logger.error(f"LLM: Connection error: {e}", exc_info=True)
-            return None
+            raise LLMConnectionError(f"Ollama connection error: {e}") from e
+        except (LLMTimeoutError, LLMConnectionError):
+            raise
         except Exception as e:
             logger.error(f"LLM: Unexpected error: {e}", exc_info=True)
-            return None
+            raise LLMConnectionError(f"Ollama unexpected error: {e}") from e
 
     async def health_check(self) -> bool:
         """Check if Ollama is running and model is available."""

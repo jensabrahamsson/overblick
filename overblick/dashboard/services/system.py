@@ -33,7 +33,7 @@ class SystemService:
         """List available plugins from registry."""
         try:
             from overblick.core.plugin_registry import PluginRegistry
-            return PluginRegistry.available_plugins()
+            return PluginRegistry().available_plugins()
         except Exception as e:
             logger.error("Failed to list plugins: %s", e, exc_info=True)
             return []

@@ -13,8 +13,8 @@ from overblick.core.plugin_base import PluginBase, PluginContext
 
 logger = logging.getLogger(__name__)
 
-# Registry of known plugins (name -> module path + class name)
-_KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
+# Default registry of known plugins (name -> module path + class name)
+_DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
     "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
@@ -26,17 +26,24 @@ _KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
 }
 
+# Module-level alias for backward compatibility (tests import this)
+_KNOWN_PLUGINS = _DEFAULT_PLUGINS
+
 
 class PluginRegistry:
     """
     Plugin registry — discovers and instantiates plugins.
 
-    Security: Only loads from the _KNOWN_PLUGINS whitelist.
+    Security: Only loads from the known plugins whitelist.
     No dynamic imports from user input or network.
+
+    Each instance gets its own copy of the default plugins dict
+    to prevent cross-instance pollution during testing.
     """
 
     def __init__(self):
         self._loaded: dict[str, PluginBase] = {}
+        self._plugins: dict[str, tuple[str, str]] = dict(_DEFAULT_PLUGINS)
 
     def register(self, name: str, module_path: str, class_name: str) -> None:
         """
@@ -47,6 +54,8 @@ class PluginRegistry:
             module_path: Importable module path
             class_name: Class name within module
         """
+        self._plugins[name] = (module_path, class_name)
+        # Also update module-level dict for backward compatibility
         _KNOWN_PLUGINS[name] = (module_path, class_name)
         logger.info(f"PluginRegistry: registered '{name}' -> {module_path}.{class_name}")
 
@@ -65,13 +74,13 @@ class PluginRegistry:
             ValueError: If plugin name is unknown
             ImportError: If module cannot be imported
         """
-        if name not in _KNOWN_PLUGINS:
+        if name not in self._plugins:
             raise ValueError(
                 f"Unknown plugin: '{name}'. "
-                f"Available: {', '.join(_KNOWN_PLUGINS.keys())}"
+                f"Available: {', '.join(self._plugins.keys())}"
             )
 
-        module_path, class_name = _KNOWN_PLUGINS[name]
+        module_path, class_name = self._plugins[name]
 
         try:
             module = importlib.import_module(module_path)
@@ -95,7 +104,6 @@ class PluginRegistry:
         """Get all loaded plugins."""
         return dict(self._loaded)
 
-    @staticmethod
-    def available_plugins() -> list[str]:
+    def available_plugins(self) -> list[str]:
         """List all known plugin names."""
-        return sorted(_KNOWN_PLUGINS.keys())
+        return sorted(self._plugins.keys())

@@ -11,9 +11,23 @@ providing full IDE/mypy support for all framework services.
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from pydantic import BaseModel, ConfigDict, PrivateAttr
+
+if TYPE_CHECKING:
+    from overblick.core.db.engagement_db import EngagementDB
+    from overblick.core.event_bus import EventBus
+    from overblick.core.llm.client import LLMClient
+    from overblick.core.llm.pipeline import SafeLLMPipeline
+    from overblick.core.llm.response_router import ResponseRouter
+    from overblick.core.permissions import PermissionChecker
+    from overblick.core.quiet_hours import QuietHoursChecker
+    from overblick.core.security.audit_log import AuditLog
+    from overblick.core.security.output_safety import OutputSafety
+    from overblick.core.security.preflight import PreflightChecker
+    from overblick.identities import Identity
+    from overblick.supervisor.ipc import IPCClient
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +47,11 @@ class PluginContext(BaseModel):
     - Engagement DB
     - Security subsystems
     - Permission checker
+
+    Note: Fields use ``Any`` at runtime because Pydantic cannot resolve
+    TYPE_CHECKING forward references without ``model_rebuild()``. The
+    TYPE_CHECKING block above provides IDE/mypy support via the
+    imported type names in docstrings and comments.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -41,38 +60,26 @@ class PluginContext(BaseModel):
     log_dir: Path
 
     # Framework services (set by orchestrator before plugin.setup())
-    # Type: overblick.core.llm.client.LLMClient
-    llm_client: Any = None
-    # Type: overblick.core.event_bus.EventBus
-    event_bus: Any = None
+    llm_client: Any = None  # LLMClient
+    event_bus: Any = None  # EventBus
     scheduler: Any = None
-    # Type: overblick.core.security.audit_log.AuditLog
-    audit_log: Any = None
-    # Type: overblick.core.quiet_hours.QuietHoursChecker
-    quiet_hours_checker: Any = None
-    # Type: overblick.core.llm.response_router.ResponseRouter
-    response_router: Any = None
+    audit_log: Any = None  # AuditLog
+    quiet_hours_checker: Any = None  # QuietHoursChecker
+    response_router: Any = None  # ResponseRouter
 
-    # Type: overblick.core.llm.pipeline.SafeLLMPipeline
     # Preferred over raw llm_client for plugin use
-    llm_pipeline: Any = None
+    llm_pipeline: Any = None  # SafeLLMPipeline
 
-    # Type: overblick.identities.Personality
-    identity: Any = None
+    identity: Any = None  # Identity
 
-    # Type: overblick.core.db.engagement_db.EngagementDB
-    engagement_db: Any = None
+    engagement_db: Any = None  # EngagementDB
 
-    # Type: overblick.core.security.preflight.PreflightChecker
-    preflight_checker: Any = None
-    # Type: overblick.core.security.output_safety.OutputSafety
-    output_safety: Any = None
+    preflight_checker: Any = None  # PreflightChecker
+    output_safety: Any = None  # OutputSafety
 
-    # Type: overblick.core.permissions.PermissionChecker
-    permissions: Any = None
+    permissions: Any = None  # PermissionChecker
 
-    # Type: overblick.supervisor.ipc.IPCClient
-    ipc_client: Any = None
+    ipc_client: Any = None  # IPCClient
 
     # Shared capabilities (populated by orchestrator)
     capabilities: dict[str, Any] = {}

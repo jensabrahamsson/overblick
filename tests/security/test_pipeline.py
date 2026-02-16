@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
+from overblick.core.exceptions import ConfigError
 from overblick.core.llm.pipeline import (
     PipelineResult,
     PipelineStage,
@@ -302,3 +303,59 @@ class TestPipelineFailClosed:
         assert "preflight" in warned_components
         assert "rate_limiter" in warned_components
         assert "output_safety" in warned_components
+
+    def test_strict_mode_raises_on_missing_components(self, mock_llm):
+        """strict=True raises ConfigError when security components are missing."""
+        with pytest.raises(ConfigError, match="strict mode"):
+            SafeLLMPipeline(
+                llm_client=mock_llm,
+                strict=True,
+                # All security components intentionally omitted
+            )
+
+    def test_strict_mode_partial_missing(self, mock_llm, mock_preflight):
+        """strict=True raises when some but not all components are provided."""
+        with pytest.raises(ConfigError, match="output_safety"):
+            SafeLLMPipeline(
+                llm_client=mock_llm,
+                preflight_checker=mock_preflight,
+                strict=True,
+            )
+
+    def test_strict_mode_all_present(
+        self, mock_llm, mock_preflight, mock_output_safety, mock_rate_limiter
+    ):
+        """strict=True succeeds when all security components are provided."""
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            preflight_checker=mock_preflight,
+            output_safety=mock_output_safety,
+            rate_limiter=mock_rate_limiter,
+            strict=True,
+        )
+        assert pipeline._strict is True
+
+    @pytest.mark.asyncio
+    async def test_audit_details_not_mutated(self, mock_llm, mock_audit, mock_rate_limiter):
+        """audit_details dict passed to chat() should not be mutated."""
+        preflight = AsyncMock()
+        preflight.check = AsyncMock(
+            side_effect=RuntimeError("Crash")
+        )
+
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            audit_log=mock_audit,
+            preflight_checker=preflight,
+        )
+
+        original_details = {"custom_key": "value"}
+        details_copy = dict(original_details)
+
+        await pipeline.chat(
+            messages=[{"role": "user", "content": "test"}],
+            audit_details=original_details,
+        )
+
+        # Original dict should NOT have been mutated
+        assert original_details == details_copy

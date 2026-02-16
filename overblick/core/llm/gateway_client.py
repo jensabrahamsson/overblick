@@ -20,6 +20,7 @@ from typing import Optional
 
 import aiohttp
 
+from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
 from overblick.core.llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,9 @@ class GatewayClient(LLMClient):
                 if response.status != 200:
                     error_text = await response.text()
                     logger.warning("Gateway: API error %d: %s", response.status, error_text)
-                    return None
+                    raise LLMConnectionError(
+                        f"Gateway API error {response.status}: {error_text[:200]}"
+                    )
 
                 data = await response.json()
 
@@ -114,13 +117,15 @@ class GatewayClient(LLMClient):
 
         except asyncio.TimeoutError:
             logger.error(f"Gateway: Timeout ({self.timeout_seconds}s)", exc_info=True)
-            return None
+            raise LLMTimeoutError(f"Gateway request timeout ({self.timeout_seconds}s)")
         except aiohttp.ClientError as e:
             logger.error(f"Gateway: Connection error: {e}", exc_info=True)
-            return None
+            raise LLMConnectionError(f"Gateway connection error: {e}") from e
+        except (LLMTimeoutError, LLMConnectionError):
+            raise
         except Exception as e:
             logger.error(f"Gateway: Unexpected error: {e}", exc_info=True)
-            return None
+            raise LLMConnectionError(f"Gateway unexpected error: {e}") from e
 
     async def health_check(self) -> bool:
         """Check if the gateway is available."""

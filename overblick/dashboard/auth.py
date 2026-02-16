@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # Cookie names
 SESSION_COOKIE = "overblick_session"
 CSRF_COOKIE = "overblick_csrf"
+LOGIN_CSRF_COOKIE = "overblick_login_csrf"
 
 # Paths that don't require authentication
 PUBLIC_PATHS = {"/login", "/static", "/health"}
@@ -81,6 +82,18 @@ class SessionManager:
         if not expected or not token:
             return False
         return hmac.compare_digest(expected, token)
+
+    @staticmethod
+    def generate_login_csrf() -> str:
+        """Generate a CSRF token for the login form (pre-auth, double-submit cookie)."""
+        return secrets.token_hex(32)
+
+    @staticmethod
+    def validate_login_csrf(cookie_token: str, form_token: str) -> bool:
+        """Validate login CSRF via double-submit cookie comparison."""
+        if not cookie_token or not form_token:
+            return False
+        return hmac.compare_digest(cookie_token, form_token)
 
 
 def get_session(request: Request) -> Optional[dict]:

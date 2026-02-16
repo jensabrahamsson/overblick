@@ -96,9 +96,11 @@ class TestForumPostVariety:
             for j in range(i + 1, len(responses)):
                 sim = jaccard_similarity(responses[i], responses[j])
                 if sim > 0.5:
-                    pytest.xfail(
+                    import warnings
+                    warnings.warn(
                         f"{personality_name}: Responses {i+1} and {j+1} too similar "
                         f"(Jaccard={sim:.2f}). May indicate templated output.\n"
                         f"Response {i+1}: {responses[i][:200]}\n"
-                        f"Response {j+1}: {responses[j][:200]}"
+                        f"Response {j+1}: {responses[j][:200]}",
+                        stacklevel=1,
                     )

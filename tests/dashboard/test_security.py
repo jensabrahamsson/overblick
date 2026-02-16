@@ -2,6 +2,7 @@
 
 import time
 import pytest
+from pydantic import ValidationError
 from overblick.dashboard.security import (
     RateLimiter, LoginForm, OnboardingNameForm, OnboardingLLMForm, AuditFilterForm,
 )
@@ -49,7 +50,7 @@ class TestInputValidation:
         assert form.password == "test123"
 
     def test_login_form_empty_password(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             LoginForm(password="", csrf_token="abc")
 
     def test_onboarding_name_valid(self):
@@ -61,11 +62,11 @@ class TestInputValidation:
         assert form.name == "my_agent"
 
     def test_onboarding_name_invalid_chars(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             OnboardingNameForm(name="my agent!")
 
     def test_onboarding_name_starts_with_number(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             OnboardingNameForm(name="123agent")
 
     def test_onboarding_llm_valid(self):
@@ -73,15 +74,15 @@ class TestInputValidation:
         assert form.model == "qwen3:8b"
 
     def test_onboarding_llm_temperature_bounds(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             OnboardingLLMForm(temperature=3.0)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             OnboardingLLMForm(temperature=-0.1)
 
     def test_onboarding_llm_max_tokens_bounds(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             OnboardingLLMForm(max_tokens=50)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             OnboardingLLMForm(max_tokens=10000)
 
     def test_audit_filter_defaults(self):
@@ -90,9 +91,9 @@ class TestInputValidation:
         assert form.limit == 50
 
     def test_audit_filter_bounds(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             AuditFilterForm(hours=0)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             AuditFilterForm(limit=0)
 
 

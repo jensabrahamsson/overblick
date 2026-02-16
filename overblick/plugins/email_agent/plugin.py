@@ -17,6 +17,7 @@ Tick cycle:
 5. If boss provides feedback, update learnings
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -125,20 +126,30 @@ class EmailAgentPlugin(PluginBase):
         self._db = EmailAgentDB(backend)
         await self._db.setup()
 
-        # Load state from DB
-        stats = await self._db.get_stats()
-        goals = await self._db.get_active_goals()
-        self._state = AgentState(goals=goals, **stats)
+        try:
+            # Load state from DB
+            stats = await self._db.get_stats()
+            goals = await self._db.get_active_goals()
+            self._state = AgentState(goals=goals, **stats)
 
-        # Load learnings for prompt context
-        self._learnings = await self._db.get_learnings(limit=50)
+            # Load learnings for prompt context
+            self._learnings = await self._db.get_learnings(limit=50)
 
-        # Initialize default goals if none exist
-        if not self._state.goals:
-            await self._initialize_default_goals()
+            # Initialize default goals if none exist
+            if not self._state.goals:
+                await self._initialize_default_goals()
 
-        # Build system prompt from personality
-        self._system_prompt = self._build_system_prompt()
+            # Build system prompt from personality
+            self._system_prompt = self._build_system_prompt()
+        except Exception:
+            # Clean up DB if setup fails after DB init
+            if self._db:
+                try:
+                    await self._db.close()
+                except Exception:
+                    pass
+                self._db = None
+            raise
 
         # Load email agent config from personality
         raw_config = identity.raw_config
@@ -307,7 +318,7 @@ class EmailAgentPlugin(PluginBase):
             return
 
         # 2. Get sender + domain reputation
-        sender_rep = self._get_sender_reputation(sender)
+        sender_rep = await self._get_sender_reputation(sender)
         domain_rep = await self._get_domain_reputation(sender)
 
         # 3. Auto-ignore check (learned, not hardcoded)
@@ -455,9 +466,9 @@ class EmailAgentPlugin(PluginBase):
         safe = re.sub(r'_+', '_', safe).strip('_')
         return safe[:200]  # Filesystem path length safety
 
-    def _get_sender_reputation(self, sender: str) -> dict[str, Any]:
+    async def _get_sender_reputation(self, sender: str) -> dict[str, Any]:
         """Calculate reputation for a specific sender from profile data."""
-        profile = self._load_sender_profile(sender)
+        profile = await self._load_sender_profile(sender)
         if profile.total_interactions == 0:
             return {"known": False}
 
@@ -899,7 +910,7 @@ class EmailAgentPlugin(PluginBase):
         body = email.get("body", "")
 
         # Get sender context from profile (GDPR-safe) and DB history
-        profile = self._load_sender_profile(sender)
+        profile = await self._load_sender_profile(sender)
         sender_context = "No previous interactions"
         interaction_history = "First contact"
 
@@ -1184,7 +1195,7 @@ class EmailAgentPlugin(PluginBase):
         if not self._profiles_dir:
             return
 
-        profile = self._load_sender_profile(sender)
+        profile = await self._load_sender_profile(sender)
 
         # Update aggregate stats
         profile.total_interactions += 1
@@ -1198,15 +1209,16 @@ class EmailAgentPlugin(PluginBase):
         intent = classification.intent.value
         profile.intent_distribution[intent] = profile.intent_distribution.get(intent, 0) + 1
 
-        # Save profile
+        # Save profile (async to avoid blocking event loop)
         safe_name = self._safe_sender_name(sender)
         profile_path = self._profiles_dir / f"{safe_name}.json"
         try:
-            profile_path.write_text(json.dumps(profile.model_dump(), indent=2))
+            data = json.dumps(profile.model_dump(), indent=2)
+            await asyncio.to_thread(profile_path.write_text, data)
         except Exception as e:
             logger.error("EmailAgent: failed to save sender profile for %s: %s", sender, e, exc_info=True)
 
-    def _load_sender_profile(self, sender: str) -> SenderProfile:
+    async def _load_sender_profile(self, sender: str) -> SenderProfile:
         """Load a sender profile from disk, or create a new one."""
         if not self._profiles_dir:
             return SenderProfile(email=sender)
@@ -1216,7 +1228,8 @@ class EmailAgentPlugin(PluginBase):
 
         if profile_path.exists():
             try:
-                data = json.loads(profile_path.read_text())
+                text = await asyncio.to_thread(profile_path.read_text)
+                data = json.loads(text)
                 return SenderProfile(**data)
             except (json.JSONDecodeError, Exception) as e:
                 logger.warning("EmailAgent: failed to load sender profile: %s", e)
@@ -1312,16 +1325,15 @@ class EmailAgentPlugin(PluginBase):
 
             # Update sender profile on negative feedback
             if sentiment == "negative" and email_from:
-                profile = self._load_sender_profile(email_from)
+                profile = await self._load_sender_profile(email_from)
                 profile.intent_distribution["ignore"] = (
                     profile.intent_distribution.get("ignore", 0) + 1
                 )
                 safe_name = self._safe_sender_name(email_from)
                 profile_path = self._profiles_dir / f"{safe_name}.json"
                 try:
-                    profile_path.write_text(
-                        json.dumps(profile.model_dump(), indent=2),
-                    )
+                    data = json.dumps(profile.model_dump(), indent=2)
+                    await asyncio.to_thread(profile_path.write_text, data)
                 except Exception as e:
                     logger.debug(
                         "EmailAgent: failed to update sender profile: %s", e,

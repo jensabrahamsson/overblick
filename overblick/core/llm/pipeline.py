@@ -24,6 +24,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
+from overblick.core.exceptions import ConfigError
 from overblick.core.security.input_sanitizer import sanitize as sanitize_input
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,7 @@ class SafeLLMPipeline:
         rate_limiter: Any = None,
         identity_name: str = "",
         rate_limit_key: str = "llm_pipeline",
+        strict: bool = False,
     ):
         self._llm = llm_client
         self._audit = audit_log
@@ -92,6 +94,22 @@ class SafeLLMPipeline:
         self._rate_limiter = rate_limiter
         self._identity_name = identity_name
         self._rate_limit_key = rate_limit_key
+        self._strict = strict
+
+        # In strict mode, require critical security components
+        if strict:
+            missing = []
+            if not preflight_checker:
+                missing.append("preflight_checker")
+            if not output_safety:
+                missing.append("output_safety")
+            if not rate_limiter:
+                missing.append("rate_limiter")
+            if missing:
+                raise ConfigError(
+                    f"SafeLLMPipeline strict mode: missing required security "
+                    f"components: {', '.join(missing)}"
+                )
 
         # Track missing components (warn once)
         self._warned: set[str] = set()
@@ -237,13 +255,13 @@ class SafeLLMPipeline:
         )
 
         if self._audit:
-            details = audit_details or {}
-            details["duration_ms"] = duration
-            details["content_length"] = len(content)
+            d = {**(audit_details or {})}
+            d["duration_ms"] = duration
+            d["content_length"] = len(content)
             self._audit.log(
                 action=audit_action,
                 category="llm",
-                details=details,
+                details=d,
                 success=True,
                 duration_ms=duration,
             )
@@ -331,7 +349,7 @@ class SafeLLMPipeline:
         """Log a blocked request to audit."""
         if not self._audit:
             return
-        d = details or {}
+        d = {**(details or {})}
         d["block_stage"] = result.block_stage.value if result.block_stage else None
         d["block_reason"] = result.block_reason
         self._audit.log(
@@ -351,7 +369,7 @@ class SafeLLMPipeline:
         """Log an error to audit."""
         if not self._audit:
             return
-        d = details or {}
+        d = {**(details or {})}
         d["stage"] = result.block_stage.value if result.block_stage else None
         self._audit.log(
             action=f"{action}_error",

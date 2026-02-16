@@ -19,7 +19,7 @@
         {% endif %}
 
         <form method="post" action="/login" class="login-form">
-            <input type="hidden" name="csrf_token" value="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="form-group">
                 <label for="password" class="form-label">Dashboard Password</label>
                 <input

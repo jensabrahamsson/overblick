@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
+from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
 from overblick.core.llm.ollama_client import OllamaClient
 
 
@@ -199,10 +200,10 @@ class TestOllamaClientChat:
             response_status=500, response_text="Internal Server Error"
         )
 
-        result = await client.chat(
-            messages=[{"role": "user", "content": "Test"}],
-        )
-        assert result is None
+        with pytest.raises(LLMConnectionError, match="500"):
+            await client.chat(
+                messages=[{"role": "user", "content": "Test"}],
+            )
 
     @pytest.mark.asyncio
     async def test_chat_timeout(self):
@@ -211,10 +212,10 @@ class TestOllamaClientChat:
             post_side_effect=asyncio.TimeoutError()
         )
 
-        result = await client.chat(
-            messages=[{"role": "user", "content": "Test"}],
-        )
-        assert result is None
+        with pytest.raises(LLMTimeoutError, match="timeout"):
+            await client.chat(
+                messages=[{"role": "user", "content": "Test"}],
+            )
 
     @pytest.mark.asyncio
     async def test_chat_connection_error(self):
@@ -223,10 +224,10 @@ class TestOllamaClientChat:
             post_side_effect=aiohttp.ClientError("Connection refused")
         )
 
-        result = await client.chat(
-            messages=[{"role": "user", "content": "Test"}],
-        )
-        assert result is None
+        with pytest.raises(LLMConnectionError, match="connection error"):
+            await client.chat(
+                messages=[{"role": "user", "content": "Test"}],
+            )
 
     @pytest.mark.asyncio
     async def test_chat_unexpected_error(self):
@@ -235,10 +236,10 @@ class TestOllamaClientChat:
             post_side_effect=RuntimeError("Something broke")
         )
 
-        result = await client.chat(
-            messages=[{"role": "user", "content": "Test"}],
-        )
-        assert result is None
+        with pytest.raises(LLMConnectionError, match="unexpected"):
+            await client.chat(
+                messages=[{"role": "user", "content": "Test"}],
+            )
 
 
 # ---------------------------------------------------------------------------

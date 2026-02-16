@@ -51,6 +51,7 @@ class GmailMessage(BaseModel):
     snippet: str
     timestamp: str
     labels: list[str] = []
+    headers: dict[str, str] = {}  # Key email headers for classification signals
 
 
 class GmailCapability:
@@ -180,6 +181,13 @@ class GmailCapability:
         subject = self._decode_header(msg.get("Subject", ""))
         date = str(msg.get("Date", ""))
 
+        # Extract classification-relevant headers (soft signals for LLM)
+        signal_headers = {}
+        for hdr in ("List-Unsubscribe", "Precedence", "List-Id", "X-Mailer"):
+            val = msg.get(hdr)
+            if val:
+                signal_headers[hdr] = str(val)
+
         # Extract body
         body = self._extract_body(msg)
         snippet = body[:200].replace("\n", " ").strip()
@@ -196,6 +204,7 @@ class GmailCapability:
             body=body,
             snippet=snippet,
             timestamp=date,
+            headers=signal_headers,
         )
 
     def _extract_body(self, msg) -> str:

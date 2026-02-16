@@ -36,6 +36,20 @@ def stal_identity():
                 "filter_mode": "opt_in",
                 "allowed_senders": ["jens@example.com", "test@example.com"],
                 "blocked_senders": [],
+                "reputation": {
+                    "sender_ignore_rate": 0.9,
+                    "sender_min_interactions": 5,
+                    "domain_ignore_rate": 0.9,
+                    "domain_min_interactions": 10,
+                },
+                "consultation": {
+                    "confidence_low": 0.5,
+                    "confidence_high": 0.8,
+                },
+                "relevance_consultants": [
+                    {"identity": "anomal", "keywords": ["crypto", "bitcoin", "blockchain", "ai", "tech"]},
+                    {"identity": "blixt", "keywords": ["privacy", "security", "surveillance"]},
+                ],
             }
         },
     )
@@ -111,10 +125,19 @@ def mock_gmail_capability():
 
 
 @pytest.fixture
+def mock_personality_consultant():
+    """Mock PersonalityConsultantCapability for cross-identity consultation."""
+    cap = AsyncMock()
+    cap.consult = AsyncMock(return_value="YES — this appears relevant to the principal.")
+    return cap
+
+
+@pytest.fixture
 def stal_plugin_context(
     stal_identity, tmp_path, mock_audit_log, mock_ipc_client_email,
     mock_llm_pipeline_classify, mock_event_bus, mock_telegram_notifier,
     mock_gmail_capability, mock_boss_request_capability,
+    mock_personality_consultant,
 ):
     """PluginContext for Stål with all required services."""
     def _mock_secrets(key: str):
@@ -136,6 +159,7 @@ def stal_plugin_context(
             "telegram_notifier": mock_telegram_notifier,
             "gmail": mock_gmail_capability,
             "boss_request": mock_boss_request_capability,
+            "personality_consultant": mock_personality_consultant,
         },
     )
     ctx._secrets_getter = _mock_secrets
