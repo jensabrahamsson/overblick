@@ -96,7 +96,7 @@ class PermissionSet(BaseModel):
     def from_dict(
         cls,
         data: dict[str, Any],
-        default_allowed: bool = True,
+        default_allowed: bool = False,
     ) -> "PermissionSet":
         """
         Build PermissionSet from a dict (typically from YAML).

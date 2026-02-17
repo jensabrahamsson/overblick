@@ -32,7 +32,7 @@
         {% set ram_color = 'var(--green)' if ram_pct < 70 else ('var(--amber)' if ram_pct < 85 else 'var(--red)') %}
         <div class="system-gauge-card card">
             <div class="system-gauge-ring">
-                <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="RAM usage {{ '%.0f' | format(ram_pct) }} percent, {{ ram_status }}">
+                <svg viewBox="0 0 120 120" class="gauge-svg" role="meter" aria-valuenow="{{ '%.0f' | format(ram_pct) }}" aria-valuemin="0" aria-valuemax="100" aria-label="RAM usage {{ '%.0f' | format(ram_pct) }} percent, {{ ram_status }}">
                     <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
                     <circle cx="60" cy="60" r="52" fill="none"
                             stroke="{{ ram_color }}" stroke-width="8"
@@ -57,7 +57,7 @@
         {% set cpu_color = 'var(--green)' if cpu_pct < 70 else ('var(--amber)' if cpu_pct < 85 else 'var(--red)') %}
         <div class="system-gauge-card card">
             <div class="system-gauge-ring">
-                <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="CPU load {{ '%.0f' | format(cpu_pct) }} percent, {{ cpu_status }}">
+                <svg viewBox="0 0 120 120" class="gauge-svg" role="meter" aria-valuenow="{{ '%.0f' | format(cpu_pct) }}" aria-valuemin="0" aria-valuemax="100" aria-label="CPU load {{ '%.0f' | format(cpu_pct) }} percent, {{ cpu_status }}">
                     <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
                     <circle cx="60" cy="60" r="52" fill="none"
                             stroke="{{ cpu_color }}" stroke-width="8"
@@ -83,7 +83,7 @@
         {% set disk_color = 'var(--green)' if disk_pct < 70 else ('var(--amber)' if disk_pct < 85 else 'var(--red)') %}
         <div class="system-gauge-card card">
             <div class="system-gauge-ring">
-                <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="Disk usage {{ '%.0f' | format(disk_pct) }} percent, {{ disk_status }}">
+                <svg viewBox="0 0 120 120" class="gauge-svg" role="meter" aria-valuenow="{{ '%.0f' | format(disk_pct) }}" aria-valuemin="0" aria-valuemax="100" aria-label="Disk usage {{ '%.0f' | format(disk_pct) }} percent, {{ disk_status }}">
                     <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
                     <circle cx="60" cy="60" r="52" fill="none"
                             stroke="{{ disk_color }}" stroke-width="8"
@@ -111,7 +111,7 @@
         {% set batt_source = 'on battery' if health.power.on_battery else 'AC power' %}
         <div class="system-gauge-card card">
             <div class="system-gauge-ring">
-                <svg viewBox="0 0 120 120" class="gauge-svg" role="img" aria-label="Battery {{ '%.0f' | format(batt_pct) }} percent, {{ batt_source }}, {{ batt_status }}">
+                <svg viewBox="0 0 120 120" class="gauge-svg" role="meter" aria-valuenow="{{ '%.0f' | format(batt_pct) }}" aria-valuemin="0" aria-valuemax="100" aria-label="Battery {{ '%.0f' | format(batt_pct) }} percent, {{ batt_source }}, {{ batt_status }}">
                     <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
                     <circle cx="60" cy="60" r="52" fill="none"
                             stroke="{{ batt_color }}" stroke-width="8"
