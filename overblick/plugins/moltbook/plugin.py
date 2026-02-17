@@ -16,6 +16,7 @@ Conditional capabilities (enabled via identity.enabled_modules):
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -24,9 +25,9 @@ from typing import Optional
 from overblick.core.capability import CapabilityBase, CapabilityRegistry
 from overblick.core.plugin_base import PluginBase, PluginContext
 
-from .client import MoltbookClient, MoltbookError, RateLimitError
+from .client import MoltbookClient, MoltbookError, RateLimitError, SuspensionError
 from .challenge_handler import PerContentChallengeHandler
-from .challenge_solver import MoltCaptchaSolver
+from .challenge_solver import MoltCaptchaSolver, is_challenge_text
 from .decision_engine import DecisionEngine
 from .response_gen import ResponseGenerator
 from .feed_processor import FeedProcessor
@@ -158,6 +159,26 @@ class MoltbookPlugin(PluginBase):
 
         logger.info("MoltbookPlugin setup complete for %s", identity.name)
 
+    def get_status(self) -> dict:
+        """Get Moltbook account status."""
+        if self._client:
+            return self._client.get_account_status()
+        return {"status": "unknown", "detail": "Client not initialized", "identity": ""}
+
+    def _persist_status(self) -> None:
+        """Write account status to JSON file for dashboard consumption."""
+        if not self._client:
+            return
+        try:
+            data_dir = self.ctx.data_dir
+            if not isinstance(data_dir, Path):
+                return
+            status_file = data_dir / "moltbook_status.json"
+            status_file.parent.mkdir(parents=True, exist_ok=True)
+            status_file.write_text(json.dumps(self._client.get_account_status()))
+        except Exception:
+            pass  # Non-critical: dashboard status persistence is best-effort
+
     async def tick(self) -> None:
         """
         Main agent loop iteration.
@@ -184,9 +205,18 @@ class MoltbookPlugin(PluginBase):
                 logger.info("Feed: %d new posts to evaluate", len(new_posts))
 
             # Step 2-4: THINK -> DECIDE -> ACT for each new post
+            agent_name = self.ctx.identity.raw_config.get(
+                "agent_name", self.ctx.identity.name,
+            )
             for post in new_posts:
                 if self._comments_this_cycle >= self._max_comments_per_cycle:
                     break
+
+                # Check if post contains a MoltCaptcha challenge directed at us
+                if is_challenge_text(post.content, agent_name):
+                    logger.info("MoltCaptcha challenge in post %s from %s", post.id, post.agent_name)
+                    await self._handle_moltcaptcha(post.id, post)
+                    continue
 
                 decision = self._decision_engine.evaluate_post(
                     title=post.title,
@@ -211,10 +241,17 @@ class MoltbookPlugin(PluginBase):
             # Step 6: Check replies to our posts
             await self._check_own_post_replies()
 
+            # Persist status after successful tick
+            self._persist_status()
+
+        except SuspensionError as e:
+            logger.error("Account suspended: %s (reason: %s)", e, e.reason)
+            self._persist_status()
         except RateLimitError as e:
             logger.warning("Rate limited during tick: %s", e)
         except MoltbookError as e:
             logger.error("Moltbook error during tick: %s", e, exc_info=True)
+            self._persist_status()
         except Exception as e:
             logger.error("Unexpected error in tick: %s", e, exc_info=True)
 
@@ -302,6 +339,18 @@ class MoltbookPlugin(PluginBase):
                     if await self.ctx.engagement_db.is_reply_processed(comment.id):
                         continue
 
+                    # Check for MoltCaptcha challenge directed at us
+                    agent_name = self.ctx.identity.raw_config.get(
+                        "agent_name", self.ctx.identity.name,
+                    )
+                    if is_challenge_text(comment.content, agent_name):
+                        logger.info("MoltCaptcha challenge detected from %s", comment.agent_name)
+                        await self._handle_moltcaptcha(post.id, comment)
+                        await self.ctx.engagement_db.mark_reply_processed(
+                            comment.id, post_id, "challenge_solved", 0,
+                        )
+                        continue
+
                     decision = self._decision_engine.evaluate_reply(
                         comment_content=comment.content,
                         original_post_title=post.title,
@@ -322,6 +371,31 @@ class MoltbookPlugin(PluginBase):
 
             except MoltbookError as e:
                 logger.debug("Could not check replies for %s: %s", post_id, e)
+
+    async def _handle_moltcaptcha(self, post_id: str, source) -> None:
+        """Solve and reply to a MoltCaptcha challenge.
+
+        Args:
+            post_id: Post containing the challenge
+            source: Post or Comment object with .content and optionally .id
+        """
+        solver = MoltCaptchaSolver()
+        parsed = solver.parse_challenge(source.content)
+        if not parsed:
+            logger.warning("Could not parse MoltCaptcha challenge")
+            return
+
+        solution = solver.solve(parsed)
+        if solution:
+            parent_id = getattr(source, "id", None) if hasattr(source, "agent_name") else None
+            await self._client.create_comment(post_id, solution, parent_id=parent_id)
+            self.ctx.audit_log.log(
+                action="moltcaptcha_solved",
+                details={"post_id": post_id, "source_id": getattr(source, "id", "")},
+            )
+            logger.info("MoltCaptcha solved for post %s", post_id)
+        else:
+            logger.error("MoltCaptcha solving failed for challenge: %s", parsed)
 
     async def _handle_reply(
         self, post_id: str, comment_id: str, action: str, score: float,

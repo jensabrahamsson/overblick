@@ -1,0 +1,26 @@
+{% if statuses %}
+<div class="moltbook-statuses">
+    {% for s in statuses %}
+    <div class="status-card">
+        <span class="status-identity">{{ s.identity|capitalize }}</span>
+        {% if s.status == "active" %}
+            <span class="badge badge-success">Active</span>
+        {% elif s.status == "suspended" %}
+            <span class="badge badge-danger">Suspended</span>
+            {% if s.detail %}
+                <span class="status-detail">{{ s.detail }}</span>
+            {% endif %}
+        {% elif s.status == "auth_error" %}
+            <span class="badge badge-warning">Auth Error</span>
+        {% else %}
+            <span class="badge badge-muted">Unknown</span>
+        {% endif %}
+        {% if s.updated_at %}
+            <span class="status-time" title="{{ s.updated_at }}">{{ s.updated_at[:19] }}</span>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="muted">No Moltbook agents reporting status.</p>
+{% endif %}

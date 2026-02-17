@@ -12,11 +12,15 @@ challenge detection and LLM-based solving.
 import asyncio
 import json as json_module
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 import aiohttp
 
-from .models import Agent, Post, Comment, FeedItem, SearchResult
+from .models import (
+    Agent, Post, Comment, Conversation, DMRequest, FeedItem,
+    Message, SearchResult, Submolt,
+)
 from .rate_limiter import MoltbookRateLimiter
 from .request_proxy import MoltbookRequestProxy
 
@@ -36,6 +40,15 @@ class RateLimitError(MoltbookError):
 class AuthenticationError(MoltbookError):
     """Raised when authentication fails."""
     pass
+
+
+class SuspensionError(MoltbookError):
+    """Raised when the account is suspended."""
+
+    def __init__(self, message: str, suspended_until: str = "", reason: str = ""):
+        super().__init__(message)
+        self.suspended_until = suspended_until
+        self.reason = reason
 
 
 class MoltbookClient:
@@ -84,7 +97,27 @@ class MoltbookClient:
             enable_cache=True,
         )
 
+        # Account status tracking
+        self._account_status = "unknown"  # unknown, active, suspended, auth_error
+        self._status_detail = ""
+        self._status_updated_at = ""
+
         logger.info("MoltbookClient initialized: %s (identity=%s)", base_url, identity_name)
+
+    def get_account_status(self) -> dict:
+        """Get current account status."""
+        return {
+            "status": self._account_status,
+            "detail": self._status_detail,
+            "updated_at": self._status_updated_at,
+            "identity": self._identity_name,
+        }
+
+    def _update_account_status(self, status: str, detail: str = "") -> None:
+        """Update account status tracking."""
+        self._account_status = status
+        self._status_detail = detail
+        self._status_updated_at = datetime.now(timezone.utc).isoformat()
 
     async def _ensure_session(self) -> None:
         """Ensure HTTP session exists."""
@@ -185,18 +218,35 @@ class MoltbookClient:
                         except Exception as e:
                             logger.debug("Challenge detection error: %s", e)
 
-                    # Permanent errors
+                    # Permanent errors — check for suspension first
                     if response.status == 401:
                         try:
                             error_data = json_module.loads(raw_body)
                             error_msg = error_data.get("error", "Invalid API key")
                             hint = error_data.get("hint", "")
+                            # Detect suspension in 401 response
+                            if "suspended" in error_msg.lower() or "suspended" in hint.lower():
+                                self._update_account_status("suspended", hint or error_msg)
+                                raise SuspensionError(error_msg, reason=hint)
+                            self._update_account_status("auth_error", error_msg)
                             if hint:
                                 error_msg = f"{error_msg} -- {hint}"
+                        except SuspensionError:
+                            raise
                         except Exception:
                             error_msg = f"Auth error: {raw_body[:500]}"
+                            self._update_account_status("auth_error", error_msg)
                         raise AuthenticationError(error_msg)
                     if response.status == 403:
+                        # Detect suspension in 403 response
+                        try:
+                            error_data = json_module.loads(raw_body)
+                            error_msg = error_data.get("error", raw_body)
+                        except json_module.JSONDecodeError:
+                            error_msg = raw_body
+                        if "suspend" in raw_body.lower():
+                            self._update_account_status("suspended", error_msg)
+                            raise SuspensionError(error_msg, reason=error_msg)
                         raise MoltbookError(f"API 403 (Forbidden): {raw_body}")
                     if response.status == 405:
                         raise MoltbookError(f"API 405 (Method Not Allowed): {raw_body}")
@@ -237,28 +287,40 @@ class MoltbookClient:
                     if response.status >= 400:
                         raise MoltbookError(f"API {response.status}: {raw_body}")
 
-                    # Success — parse JSON
+                    # Success — update account status and parse JSON
+                    self._update_account_status("active")
                     result = await response.json()
 
                     # ResponseRouter inspection (LLM-based challenge detection on 2xx)
-                    if self._response_router and method == "POST":
+                    if self._response_router:
                         verdict = await self._response_router.inspect(result)
                         if verdict and verdict.is_challenge:
-                            logger.warning("ResponseRouter detected CHALLENGE in POST %s", endpoint)
-                            if self._challenge_handler:
+                            logger.warning("ResponseRouter detected CHALLENGE in %s %s", method, endpoint)
+                            if method == "POST" and self._challenge_handler:
                                 solved = await self._challenge_handler.solve(result)
                                 if solved is not None:
                                     return solved
                                 raise MoltbookError("Failed to solve verification challenge")
+                            else:
+                                logger.warning(
+                                    "Challenge detected in %s response but cannot auto-solve (non-POST)",
+                                    method,
+                                )
 
                     # Challenge handler fallback (direct detection on 2xx)
-                    if method == "POST" and self._challenge_handler:
+                    if self._challenge_handler:
                         if self._challenge_handler.detect(result, response.status):
-                            logger.warning("Challenge detected in POST %s (HTTP %d)", endpoint, response.status)
-                            solved = await self._challenge_handler.solve(result)
-                            if solved is not None:
-                                return solved
-                            raise MoltbookError("Failed to solve verification challenge")
+                            logger.warning("Challenge detected in %s %s (HTTP %d)", method, endpoint, response.status)
+                            if method == "POST":
+                                solved = await self._challenge_handler.solve(result)
+                                if solved is not None:
+                                    return solved
+                                raise MoltbookError("Failed to solve verification challenge")
+                            else:
+                                logger.warning(
+                                    "Challenge in %s response logged but not auto-solved",
+                                    method,
+                                )
 
                     # Cache GET responses
                     if method == "GET":
@@ -461,6 +523,127 @@ class MoltbookClient:
         """Downvote a comment."""
         await self._request("POST", f"/comments/{comment_id}/downvote")
         return True
+
+    # ── Agent Management ─────────────────────────────────────────────────
+
+    async def update_profile(self, description: str) -> Agent:
+        """Update this agent's profile description."""
+        data = await self._request("PATCH", "/agents/me", json={"description": description})
+        return Agent.from_dict(data)
+
+    async def get_agent_profile(self, name: str) -> Agent:
+        """Get an agent's profile by name."""
+        data = await self._request("GET", "/agents/profile", params={"name": name})
+        return Agent.from_dict(data)
+
+    # ── Link Posts ────────────────────────────────────────────────────────
+
+    async def create_link_post(
+        self, title: str, url: str, submolt: str = "ai",
+    ) -> Post:
+        """Create a link post (URL instead of text content)."""
+        if not await self._rate_limiter.acquire_post():
+            wait_time = self._rate_limiter.time_until_post()
+            raise RateLimitError(f"Cannot post yet. Wait {wait_time:.0f} seconds.")
+
+        data = await self._request(
+            "POST", "/posts",
+            json={"title": title, "url": url, "submolt": submolt},
+        )
+        post_data = data.get("post", data)
+        logger.info("Link post created in m/%s: %s", submolt, title[:50])
+        return Post.from_dict(post_data)
+
+    async def delete_post(self, post_id: str) -> bool:
+        """Delete a post by ID."""
+        await self._request("DELETE", f"/posts/{post_id}")
+        logger.info("Post deleted: %s", post_id)
+        return True
+
+    # ── Submolts ──────────────────────────────────────────────────────────
+
+    async def list_submolts(self) -> list[Submolt]:
+        """List available submolts."""
+        data = await self._request("GET", "/submolts")
+        return [Submolt.from_dict(s) for s in data.get("submolts", [])]
+
+    async def get_submolt(self, name: str) -> Submolt:
+        """Get submolt details by name."""
+        data = await self._request("GET", f"/submolts/{name}")
+        return Submolt.from_dict(data)
+
+    async def subscribe_submolt(self, name: str) -> bool:
+        """Subscribe to a submolt."""
+        await self._request("POST", f"/submolts/{name}/subscribe")
+        logger.info("Subscribed to submolt: %s", name)
+        return True
+
+    async def unsubscribe_submolt(self, name: str) -> bool:
+        """Unsubscribe from a submolt."""
+        await self._request("DELETE", f"/submolts/{name}/subscribe")
+        logger.info("Unsubscribed from submolt: %s", name)
+        return True
+
+    # ── Following ─────────────────────────────────────────────────────────
+
+    async def follow_agent(self, name: str) -> bool:
+        """Follow an agent by name."""
+        await self._request("POST", f"/agents/{name}/follow")
+        logger.info("Followed agent: %s", name)
+        return True
+
+    async def unfollow_agent(self, name: str) -> bool:
+        """Unfollow an agent by name."""
+        await self._request("DELETE", f"/agents/{name}/follow")
+        logger.info("Unfollowed agent: %s", name)
+        return True
+
+    # ── Direct Messages ───────────────────────────────────────────────────
+
+    async def check_dm_activity(self) -> dict:
+        """Check for DM activity (unread count, pending requests)."""
+        return await self._request("GET", "/dms/activity")
+
+    async def send_dm_request(self, recipient_id: str, message: str) -> dict:
+        """Send a DM request to another agent."""
+        data = await self._request(
+            "POST", "/dms/request",
+            json={"recipient_id": recipient_id, "message": message},
+        )
+        logger.info("DM request sent to %s", recipient_id)
+        return data
+
+    async def list_dm_requests(self) -> list[DMRequest]:
+        """List pending DM requests."""
+        data = await self._request("GET", "/dms/requests")
+        return [DMRequest.from_dict(r) for r in data.get("requests", [])]
+
+    async def approve_dm_request(self, request_id: str) -> bool:
+        """Approve a DM request."""
+        await self._request("POST", f"/dms/requests/{request_id}/approve")
+        logger.info("DM request approved: %s", request_id)
+        return True
+
+    async def list_conversations(self) -> list[Conversation]:
+        """List DM conversations."""
+        data = await self._request("GET", "/dms/conversations")
+        return [Conversation.from_dict(c) for c in data.get("conversations", [])]
+
+    async def send_dm(self, conversation_id: str, message: str) -> Message:
+        """Send a message in a DM conversation."""
+        data = await self._request(
+            "POST", f"/dms/conversations/{conversation_id}",
+            json={"message": message},
+        )
+        msg_data = data.get("message", data)
+        return Message.from_dict(msg_data)
+
+    # ── Identity Protocol ─────────────────────────────────────────────────
+
+    async def generate_identity_token(self) -> str:
+        """Generate an identity verification token."""
+        data = await self._request("POST", "/agents/me/identity-token")
+        return data.get("token", "")
 
     # ── Utility ───────────────────────────────────────────────────────────
 

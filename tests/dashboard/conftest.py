@@ -173,6 +173,7 @@ def mock_system_service():
         "dream_system", "therapy_system", "emotional_state",
         "safe_learning", "knowledge_loader", "openings",
     ]
+    svc.get_moltbook_statuses.return_value = []
     return svc
 
 

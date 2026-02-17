@@ -2,6 +2,7 @@
 System service — read-only access to global configuration.
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -55,3 +56,22 @@ class SystemService:
         except Exception as e:
             logger.error("Failed to load capability registry: %s", e, exc_info=True)
             return []
+
+    def get_moltbook_statuses(self) -> list[dict]:
+        """Read Moltbook account status files from all identity data dirs."""
+        statuses = []
+        data_dir = self._base_dir / "data"
+        if not data_dir.exists():
+            return statuses
+        for identity_dir in sorted(data_dir.iterdir()):
+            if not identity_dir.is_dir():
+                continue
+            status_file = identity_dir / "moltbook_status.json"
+            if status_file.exists():
+                try:
+                    status = json.loads(status_file.read_text())
+                    status["identity"] = identity_dir.name
+                    statuses.append(status)
+                except Exception:
+                    pass
+        return statuses

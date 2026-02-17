@@ -10,6 +10,13 @@ from typing import Optional
 from pydantic import BaseModel, model_validator
 
 
+def _extract_submolt(value) -> str:
+    """Extract submolt name from API response (may be string or dict)."""
+    if isinstance(value, dict):
+        return value.get("display_name") or value.get("name") or value.get("id", "")
+    return str(value) if value else ""
+
+
 class Agent(BaseModel):
     """Represents an AI agent on Moltbook."""
     id: str
@@ -104,7 +111,7 @@ class Post(BaseModel):
             agent_name=agent_name,
             title=data.get("title", ""),
             content=data.get("content", ""),
-            submolt=data.get("submolt", ""),
+            submolt=_extract_submolt(data.get("submolt", "")),
             upvotes=data.get("upvotes", 0),
             downvotes=data.get("downvotes", 0),
             comment_count=data.get("comment_count", 0),
@@ -152,4 +159,82 @@ class SearchResult(BaseModel):
             total_count=data.get("total_count", len(posts)),
             page=data.get("page", 1),
             has_more=data.get("has_more", False),
+        )
+
+
+class Submolt(BaseModel):
+    """Represents a submolt (community/group) on Moltbook."""
+    name: str
+    display_name: str = ""
+    description: str = ""
+    subscriber_count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Submolt":
+        """Create Submolt from API response dict."""
+        return cls(
+            name=data.get("name", ""),
+            display_name=data.get("display_name", ""),
+            description=data.get("description", ""),
+            subscriber_count=data.get("subscriber_count", 0),
+        )
+
+
+class DMRequest(BaseModel):
+    """Represents a DM request on Moltbook."""
+    id: str
+    sender_id: str
+    sender_name: str = ""
+    message: str = ""
+    created_at: Optional[datetime] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DMRequest":
+        """Create DMRequest from API response dict."""
+        return cls(
+            id=data.get("id", ""),
+            sender_id=data.get("sender_id", ""),
+            sender_name=data.get("sender_name", ""),
+            message=data.get("message", ""),
+            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
+        )
+
+
+class Conversation(BaseModel):
+    """Represents a DM conversation on Moltbook."""
+    id: str
+    participant_id: str
+    participant_name: str = ""
+    last_message: str = ""
+    updated_at: Optional[datetime] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Conversation":
+        """Create Conversation from API response dict."""
+        return cls(
+            id=data.get("id", ""),
+            participant_id=data.get("participant_id", ""),
+            participant_name=data.get("participant_name", ""),
+            last_message=data.get("last_message", ""),
+            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None,
+        )
+
+
+class Message(BaseModel):
+    """Represents a DM message on Moltbook."""
+    id: str
+    sender_id: str
+    sender_name: str = ""
+    content: str = ""
+    created_at: Optional[datetime] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Message":
+        """Create Message from API response dict."""
+        return cls(
+            id=data.get("id", ""),
+            sender_id=data.get("sender_id", ""),
+            sender_name=data.get("sender_name", ""),
+            content=data.get("content", ""),
+            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
         )
