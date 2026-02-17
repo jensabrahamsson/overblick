@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 async def init_services(app: FastAPI, config: DashboardConfig) -> None:
     """Initialize all dashboard services."""
     from .identity import IdentityService
+    from .irc import IRCService
     from .personality import PersonalityService
     from .audit import AuditService
     from .supervisor import SupervisorService
@@ -39,6 +40,7 @@ async def init_services(app: FastAPI, config: DashboardConfig) -> None:
     app.state.audit_service = AuditService(base_dir)
     app.state.supervisor_service = SupervisorService(socket_dir=socket_dir)
     app.state.system_service = SystemService(base_dir)
+    app.state.irc_service = IRCService(base_dir)
     app.state.onboarding_service = OnboardingService(base_dir)
 
     logger.info("Dashboard services initialized (base_dir=%s, socket_dir=%s)", base_dir, socket_dir)

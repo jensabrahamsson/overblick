@@ -41,6 +41,10 @@ async def dashboard_page(request: Request):
     # Build agent status rows (running processes only)
     agent_rows = _build_agent_status_rows(identities, agents, audit_svc)
 
+    # Moltbook account statuses
+    system_svc = request.app.state.system_service
+    statuses = system_svc.get_moltbook_statuses()
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "csrf_token": request.state.session.get("csrf_token", ""),
@@ -55,6 +59,7 @@ async def dashboard_page(request: Request):
         "total_identities": len(identities),
         "total_agents": len(agents),
         "poll_interval": config.poll_interval,
+        "statuses": statuses,
     })
 
 
@@ -103,6 +108,18 @@ async def system_health_partial(request: Request):
         "audit_count_24h": audit_count,
         "llm_calls_24h": llm_calls,
         "error_rate": error_rate,
+    })
+
+
+@router.get("/partials/moltbook-status", response_class=HTMLResponse)
+async def moltbook_status_partial(request: Request):
+    """htmx partial: Moltbook account status badges."""
+    templates = request.app.state.templates
+    system_service = request.app.state.system_service
+    statuses = system_service.get_moltbook_statuses()
+    return templates.TemplateResponse("partials/moltbook_status.html", {
+        "request": request,
+        "statuses": statuses,
     })
 
 

@@ -3,10 +3,11 @@ IRC route — identity-to-identity conversation viewer.
 
 Displays IRC-style conversations between agent identities on curated topics.
 Uses htmx partial updates for live-polling the current conversation feed.
+
+Data is read via IRCService (JSON files), not from live plugin instances.
 """
 
 import logging
-from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -16,12 +17,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _get_irc_plugin(request: Request) -> Any | None:
-    """Retrieve the IRC plugin instance from app state, if available."""
-    plugin_registry = getattr(request.app.state, "plugin_registry", None)
-    if plugin_registry is None:
-        return None
-    return getattr(plugin_registry, "irc", None)
+def _get_irc_service(request: Request):
+    """Retrieve the IRC service from app state."""
+    return getattr(request.app.state, "irc_service", None)
 
 
 def _identity_color(name: str) -> str:
@@ -40,21 +38,21 @@ async def irc_page(request: Request):
     """Render the IRC conversations page."""
     templates = request.app.state.templates
 
-    irc_plugin = _get_irc_plugin(request)
+    irc_service = _get_irc_service(request)
 
     conversations: list[dict] = []
     current: dict | None = None
 
-    if irc_plugin:
-        conversations = irc_plugin.get_conversations(limit=20)
-        current = irc_plugin.get_current_conversation()
+    if irc_service:
+        conversations = irc_service.get_conversations(limit=20)
+        current = irc_service.get_current_conversation()
 
     # Selected conversation from query param
     selected_id = request.query_params.get("id", "")
     selected: dict | None = None
 
-    if selected_id and irc_plugin:
-        selected = irc_plugin.get_conversation(selected_id)
+    if selected_id and irc_service:
+        selected = irc_service.get_conversation(selected_id)
     elif current:
         selected = current
         selected_id = current.get("id", "")
@@ -87,15 +85,15 @@ async def irc_feed_partial(request: Request):
     """htmx partial: live IRC feed (polled every 3s)."""
     templates = request.app.state.templates
 
-    irc_plugin = _get_irc_plugin(request)
+    irc_service = _get_irc_service(request)
 
     conversation_id = request.query_params.get("id", "")
     conversation: dict | None = None
 
-    if irc_plugin and conversation_id:
-        conversation = irc_plugin.get_conversation(conversation_id)
-    elif irc_plugin:
-        conversation = irc_plugin.get_current_conversation()
+    if irc_service and conversation_id:
+        conversation = irc_service.get_conversation(conversation_id)
+    elif irc_service:
+        conversation = irc_service.get_current_conversation()
 
     color_map: dict[str, str] = {}
     if conversation:
