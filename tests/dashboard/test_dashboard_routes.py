@@ -78,9 +78,10 @@ class TestDashboardPartials:
 class TestAgentActions:
     @pytest.mark.asyncio
     async def test_start_agent(self, client, session_cookie):
+        """Per-agent start: POST /agent/{identity}/{plugin}/start."""
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
-            "/agent/anomal/start",
+            "/agent/anomal/moltbook/start",
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf_token},
         )
@@ -89,14 +90,37 @@ class TestAgentActions:
 
     @pytest.mark.asyncio
     async def test_stop_agent(self, client, session_cookie):
+        """Per-agent stop: POST /agent/{identity}/{plugin}/stop."""
+        cookie_value, csrf_token = session_cookie
+        resp = await client.post(
+            "/agent/anomal/moltbook/stop",
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf_token},
+        )
+        assert resp.status_code == 200
+        assert "Anomal" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_identity_start(self, client, session_cookie):
+        """Identity-level start: POST /agent/{name}/start."""
+        cookie_value, csrf_token = session_cookie
+        resp = await client.post(
+            "/agent/anomal/start",
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf_token},
+        )
+        assert resp.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_identity_stop(self, client, session_cookie):
+        """Identity-level stop: POST /agent/{name}/stop."""
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
             "/agent/anomal/stop",
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf_token},
         )
-        assert resp.status_code == 200
-        assert "Anomal" in resp.text
+        assert resp.status_code == 204
 
     @pytest.mark.asyncio
     async def test_start_agent_supervisor_offline(self, app, client, session_cookie):
@@ -109,7 +133,7 @@ class TestAgentActions:
         app.state.supervisor_service.get_agents.return_value = []
 
         resp = await client.post(
-            "/agent/anomal/start",
+            "/agent/anomal/moltbook/start",
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf_token},
         )
@@ -127,7 +151,7 @@ class TestAgentActions:
         app.state.supervisor_service.get_agents.return_value = []
 
         resp = await client.post(
-            "/agent/anomal/stop",
+            "/agent/anomal/moltbook/stop",
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf_token},
         )
@@ -137,7 +161,7 @@ class TestAgentActions:
     async def test_start_agent_rejects_bad_csrf(self, client, session_cookie):
         cookie_value, _ = session_cookie
         resp = await client.post(
-            "/agent/anomal/start",
+            "/agent/anomal/moltbook/start",
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": "invalid-token"},
         )

@@ -6,6 +6,7 @@ Wires together identity, plugins, LLM, security, and scheduling.
 """
 
 import asyncio
+import json
 import logging
 import signal
 import sys
@@ -83,6 +84,7 @@ class Orchestrator:
         self._ipc_client: Optional[object] = None
         self._engagement_db_backend: Optional[SQLiteBackend] = None
         self._engagement_db: Optional[EngagementDB] = None
+        self._control_file: Optional[Path] = None
 
     @property
     def state(self) -> OrchestratorState:
@@ -108,6 +110,9 @@ class Orchestrator:
 
         data_dir.mkdir(parents=True, exist_ok=True)
         log_dir.mkdir(parents=True, exist_ok=True)
+
+        # 2b. Plugin control file (per-agent stop/start from dashboard)
+        self._control_file = data_dir / "plugin_control.json"
 
         # 3. Initialize security
         self._secrets = SecretsManager(secrets_dir)
@@ -220,12 +225,19 @@ class Orchestrator:
         logger.info(f"Överblick orchestrator running as '{self._identity.display_name}'")
 
         try:
-            # Register plugin ticks in scheduler
+            # Register plugin ticks in scheduler (guarded by control file)
             for plugin in self._plugins:
                 interval = self._identity.schedule.feed_poll_minutes * 60
+
+                async def _guarded_tick(p=plugin):
+                    if self._is_plugin_stopped(p.name):
+                        logger.debug("Agent '%s' stopped via control file, skipping tick", p.name)
+                        return
+                    await p.tick()
+
                 self._scheduler.add(
                     f"tick_{plugin.name}",
-                    plugin.tick,
+                    _guarded_tick,
                     interval_seconds=interval,
                     run_immediately=True,
                 )
@@ -295,6 +307,18 @@ class Orchestrator:
 
         self._state = OrchestratorState.STOPPED
         logger.info("Orchestrator stopped cleanly")
+
+    def _is_plugin_stopped(self, plugin_name: str) -> bool:
+        """Check if a plugin is stopped via the dashboard control file."""
+        if not self._control_file:
+            return False
+        try:
+            if self._control_file.exists():
+                data = json.loads(self._control_file.read_text())
+                return data.get(plugin_name) == "stopped"
+        except Exception:
+            pass
+        return False
 
     async def _setup_capabilities(self) -> None:
         """Create shared capabilities at the orchestrator level."""

@@ -454,7 +454,8 @@ class TestIRCPluginConversationTick:
         )
         irc_plugin._current_conversation = conv
 
-        with patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=False):
+        with patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False), \
+             patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=False):
             await irc_plugin._conversation_tick()
 
         assert irc_plugin._current_conversation.state == ConversationState.PAUSED

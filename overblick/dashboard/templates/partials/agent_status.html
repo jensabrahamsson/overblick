@@ -41,17 +41,17 @@
         <div class="agent-card-actions">
             {% if agent.can_start %}
             <button class="btn btn-agent-start btn-sm"
-                    hx-post="/agent/{{ agent.identity_ref }}/start"
+                    hx-post="/agent/{{ agent.identity_ref }}/{{ agent.plugin }}/start"
                     hx-target="#agent-status-container"
                     hx-swap="innerHTML"
                     aria-label="Start {{ agent.agent_name }}">Start</button>
             {% endif %}
             {% if agent.can_stop %}
             <button class="btn btn-agent-stop btn-sm"
-                    hx-post="/agent/{{ agent.identity_ref }}/stop"
+                    hx-post="/agent/{{ agent.identity_ref }}/{{ agent.plugin }}/stop"
                     hx-target="#agent-status-container"
                     hx-swap="innerHTML"
-                    hx-confirm="Stop {{ agent.identity_name }}? This stops all plugins for this identity."
+                    hx-confirm="Stop {{ agent.agent_name }} ({{ agent.identity_name }})?"
                     aria-label="Stop {{ agent.agent_name }}">Stop</button>
             {% endif %}
         </div>
