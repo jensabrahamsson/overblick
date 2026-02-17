@@ -387,7 +387,7 @@ button:focus-visible,
     align-items: center;
     justify-content: space-between;
     padding: var(--space-sm);
-    background-color: var(--card-bg);
+    background-color: var(--bg-card);
     border-radius: var(--radius-sm);
     transition: background-color 0.15s;
 }
@@ -496,6 +496,7 @@ button:focus-visible,
 }
 .section-title { font-size: 1.2rem; font-weight: 600; margin-bottom: var(--space-md); }
 .page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: var(--space-lg); }
+.page-subtitle { color: var(--text-muted); margin-bottom: var(--space-lg); }
 
 /* --- Filter Bar --- */
 .filter-bar {

@@ -3,6 +3,7 @@ Tests for the email_agent plugin — lifecycle, classification, database, IPC,
 sender reputation, cross-identity consultation, and enhanced feedback.
 """
 
+import email.utils
 import json
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -1983,3 +1984,115 @@ class TestReputationConfigLoading:
         messages = call_args.kwargs.get("messages", call_args.args[0] if call_args.args else [])
         system_content = messages[0]["content"]
         assert "List-Unsubscribe" in system_content
+
+
+class TestMaxEmailAgeFilter:
+    """Test max_email_age_hours filtering in _fetch_unread and _is_recent_email."""
+
+    def test_is_recent_email_within_limit(self):
+        """Email within max_hours returns True."""
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        date_str = email.utils.format_datetime(now)
+        msg = {"headers": {"Date": date_str}}
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
+
+    def test_is_recent_email_beyond_limit(self):
+        """Email older than max_hours returns False."""
+        from datetime import datetime, timezone, timedelta
+
+        old = datetime.now(timezone.utc) - timedelta(hours=5)
+        date_str = email.utils.format_datetime(old)
+        msg = {"headers": {"Date": date_str}}
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
+
+    def test_is_recent_email_no_date_header(self):
+        """Missing Date header defaults to recent (True)."""
+        msg = {"headers": {}}
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
+
+    def test_is_recent_email_no_headers(self):
+        """Missing headers dict defaults to recent (True)."""
+        msg = {}
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
+
+    def test_is_recent_email_unparseable_date(self):
+        """Unparseable Date header defaults to recent (True)."""
+        msg = {"headers": {"Date": "not-a-date"}}
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
+
+    def test_is_recent_email_naive_datetime(self):
+        """Date header without timezone is treated as UTC."""
+        from datetime import datetime, timezone, timedelta
+
+        # Create a naive datetime string (no timezone info)
+        recent = datetime.now(timezone.utc) - timedelta(hours=1)
+        date_str = recent.strftime("%a, %d %b %Y %H:%M:%S")
+        msg = {"headers": {"Date": date_str}}
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
+
+    @pytest.mark.asyncio
+    async def test_no_age_filter_by_default(self, stal_plugin_context):
+        """When max_email_age_hours is None (default), all emails are processed."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+
+        # Override config to remove max_email_age_hours
+        stal_plugin_context.identity.raw_config["email_agent"].pop("max_email_age_hours", None)
+        await plugin.setup()
+
+        assert plugin._max_email_age_hours is None
+
+    @pytest.mark.asyncio
+    async def test_age_filter_config_loaded(self, stal_plugin_context):
+        """setup() loads max_email_age_hours from config."""
+        # Add config
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 3
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        assert plugin._max_email_age_hours == 3.0
+
+    @pytest.mark.asyncio
+    async def test_old_emails_skipped_in_fetch(
+        self, stal_plugin_context, mock_gmail_capability,
+    ):
+        """_fetch_unread skips emails older than max_email_age_hours."""
+        from datetime import datetime, timezone, timedelta
+
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 3
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        old_date = datetime.now(timezone.utc) - timedelta(hours=5)
+        recent_date = datetime.now(timezone.utc) - timedelta(hours=1)
+
+        # Create mock messages
+        old_msg = MagicMock()
+        old_msg.message_id = "old-001"
+        old_msg.thread_id = "thread-001"
+        old_msg.sender = "old@example.com"
+        old_msg.subject = "Old email"
+        old_msg.body = "Old content"
+        old_msg.snippet = "Old content"
+        old_msg.headers = {"Date": email.utils.format_datetime(old_date)}
+
+        recent_msg = MagicMock()
+        recent_msg.message_id = "recent-001"
+        recent_msg.thread_id = "thread-002"
+        recent_msg.sender = "recent@example.com"
+        recent_msg.subject = "Recent email"
+        recent_msg.body = "Recent content"
+        recent_msg.snippet = "Recent content"
+        recent_msg.headers = {"Date": email.utils.format_datetime(recent_date)}
+
+        mock_gmail_capability.fetch_unread = AsyncMock(return_value=[old_msg, recent_msg])
+
+        results = await plugin._fetch_unread()
+
+        # Only the recent email should be returned
+        assert len(results) == 1
+        assert results[0]["message_id"] == "recent-001"
+
+        # Old email should have been marked as read
+        mock_gmail_capability.mark_as_read.assert_called_once_with("old-001")

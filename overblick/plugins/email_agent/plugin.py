@@ -18,10 +18,11 @@ Tick cycle:
 """
 
 import asyncio
+import email.utils
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -96,6 +97,7 @@ class EmailAgentPlugin(PluginBase):
         self._profiles_dir: Optional[Path] = None
         self._principal_name: str = ""
         self._dry_run: bool = False
+        self._max_email_age_hours: Optional[float] = None
         # Reputation system config (learned thresholds)
         self._auto_ignore_sender_threshold: float = 0.9
         self._auto_ignore_sender_min_count: int = 5
@@ -164,6 +166,10 @@ class EmailAgentPlugin(PluginBase):
 
         # Load principal name from secrets (injected at runtime — never hardcoded)
         self._principal_name = self.ctx.get_secret("principal_name") or ""
+
+        # Max email age — skip emails older than this (hours), None = no filter
+        age_val = ea_config.get("max_email_age_hours")
+        self._max_email_age_hours = float(age_val) if age_val is not None else None
 
         # Dry-run mode: classify and notify, but never send actual email replies
         self._dry_run = ea_config.get("dry_run", False)
@@ -256,6 +262,7 @@ class EmailAgentPlugin(PluginBase):
         Fetch unread emails via GmailCapability.
 
         Converts GmailMessage objects to dicts for the classification pipeline.
+        Filters out emails older than max_email_age_hours (if configured).
         """
         logger.debug("EmailAgent: checking for unread emails")
 
@@ -266,8 +273,9 @@ class EmailAgentPlugin(PluginBase):
 
         messages = await gmail_cap.fetch_unread(max_results=10)
 
-        return [
-            {
+        results = []
+        for msg in messages:
+            msg_dict = {
                 "message_id": msg.message_id,
                 "thread_id": msg.thread_id,
                 "sender": msg.sender,
@@ -276,8 +284,46 @@ class EmailAgentPlugin(PluginBase):
                 "snippet": msg.snippet,
                 "headers": msg.headers,
             }
-            for msg in messages
-        ]
+
+            # Filter old emails — mark as read but skip processing
+            if self._max_email_age_hours is not None:
+                if not self._is_recent_email(msg_dict, self._max_email_age_hours):
+                    logger.info(
+                        "EmailAgent: skipping old email from %s (subject: %s) — "
+                        "older than %.1f hours",
+                        msg.sender, msg.subject, self._max_email_age_hours,
+                    )
+                    await self._mark_email_read(msg.message_id)
+                    continue
+
+            results.append(msg_dict)
+
+        return results
+
+    @staticmethod
+    def _is_recent_email(msg: dict[str, Any], max_hours: float) -> bool:
+        """Check if an email is recent enough to process.
+
+        Parses the Date header (RFC 2822) and compares against max_hours.
+        Returns True if the email is recent or if the date cannot be parsed.
+        """
+        headers = msg.get("headers", {})
+        date_str = headers.get("Date") or headers.get("date")
+        if not date_str:
+            # No date header — assume recent (safe default)
+            return True
+
+        try:
+            msg_dt = email.utils.parsedate_to_datetime(date_str)
+            # Ensure timezone-aware comparison
+            if msg_dt.tzinfo is None:
+                msg_dt = msg_dt.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            age_hours = (now - msg_dt).total_seconds() / 3600.0
+            return age_hours <= max_hours
+        except (ValueError, TypeError):
+            # Unparseable date — assume recent (safe default)
+            return True
 
     async def _mark_email_read(self, message_id: str) -> None:
         """Mark an email as read in Gmail to prevent re-processing."""

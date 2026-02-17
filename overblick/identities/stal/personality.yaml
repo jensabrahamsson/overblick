@@ -569,6 +569,7 @@ operational:
 
 # Sender filtering — opt-in or opt-out mode
 email_agent:
+  max_email_age_hours: 3               # Skip emails older than 3 hours (prevents stale processing)
   dry_run: true                        # Safety: classify + notify, never send actual replies
   filter_mode: "opt_in"               # "opt_in" or "opt_out"
   allowed_senders: []                  # Populate with approved senders
