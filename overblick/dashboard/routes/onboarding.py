@@ -191,6 +191,17 @@ async def onboard_submit(request: Request):
             "wizard": wizard_state,
             "error": error,
         }
+        # Include step-specific data needed for template rendering
+        if step_name == "review":
+            context["summary"] = _build_summary(wizard_state, request)
+        elif step_name == "plugins":
+            system_svc = request.app.state.system_service
+            context["available_plugins"] = system_svc.get_available_plugins()
+            context["capability_bundles"] = system_svc.get_capability_bundles()
+        elif step_name == "personality":
+            personality_svc = request.app.state.personality_service
+            context["available_personalities"] = personality_svc.list_identities()
+
         template_name = f"onboarding/step{step}_{step_name}.html"
         return templates.TemplateResponse(template_name, context, status_code=400)
 

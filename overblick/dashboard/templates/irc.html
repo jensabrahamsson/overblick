@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}IRC{% endblock %}
+
+{% block content %}
+<div class="irc-page" style="display: flex; gap: 1.5rem; min-height: 70vh;">
+
+    <!-- Sidebar: conversation list -->
+    <aside class="irc-sidebar" style="
+        width: 280px;
+        flex-shrink: 0;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+        overflow-y: auto;
+        max-height: 75vh;
+    ">
+        <h2 style="font-size: 1rem; color: var(--text-primary); margin-bottom: var(--space-md); font-weight: 600;">
+            Conversations
+        </h2>
+
+        {% if not conversations %}
+        <p style="color: var(--text-muted); font-size: 0.85rem;">
+            No IRC conversations yet. They appear when system load is low.
+        </p>
+        {% else %}
+        <ul style="list-style: none;" role="list">
+            {% for conv in conversations %}
+            <li style="margin-bottom: var(--space-sm);">
+                <a href="/irc?id={{ conv.id }}"
+                   style="
+                       display: block;
+                       padding: 0.6rem 0.8rem;
+                       border-radius: var(--radius-sm);
+                       text-decoration: none;
+                       color: var(--text-secondary);
+                       border: 1px solid {% if conv.id == selected_id %}var(--accent){% else %}transparent{% endif %};
+                       background: {% if conv.id == selected_id %}var(--bg-tertiary){% else %}transparent{% endif %};
+                       transition: background 0.15s;
+                   "
+                   {% if conv.id == selected_id %}aria-current="true"{% endif %}>
+                    <div style="font-size: 0.85rem; color: var(--text-primary); font-weight: {% if conv.id == selected_id %}600{% else %}400{% endif %}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        {{ conv.topic }}
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; display: flex; justify-content: space-between;">
+                        <span>{{ conv.participants | length }} participants</span>
+                        <span class="badge" style="
+                            padding: 1px 6px;
+                            border-radius: 3px;
+                            font-size: 0.65rem;
+                            font-weight: 600;
+                            text-transform: uppercase;
+                            {% if conv.state == 'active' %}
+                            background: #0d4b2e; color: #4ade80;
+                            {% elif conv.state == 'paused' %}
+                            background: #4b3d0d; color: #facc15;
+                            {% elif conv.state == 'completed' %}
+                            background: #2a2a3e; color: #94a3b8;
+                            {% else %}
+                            background: #4b0d0d; color: #f87171;
+                            {% endif %}
+                        ">{{ conv.state }}</span>
+                    </div>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </aside>
+
+    <!-- Main: conversation view -->
+    <section class="irc-main" style="flex: 1; display: flex; flex-direction: column;">
+
+        {% if selected %}
+        <!-- Topic header -->
+        <header class="irc-header" style="
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--space-md) var(--space-lg);
+            margin-bottom: var(--space-md);
+        ">
+            <h1 style="font-size: 1.15rem; color: var(--text-primary); margin-bottom: 4px;">
+                {{ selected.topic }}
+            </h1>
+            {% if selected.topic_description %}
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-sm);">
+                {{ selected.topic_description }}
+            </p>
+            {% endif %}
+            <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: center;">
+                {% for name in selected.participants %}
+                <span style="
+                    font-size: 0.75rem;
+                    padding: 2px 8px;
+                    border-radius: 10px;
+                    border: 1px solid {{ color_map.get(name, 'var(--border)') }};
+                    color: {{ color_map.get(name, 'var(--text-secondary)') }};
+                ">{{ name }}</span>
+                {% endfor %}
+                <span style="margin-left: auto; font-size: 0.75rem; color: var(--text-muted);">
+                    {{ selected.turns | length }}/{{ selected.max_turns }} turns
+                </span>
+                {% if selected.state == 'paused' %}
+                <span style="font-size: 0.75rem; color: var(--amber); font-weight: 600;">
+                    Paused — high system load
+                </span>
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- Chat feed (htmx-polled) -->
+        <div id="irc-feed"
+             role="log"
+             aria-live="polite"
+             aria-label="IRC conversation feed"
+             {% if selected.state == 'active' %}
+             hx-get="/irc/feed?id={{ selected.id }}"
+             hx-trigger="every 3s"
+             hx-swap="innerHTML settle:150ms"
+             {% endif %}
+             style="
+                 flex: 1;
+                 background: var(--bg-secondary);
+                 border: 1px solid var(--border);
+                 border-radius: var(--radius-md);
+                 padding: var(--space-md);
+                 overflow-y: auto;
+                 max-height: 60vh;
+             ">
+            {% include "partials/irc_feed.html" with context %}
+        </div>
+
+        {% else %}
+        <!-- Empty state -->
+        <div style="
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--space-2xl);
+            text-align: center;
+        ">
+            <div>
+                <p style="color: var(--text-muted); font-size: 1.1rem; margin-bottom: var(--space-sm);">
+                    No IRC conversations yet
+                </p>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">
+                    Identity conversations start automatically when system load is low.
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
+    </section>
+</div>
+
+<style>
+    /* Auto-scroll to bottom of feed on load */
+    #irc-feed { scroll-behavior: smooth; }
+</style>
+<script>
+    // Scroll feed to bottom after htmx swap
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target && e.detail.target.id === 'irc-feed') {
+            e.detail.target.scrollTop = e.detail.target.scrollHeight;
+        }
+    });
+    // Initial scroll to bottom
+    (function() {
+        var feed = document.getElementById('irc-feed');
+        if (feed) feed.scrollTop = feed.scrollHeight;
+    })();
+</script>
+{% endblock %}
