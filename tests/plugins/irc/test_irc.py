@@ -237,21 +237,25 @@ class TestIRCPlugin:
         assert "anomal" in irc_plugin._identities
 
     @pytest.mark.asyncio
-    async def test_start_registers_scheduler(self, irc_plugin, mock_ctx):
-        await irc_plugin.start()
-        mock_ctx.scheduler.add.assert_called_once()
-        call_kwargs = mock_ctx.scheduler.add.call_args
-        assert call_kwargs[0][0] == "irc_conversation_tick"
+    async def test_setup_sets_running_true(self, irc_plugin, mock_ctx):
+        """setup() activates _running since orchestrator never calls start()."""
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+
+        with patch("overblick.identities.list_identities", return_value=["anomal"]), \
+             patch("overblick.identities.load_identity", return_value=mock_identity):
+            await irc_plugin.setup()
+
+        assert irc_plugin._running is True
 
     @pytest.mark.asyncio
-    async def test_stop_removes_scheduler(self, irc_plugin, mock_ctx):
-        await irc_plugin.start()
-        await irc_plugin.stop()
-        mock_ctx.scheduler.remove.assert_called_once_with("irc_conversation_tick")
+    async def test_teardown_stops_running(self, irc_plugin, mock_ctx):
+        irc_plugin._running = True
+        await irc_plugin.teardown()
         assert irc_plugin._running is False
 
     @pytest.mark.asyncio
-    async def test_stop_cancels_active_conversation(self, irc_plugin, mock_ctx):
+    async def test_teardown_cancels_active_conversation(self, irc_plugin, mock_ctx):
         irc_plugin._data_dir = mock_ctx.data_dir / "irc"
         irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
         irc_plugin._running = True
@@ -263,7 +267,7 @@ class TestIRCPlugin:
         )
         irc_plugin._current_conversation = conv
 
-        await irc_plugin.stop()
+        await irc_plugin.teardown()
         assert irc_plugin._current_conversation.state == ConversationState.CANCELLED
 
     def test_get_conversations_empty(self, irc_plugin):
