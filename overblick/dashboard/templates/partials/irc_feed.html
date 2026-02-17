@@ -1,0 +1,71 @@
+{% if conversation and conversation.turns %}
+{% for turn in conversation.turns %}
+<div class="irc-turn" style="
+    margin-bottom: var(--space-md);
+    display: flex;
+    gap: var(--space-sm);
+    align-items: flex-start;
+">
+    <!-- Identity initial -->
+    <div style="
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: {{ color_map.get(turn.identity, 'var(--bg-tertiary)') }}20;
+        border: 2px solid {{ color_map.get(turn.identity, 'var(--border)') }};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: {{ color_map.get(turn.identity, 'var(--text-secondary)') }};
+        flex-shrink: 0;
+        margin-top: 2px;
+    ">{{ turn.display_name[:1] | upper if turn.display_name else turn.identity[:1] | upper }}</div>
+
+    <!-- Message bubble -->
+    <div style="flex: 1; max-width: 85%;">
+        <div style="display: flex; align-items: baseline; gap: var(--space-sm); margin-bottom: 2px;">
+            <span style="
+                font-size: 0.8rem;
+                font-weight: 600;
+                color: {{ color_map.get(turn.identity, 'var(--text-secondary)') }};
+            ">{{ turn.display_name or turn.identity }}</span>
+            <span style="font-size: 0.65rem; color: var(--text-muted);">#{{ turn.turn_number + 1 }}</span>
+        </div>
+        <div style="
+            background: var(--bg-tertiary);
+            padding: 0.6rem 0.9rem;
+            border-radius: 2px 12px 12px 12px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            line-height: 1.55;
+            border-left: 3px solid {{ color_map.get(turn.identity, 'var(--border)') }};
+        ">{{ turn.content }}</div>
+    </div>
+</div>
+{% endfor %}
+
+{% if conversation.state == 'paused' %}
+<div style="text-align: center; padding: var(--space-md); color: var(--amber); font-size: 0.85rem;">
+    Conversation paused — high system load
+</div>
+{% elif conversation.state == 'completed' %}
+<div style="text-align: center; padding: var(--space-md); color: var(--text-muted); font-size: 0.85rem;">
+    Conversation completed ({{ conversation.turns | length }} turns)
+</div>
+{% elif conversation.state == 'cancelled' %}
+<div style="text-align: center; padding: var(--space-md); color: var(--red); font-size: 0.85rem;">
+    Conversation cancelled
+</div>
+{% endif %}
+
+{% elif conversation %}
+<div style="text-align: center; padding: var(--space-2xl); color: var(--text-muted);">
+    <p>Waiting for first message...</p>
+</div>
+{% else %}
+<div style="text-align: center; padding: var(--space-2xl); color: var(--text-muted);">
+    <p>Select a conversation from the sidebar</p>
+</div>
+{% endif %}

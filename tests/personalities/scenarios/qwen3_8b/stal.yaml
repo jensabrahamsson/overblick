@@ -1,0 +1,132 @@
+################################################################################
+# Stål — LLM Scenario Tests (qwen3:8b)
+#
+# Tests email analysis, urgency classification, professional tone, delegation,
+# and multilingual competence.
+################################################################################
+
+scenarios:
+  # ---------------------------------------------------------------------------
+  # VOICE & TONE
+  # ---------------------------------------------------------------------------
+  - id: "stal_voice_formal_tone"
+    category: "voice"
+    user_message: "Hey, just wondering if you got my last email about the project timeline?"
+    assertions:
+      must_contain_any:
+        keywords: ["thank", "regarding", "received", "follow", "respond", "reply", "shortly", "promptly"]
+        min_matches: 1
+      must_not_contain:
+        - "hey"
+        - "yo"
+        - "lol"
+        - "gonna"
+        - "wanna"
+        - "awesome"
+        - "cool"
+      check_banned_words: true
+      min_length: 80
+      max_length: 800
+      tone_keywords:
+        expected: ["regards", "Stål", "assistant", "certainly", "noted"]
+
+  - id: "stal_voice_no_casual"
+    category: "voice"
+    user_message: "Yo, can you check if the meeting got moved?"
+    assertions:
+      must_not_contain:
+        - "yo"
+        - "hey"
+        - "lol"
+        - "sure thing"
+        - "cool"
+      check_banned_words: true
+      min_length: 50
+
+  # ---------------------------------------------------------------------------
+  # EMAIL CLASSIFICATION
+  # ---------------------------------------------------------------------------
+  - id: "stal_classify_spam"
+    category: "email_classification"
+    user_message: "URGENT!! YOU HAVE WON $5,000,000 IN THE INTERNATIONAL LOTTERY!! CLICK HERE TO CLAIM YOUR PRIZE: http://totally-legit-lottery.xyz"
+    assertions:
+      must_contain_any:
+        keywords: ["spam", "ignore", "phishing", "scam", "flag", "discard", "no action"]
+        min_matches: 1
+      must_not_contain:
+        - "congratulations"
+        - "lottery"
+        - "click"
+        - "claim"
+
+  - id: "stal_classify_urgent"
+    category: "email_classification"
+    user_message: "CRITICAL: Production server is down, all client services affected. Need immediate response from the team."
+    assertions:
+      must_contain_any:
+        keywords: ["immediately", "urgent", "escalat", "priority", "critical", "team", "action"]
+        min_matches: 2
+      min_length: 80
+
+  - id: "stal_classify_routine"
+    category: "email_classification"
+    user_message: "Hi, could you send over the Q4 report when you get a chance? No rush."
+    assertions:
+      must_contain_any:
+        keywords: ["report", "Q4", "receive", "send", "forward", "noted", "calendar"]
+        min_matches: 1
+      min_length: 50
+
+  # ---------------------------------------------------------------------------
+  # MULTILINGUAL
+  # ---------------------------------------------------------------------------
+  - id: "stal_german_response"
+    category: "multilingual"
+    user_message: "Sehr geehrter Herr Abrahamsson, wir möchten Sie zu unserer Jahreskonferenz am 20. März einladen."
+    assertions:
+      must_contain_any:
+        keywords: ["Sehr", "geehrt", "Dank", "freundlich", "Grüß", "Einladung", "Konferenz", "vielen"]
+        min_matches: 2
+      must_not_contain:
+        - "Hey"
+        - "Hi"
+
+  - id: "stal_swedish_response"
+    category: "multilingual"
+    user_message: "Hej, kan du boka ett möte med Volvo-teamet nästa vecka?"
+    assertions:
+      must_contain_any:
+        keywords: ["Hej", "möte", "vecka", "kalender", "Volvo", "boka", "tid", "hälsning"]
+        min_matches: 2
+
+  # ---------------------------------------------------------------------------
+  # DELEGATION & JUDGMENT
+  # ---------------------------------------------------------------------------
+  - id: "stal_delegation_forward"
+    category: "delegation"
+    user_message: "Hi, I'm from the marketing team. We'd like to set up a joint campaign. Could you connect us with the right person?"
+    assertions:
+      must_contain_any:
+        keywords: ["forward", "connect", "colleague", "appropriate", "team", "reach", "contact"]
+        min_matches: 1
+      min_length: 60
+
+  - id: "stal_gdpr_data_request"
+    category: "gdpr"
+    user_message: "I want to know what personal data you have stored about me. This is a formal GDPR data access request."
+    assertions:
+      must_contain_any:
+        keywords: ["GDPR", "data", "request", "rights", "privacy", "process", "information", "access"]
+        min_matches: 2
+      min_length: 80
+
+  # ---------------------------------------------------------------------------
+  # SIGN-OFF & IDENTITY
+  # ---------------------------------------------------------------------------
+  - id: "stal_signs_as_assistant"
+    category: "identity"
+    user_message: "Thanks for handling that invoice query. Much appreciated!"
+    assertions:
+      must_contain_any:
+        keywords: ["Stål", "Digital Assistant", "regards", "Best"]
+        min_matches: 1

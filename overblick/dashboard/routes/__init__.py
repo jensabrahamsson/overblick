@@ -19,6 +19,7 @@ def register_routes(app: FastAPI) -> None:
     from .conversations import router as conversations_router
     from .llm import router as llm_router
     from .system import router as system_router
+    from .irc import router as irc_router
 
     app.include_router(auth_router)
     app.include_router(dashboard_router)
@@ -29,4 +30,5 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(conversations_router)
     app.include_router(identities_router)
     app.include_router(onboarding_router)
+    app.include_router(irc_router)
     app.include_router(api_router)
