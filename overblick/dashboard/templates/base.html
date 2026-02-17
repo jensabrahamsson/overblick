@@ -17,7 +17,12 @@
                 <span class="nav-title">Överblick</span>
             </a>
         </div>
-        <div class="nav-links">
+        <button class="nav-hamburger" aria-expanded="false" aria-controls="nav-links" aria-label="Toggle navigation menu">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+        </button>
+        <div class="nav-links" id="nav-links">
             <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a>
             <a href="/identities" class="nav-link {% if request.url.path == '/identities' %}active{% endif %}" {% if request.url.path == '/identities' %}aria-current="page"{% endif %}>Identities</a>
             <a href="/conversations" class="nav-link {% if request.url.path == '/conversations' %}active{% endif %}" {% if request.url.path == '/conversations' %}aria-current="page"{% endif %}>Conversations</a>
@@ -29,7 +34,7 @@
         </div>
     </nav>
 
-    <main class="main" id="main-content">
+    <main class="main" id="main-content" aria-label="Dashboard content">
         {% block flash %}
         {% if error %}
         <div class="flash flash-error">{{ error }}</div>
@@ -52,6 +57,26 @@
 
     <script src="/static/js/radar-chart.js"></script>
     <script>
+    // Hamburger menu toggle
+    (function() {
+        var btn = document.querySelector('.nav-hamburger');
+        var links = document.getElementById('nav-links');
+        if (btn && links) {
+            btn.addEventListener('click', function() {
+                var expanded = btn.getAttribute('aria-expanded') === 'true';
+                btn.setAttribute('aria-expanded', !expanded);
+                links.classList.toggle('nav-links-open');
+            });
+            // Close menu when a link is clicked
+            links.addEventListener('click', function(e) {
+                if (e.target.classList.contains('nav-link')) {
+                    btn.setAttribute('aria-expanded', 'false');
+                    links.classList.remove('nav-links-open');
+                }
+            });
+        }
+    })();
+
     document.body.addEventListener('htmx:responseError', function(e) {
         var flash = document.createElement('div');
         flash.className = 'flash flash-error';

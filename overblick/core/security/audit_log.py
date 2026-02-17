@@ -38,16 +38,28 @@ class AuditLog:
     """
     Structured audit logger backed by SQLite.
 
-    Thread-safe (SQLite handles locking). Append-only — no updates or deletes.
+    Thread-safe (SQLite handles locking). Append-only with automatic
+    rotation: entries older than retention_days are trimmed periodically.
 
     Usage:
         audit = AuditLog(Path("data/anomal/audit.db"), identity="anomal")
         audit.log("api_call", category="moltbook", details={"endpoint": "/posts"})
     """
 
-    def __init__(self, db_path: Path, identity: str):
+    # Trim every N inserts to avoid per-insert overhead
+    _TRIM_INTERVAL = 100
+    _DEFAULT_RETENTION_DAYS = 90
+
+    def __init__(
+        self,
+        db_path: Path,
+        identity: str,
+        retention_days: int = _DEFAULT_RETENTION_DAYS,
+    ):
         self._db_path = db_path
         self._identity = identity
+        self._retention_days = retention_days
+        self._insert_count = 0
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), timeout=10)
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -100,6 +112,12 @@ class AuditLog:
             ),
         )
         self._conn.commit()
+
+        self._insert_count += 1
+        if self._insert_count >= self._TRIM_INTERVAL:
+            self._trim_old_entries()
+            self._insert_count = 0
+
         return cursor.lastrowid
 
     def query(
@@ -108,21 +126,23 @@ class AuditLog:
         category: Optional[str] = None,
         since: Optional[float] = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         """
-        Query audit log entries.
+        Query audit log entries with pagination.
 
         Args:
             action: Filter by action name
             category: Filter by category
             since: Filter entries after this timestamp
             limit: Max entries to return
+            offset: Number of entries to skip (for pagination)
 
         Returns:
             List of log entry dicts
         """
         conditions = []
-        params = []
+        params: list[Any] = []
 
         if action:
             conditions.append("action = ?")
@@ -135,7 +155,7 @@ class AuditLog:
             params.append(since)
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-        params.append(limit)
+        params.extend([limit, offset])
 
         cursor = self._conn.execute(
             f"""
@@ -144,7 +164,7 @@ class AuditLog:
             FROM audit_log
             {where}
             ORDER BY timestamp DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
             """,
             params,
         )
@@ -188,6 +208,27 @@ class AuditLog:
             params,
         )
         return cursor.fetchone()[0]
+
+    def _trim_old_entries(self) -> int:
+        """
+        Remove audit entries older than the retention period.
+
+        Returns:
+            Number of entries deleted
+        """
+        cutoff = time.time() - (self._retention_days * 86400)
+        cursor = self._conn.execute(
+            "DELETE FROM audit_log WHERE timestamp < ?", (cutoff,)
+        )
+        deleted = cursor.rowcount
+        if deleted > 0:
+            self._conn.commit()
+            logger.info(
+                "Audit log trimmed: %d entries older than %d days removed",
+                deleted,
+                self._retention_days,
+            )
+        return deleted
 
     def close(self) -> None:
         """Close the database connection."""

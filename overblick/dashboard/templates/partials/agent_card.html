@@ -1,6 +1,6 @@
-<div class="agent-card" id="agent-{{ card.name }}">
+<article class="agent-card" id="agent-{{ card.name }}" aria-label="{{ card.display_name }} agent">
     <div class="agent-card-header">
-        <span class="status-dot status-{{ card.state }}"></span>
+        <span class="status-dot status-{{ card.state }}" role="img" aria-label="Status: {{ card.state }}"></span>
         <a href="/agent/{{ card.name }}" class="agent-card-name">{{ card.display_name }}</a>
     </div>
     <p class="agent-card-desc">{{ card.description|truncate(80) }}</p>
@@ -18,4 +18,4 @@
         <span class="tag tag-sm {{ 'tag-operational' if _is_operational_cap(cap) else 'tag-capability' }}">{{ cap }}</span>
         {% endfor %}
     </div>
-</div>
+</article>
