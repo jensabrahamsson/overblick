@@ -2096,3 +2096,58 @@ class TestMaxEmailAgeFilter:
 
         # Old email should have been marked as read
         mock_gmail_capability.mark_as_read.assert_called_once_with("old-001")
+
+    @pytest.mark.asyncio
+    async def test_negative_age_rejected(self, stal_plugin_context):
+        """Negative max_email_age_hours is rejected (DoS prevention)."""
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = -1
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        assert plugin._max_email_age_hours is None  # Rejected, no filter
+
+    @pytest.mark.asyncio
+    async def test_zero_age_rejected(self, stal_plugin_context):
+        """Zero max_email_age_hours is rejected (would block all email)."""
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 0
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        assert plugin._max_email_age_hours is None
+
+    @pytest.mark.asyncio
+    async def test_nan_age_rejected(self, stal_plugin_context):
+        """NaN max_email_age_hours is rejected."""
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = float("nan")
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        assert plugin._max_email_age_hours is None
+
+    @pytest.mark.asyncio
+    async def test_inf_age_rejected(self, stal_plugin_context):
+        """Infinity max_email_age_hours is rejected (no-op disguised as config)."""
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = float("inf")
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        assert plugin._max_email_age_hours is None
+
+    @pytest.mark.asyncio
+    async def test_string_age_rejected(self, stal_plugin_context):
+        """Non-numeric max_email_age_hours is rejected."""
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = "three"
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        assert plugin._max_email_age_hours is None
+
+    def test_future_date_treated_as_recent(self):
+        """Email with future Date header is treated as recent (not blocked)."""
+        from datetime import datetime, timezone, timedelta
+
+        future = datetime.now(timezone.utc) + timedelta(hours=48)
+        date_str = email.utils.format_datetime(future)
+        msg = {"headers": {"Date": date_str}}
+        # Future date → age_hours is negative → negative <= 3 → True
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
