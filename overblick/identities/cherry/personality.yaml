@@ -622,6 +622,8 @@ operational:
     - therapy
     - boundaries
     - vulnerability
+  plugins:
+    - moltbook
   deflections:
     - "omg that's like... no thanks haha"
     - "let's talk about something fun instead!"

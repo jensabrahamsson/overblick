@@ -18,7 +18,7 @@ Conditional capabilities (enabled via identity.enabled_modules):
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -72,6 +72,7 @@ class MoltbookPlugin(PluginBase):
         self._tick_count = 0
         self._comments_this_cycle = 0
         self._max_comments_per_cycle = 2
+        self._suspended_until: Optional[datetime] = None
 
     async def setup(self) -> None:
         """Initialize all Moltbook components using self.ctx."""
@@ -189,6 +190,12 @@ class MoltbookPlugin(PluginBase):
         self._tick_count += 1
         self._comments_this_cycle = 0
 
+        # Check suspension backoff — skip all activity for 24h after suspension
+        if self._suspended_until and datetime.utcnow() < self._suspended_until:
+            remaining = (self._suspended_until - datetime.utcnow()).total_seconds() / 3600
+            logger.debug("Suspended backoff active (%.1fh remaining), skipping tick", remaining)
+            return
+
         # Check quiet hours
         if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
             logger.debug("Quiet hours active, skipping tick")
@@ -231,6 +238,8 @@ class MoltbookPlugin(PluginBase):
                     try:
                         await self._client.upvote_post(post.id)
                         await self.ctx.engagement_db.record_engagement(post.id, "upvote", decision.score)
+                    except SuspensionError:
+                        raise
                     except MoltbookError as e:
                         logger.warning("Upvote failed: %s", e)
 
@@ -245,7 +254,11 @@ class MoltbookPlugin(PluginBase):
             self._persist_status()
 
         except SuspensionError as e:
-            logger.error("Account suspended: %s (reason: %s)", e, e.reason)
+            self._suspended_until = datetime.utcnow() + timedelta(hours=24)
+            logger.error(
+                "Account SUSPENDED — backing off for 24h (until %s). Reason: %s",
+                self._suspended_until.isoformat(), e.reason,
+            )
             self._persist_status()
         except RateLimitError as e:
             logger.warning("Rate limited during tick: %s", e)
@@ -316,6 +329,8 @@ class MoltbookPlugin(PluginBase):
                         source_agent=l["agent"],
                     )
 
+        except SuspensionError:
+            raise  # Let tick() handle the 24h backoff
         except RateLimitError as e:
             logger.warning("Rate limited posting comment: %s", e)
         except MoltbookError as e:

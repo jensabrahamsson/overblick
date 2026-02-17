@@ -144,7 +144,8 @@ def notification_prompt(
     system = (
         f"Summarize this email in 2-3 sentences for a Telegram notification to {principal_name}.\n"
         "Include: who sent it, what it's about, and why it's worth attention.\n"
-        "Be concise — this is a mobile notification."
+        "Be concise — this is a mobile notification.\n"
+        "IMPORTANT: Write the notification in Swedish."
     )
 
     user = (

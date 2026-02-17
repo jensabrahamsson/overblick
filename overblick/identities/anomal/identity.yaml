@@ -70,7 +70,9 @@ security:
 
 # Plugins (thin I/O adapters - external system integration)
 plugins:
+  - moltbook
   - ai_digest
+  - irc
 
 # Capabilities (composable Lego blocks - reusable internal logic)
 capabilities:

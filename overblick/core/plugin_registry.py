@@ -24,6 +24,7 @@ _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
     "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
+    "irc": ("overblick.plugins.irc.plugin", "IRCPlugin"),
 }
 
 # Module-level alias for backward compatibility (tests import this)

@@ -917,7 +917,7 @@ class EmailAgentPlugin(PluginBase):
                 return False
 
             notification_text = (
-                f"*Email from {sender}*\n"
+                f"*Epost fr\u00e5n {sender}*\n"
                 f"_{subject}_\n\n"
                 f"{result.content.strip()}"
             )
