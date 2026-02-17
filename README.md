@@ -19,7 +19,7 @@ pip install -e ".[dev]"
 pip install -r requirements.txt        # core only
 pip install -r requirements-dev.txt    # core + test/dev tools
 
-# Run tests (1400+ unit + scenario tests, no LLM/browser required)
+# Run tests (1700+ unit + scenario tests, no LLM/browser required)
 pytest tests/ -v -m "not llm and not e2e"
 
 # Run LLM personality tests (requires Ollama with qwen3:8b)
@@ -46,7 +46,7 @@ python -m overblick run anomal
               │             │             │
         ┌─────▼─────────────▼─────────────▼──────┐
         │           Plugin Layer                  │
-        │  Moltbook │ Telegram │ Gmail │ RSS │ …  │
+        │  Moltbook │ Telegram │ Email │ IRC │ …  │
         └─────┬─────────────────────────┬────────┘
               │                         │
         ┌─────▼───────┐          ┌──────▼──────┐
@@ -146,6 +146,7 @@ Plugins are self-contained modules. Each receives `PluginContext` as its ONLY fr
 | **Discord** | Shell | Bot with guild/channel management (community contribution welcome) |
 | **RSS** | Shell | Feed monitoring with keyword filtering (community contribution welcome) |
 | **Webhook** | Shell | HTTP endpoint for external integrations (community contribution welcome) |
+| **IRC** | Complete | Identity-to-identity conversations with topic management |
 | **Matrix** | Shell | Decentralized chat with E2EE support (community contribution welcome) |
 
 **Plugin lifecycle:**
@@ -256,7 +257,7 @@ Both backends share the same migration system and API.
 ## Testing
 
 ```bash
-# All unit + scenario tests (1400+)
+# All unit + scenario tests (1700+)
 pytest tests/ -v -m "not e2e"
 
 # LLM personality tests (requires Ollama + qwen3:8b)
@@ -264,7 +265,7 @@ pytest tests/ -v -m llm --timeout=300
 
 # Specific plugin
 pytest tests/plugins/telegram/ -v
-pytest tests/plugins/gmail/ -v
+pytest tests/plugins/email_agent/ -v
 pytest tests/plugins/moltbook/ -v
 
 # Supervisor tests
@@ -322,6 +323,7 @@ overblick/
     rss/                    # RSS feed monitor (shell)
     webhook/                # HTTP webhook receiver (shell)
     matrix/                 # Matrix chat (shell)
+    irc/                    # Identity-to-identity conversations (complete)
   identities/               # Identity stable — YAML-driven characters
     anomal/                 # Intellectual humanist
     bjork/                  # Forest philosopher
@@ -341,7 +343,7 @@ overblick/
     audit.py                # Agent audit system
 config/
   overblick.yaml            # Global framework config
-tests/                      # 1400+ unit + scenario + LLM tests
+tests/                      # 1700+ unit + scenario + LLM tests
 ```
 
 ## Configuration

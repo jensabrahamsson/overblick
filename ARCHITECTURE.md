@@ -45,7 +45,7 @@ This document describes every layer of the system.
                  │                 │                 │
           ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐
           │ Orchestrator │  │ Orchestrator │  │ Orchestrator │
-          │  "anomal"    │  │  "cherry"    │  │  "volt"      │
+          │  "anomal"    │  │  "cherry"    │  │  "blixt"     │
           └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
                  │                │                 │
           ┌──────▼──────────────────────────────────▼──────┐
@@ -270,7 +270,7 @@ class Identity(BaseModel):
 |------|-----------|------------|
 | **Anomal** | Intellectual humanist | openness 0.92, cerebral 0.88, warmth 0.75 |
 | **Cherry** | 28yo Stockholm woman | extraversion 0.85, warmth 0.80, humor 0.75 |
-| **Volt** | Punk tech critic | openness 0.85, agreeableness 0.30, patience 0.25 |
+| **Blixt** | Punk tech critic | openness 0.85, agreeableness 0.30, patience 0.25 |
 | **Birch** | Forest philosopher | introversion 0.90, patience 0.95, calm 0.95 |
 | **Prism** | Digital artist | openness 0.98, creativity 0.98, curiosity 0.95 |
 | **Rust** | Jaded ex-trader | neuroticism 0.55, genuineness 0.90, humor 0.75 |
@@ -324,7 +324,8 @@ The sole framework interface. Provides controlled access to everything a plugin 
 _KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
     "moltbook":  ("overblick.plugins.moltbook.plugin",  "MoltbookPlugin"),
     "telegram":  ("overblick.plugins.telegram.plugin",   "TelegramPlugin"),
-    "gmail":     ("overblick.plugins.gmail.plugin",      "GmailPlugin"),
+    "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
+    "irc":       ("overblick.plugins.irc.plugin",        "IRCPlugin"),
     "discord":   ("overblick.plugins.discord",           "DiscordPlugin"),
     "rss":       ("overblick.plugins.rss",               "RSSPlugin"),
     "webhook":   ("overblick.plugins.webhook",           "WebhookPlugin"),
@@ -345,7 +346,8 @@ The registry uses a **whitelist** — only plugins in `_KNOWN_PLUGINS` can be lo
 |--------|--------|-------------|
 | **Moltbook** | Production | Autonomous social engagement (OBSERVE → THINK → DECIDE → ACT → LEARN) |
 | **Telegram** | Complete | Bot with commands, conversation tracking, rate limiting |
-| **Gmail** | Complete | Email processing, draft mode, boss agent approval |
+| **Email Agent** | Complete | LLM-driven email classification, reply, notification |
+| **IRC** | Complete | Identity-to-identity conversations with topic management |
 | **Discord** | Shell | Community contribution welcome |
 | **RSS** | Shell | Community contribution welcome |
 | **Webhook** | Shell | Community contribution welcome |
@@ -682,7 +684,7 @@ The Supervisor manages multiple agent identities as subprocesses. It's the "boss
 **File:** `overblick/supervisor/supervisor.py`
 
 ```python
-supervisor = Supervisor(identities=["anomal", "cherry", "volt"])
+supervisor = Supervisor(identities=["anomal", "cherry", "blixt"])
 await supervisor.start()  # Start IPC server + all agents
 await supervisor.run()    # Block until SIGINT/SIGTERM
 await supervisor.stop()   # Graceful shutdown
@@ -1002,8 +1004,8 @@ permissions:
 
 ```yaml
 identity:
-  name: "volt"
-  display_name: "Volt"
+  name: "blixt"
+  display_name: "Blixt"
   role: "Punk tech critic and privacy advocate"
 
 voice:
@@ -1045,7 +1047,7 @@ example_conversations:
 
 ## Testing
 
-712 tests organized by module:
+1700+ tests organized by module:
 
 ```bash
 # All unit + scenario tests (excludes LLM)
@@ -1080,7 +1082,7 @@ tests/
     ...
   plugins/
     telegram/                  # Telegram plugin tests
-    gmail/                     # Gmail plugin tests
+    email_agent/               # Email agent plugin tests
     moltbook/                  # Moltbook plugin tests
   supervisor/
     test_supervisor.py         # Multi-process management
@@ -1147,7 +1149,8 @@ overblick/
   plugins/
     moltbook/                    # Social engagement (production)
     telegram/                    # Telegram bot (complete)
-    gmail/                       # Email agent (complete)
+    email_agent/                 # Email agent (complete)
+    irc/                         # Identity conversations (complete)
     discord/                     # Discord bot (shell)
     rss/                         # RSS feed monitor (shell)
     webhook/                     # HTTP webhook (shell)
@@ -1176,11 +1179,11 @@ overblick/
   personalities/
     anomal/personality.yaml      # Intellectual humanist
     cherry/personality.yaml      # Flirty Stockholmer
-    volt/personality.yaml        # Punk tech critic
-    birch/personality.yaml       # Forest philosopher
-    prism/personality.yaml       # Digital artist
-    rust/personality.yaml        # Jaded ex-trader
-    nyx/personality.yaml         # Uncanny philosopher
+    blixt/personality.yaml       # Punk tech critic
+    bjork/personality.yaml       # Forest philosopher
+    prisma/personality.yaml      # Digital artist
+    rost/personality.yaml        # Jaded ex-trader
+    natt/personality.yaml        # Uncanny philosopher
   identities/
     anomal/                      # Identity config + knowledge
     cherry/                      # Identity config + knowledge
@@ -1192,5 +1195,5 @@ overblick/
 config/
   overblick.yaml                 # Global framework config
   secrets.yaml.example           # Secrets template
-tests/                           # 712 tests
+tests/                           # 1700+ tests
 ```

@@ -460,13 +460,13 @@ capabilities:
 
 ### Build a New Plugin
 
-See the `/overblick-skill-compiler` skill or `docs/PLUGIN_DEVELOPMENT.md` for a guide.
+See the `/overblick-skill-compiler` skill for a guide.
 
 ## More Documentation
 
 - **CLAUDE.md** — Complete architecture and principles
 - **ARCHITECTURE.md** — Technical details
-- **SECURITY.md** — Security model
+- **SECURITY_CONSIDERATIONS.md** — Security model
 - **VOICE_TUNING.md** — The Voice Tuner's Handbook (tuning identity voices for your LLM)
 - **README.md** — Project overview
 

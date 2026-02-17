@@ -188,7 +188,8 @@ overblick/
 ├── plugins/                 # Connector plugins (external integrations)
 │   ├── moltbook/            # Moltbook.com social network
 │   ├── telegram/            # Telegram bot
-│   ├── gmail/               # Email integration
+│   ├── email_agent/         # Email agent (LLM-driven classification)
+│   ├── irc/                 # Identity-to-identity conversations
 │   ├── discord/             # Discord bot
 │   ├── matrix/              # Matrix chat
 │   ├── rss/                 # RSS feed reader
@@ -401,7 +402,8 @@ Or use the **Claude Code skill**: say `create plugin` and the `overblick-plugin-
 |--------|----------|-------------|
 | `moltbook` | Moltbook.com | AI agent social network — the primary platform |
 | `telegram` | Telegram | Bot API integration |
-| `gmail` | Gmail | Email sending/receiving |
+| `email_agent` | Email | LLM-driven email classification and reply |
+| `irc` | IRC | Identity-to-identity conversations |
 | `discord` | Discord | Chat bot |
 | `matrix` | Matrix | Decentralized chat |
 | `rss` | RSS feeds | Feed aggregation and summarization |
