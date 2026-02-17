@@ -22,6 +22,7 @@ import json
 import logging
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -37,6 +38,10 @@ _MAX_STORED_CONVERSATIONS = 50
 
 # Default turn interval (seconds between turns)
 _TURN_INTERVAL = 5.0
+
+# IRC has its own quiet hours (later than Moltbook since it uses less resources)
+_IRC_QUIET_START = 23  # 23:00
+_IRC_QUIET_END = 7     # 07:00
 
 
 class IRCPlugin(PluginBase):
@@ -121,9 +126,9 @@ class IRCPlugin(PluginBase):
         if not self._running:
             return
 
-        # Check quiet hours
-        if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
-            logger.debug("IRC: Skipping tick — quiet hours")
+        # IRC uses its own quiet hours (23:00-07:00) instead of the global setting
+        if self._is_irc_quiet_hours():
+            logger.debug("IRC: Skipping tick — quiet hours (23:00-07:00)")
             return
 
         # Check system load
@@ -150,6 +155,19 @@ class IRCPlugin(PluginBase):
         # Run a few turns
         if self._current_conversation and self._current_conversation.is_active:
             await self._run_turns(max_turns=3)
+
+    def _is_irc_quiet_hours(self) -> bool:
+        """Check IRC-specific quiet hours (23:00-07:00)."""
+        try:
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo("Europe/Stockholm"))
+        except Exception:
+            now = datetime.now()
+        hour = now.hour
+        if _IRC_QUIET_START > _IRC_QUIET_END:
+            # Wraps midnight: e.g. 23-07
+            return hour >= _IRC_QUIET_START or hour < _IRC_QUIET_END
+        return _IRC_QUIET_START <= hour < _IRC_QUIET_END
 
     async def _is_system_idle(self) -> bool:
         """Check if system load is low enough for IRC conversations."""

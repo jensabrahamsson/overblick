@@ -254,11 +254,19 @@ class MoltbookPlugin(PluginBase):
             self._persist_status()
 
         except SuspensionError as e:
-            self._suspended_until = datetime.utcnow() + timedelta(hours=24)
-            logger.error(
-                "Account SUSPENDED — backing off for 24h (until %s). Reason: %s",
-                self._suspended_until.isoformat(), e.reason,
-            )
+            # Use API's expiry timestamp if available, otherwise fallback to 24h
+            if e.suspended_until_dt:
+                self._suspended_until = e.suspended_until_dt.replace(tzinfo=None)
+                logger.error(
+                    "Account SUSPENDED until %s (from API). Reason: %s",
+                    e.suspended_until, e.reason,
+                )
+            else:
+                self._suspended_until = datetime.utcnow() + timedelta(hours=24)
+                logger.error(
+                    "Account SUSPENDED — no expiry in response, backing off 24h (until %s). Reason: %s",
+                    self._suspended_until.isoformat(), e.reason,
+                )
             self._persist_status()
         except RateLimitError as e:
             logger.warning("Rate limited during tick: %s", e)

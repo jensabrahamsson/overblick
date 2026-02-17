@@ -356,6 +356,36 @@ class TestSuspensionError:
         err = SuspensionError("test")
         assert isinstance(err, MoltbookError)
 
+    def test_auto_parses_until_from_message(self):
+        """SuspensionError extracts 'suspended until' timestamp from message text."""
+        msg = "Agent is suspended until 2026-02-18T18:46:42.897Z. Reason: challenge failures"
+        err = SuspensionError(msg, reason="challenge failures")
+        assert err.suspended_until == "2026-02-18T18:46:42.897Z"
+        assert err.suspended_until_dt is not None
+        assert err.suspended_until_dt.year == 2026
+        assert err.suspended_until_dt.month == 2
+        assert err.suspended_until_dt.day == 18
+
+    def test_explicit_until_overrides_parsing(self):
+        """Explicit suspended_until takes precedence over auto-parsing."""
+        msg = "Agent is suspended until 2026-02-18T18:46:42.897Z"
+        err = SuspensionError(msg, suspended_until="2099-01-01T00:00:00Z")
+        assert err.suspended_until == "2099-01-01T00:00:00Z"
+
+    def test_no_until_in_message(self):
+        """Messages without 'suspended until' get no timestamp."""
+        err = SuspensionError("Your account has been suspended for failing challenges")
+        assert err.suspended_until == ""
+        assert err.suspended_until_dt is None
+
+    def test_suspended_until_dt_handles_z_suffix(self):
+        """Parse Z-terminated ISO timestamps correctly."""
+        err = SuspensionError("x", suspended_until="2026-02-18T18:46:42.897Z")
+        dt = err.suspended_until_dt
+        assert dt is not None
+        assert dt.hour == 18
+        assert dt.minute == 46
+
 
 # ── Account Status Tracking ──────────────────────────────────────────────
 
