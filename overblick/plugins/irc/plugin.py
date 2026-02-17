@@ -80,31 +80,22 @@ class IRCPlugin(PluginBase):
             except Exception as e:
                 logger.warning("Failed to load identity '%s' for IRC: %s", name, e)
 
+        # Mark as running — orchestrator calls setup() then tick() via scheduler,
+        # so we activate here (start() is not part of the PluginBase lifecycle)
+        self._running = True
+
         logger.info(
             "IRC Plugin initialized: %d identities, %d stored conversations",
             len(self._identities),
             len(self._conversations),
         )
 
-    async def start(self) -> None:
-        """Register scheduled tasks."""
-        self._running = True
-
-        # Register with scheduler if available
-        if self.ctx.scheduler:
-            self.ctx.scheduler.add(
-                "irc_conversation_tick",
-                self._conversation_tick,
-                interval_seconds=300,  # Check every 5 minutes
-                run_immediately=False,
-            )
-
     async def tick(self) -> None:
         """Plugin tick — delegates to conversation tick."""
         await self._conversation_tick()
 
-    async def stop(self) -> None:
-        """Stop IRC plugin."""
+    async def teardown(self) -> None:
+        """Gracefully shut down IRC plugin."""
         self._running = False
 
         # End current conversation if active
@@ -113,9 +104,7 @@ class IRCPlugin(PluginBase):
                 update={"state": ConversationState.CANCELLED}
             )
             self._save_conversation(self._current_conversation)
-
-        if self.ctx.scheduler:
-            self.ctx.scheduler.remove("irc_conversation_tick")
+            logger.info("IRC: Cancelled active conversation on teardown")
 
     async def _conversation_tick(self) -> None:
         """
