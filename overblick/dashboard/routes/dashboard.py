@@ -2,9 +2,11 @@
 Dashboard routes — main page with agent cards and system health.
 """
 
+import json
 import logging
 import re
 import time
+from pathlib import Path
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -13,6 +15,7 @@ from starlette.responses import Response
 logger = logging.getLogger(__name__)
 
 _IDENTITY_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+_PLUGIN_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 router = APIRouter()
 
@@ -38,8 +41,9 @@ async def dashboard_page(request: Request):
     error_rate = (failed_24h / audit_count_24h * 100) if audit_count_24h > 0 else 0.0
     categories = audit_svc.get_categories()
 
-    # Build agent status rows (running processes only)
-    agent_rows = _build_agent_status_rows(identities, agents, audit_svc)
+    # Build agent status rows
+    base_dir = _resolve_base_dir(request)
+    agent_rows = _build_agent_status_rows(identities, agents, audit_svc, base_dir)
 
     # Moltbook account statuses
     system_svc = request.app.state.system_service
@@ -74,7 +78,8 @@ async def agent_status_partial(request: Request):
 
     identities = identity_svc.get_all_identities()
     agents = await supervisor_svc.get_agents()
-    agent_rows = _build_agent_status_rows(identities, agents, audit_svc)
+    base_dir = _resolve_base_dir(request)
+    agent_rows = _build_agent_status_rows(identities, agents, audit_svc, base_dir)
     supervisor_status = await supervisor_svc.get_status()
 
     return templates.TemplateResponse("partials/agent_status.html", {
@@ -138,59 +143,129 @@ async def audit_recent_partial(request: Request):
     })
 
 
-@router.post("/agent/{name}/start", response_class=HTMLResponse)
-async def agent_start(name: str, request: Request):
-    """Start a stopped agent and return updated agent status partial."""
-    if not _IDENTITY_NAME_RE.match(name):
-        return Response("Invalid identity name", status_code=400)
+@router.post("/agent/{identity}/{plugin}/start", response_class=HTMLResponse)
+async def agent_start(identity: str, plugin: str, request: Request):
+    """Start a specific agent (plugin within an identity)."""
+    if not _IDENTITY_NAME_RE.match(identity) or not _PLUGIN_NAME_RE.match(plugin):
+        return Response("Invalid agent", status_code=400)
     templates = request.app.state.templates
     supervisor_svc = request.app.state.supervisor_service
     identity_svc = request.app.state.identity_service
     audit_svc = request.app.state.audit_service
 
-    result = await supervisor_svc.start_agent(name)
+    # If the identity process is offline, start it via supervisor
+    agents = await supervisor_svc.get_agents()
+    proc = next((a for a in agents if a.get("name") == identity), None)
+    if not proc or proc.get("state") != "running":
+        await supervisor_svc.start_agent(identity)
+
+    # Mark this plugin as running
+    base_dir = _resolve_base_dir(request)
+    _write_plugin_state(base_dir, identity, plugin, "running")
 
     # Re-fetch state and return updated partial
     identities = identity_svc.get_all_identities()
     agents = await supervisor_svc.get_agents()
-    agent_rows = _build_agent_status_rows(identities, agents, audit_svc)
+    agent_rows = _build_agent_status_rows(identities, agents, audit_svc, base_dir)
     supervisor_status = await supervisor_svc.get_status()
 
     return templates.TemplateResponse("partials/agent_status.html", {
         "request": request,
         "agent_rows": agent_rows,
         "supervisor_running": supervisor_status is not None,
-        "action_result": result,
     })
+
+
+@router.post("/agent/{identity}/{plugin}/stop", response_class=HTMLResponse)
+async def agent_stop(identity: str, plugin: str, request: Request):
+    """Stop a specific agent (plugin within an identity)."""
+    if not _IDENTITY_NAME_RE.match(identity) or not _PLUGIN_NAME_RE.match(plugin):
+        return Response("Invalid agent", status_code=400)
+    templates = request.app.state.templates
+    supervisor_svc = request.app.state.supervisor_service
+    identity_svc = request.app.state.identity_service
+    audit_svc = request.app.state.audit_service
+
+    # Mark this plugin as stopped (orchestrator reads the control file)
+    base_dir = _resolve_base_dir(request)
+    _write_plugin_state(base_dir, identity, plugin, "stopped")
+
+    # Re-fetch state and return updated partial
+    identities = identity_svc.get_all_identities()
+    agents = await supervisor_svc.get_agents()
+    agent_rows = _build_agent_status_rows(identities, agents, audit_svc, base_dir)
+    supervisor_status = await supervisor_svc.get_status()
+
+    return templates.TemplateResponse("partials/agent_status.html", {
+        "request": request,
+        "agent_rows": agent_rows,
+        "supervisor_running": supervisor_status is not None,
+    })
+
+
+# Identity-level stop/start (used by agent detail page — affects all plugins)
+
+@router.post("/agent/{name}/start", response_class=HTMLResponse)
+async def identity_start(name: str, request: Request):
+    """Start all agents for an identity (process-level)."""
+    if not _IDENTITY_NAME_RE.match(name):
+        return Response("Invalid identity name", status_code=400)
+    supervisor_svc = request.app.state.supervisor_service
+    identity_svc = request.app.state.identity_service
+
+    await supervisor_svc.start_agent(name)
+
+    # Clear all plugin stops for this identity
+    base_dir = _resolve_base_dir(request)
+    ident = next((i for i in identity_svc.get_all_identities() if i["name"] == name), None)
+    if ident:
+        for plugin in ident.get("plugins", []):
+            _write_plugin_state(base_dir, name, plugin, "running")
+
+    return Response(status_code=204)
 
 
 @router.post("/agent/{name}/stop", response_class=HTMLResponse)
-async def agent_stop(name: str, request: Request):
-    """Stop a running agent and return updated agent status partial."""
+async def identity_stop(name: str, request: Request):
+    """Stop all agents for an identity (process-level)."""
     if not _IDENTITY_NAME_RE.match(name):
         return Response("Invalid identity name", status_code=400)
-    templates = request.app.state.templates
     supervisor_svc = request.app.state.supervisor_service
-    identity_svc = request.app.state.identity_service
-    audit_svc = request.app.state.audit_service
-
-    result = await supervisor_svc.stop_agent(name)
-
-    # Re-fetch state and return updated partial
-    identities = identity_svc.get_all_identities()
-    agents = await supervisor_svc.get_agents()
-    agent_rows = _build_agent_status_rows(identities, agents, audit_svc)
-    supervisor_status = await supervisor_svc.get_status()
-
-    return templates.TemplateResponse("partials/agent_status.html", {
-        "request": request,
-        "agent_rows": agent_rows,
-        "supervisor_running": supervisor_status is not None,
-        "action_result": result,
-    })
+    await supervisor_svc.stop_agent(name)
+    return Response(status_code=204)
 
 
 _ACRONYMS = {"ai", "llm", "rss", "api", "ipc"}
+
+
+# -- Plugin control file helpers (per-agent stop/start) ----------------------
+
+def _resolve_base_dir(request: Request) -> Path:
+    """Get the project base directory from app config."""
+    cfg = request.app.state.config
+    if cfg.base_dir:
+        return Path(cfg.base_dir)
+    return Path(__file__).parent.parent.parent.parent
+
+
+def _read_plugin_states(base_dir: Path, identity: str) -> dict[str, str]:
+    """Read per-plugin states from the control file."""
+    path = base_dir / "data" / identity / "plugin_control.json"
+    if path.exists():
+        try:
+            return json.loads(path.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def _write_plugin_state(base_dir: Path, identity: str, plugin: str, state: str) -> None:
+    """Write a single plugin's state to the control file."""
+    data = _read_plugin_states(base_dir, identity)
+    data[plugin] = state
+    path = base_dir / "data" / identity / "plugin_control.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data))
 
 
 def _plugin_display_name(name: str) -> str:
@@ -254,13 +329,15 @@ def _build_plugin_cards(
 
 def _build_agent_status_rows(
     identities: list[dict], agents: list[dict], audit_svc=None,
+    base_dir: Path | None = None,
 ) -> list[dict]:
-    """Build operational status rows: one row per plugin+identity (= agent).
+    """Build operational status rows: one row per agent (plugin + identity).
 
-    Each agent is a plugin running under an identity. The underlying process
-    is per-identity, so stop/start affects all plugins for that identity.
-    Identities without plugins are personality definitions — not shown.
+    Each agent is independently stoppable via a control file that the
+    orchestrator reads before each tick. The identity process stays alive.
     """
+    if not base_dir:
+        base_dir = Path(__file__).parent.parent.parent.parent
     # Build lookup: identity name -> running process info
     running_lookup = {a.get("name", ""): a for a in agents}
     rows = []
@@ -274,7 +351,10 @@ def _build_agent_status_rows(
             continue
 
         proc = running_lookup.get(ident_name)
-        is_running = proc is not None and proc.get("state") == "running"
+        process_running = proc is not None and proc.get("state") == "running"
+
+        # Per-plugin control state
+        plugin_states = _read_plugin_states(base_dir, ident_name)
 
         # Get last audit action for this identity
         last_action = None
@@ -288,9 +368,16 @@ def _build_agent_status_rows(
                     "success": recent[0].get("success", True),
                 }
 
-        # One row per plugin = one agent
         for plugin in plugins:
-            state = proc.get("state", "offline") if proc else "offline"
+            plugin_stopped = plugin_states.get(plugin) == "stopped"
+
+            if process_running and not plugin_stopped:
+                state = "running"
+            elif process_running and plugin_stopped:
+                state = "stopped"
+            else:
+                state = proc.get("state", "offline") if proc else "offline"
+
             rows.append({
                 "agent_name": _plugin_display_name(plugin),
                 "plugin": plugin,
@@ -301,8 +388,8 @@ def _build_agent_status_rows(
                 "uptime": proc.get("uptime", proc.get("uptime_seconds", 0)) if proc else 0,
                 "restart_count": proc.get("restart_count", 0) if proc else 0,
                 "last_action": last_action,
-                "can_start": not is_running,
-                "can_stop": is_running,
+                "can_start": not process_running or plugin_stopped,
+                "can_stop": process_running and not plugin_stopped,
             })
 
     return rows
