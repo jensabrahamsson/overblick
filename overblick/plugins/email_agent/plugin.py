@@ -21,6 +21,7 @@ import asyncio
 import email.utils
 import json
 import logging
+import math
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -169,7 +170,19 @@ class EmailAgentPlugin(PluginBase):
 
         # Max email age — skip emails older than this (hours), None = no filter
         age_val = ea_config.get("max_email_age_hours")
-        self._max_email_age_hours = float(age_val) if age_val is not None else None
+        if age_val is not None:
+            try:
+                parsed = float(age_val)
+            except (ValueError, TypeError):
+                parsed = None
+            if parsed is not None and parsed > 0 and not math.isinf(parsed) and not math.isnan(parsed):
+                self._max_email_age_hours = parsed
+            else:
+                logger.warning(
+                    "EmailAgent: invalid max_email_age_hours=%r — must be positive number, ignoring",
+                    age_val,
+                )
+                self._max_email_age_hours = None
 
         # Dry-run mode: classify and notify, but never send actual email replies
         self._dry_run = ea_config.get("dry_run", False)
