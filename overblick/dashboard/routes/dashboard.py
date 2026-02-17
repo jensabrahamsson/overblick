@@ -255,10 +255,10 @@ def _build_plugin_cards(
 def _build_agent_status_rows(
     identities: list[dict], agents: list[dict], audit_svc=None,
 ) -> list[dict]:
-    """Build operational status rows: one row per identity (process).
+    """Build operational status rows: one row per plugin+identity (= agent).
 
-    Each identity runs as a single process containing all its plugins.
-    Stop/start operates at the identity level, so the UI reflects that.
+    Each agent is a plugin running under an identity. The underlying process
+    is per-identity, so stop/start affects all plugins for that identity.
     Identities without plugins are personality definitions — not shown.
     """
     # Build lookup: identity name -> running process info
@@ -288,19 +288,21 @@ def _build_agent_status_rows(
                     "success": recent[0].get("success", True),
                 }
 
-        state = proc.get("state", "offline") if proc else "offline"
-        rows.append({
-            "agent_name": identity.get("display_name", ident_name.capitalize()),
-            "plugins": [_plugin_display_name(p) for p in plugins],
-            "identity_name": identity.get("display_name", ident_name.capitalize()),
-            "identity_ref": ident_name,
-            "state": state,
-            "pid": proc.get("pid") if proc else None,
-            "uptime": proc.get("uptime", proc.get("uptime_seconds", 0)) if proc else 0,
-            "restart_count": proc.get("restart_count", 0) if proc else 0,
-            "last_action": last_action,
-            "can_start": not is_running,
-            "can_stop": is_running,
-        })
+        # One row per plugin = one agent
+        for plugin in plugins:
+            state = proc.get("state", "offline") if proc else "offline"
+            rows.append({
+                "agent_name": _plugin_display_name(plugin),
+                "plugin": plugin,
+                "identity_name": identity.get("display_name", ident_name.capitalize()),
+                "identity_ref": ident_name,
+                "state": state,
+                "pid": proc.get("pid") if proc else None,
+                "uptime": proc.get("uptime", proc.get("uptime_seconds", 0)) if proc else 0,
+                "restart_count": proc.get("restart_count", 0) if proc else 0,
+                "last_action": last_action,
+                "can_start": not is_running,
+                "can_stop": is_running,
+            })
 
     return rows

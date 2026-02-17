@@ -4,15 +4,15 @@
     <div class="agent-card">
         <div class="agent-card-header">
             <span class="status-dot status-{{ agent.state }}"></span>
-            <a href="/agent/{{ agent.identity_ref }}" class="agent-card-name">{{ agent.agent_name }}</a>
+            <span class="agent-card-name">{{ agent.agent_name }}</span>
             {% if agent.restart_count > 0 %}
             <span class="restart-badge">{{ agent.restart_count }}x</span>
             {% endif %}
         </div>
         <div class="agent-card-meta">
             <span class="meta-item">
-                <span class="meta-label">Plugins</span>
-                <span>{{ agent.plugins | join(', ') }}</span>
+                <span class="meta-label">Identity</span>
+                <a href="/agent/{{ agent.identity_ref }}">{{ agent.identity_name }}</a>
             </span>
             <span class="meta-item">
                 <span class="meta-label">PID</span>
@@ -51,7 +51,7 @@
                     hx-post="/agent/{{ agent.identity_ref }}/stop"
                     hx-target="#agent-status-container"
                     hx-swap="innerHTML"
-                    hx-confirm="Stop {{ agent.agent_name }}? This stops all plugins for this identity."
+                    hx-confirm="Stop {{ agent.identity_name }}? This stops all plugins for this identity."
                     aria-label="Stop {{ agent.agent_name }}">Stop</button>
             {% endif %}
         </div>
