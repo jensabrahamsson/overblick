@@ -225,6 +225,7 @@ class TestSuspensionDetection:
         """Successful 200 response sets status to active."""
         mock_response = AsyncMock()
         mock_response.status = 200
+        mock_response.text = AsyncMock(return_value='{"id": "123", "name": "test"}')
         mock_response.json = AsyncMock(return_value={"id": "123", "name": "test"})
         mock_response.headers = {}
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)

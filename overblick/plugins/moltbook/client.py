@@ -12,6 +12,7 @@ challenge detection and LLM-based solving.
 import asyncio
 import json as json_module
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -45,10 +46,31 @@ class AuthenticationError(MoltbookError):
 class SuspensionError(MoltbookError):
     """Raised when the account is suspended."""
 
+    # Regex to extract ISO timestamp from "suspended until <datetime>" messages
+    _UNTIL_PATTERN = re.compile(r"suspended until (\d{4}-\d{2}-\d{2}T[\d:.]+Z?)")
+
     def __init__(self, message: str, suspended_until: str = "", reason: str = ""):
         super().__init__(message)
+        # Auto-parse suspended_until from message if not explicitly provided
+        if not suspended_until:
+            match = self._UNTIL_PATTERN.search(message)
+            if match:
+                suspended_until = match.group(1)
         self.suspended_until = suspended_until
         self.reason = reason
+
+    @property
+    def suspended_until_dt(self) -> Optional[datetime]:
+        """Parse suspended_until as a datetime, or None if unparseable."""
+        if not self.suspended_until:
+            return None
+        try:
+            ts = self.suspended_until
+            if ts.endswith("Z"):
+                ts = ts[:-1] + "+00:00"
+            return datetime.fromisoformat(ts)
+        except (ValueError, TypeError):
+            return None
 
 
 class MoltbookClient:
@@ -151,6 +173,7 @@ class MoltbookClient:
         if method == "GET" and self._proxy._cache_enabled:
             cached = self._proxy._cache.get(method, endpoint, params)
             if cached is not None:
+                logger.debug("API %s %s -> CACHE HIT", method, endpoint)
                 return cached
 
         # Wait for rate limit
@@ -161,6 +184,13 @@ class MoltbookClient:
         await self._proxy.check_rate_limit()
 
         url = f"{self.base_url}{endpoint}"
+
+        # Log outgoing request
+        logger.debug(
+            "API REQUEST: %s %s | params=%s | json_keys=%s",
+            method, endpoint, params,
+            list(json.keys()) if isinstance(json, dict) else None,
+        )
 
         MAX_RATE_LIMIT_RETRIES = 3
         MAX_RETRY_AFTER_SECONDS = 300
@@ -224,10 +254,19 @@ class MoltbookClient:
                             error_data = json_module.loads(raw_body)
                             error_msg = error_data.get("error", "Invalid API key")
                             hint = error_data.get("hint", "")
+                            api_message = error_data.get("message", "")
                             # Detect suspension in 401 response
-                            if "suspended" in error_msg.lower() or "suspended" in hint.lower():
+                            combined = f"{error_msg} {hint} {api_message}".lower()
+                            if "suspended" in combined:
+                                full_msg = f"{api_message} {error_msg} {hint}".strip()
+                                exc = SuspensionError(full_msg, reason=hint or error_msg)
+                                logger.error(
+                                    "SUSPENSION (401): %s | until=%s | full_response=%s",
+                                    hint or error_msg, exc.suspended_until or "UNKNOWN",
+                                    raw_body,
+                                )
                                 self._update_account_status("suspended", hint or error_msg)
-                                raise SuspensionError(error_msg, reason=hint)
+                                raise exc
                             self._update_account_status("auth_error", error_msg)
                             if hint:
                                 error_msg = f"{error_msg} -- {hint}"
@@ -238,15 +277,32 @@ class MoltbookClient:
                             self._update_account_status("auth_error", error_msg)
                         raise AuthenticationError(error_msg)
                     if response.status == 403:
-                        # Detect suspension in 403 response
+                        # Parse full error response
                         try:
                             error_data = json_module.loads(raw_body)
                             error_msg = error_data.get("error", raw_body)
+                            api_message = error_data.get("message", "")
+                            api_path = error_data.get("path", endpoint)
+                            api_timestamp = error_data.get("timestamp", "")
                         except json_module.JSONDecodeError:
                             error_msg = raw_body
-                        if "suspend" in raw_body.lower():
+                            api_message = ""
+                            api_path = endpoint
+                            api_timestamp = ""
+
+                        # Detect suspension
+                        combined = f"{error_msg} {api_message}".lower()
+                        if "suspend" in combined:
+                            # Extract suspended_until from message
+                            full_msg = f"{api_message} {error_msg}"
+                            exc = SuspensionError(full_msg, reason=error_msg)
+                            logger.error(
+                                "SUSPENSION: %s | until=%s | path=%s | server_time=%s | full_response=%s",
+                                error_msg, exc.suspended_until or "UNKNOWN",
+                                api_path, api_timestamp, raw_body,
+                            )
                             self._update_account_status("suspended", error_msg)
-                            raise SuspensionError(error_msg, reason=error_msg)
+                            raise exc
                         raise MoltbookError(f"API 403 (Forbidden): {raw_body}")
                     if response.status == 405:
                         raise MoltbookError(f"API 405 (Method Not Allowed): {raw_body}")
@@ -287,9 +343,18 @@ class MoltbookClient:
                     if response.status >= 400:
                         raise MoltbookError(f"API {response.status}: {raw_body}")
 
-                    # Success — update account status and parse JSON
+                    # Success — log and update account status
+                    raw_text = await response.text()
+                    logger.debug(
+                        "API RESPONSE: %s %s -> HTTP %d | %d bytes | headers=%s",
+                        method, endpoint, response.status, len(raw_text),
+                        {k: v for k, v in response.headers.items()
+                         if k.lower() in ("content-type", "x-ratelimit-remaining",
+                                          "x-challenge", "x-verification")
+                         or k.lower().startswith("x-molt")},
+                    )
                     self._update_account_status("active")
-                    result = await response.json()
+                    result = json_module.loads(raw_text)
 
                     # ResponseRouter inspection (LLM-based challenge detection on 2xx)
                     if self._response_router:

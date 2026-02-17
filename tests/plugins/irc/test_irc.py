@@ -410,10 +410,26 @@ class TestIRCPluginConversationTick:
     @pytest.mark.asyncio
     async def test_tick_skips_quiet_hours(self, irc_plugin, mock_ctx):
         irc_plugin._running = True
-        mock_ctx.quiet_hours_checker.is_quiet_hours.return_value = True
-        await irc_plugin._conversation_tick()
+        # IRC uses its own quiet hours (23:00-07:00), not the global checker
+        with patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=True):
+            await irc_plugin._conversation_tick()
         # Should not start any conversation
         assert irc_plugin._current_conversation is None
+
+    @pytest.mark.asyncio
+    async def test_tick_runs_outside_irc_quiet_hours(self, irc_plugin, mock_ctx):
+        """IRC should run between 07:00-23:00 even if global quiet hours are active."""
+        irc_plugin._running = True
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        # Global quiet hours active (21-07), but IRC's own quiet hours not active
+        mock_ctx.quiet_hours_checker.is_quiet_hours.return_value = True
+        with patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False), \
+             patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=True), \
+             patch.object(irc_plugin, "_start_conversation", new_callable=AsyncMock) as mock_start:
+            await irc_plugin._conversation_tick()
+        # Should attempt to start a conversation
+        mock_start.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_tick_skips_when_not_running(self, irc_plugin):
