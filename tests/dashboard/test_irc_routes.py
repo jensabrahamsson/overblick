@@ -227,7 +227,7 @@ class TestIRCService:
 
     def test_get_conversations_reads_json(self, tmp_path):
         import json
-        data_dir = tmp_path / "data" / "anomal"
+        data_dir = tmp_path / "data" / "anomal" / "irc"
         data_dir.mkdir(parents=True)
         convs = [
             {"id": "c1", "topic": "Topic 1", "participants": ["a"], "state": "active", "updated_at": 2000.0},
@@ -243,7 +243,7 @@ class TestIRCService:
 
     def test_get_conversation_by_id(self, tmp_path):
         import json
-        data_dir = tmp_path / "data" / "anomal"
+        data_dir = tmp_path / "data" / "anomal" / "irc"
         data_dir.mkdir(parents=True)
         convs = [
             {"id": "c1", "topic": "Topic 1", "participants": [], "updated_at": 1000.0},
@@ -262,7 +262,7 @@ class TestIRCService:
 
     def test_get_current_conversation_active(self, tmp_path):
         import json
-        data_dir = tmp_path / "data" / "anomal"
+        data_dir = tmp_path / "data" / "anomal" / "irc"
         data_dir.mkdir(parents=True)
         convs = [
             {"id": "c1", "topic": "T1", "participants": [], "state": "completed", "updated_at": 2000.0},
@@ -277,7 +277,7 @@ class TestIRCService:
 
     def test_get_current_conversation_fallback(self, tmp_path):
         import json
-        data_dir = tmp_path / "data" / "anomal"
+        data_dir = tmp_path / "data" / "anomal" / "irc"
         data_dir.mkdir(parents=True)
         convs = [
             {"id": "c1", "topic": "T1", "participants": [], "state": "completed", "updated_at": 2000.0},

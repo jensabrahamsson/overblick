@@ -223,7 +223,7 @@ class TestIRCPlugin:
              patch("overblick.identities.load_identity"):
             await irc_plugin.setup()
 
-        assert (mock_ctx.data_dir / "irc").exists()
+        assert mock_ctx.data_dir.exists()
 
     @pytest.mark.asyncio
     async def test_setup_loads_identities(self, irc_plugin, mock_ctx):

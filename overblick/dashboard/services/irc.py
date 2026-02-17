@@ -19,33 +19,36 @@ class IRCService:
     def __init__(self, base_dir: Path):
         self._base_dir = base_dir
 
-    def _find_conversations_file(self) -> Path | None:
-        """Find the IRC conversations.json in any identity's data dir."""
+    def _find_conversations_files(self) -> list[Path]:
+        """Find all IRC conversations.json files across identity data dirs.
+
+        Plugin data is stored at data/<identity>/irc/conversations.json
+        (the orchestrator sets data_dir = data/<identity>/<plugin_name>).
+        """
         data_dir = self._base_dir / "data"
         if not data_dir.exists():
-            return None
+            return []
+        files = []
         for identity_dir in sorted(data_dir.iterdir()):
             if not identity_dir.is_dir():
                 continue
-            f = identity_dir / "conversations.json"
+            f = identity_dir / "irc" / "conversations.json"
             if f.exists():
-                return f
-        return None
+                files.append(f)
+        return files
 
     def get_conversations(self, limit: int = 20) -> list[dict]:
-        """Get recent conversations sorted by updated_at."""
-        f = self._find_conversations_file()
-        if not f:
-            return []
-        try:
-            data = json.loads(f.read_text())
-            if not isinstance(data, list):
-                return []
-            data.sort(key=lambda c: c.get("updated_at", 0), reverse=True)
-            return data[:limit]
-        except Exception as e:
-            logger.warning("Failed to read IRC conversations: %s", e)
-            return []
+        """Get recent conversations from all identity data dirs, sorted by updated_at."""
+        all_convs: list[dict] = []
+        for f in self._find_conversations_files():
+            try:
+                data = json.loads(f.read_text())
+                if isinstance(data, list):
+                    all_convs.extend(data)
+            except Exception as e:
+                logger.warning("Failed to read IRC conversations from %s: %s", f, e)
+        all_convs.sort(key=lambda c: c.get("updated_at", 0), reverse=True)
+        return all_convs[:limit]
 
     def get_conversation(self, conversation_id: str) -> dict | None:
         """Get a specific conversation by ID."""

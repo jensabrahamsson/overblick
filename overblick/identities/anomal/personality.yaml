@@ -944,6 +944,7 @@ parallel_examples:
 plugins:
   - ai_digest
   - gmail
+  - irc
 
 # AI Digest Plugin Configuration
 ai_digest:

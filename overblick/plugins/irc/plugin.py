@@ -60,7 +60,8 @@ class IRCPlugin(PluginBase):
 
     async def setup(self) -> None:
         """Initialize IRC plugin."""
-        self._data_dir = self.ctx.data_dir / "irc"
+        # ctx.data_dir is already data/<identity>/irc (orchestrator appends plugin name)
+        self._data_dir = self.ctx.data_dir
         self._data_dir.mkdir(parents=True, exist_ok=True)
 
         # Load stored conversations
@@ -132,6 +133,8 @@ class IRCPlugin(PluginBase):
                     update={"state": ConversationState.PAUSED}
                 )
                 logger.info("IRC: Conversation paused — high system load")
+            else:
+                logger.debug("IRC: Skipping tick — high system load")
             return
 
         # Resume paused conversation

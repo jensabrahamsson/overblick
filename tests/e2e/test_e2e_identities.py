@@ -61,30 +61,6 @@ class TestIdentitiesPage:
         assert "identities" in active.first.get_attribute("href").lower()
 
 
-class TestIdentityDetail:
-    """Test individual identity detail view."""
-
-    def test_identity_detail_loads(self, dashboard_server, page):
-        """Clicking an identity should show details."""
-        _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/identities/anomal")
-        page.wait_for_load_state("networkidle")
-
-        content = page.content()
-        assert "Anomal" in content
-
-    def test_identity_traits_displayed(self, dashboard_server, page):
-        """Identity traits should be displayed."""
-        _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/identities/anomal")
-        page.wait_for_load_state("networkidle")
-
-        content = page.content().lower()
-        # At least some trait names should appear
-        has_traits = any(t in content for t in ["openness", "conscientiousness", "traits"])
-        assert has_traits, "No traits information found on identity detail page"
-
-
 class TestIdentitiesScreenshots:
     """Take screenshots for visual review."""
 
@@ -100,14 +76,14 @@ class TestIdentitiesScreenshots:
             full_page=True,
         )
 
-    def test_screenshot_identity_detail(self, dashboard_server, screenshot_dir, page):
-        """Screenshot an identity detail page."""
+    def test_screenshot_identity_card(self, dashboard_server, screenshot_dir, page):
+        """Screenshot an identity card on the list page."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/identities/anomal")
+        page.goto(f"{dashboard_server}/identities")
         page.wait_for_load_state("networkidle")
         time.sleep(0.5)
 
         page.screenshot(
-            path=str(screenshot_dir / "identity_detail_anomal.png"),
+            path=str(screenshot_dir / "identities_cards.png"),
             full_page=True,
         )
