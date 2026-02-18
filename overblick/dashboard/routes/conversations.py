@@ -74,6 +74,15 @@ def _relative_time(timestamp_val: str | float | int) -> str:
         return ""
 
 
+# Minimum fields the conversations template requires for rendering
+_IPC_REQUIRED_FIELDS = {"timestamp", "sender", "motivation", "responder", "response"}
+
+
+def _is_ipc_conversation(conv: dict) -> bool:
+    """Check if a conversation dict has the fields needed by the IPC template."""
+    return _IPC_REQUIRED_FIELDS.issubset(conv)
+
+
 def _load_conversations(data_dir: Path, identity_filter: str = "") -> tuple[list[dict], list[str]]:
     """
     Load conversations from all identity data directories.
@@ -135,8 +144,6 @@ def _load_conversations(data_dir: Path, identity_filter: str = "") -> tuple[list
             if source in dict(_CONVERSATION_SOURCES):
                 continue
 
-            found_convos = True
-
             if identity_filter and ident_name != identity_filter:
                 continue
 
@@ -144,6 +151,11 @@ def _load_conversations(data_dir: Path, identity_filter: str = "") -> tuple[list
                 data = json.loads(conv_file.read_text())
                 conv_list = data if isinstance(data, list) else data.get("conversations", [])
                 for conv in conv_list:
+                    # Skip conversations that lack the IPC template fields
+                    # (e.g. IRC multi-turn conversations have a different format)
+                    if not _is_ipc_conversation(conv):
+                        continue
+                    found_convos = True
                     conv["identity"] = ident_name
                     conv["source"] = source
                     conv["relative_time"] = _relative_time(conv.get("timestamp", ""))
