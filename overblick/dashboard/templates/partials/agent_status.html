@@ -3,7 +3,7 @@
     {% for agent in agent_rows %}
     <div class="agent-card">
         <div class="agent-card-header">
-            <span class="status-dot status-{{ agent.state }}"></span>
+            <span class="status-dot status-{{ agent.state }}" aria-hidden="true"></span>
             <span class="agent-card-name">{{ agent.agent_name }}</span>
             {% if agent.restart_count > 0 %}
             <span class="restart-badge">{{ agent.restart_count }}x</span>

@@ -5,7 +5,7 @@
 <p class="wizard-desc">Configure the language model settings for this identity.</p>
 
 {% if error %}
-<div class="flash flash-error">{{ error }}</div>
+<div class="flash flash-error" role="alert">{{ error }}</div>
 {% endif %}
 
 <form method="post" action="/onboard" class="wizard-form">

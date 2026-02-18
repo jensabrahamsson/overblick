@@ -4,9 +4,9 @@
 {% block content %}
 <div class="wizard">
     <!-- Progress Bar -->
-    <div class="wizard-progress">
+    <div class="wizard-progress" role="navigation" aria-label="Setup progress: step {{ step }} of {{ steps|length }}">
         {% for s in steps %}
-        <div class="wizard-step {% if loop.index < step %}wizard-step-done{% elif loop.index == step %}wizard-step-active{% endif %}">
+        <div class="wizard-step {% if loop.index < step %}wizard-step-done{% elif loop.index == step %}wizard-step-active{% endif %}" {% if loop.index == step %}aria-current="step"{% endif %}>
             <div class="wizard-step-num">{{ loop.index }}</div>
             <span class="wizard-step-label">{{ s|capitalize }}</span>
         </div>

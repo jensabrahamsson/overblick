@@ -1,7 +1,7 @@
 {% for card in plugin_cards %}
 <div class="agent-card" id="plugin-{{ card.name }}">
     <div class="agent-card-header">
-        <span class="status-dot status-{{ 'running' if card.running_count > 0 else 'stopped' }}"></span>
+        <span class="status-dot status-{{ 'running' if card.running_count > 0 else 'stopped' }}" aria-hidden="true"></span>
         <h3 class="agent-card-name">{{ card.display_name }}</h3>
     </div>
     <p class="agent-card-desc">
@@ -19,7 +19,7 @@
         {% for agent in card.agents %}
         <div class="agent-mini">
             <a href="/agent/{{ agent.name }}" class="agent-mini-link">
-                <span class="status-dot status-{{ agent.state }}"></span>
+                <span class="status-dot status-{{ agent.state }}" aria-hidden="true"></span>
                 <span class="agent-mini-name">{{ agent.display_name }}</span>
             </a>
             {% if agent.traits %}

@@ -5,7 +5,7 @@
 <p class="wizard-desc">Choose a unique name for your new agent identity. This will be the directory name and primary identifier.</p>
 
 {% if error %}
-<div class="flash flash-error">{{ error }}</div>
+<div class="flash flash-error" role="alert">{{ error }}</div>
 {% endif %}
 
 <form method="post" action="/onboard" class="wizard-form">
@@ -38,7 +38,7 @@
 
     <div class="wizard-actions">
         <a href="/" class="btn btn-ghost">Cancel</a>
-        <button type="submit" class="btn btn-primary">Next: Personality</button>
+        <button type="submit" class="btn btn-primary">Next: LLM Configuration</button>
     </div>
 </form>
 {% endblock %}
