@@ -6,6 +6,12 @@ Telegram bot plugin for personality-driven conversational agents. Connects to Te
 
 The Telegram plugin turns your personality into a Telegram bot. Users can message the bot, and it responds using the personality's voice, backstory, and knowledge base. The plugin handles conversation history per chat, rate limiting per user, command routing, and security via boundary markers for all external input.
 
+## Concepts
+
+**Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The Telegram plugin is a **functional plugin** that turns your identity into a Telegram bot.
+
+**How Telegram fits in**: The plugin handles the Telegram Bot API (polling, message routing, rate limiting) while the identity provides the personality voice via `build_system_prompt()`. All user input passes through boundary markers and SafeLLMPipeline. If a shared `conversation_tracker` capability is available, it uses that for persistent history across restarts.
+
 ## Features
 
 - **Polling Mode**: Automatic message polling via Telegram Bot API

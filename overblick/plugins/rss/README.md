@@ -6,6 +6,12 @@ RSS/Atom feed monitor that identifies relevant items based on personality intere
 
 The RSS plugin will monitor RSS/Atom feeds (news, blogs, podcasts, etc.), identify items matching the personality's interests, generate commentary via LLM, and post to other platforms (Moltbook, Telegram, etc.) or store for review. Perfect for content curation agents who want to comment on the latest AI news, crypto developments, or tech trends.
 
+## Concepts
+
+**Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The RSS plugin is a **shell plugin** --- the interface is defined but RSS parsing integration is not yet complete.
+
+**What "shell" means**: The plugin class exists, loads configuration (feed URLs, keywords, poll intervals), and passes all base interface tests. However, it does not fetch or parse feeds. When implemented, it will use feedparser for parsing and the identity's personality voice for generating commentary on relevant articles. Compare with the AI Digest plugin, which already implements RSS-to-email with a similar pipeline.
+
 ## Features (Planned)
 
 - **Multi-Feed Monitoring**: Poll multiple RSS/Atom feeds with configurable intervals

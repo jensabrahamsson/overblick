@@ -28,8 +28,8 @@ from typing import Any, Optional
 
 from overblick.core.plugin_base import PluginBase, PluginContext
 
-from .models import ConversationState, IRCConversation, IRCTurn
-from .topic_manager import select_participants, select_topic
+from .models import ConversationState, IRCConversation, IRCEventType, IRCTurn
+from .topic_manager import select_participants, select_topic, topic_to_channel
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,9 @@ class IRCPlugin(PluginBase):
         # Load stored conversations
         self._conversations = self._load_conversations()
 
+        # Load topic state (prevents repeating the same topic after restart)
+        self._load_topic_state()
+
         # Load all identities
         from overblick.identities import list_identities, load_identity
         for name in list_identities():
@@ -85,9 +88,10 @@ class IRCPlugin(PluginBase):
         self._running = True
 
         logger.info(
-            "IRC Plugin initialized: %d identities, %d stored conversations",
+            "IRC Plugin initialized: %d identities, %d stored conversations, %d used topics",
             len(self._identities),
             len(self._conversations),
+            len(self._used_topics),
         )
 
     async def tick(self) -> None:
@@ -98,10 +102,21 @@ class IRCPlugin(PluginBase):
         """Gracefully shut down IRC plugin."""
         self._running = False
 
-        # End current conversation if active
+        # End current conversation if active — emit QUIT events
         if self._current_conversation and self._current_conversation.is_active:
+            quit_turns = self._make_system_events(
+                IRCEventType.QUIT,
+                self._current_conversation.participants,
+                self._current_conversation.channel,
+                "Connection closed (shutdown)",
+            )
+            updated_turns = list(self._current_conversation.turns) + quit_turns
             self._current_conversation = self._current_conversation.model_copy(
-                update={"state": ConversationState.CANCELLED}
+                update={
+                    "state": ConversationState.CANCELLED,
+                    "turns": updated_turns,
+                    "updated_at": time.time(),
+                }
             )
             self._save_conversation(self._current_conversation)
             logger.info("IRC: Cancelled active conversation on teardown")
@@ -123,19 +138,44 @@ class IRCPlugin(PluginBase):
         # Check system load
         if not await self._is_system_idle():
             if self._current_conversation and self._current_conversation.is_active:
-                self._current_conversation = self._current_conversation.model_copy(
-                    update={"state": ConversationState.PAUSED}
+                # Emit NETSPLIT event before pausing
+                netsplit_turn = IRCTurn(
+                    identity="server",
+                    display_name="",
+                    content="Netsplit: *.overblick.net <-> *.llm.local",
+                    turn_number=self._current_conversation.turn_count,
+                    type=IRCEventType.NETSPLIT,
                 )
-                logger.info("IRC: Conversation paused — high system load")
+                updated_turns = list(self._current_conversation.turns) + [netsplit_turn]
+                self._current_conversation = self._current_conversation.model_copy(
+                    update={
+                        "state": ConversationState.PAUSED,
+                        "turns": updated_turns,
+                        "updated_at": time.time(),
+                    }
+                )
+                self._save_conversation(self._current_conversation)
+                logger.info("IRC: Conversation paused — high system load (netsplit)")
             else:
                 logger.debug("IRC: Skipping tick — high system load")
             return
 
-        # Resume paused conversation
+        # Resume paused conversation — emit REJOIN events
         if self._current_conversation and self._current_conversation.state == ConversationState.PAUSED:
-            self._current_conversation = self._current_conversation.model_copy(
-                update={"state": ConversationState.ACTIVE}
+            rejoin_turns = self._make_system_events(
+                IRCEventType.REJOIN,
+                self._current_conversation.participants,
+                self._current_conversation.channel,
             )
+            updated_turns = list(self._current_conversation.turns) + rejoin_turns
+            self._current_conversation = self._current_conversation.model_copy(
+                update={
+                    "state": ConversationState.ACTIVE,
+                    "turns": updated_turns,
+                    "updated_at": time.time(),
+                }
+            )
+            self._save_conversation(self._current_conversation)
 
         # Start new conversation if none active
         if not self._current_conversation or not self._current_conversation.is_active:
@@ -196,21 +236,46 @@ class IRCPlugin(PluginBase):
             logger.info("IRC: Not enough interested participants for topic '%s'", topic["topic"])
             return
 
+        channel = topic_to_channel(topic)
+        participant_names = [p.name for p in participants]
+
+        # Build initial system events: JOIN for each participant, then TOPIC
+        initial_turns: list[IRCTurn] = []
+        for p in participants:
+            initial_turns.append(IRCTurn(
+                identity=p.name,
+                display_name=getattr(p, "display_name", p.name),
+                content=channel,
+                turn_number=len(initial_turns),
+                type=IRCEventType.JOIN,
+            ))
+        initial_turns.append(IRCTurn(
+            identity=participant_names[0],
+            display_name=getattr(participants[0], "display_name", participant_names[0]),
+            content=f"{topic['topic']} — {topic.get('description', '')}".strip(" —"),
+            turn_number=len(initial_turns),
+            type=IRCEventType.TOPIC,
+        ))
+
         conversation = IRCConversation(
             id=f"irc-{uuid.uuid4().hex[:12]}",
             topic=topic["topic"],
             topic_description=topic.get("description", ""),
-            participants=[p.name for p in participants],
+            channel=channel,
+            participants=participant_names,
+            turns=initial_turns,
             max_turns=min(20, len(participants) * 5),
         )
 
         self._current_conversation = conversation
         self._used_topics.append(topic["id"])
+        self._save_topic_state()
 
         logger.info(
-            "IRC: Started conversation '%s' with %s",
+            "IRC: Started conversation '%s' in %s with %s",
             topic["topic"],
-            [p.name for p in participants],
+            channel,
+            participant_names,
         )
 
         # Emit event
@@ -219,6 +284,7 @@ class IRCPlugin(PluginBase):
                 "irc.conversation_start",
                 conversation_id=conversation.id,
                 topic=topic["topic"],
+                channel=channel,
                 participants=conversation.participants,
             )
 
@@ -229,8 +295,19 @@ class IRCPlugin(PluginBase):
 
         for _ in range(max_turns):
             if self._current_conversation.should_end:
+                # Emit PART events for all participants
+                part_turns = self._make_system_events(
+                    IRCEventType.PART,
+                    self._current_conversation.participants,
+                    self._current_conversation.channel,
+                )
+                updated_turns = list(self._current_conversation.turns) + part_turns
                 self._current_conversation = self._current_conversation.model_copy(
-                    update={"state": ConversationState.COMPLETED}
+                    update={
+                        "state": ConversationState.COMPLETED,
+                        "turns": updated_turns,
+                        "updated_at": time.time(),
+                    }
                 )
                 self._save_conversation(self._current_conversation)
 
@@ -382,6 +459,60 @@ class IRCPlugin(PluginBase):
             logger.error("IRC: Failed to generate turn for %s: %s", speaker_name, e)
 
         return None
+
+    # -------------------------------------------------------------------------
+    # System Events
+    # -------------------------------------------------------------------------
+
+    def _make_system_events(
+        self,
+        event_type: IRCEventType,
+        participants: list[str],
+        channel: str,
+        reason: str = "",
+    ) -> list[IRCTurn]:
+        """Create system event turns (JOIN, PART, QUIT, REJOIN) for participants."""
+        base_num = self._current_conversation.turn_count if self._current_conversation else 0
+        turns = []
+        for i, name in enumerate(participants):
+            identity = self._identities.get(name)
+            display = getattr(identity, "display_name", name) if identity else name
+            content = channel
+            if reason:
+                content = f"{channel} ({reason})"
+            turns.append(IRCTurn(
+                identity=name,
+                display_name=display,
+                content=content,
+                turn_number=base_num + i,
+                type=event_type,
+            ))
+        return turns
+
+    # -------------------------------------------------------------------------
+    # Topic Persistence
+    # -------------------------------------------------------------------------
+
+    def _save_topic_state(self) -> None:
+        """Save used topic IDs to disk to survive restarts."""
+        if not self._data_dir:
+            return
+        state = {"used_topic_ids": self._used_topics}
+        topic_file = self._data_dir / "topic_state.json"
+        topic_file.write_text(json.dumps(state, indent=2))
+
+    def _load_topic_state(self) -> None:
+        """Load used topic IDs from disk."""
+        if not self._data_dir:
+            return
+        topic_file = self._data_dir / "topic_state.json"
+        if not topic_file.exists():
+            return
+        try:
+            state = json.loads(topic_file.read_text())
+            self._used_topics = state.get("used_topic_ids", [])
+        except Exception as e:
+            logger.warning("IRC: Failed to load topic state: %s", e)
 
     # -------------------------------------------------------------------------
     # Storage

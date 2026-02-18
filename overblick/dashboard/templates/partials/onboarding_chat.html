@@ -1,0 +1,45 @@
+{# Onboarding chat component — include on steps where chat should be available.
+   Requires: wizard.llm to be configured (llm_verified).
+   Pass available_personalities list for identity selector. #}
+
+{% set llm_configured = wizard.get('llm', {}) %}
+
+{% if llm_configured %}
+<!-- Chat button -->
+<button id="onboarding-chat-btn"
+        class="onboarding-chat-btn"
+        type="button"
+        aria-label="Chat with an identity"
+        aria-expanded="false"
+        title="Test an identity via chat">
+    &#x1f4ac;
+</button>
+
+<!-- Chat panel -->
+<div id="onboarding-chat-panel" class="onboarding-chat-panel" role="dialog" aria-label="Identity chat">
+    <div class="chat-header">
+        <span>Chat with identity</span>
+        <select id="chat-identity-select" class="chat-identity-select" aria-label="Select identity">
+            {% if available_personalities is defined %}
+            {% for p in available_personalities %}
+            <option value="{{ p }}">{{ p }}</option>
+            {% endfor %}
+            {% else %}
+            <option value="anomal">anomal</option>
+            <option value="cherry">cherry</option>
+            <option value="blixt">blixt</option>
+            <option value="bjork">bjork</option>
+            {% endif %}
+        </select>
+        <button class="chat-close" type="button" aria-label="Close chat">&times;</button>
+    </div>
+    <div class="chat-messages" role="log" aria-live="polite"></div>
+    <div class="chat-typing">Thinking...</div>
+    <form class="chat-input-form">
+        <input type="text" class="chat-input" placeholder="Say something..." autocomplete="off" aria-label="Chat message">
+        <button type="submit" class="chat-send-btn">Send</button>
+    </form>
+</div>
+
+<script src="/static/js/onboarding-chat.js"></script>
+{% endif %}

@@ -8,6 +8,12 @@ The host_health plugin implements a conversational loop between an agent (typica
 
 This creates a natural separation of concerns: the curious agent asks, the authoritative Supervisor inspects and answers.
 
+## Concepts
+
+**Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The Host Health plugin is a **functional plugin** that creates a philosophical health inquiry loop between an agent and the Supervisor.
+
+**How Host Health fits in**: The agent (typically Natt) has no direct bash access --- it can only *ask* about the system via IPC. The Supervisor holds the `HostInspectionCapability` (whitelisted shell commands) and responds through Anomal's personality. This separation of concerns (curious agent asks, authorized supervisor inspects) is a core architectural pattern in Overblick.
+
 ## Features
 
 - **Philosophical Motivations**: LLM-generated questions in Natt's voice (e.g., "I wonder if the machine dreams of its own entropy")

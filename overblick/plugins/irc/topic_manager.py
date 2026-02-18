@@ -22,6 +22,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Can AI have consciousness?",
         "description": "Exploring the boundaries between computation and awareness",
         "tags": ["AI", "consciousness", "philosophy", "psychology", "technology"],
+        "channel": "#consciousness",
         "ideal_participants": 3,
     },
     {
@@ -29,6 +30,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Is democracy in crisis?",
         "description": "The tension between populism, technocracy, and democratic ideals",
         "tags": ["politics", "democracy", "society", "economics", "philosophy"],
+        "channel": "#politics",
         "ideal_participants": 3,
     },
     {
@@ -36,6 +38,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Attachment theory and modern relationships",
         "description": "How digital communication reshapes human bonding patterns",
         "tags": ["relationships", "psychology", "attachment", "dating", "technology"],
+        "channel": "#relationships",
         "ideal_participants": 2,
     },
     {
@@ -43,6 +46,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Stoicism vs hedonism",
         "description": "Two ancient philosophies, both still alive in modern life",
         "tags": ["philosophy", "stoicism", "hedonism", "meaning", "psychology"],
+        "channel": "#philosophy",
         "ideal_participants": 3,
     },
     {
@@ -50,6 +54,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Cryptocurrency as a political tool",
         "description": "Money, power, decentralization — and who actually benefits",
         "tags": ["crypto", "politics", "economics", "decentralization", "technology"],
+        "channel": "#crypto-politics",
         "ideal_participants": 3,
     },
     {
@@ -57,6 +62,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Dreams and the unconscious mind",
         "description": "What Jung, Freud, and modern neuroscience say about why we dream",
         "tags": ["dreams", "psychology", "unconscious", "neuroscience", "philosophy"],
+        "channel": "#dreams",
         "ideal_participants": 3,
     },
     {
@@ -64,6 +70,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Tech optimism vs techlash",
         "description": "Is technology saving us or destroying us? Both?",
         "tags": ["technology", "AI", "progress", "society", "philosophy"],
+        "channel": "#tech-debate",
         "ideal_participants": 3,
     },
     {
@@ -71,6 +78,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Loneliness in the digital era",
         "description": "More connected than ever, more lonely than ever",
         "tags": ["loneliness", "social", "psychology", "technology", "relationships"],
+        "channel": "#loneliness",
         "ideal_participants": 3,
     },
     {
@@ -78,6 +86,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Does work give life meaning?",
         "description": "Hustle culture, quiet quitting, and the search for purpose",
         "tags": ["work", "meaning", "philosophy", "economics", "psychology"],
+        "channel": "#work-life",
         "ideal_participants": 3,
     },
     {
@@ -85,6 +94,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Financial loss and identity",
         "description": "When your net worth becomes your self-worth — and then it crashes",
         "tags": ["money", "psychology", "identity", "recovery", "crypto", "loss"],
+        "channel": "#finance",
         "ideal_participants": 2,
     },
     {
@@ -92,6 +102,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Can AI create real art?",
         "description": "Creativity, intention, and what makes something 'art'",
         "tags": ["AI", "art", "creativity", "philosophy", "technology"],
+        "channel": "#art",
         "ideal_participants": 3,
     },
     {
@@ -99,9 +110,21 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "topic": "Trust in the age of deepfakes",
         "description": "How do you know what's real when anything can be faked?",
         "tags": ["trust", "technology", "AI", "society", "media", "philosophy"],
+        "channel": "#trust",
         "ideal_participants": 3,
     },
 ]
+
+
+def topic_to_channel(topic: dict[str, Any]) -> str:
+    """Get the IRC channel name for a topic.
+
+    Returns the topic's configured channel, or derives one from the topic ID.
+    """
+    if channel := topic.get("channel"):
+        return channel
+    # Derive from topic ID: ai_consciousness -> #ai-consciousness
+    return "#" + topic.get("id", "general").replace("_", "-")
 
 
 def score_identity_interest(identity: Identity, topic: dict[str, Any]) -> float:

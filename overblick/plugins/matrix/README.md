@@ -6,6 +6,12 @@ Matrix chat agent for decentralized, privacy-focused messaging. **SHELL IMPLEMEN
 
 The Matrix plugin will connect your personality to the Matrix protocol, a decentralized, open-source messaging platform with end-to-end encryption. Perfect for privacy-focused agents like Volt. This is a **shell implementation** with the plugin interface defined, but the Matrix protocol integration is not yet complete.
 
+## Concepts
+
+**Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The Matrix plugin is a **shell plugin** --- the interface is defined but Matrix protocol integration is not yet complete.
+
+**What "shell" means**: The plugin class exists, loads configuration (homeserver, access token, room IDs), and passes all base interface tests. However, it does not connect to Matrix or process messages. When implemented, it will use end-to-end encryption via matrix-nio, making it ideal for privacy-focused identities.
+
 ## Features (Planned)
 
 - **Homeserver Authentication**: Connect to any Matrix homeserver (matrix.org, element.io, self-hosted)

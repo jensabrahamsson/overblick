@@ -6,6 +6,12 @@ HTTP webhook receiver that accepts external service events and routes them throu
 
 The Webhook plugin will expose an HTTP endpoint that accepts webhook payloads from external services (GitHub, Stripe, custom integrations, IoT devices, etc.) and processes them through the agent's personality-driven pipeline. Perfect for agents that need to react to external events (CI/CD notifications, payment alerts, sensor data, etc.).
 
+## Concepts
+
+**Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The Webhook plugin is a **shell plugin** --- the interface is defined but the HTTP server integration is not yet complete.
+
+**What "shell" means**: The plugin class exists, loads configuration (host, port, path, HMAC secret), and passes all base interface tests. However, it does not start an HTTP server or process webhook requests. When implemented, it will use aiohttp to receive webhooks and route events through the agent's personality-driven pipeline. HMAC signature verification is critical for production security.
+
 ## Features (Planned)
 
 - **HTTP Server**: Configurable endpoint (host, port, path)

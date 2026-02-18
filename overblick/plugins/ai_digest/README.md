@@ -6,6 +6,12 @@ Daily AI news digest plugin that fetches, ranks, and summarizes AI news articles
 
 The AI Digest plugin implements a fully automated morning news briefing system. It polls configured RSS feeds for AI-related content, uses the LLM to rank articles by relevance and importance, generates a personality-driven summary, and delivers it via the Gmail plugin through the event bus. The digest runs once per day at a configured hour (default 07:00 CET).
 
+## Concepts
+
+**Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The AI Digest plugin is a **scheduled plugin** that fetches RSS feeds, ranks articles via LLM, and delivers a personality-driven email digest.
+
+**How AI Digest fits in**: This plugin bridges RSS content and email delivery. It uses the identity's personality voice for digest writing, the SafeLLMPipeline for all LLM calls, and the Event Bus to trigger email sending via the Gmail capability. No secrets required for the plugin itself (RSS feeds are public), but Gmail credentials are needed for delivery.
+
 ## Features
 
 - **RSS Feed Aggregation**: Polls multiple RSS/Atom feeds for AI news (TechCrunch, ArsTechnica, The Verge by default)

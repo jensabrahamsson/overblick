@@ -6,6 +6,12 @@ Discord bot plugin for personality-driven conversational agents. **SHELL IMPLEME
 
 The Discord plugin will turn your personality into a Discord bot that can join servers, monitor channels, and respond to messages in character. This is a **shell implementation** with the plugin interface defined, but the Discord API integration is not yet complete. Community contributions are welcome!
 
+## Concepts
+
+**Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The Discord plugin is a **shell plugin** --- the interface is defined but Discord API integration is not yet complete.
+
+**What "shell" means**: The plugin class exists, loads configuration, and passes all tests for the base interface. However, it does not connect to Discord's gateway or process messages. It serves as a foundation for community contributors to build upon. When implemented, it will use `build_system_prompt()` for personality-driven responses and `SafeLLMPipeline` for all LLM calls.
+
 ## Features (Planned)
 
 - **Guild + Channel Whitelisting**: Only respond in approved servers and channels
