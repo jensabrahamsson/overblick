@@ -86,22 +86,14 @@ class SQLiteBackend(DatabaseBackend):
         return await loop.run_in_executor(self._executor, fn, *args)
 
     def _execute_sync(self, sql: str, params: Sequence[Any]) -> int:
-        try:
+        with self._conn:
             cursor = self._conn.execute(sql, params)
-            self._conn.commit()
             return cursor.rowcount
-        except sqlite3.Error:
-            self._conn.rollback()
-            raise
 
     def _execute_returning_id_sync(self, sql: str, params: Sequence[Any]) -> Optional[int]:
-        try:
+        with self._conn:
             cursor = self._conn.execute(sql, params)
-            self._conn.commit()
             return cursor.lastrowid
-        except sqlite3.Error:
-            self._conn.rollback()
-            raise
 
     def _fetch_one_sync(self, sql: str, params: Sequence[Any]) -> Optional[DatabaseRow]:
         cursor = self._conn.execute(sql, params)

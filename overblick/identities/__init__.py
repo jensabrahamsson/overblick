@@ -128,6 +128,11 @@ class SecuritySettings(BaseModel):
     block_threshold: int = 5
     block_duration_seconds: int = 1800
 
+    # Rate limiter — token bucket parameters. Defaults match the previous
+    # hardcoded values so existing identities need no YAML changes.
+    rate_limiter_max_tokens: float = 10.0
+    rate_limiter_refill_rate: float = 0.5  # tokens per second
+
 
 # ---------------------------------------------------------------------------
 # Unified Identity model

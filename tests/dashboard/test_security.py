@@ -97,6 +97,53 @@ class TestInputValidation:
             AuditFilterForm(limit=0)
 
 
+class TestRateLimiterBounds:
+    def test_windows_does_not_grow_unbounded(self):
+        """_windows dict is bounded to _MAX_TRACKED_KEYS entries."""
+        rl = RateLimiter()
+        limit = rl._MAX_TRACKED_KEYS
+        # Add one more key than the limit (each key allowed once, window=60s)
+        for i in range(limit + 1):
+            rl.check(f"key:{i}", max_requests=5, window_seconds=60)
+        assert len(rl._windows) <= limit
+
+    def test_eviction_removes_oldest_key(self):
+        """When _windows overflows, the oldest key is evicted."""
+        rl = RateLimiter()
+        limit = rl._MAX_TRACKED_KEYS
+        # Fill to the limit so the first key "key:0" is the oldest
+        for i in range(limit):
+            rl.check(f"key:{i}", max_requests=5, window_seconds=60)
+        # Adding one more should evict "key:0"
+        rl.check("key:overflow", max_requests=5, window_seconds=60)
+        assert "key:0" not in rl._windows
+
+
+class TestOnboardingLLMValidation:
+    def test_cloud_api_url_empty_is_allowed(self):
+        """Empty cloud_api_url is valid (provider may not require it)."""
+        form = OnboardingLLMForm(cloud_api_url="")
+        assert form.cloud_api_url == ""
+
+    def test_cloud_api_url_https_valid(self):
+        form = OnboardingLLMForm(cloud_api_url="https://api.example.com/v1")
+        assert form.cloud_api_url == "https://api.example.com/v1"
+
+    def test_cloud_api_url_http_valid(self):
+        form = OnboardingLLMForm(cloud_api_url="http://localhost:1234/v1")
+        assert form.cloud_api_url == "http://localhost:1234/v1"
+
+    def test_cloud_api_url_without_scheme_raises(self):
+        """cloud_api_url without http/https prefix must raise ValidationError."""
+        with pytest.raises(ValidationError):
+            OnboardingLLMForm(cloud_api_url="api.example.com/v1")
+
+    def test_cloud_api_url_ftp_scheme_raises(self):
+        """Non-http(s) scheme must raise ValidationError (SSRF prevention)."""
+        with pytest.raises(ValidationError):
+            OnboardingLLMForm(cloud_api_url="ftp://evil.com/data")
+
+
 class TestHealthEndpoint:
     @pytest.mark.asyncio
     async def test_health_is_public(self, client):

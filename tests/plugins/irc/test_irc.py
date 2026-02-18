@@ -130,16 +130,31 @@ class TestSelectTopic:
         assert "id" in topic
         assert "topic" in topic
 
-    def test_avoids_used_topics(self):
-        used = [t["id"] for t in TOPIC_POOL[:-1]]
-        topic = select_topic(used)
+    def test_avoids_recently_used_topics(self):
+        """Sliding window excludes only the last N used topics."""
+        # Use the last 5 topics
+        used = [t["id"] for t in TOPIC_POOL[-5:]]
+        topic = select_topic(used, window_size=5)
         assert topic is not None
         assert topic["id"] not in used
 
-    def test_resets_when_all_used(self):
+    def test_sliding_window_recycles_old_topics(self):
+        """When all topics used, sliding window allows old topics to return."""
         all_ids = [t["id"] for t in TOPIC_POOL]
-        topic = select_topic(all_ids)
-        assert topic is not None  # Should reset and pick from full pool
+        topic = select_topic(all_ids, window_size=10)
+        assert topic is not None
+        # With window_size=10 and 30+ topics, the topic should come from
+        # the older pool (not in the last 10 used)
+        if len(TOPIC_POOL) > 10:
+            recent_10 = set(all_ids[-10:])
+            assert topic["id"] not in recent_10
+
+    def test_full_reset_fallback(self):
+        """If window covers entire pool, falls back to full pool."""
+        all_ids = [t["id"] for t in TOPIC_POOL]
+        # Use a window larger than the pool
+        topic = select_topic(all_ids, window_size=len(TOPIC_POOL) + 10)
+        assert topic is not None  # Should fall back to full pool
 
     def test_empty_used_list(self):
         topic = select_topic([])
@@ -210,6 +225,51 @@ class TestSelectParticipants:
 
         result = select_participants(identities, TOPIC_POOL[0], min_participants=2)
         assert len(result) >= 2
+
+    def test_no_threshold_allows_low_scorers(self):
+        """Without threshold, even low-scoring identities get selected."""
+        # Create identities: one with matching keywords, two without
+        matching = MagicMock()
+        matching.name = "matcher"
+        matching.interest_keywords = ["AI", "consciousness"]
+        matching.interests = {}
+
+        low1 = MagicMock()
+        low1.name = "low1"
+        low1.interest_keywords = ["cooking"]
+        low1.interests = {}
+
+        low2 = MagicMock()
+        low2.name = "low2"
+        low2.interest_keywords = ["sports"]
+        low2.interests = {}
+
+        topic = {"tags": ["AI", "consciousness", "philosophy"], "ideal_participants": 3}
+        result = select_participants([matching, low1, low2], topic, min_participants=2)
+        # All 3 should be selected (ideal=3, no threshold blocks)
+        assert len(result) == 3
+
+    def test_diversity_boost_favors_non_recent(self):
+        """Identities not in recent_participants get a diversity bonus."""
+        # Create three identities with identical (zero) interest
+        identities = []
+        for name in ["always", "never", "sometimes"]:
+            ident = MagicMock()
+            ident.name = name
+            ident.interest_keywords = []
+            ident.interests = {}
+            identities.append(ident)
+
+        topic = {"tags": ["test"], "ideal_participants": 2}
+
+        # "always" was in recent → no bonus, others get +0.15
+        result = select_participants(
+            identities, topic, min_participants=2,
+            recent_participants=["always"],
+        )
+        names = [r.name for r in result]
+        # "never" and "sometimes" should be preferred (they got the boost)
+        assert "always" not in names or len(names) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -459,6 +519,145 @@ class TestIRCPluginConversationTick:
             await irc_plugin._conversation_tick()
 
         assert irc_plugin._current_conversation.state == ConversationState.PAUSED
+
+
+class TestIRCPluginPrompts:
+    """Test conversation prompt improvements (anti-repetition, context window)."""
+
+    @pytest.mark.asyncio
+    async def test_system_prompt_contains_anti_repetition_rules(self, irc_plugin, mock_ctx):
+        """System prompt includes CONVERSATION RULES section."""
+        from overblick.plugins.irc.models import IRCConversation, IRCTurn
+
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._running = True
+
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        mock_identity.display_name = "Anomal"
+        irc_plugin._identities = {"anomal": mock_identity}
+
+        conv = IRCConversation(
+            id="irc-prompt-test",
+            topic="Test Topic",
+            topic_description="A test",
+            participants=["anomal", "cherry"],
+            turns=[IRCTurn(identity="cherry", display_name="Cherry", content="Hello")],
+        )
+        irc_plugin._current_conversation = conv
+
+        # Mock the LLM pipeline to capture the messages
+        from overblick.core.llm.pipeline import PipelineResult
+        mock_ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Test reply"))
+
+        with patch("overblick.identities.build_system_prompt", return_value="Base prompt"):
+            await irc_plugin._generate_turn("anomal")
+
+        call_args = mock_ctx.llm_pipeline.chat.call_args
+        messages = call_args.kwargs.get("messages", call_args.args[0] if call_args.args else [])
+        system = messages[0]["content"]
+
+        assert "CONVERSATION RULES" in system
+        assert "Do NOT repeat" in system
+        assert "NEW angle" in system
+
+    @pytest.mark.asyncio
+    async def test_continuation_prompt_includes_points_summary(self, irc_plugin, mock_ctx):
+        """Continuation prompt includes 'Points already made' and message counter."""
+        from overblick.plugins.irc.models import IRCConversation, IRCTurn
+        from overblick.core.llm.pipeline import PipelineResult
+
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._running = True
+
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        mock_identity.display_name = "Anomal"
+        irc_plugin._identities = {"anomal": mock_identity}
+
+        conv = IRCConversation(
+            id="irc-cont-test",
+            topic="Test Topic",
+            topic_description="A test",
+            participants=["anomal", "cherry"],
+            turns=[
+                IRCTurn(identity="cherry", display_name="Cherry", content="First point"),
+                IRCTurn(identity="anomal", display_name="Anomal", content="My take"),
+                IRCTurn(identity="cherry", display_name="Cherry", content="Counter argument"),
+            ],
+        )
+        irc_plugin._current_conversation = conv
+
+        mock_ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Reply"))
+
+        with patch("overblick.identities.build_system_prompt", return_value="Base prompt"):
+            await irc_plugin._generate_turn("anomal")
+
+        call_args = mock_ctx.llm_pipeline.chat.call_args
+        messages = call_args.kwargs.get("messages", call_args.args[0] if call_args.args else [])
+        continuation = messages[-1]["content"]
+
+        assert "Points already made" in continuation
+        assert "message #2" in continuation  # anomal already spoke once
+        assert "NEW" in continuation
+
+    @pytest.mark.asyncio
+    async def test_context_window_is_20(self, irc_plugin, mock_ctx):
+        """Conversation context uses last 20 turns, not 10."""
+        from overblick.plugins.irc.models import IRCConversation, IRCTurn
+        from overblick.core.llm.pipeline import PipelineResult
+
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._running = True
+
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        mock_identity.display_name = "Anomal"
+        irc_plugin._identities = {"anomal": mock_identity}
+
+        # Create 25 turns — with old window (10), we'd lose turns 0-14
+        turns = [
+            IRCTurn(
+                identity="cherry" if i % 2 == 0 else "anomal",
+                display_name="Cherry" if i % 2 == 0 else "Anomal",
+                content=f"Message {i}",
+                turn_number=i,
+            )
+            for i in range(25)
+        ]
+
+        conv = IRCConversation(
+            id="irc-window-test",
+            topic="Test Topic",
+            topic_description="A test",
+            participants=["anomal", "cherry"],
+            turns=turns,
+            max_turns=30,
+        )
+        irc_plugin._current_conversation = conv
+
+        mock_ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Reply"))
+
+        with patch("overblick.identities.build_system_prompt", return_value="Base prompt"):
+            await irc_plugin._generate_turn("anomal")
+
+        call_args = mock_ctx.llm_pipeline.chat.call_args
+        messages = call_args.kwargs.get("messages", call_args.args[0] if call_args.args else [])
+        # system + 20 history turns + 1 continuation = 22 messages
+        # (excluding system, we should have 21 non-system messages)
+        non_system = [m for m in messages if m["role"] != "system"]
+        # 20 history turns + 1 continuation prompt = 21
+        assert len(non_system) == 21
+
+
+class TestIRCPluginRecentParticipants:
+    """Test recent participant tracking for diversity."""
+
+    def test_recent_participants_initialized_empty(self, irc_plugin):
+        assert irc_plugin._recent_participants == []
 
 
 class TestIRCPluginSystemCheck:

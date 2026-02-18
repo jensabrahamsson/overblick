@@ -192,3 +192,39 @@ class TestSecretsBulkImport:
         assert secrets_mgr.get("anomal", "api_key") == "key_123"
         assert secrets_mgr.get("anomal", "bot_token") == "bot_456"
         assert secrets_mgr.get("anomal", "webhook_url") == "https://example.com"
+
+
+class TestSecretsKeyringFailure:
+    """Keyring unavailability is handled safely."""
+
+    def test_keyring_error_with_no_file_raises(self, tmp_path):
+        """If keyring throws AND no fallback file exists, raise RuntimeError.
+
+        This prevents silently generating a new master key that would render
+        all existing secrets (encrypted with the old keyring-stored key)
+        permanently unreadable.
+        """
+        from unittest.mock import patch
+
+        sm = SecretsManager(secrets_dir=tmp_path / "secrets")
+        with patch("keyring.get_password", side_effect=Exception("no keyring")):
+            with pytest.raises(RuntimeError, match="Keyring is unavailable"):
+                sm._get_or_create_master_key()
+
+    def test_keyring_error_with_file_fallback_succeeds(self, tmp_path):
+        """If keyring throws but .master_key file exists, use the file key."""
+        from cryptography.fernet import Fernet
+        from unittest.mock import patch
+
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        key = Fernet.generate_key()
+        key_file = secrets_dir / ".master_key"
+        key_file.write_bytes(key)
+        key_file.chmod(0o600)
+
+        sm = SecretsManager(secrets_dir=secrets_dir)
+        with patch("keyring.get_password", side_effect=Exception("no keyring")):
+            result = sm._get_or_create_master_key()
+
+        assert result == key

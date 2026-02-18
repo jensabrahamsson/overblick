@@ -62,6 +62,9 @@ class IRCPlugin(PluginBase):
         self._identities: dict[str, Any] = {}  # Loaded identity objects
         self._data_dir: Optional[Path] = None
         self._running = False
+        self._recent_participants: list[str] = []  # Track recent participants for diversity
+        # Protects multi-step mutations of _current_conversation across await points
+        self._conversation_lock = asyncio.Lock()
 
     async def setup(self) -> None:
         """Initialize IRC plugin."""
@@ -103,23 +106,24 @@ class IRCPlugin(PluginBase):
         self._running = False
 
         # End current conversation if active — emit QUIT events
-        if self._current_conversation and self._current_conversation.is_active:
-            quit_turns = self._make_system_events(
-                IRCEventType.QUIT,
-                self._current_conversation.participants,
-                self._current_conversation.channel,
-                "Connection closed (shutdown)",
-            )
-            updated_turns = list(self._current_conversation.turns) + quit_turns
-            self._current_conversation = self._current_conversation.model_copy(
-                update={
-                    "state": ConversationState.CANCELLED,
-                    "turns": updated_turns,
-                    "updated_at": time.time(),
-                }
-            )
-            self._save_conversation(self._current_conversation)
-            logger.info("IRC: Cancelled active conversation on teardown")
+        async with self._conversation_lock:
+            if self._current_conversation and self._current_conversation.is_active:
+                quit_turns = self._make_system_events(
+                    IRCEventType.QUIT,
+                    self._current_conversation.participants,
+                    self._current_conversation.channel,
+                    "Connection closed (shutdown)",
+                )
+                updated_turns = list(self._current_conversation.turns) + quit_turns
+                self._current_conversation = self._current_conversation.model_copy(
+                    update={
+                        "state": ConversationState.CANCELLED,
+                        "turns": updated_turns,
+                        "updated_at": time.time(),
+                    }
+                )
+                self._save_conversation(self._current_conversation)
+                logger.info("IRC: Cancelled active conversation on teardown")
 
     async def _conversation_tick(self) -> None:
         """
@@ -230,7 +234,9 @@ class IRCPlugin(PluginBase):
             return
 
         identities = list(self._identities.values())
-        participants = select_participants(identities, topic)
+        participants = select_participants(
+            identities, topic, recent_participants=self._recent_participants,
+        )
 
         if len(participants) < 2:
             logger.info("IRC: Not enough interested participants for topic '%s'", topic["topic"])
@@ -296,20 +302,28 @@ class IRCPlugin(PluginBase):
         for _ in range(max_turns):
             if self._current_conversation.should_end:
                 # Emit PART events for all participants
-                part_turns = self._make_system_events(
-                    IRCEventType.PART,
-                    self._current_conversation.participants,
-                    self._current_conversation.channel,
-                )
-                updated_turns = list(self._current_conversation.turns) + part_turns
-                self._current_conversation = self._current_conversation.model_copy(
-                    update={
-                        "state": ConversationState.COMPLETED,
-                        "turns": updated_turns,
-                        "updated_at": time.time(),
-                    }
-                )
-                self._save_conversation(self._current_conversation)
+                async with self._conversation_lock:
+                    part_turns = self._make_system_events(
+                        IRCEventType.PART,
+                        self._current_conversation.participants,
+                        self._current_conversation.channel,
+                    )
+                    updated_turns = list(self._current_conversation.turns) + part_turns
+                    self._current_conversation = self._current_conversation.model_copy(
+                        update={
+                            "state": ConversationState.COMPLETED,
+                            "turns": updated_turns,
+                            "updated_at": time.time(),
+                        }
+                    )
+                    self._save_conversation(self._current_conversation)
+
+                    # Track participants for diversity rotation
+                    self._recent_participants.extend(
+                        self._current_conversation.participants
+                    )
+                    # Keep only the last ~15 names
+                    self._recent_participants = self._recent_participants[-15:]
 
                 if self.ctx.event_bus:
                     await self.ctx.event_bus.emit(
@@ -328,25 +342,28 @@ class IRCPlugin(PluginBase):
             if not response:
                 break
 
-            # Add turn
-            identity = self._identities.get(speaker_name)
-            turn = IRCTurn(
-                identity=speaker_name,
-                display_name=identity.display_name if identity else speaker_name,
-                content=response,
-                turn_number=self._current_conversation.turn_count,
-            )
+            # Add turn — lock protects the read-modify-write across the preceding await
+            async with self._conversation_lock:
+                if not self._current_conversation or not self._current_conversation.is_active:
+                    break  # teardown may have cancelled the conversation during _generate_turn
+                identity = self._identities.get(speaker_name)
+                turn = IRCTurn(
+                    identity=speaker_name,
+                    display_name=identity.display_name if identity else speaker_name,
+                    content=response,
+                    turn_number=self._current_conversation.turn_count,
+                )
 
-            updated_turns = list(self._current_conversation.turns) + [turn]
-            self._current_conversation = self._current_conversation.model_copy(
-                update={
-                    "turns": updated_turns,
-                    "updated_at": time.time(),
-                }
-            )
+                updated_turns = list(self._current_conversation.turns) + [turn]
+                self._current_conversation = self._current_conversation.model_copy(
+                    update={
+                        "turns": updated_turns,
+                        "updated_at": time.time(),
+                    }
+                )
 
-            # Save after each turn
-            self._save_conversation(self._current_conversation)
+                # Save after each turn
+                self._save_conversation(self._current_conversation)
 
             # Emit event
             if self.ctx.event_bus:
@@ -410,8 +427,13 @@ class IRCPlugin(PluginBase):
             f"\n{conversation.topic_description}"
             f"\nOther participants: {', '.join(p for p in conversation.participants if p != speaker_name)}"
             f"\nKeep responses concise (2-4 sentences). Be natural and conversational."
-            f"\nRespond to what others have said. Share your unique perspective."
             f"\nDo NOT use formal greetings or sign-offs — this is a casual group chat."
+            f"\n\n=== CONVERSATION RULES ==="
+            f"\n- Do NOT repeat points already made in this conversation."
+            f"\n- If you agree with something, BUILD on it — don't restate."
+            f"\n- Bring up a NEW angle, example, or counterpoint each time."
+            f"\n- React to what was JUST said, not to the topic in general."
+            f"\n- It's OK to disagree, shift focus, or ask a provocative question."
         )
         full_prompt = system_prompt + irc_context
 
@@ -419,7 +441,7 @@ class IRCPlugin(PluginBase):
         messages = [{"role": "system", "content": full_prompt}]
 
         # Add conversation history as alternating user/assistant messages
-        for turn in conversation.turns[-10:]:  # Last 10 turns for context
+        for turn in conversation.turns[-20:]:  # Last 20 turns for context
             role = "assistant" if turn.identity == speaker_name else "user"
             prefix = f"[{turn.display_name}] " if role == "user" else ""
             messages.append({
@@ -429,11 +451,26 @@ class IRCPlugin(PluginBase):
 
         # Add a prompt for this turn
         if conversation.turns:
+            # Count how many times this speaker has already spoken
+            speaker_msg_count = sum(
+                1 for t in conversation.turns if t.identity == speaker_name
+            )
+            # Summarize recent points to avoid repetition
+            recent_points = []
+            for t in conversation.turns[-10:]:
+                if t.content and t.identity != "server":
+                    recent_points.append(f"- {t.display_name}: {t.content[:80]}")
+            points_summary = "\n".join(recent_points) if recent_points else "None yet."
+
             # Continue the conversation
             messages.append({
                 "role": "user",
-                "content": f"[Continue the conversation as {identity.display_name}. "
-                           f"Respond to what was said above about '{conversation.topic}'.]",
+                "content": (
+                    f"[Continue the conversation as {identity.display_name}. "
+                    f"This is your message #{speaker_msg_count + 1}.\n"
+                    f"Points already made (DO NOT repeat these):\n{points_summary}\n"
+                    f"Add something NEW — a fresh angle, a specific example, or a challenge to what was just said.]"
+                ),
             })
         else:
             # Start the conversation

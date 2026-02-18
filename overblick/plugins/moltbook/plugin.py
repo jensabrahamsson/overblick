@@ -345,7 +345,13 @@ class MoltbookPlugin(PluginBase):
             logger.error("Failed to post comment: %s", e, exc_info=True)
 
     async def _check_own_post_replies(self) -> None:
-        """Check for new replies to our posts."""
+        """Check for new replies to our posts.
+
+        N+1 note: This issues one API call per post (up to 5) plus one
+        DB query per comment. At typical agent scale (5 posts × 10 comments)
+        this is ~55 queries per tick — acceptable. A future optimisation would
+        batch post IDs in a single SQL `WHERE post_id IN (...)` query.
+        """
         my_post_ids = await self.ctx.engagement_db.get_my_post_ids(limit=5)
         if not my_post_ids:
             return

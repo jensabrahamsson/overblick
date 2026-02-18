@@ -181,3 +181,72 @@ Every significant action is logged to an append-only SQLite audit database:
 - **Append-only**: The `AuditLog` class only has `INSERT` operations. There is no `UPDATE` or `DELETE`.
 - **WAL mode**: Uses SQLite WAL (Write-Ahead Logging) for concurrent read/write performance
 - **Dashboard reads**: The dashboard reads audit databases in `?mode=ro` (read-only mode)
+
+## Code Review Findings — Feb 2026
+
+External code review observations, categorized by outcome.
+
+### Addressed
+
+**Keyring fallback safety** (`secrets_manager.py`): If keyring was previously used to store the master key, then temporarily failed, and no file backup existed, the original code silently generated a *new* master key — rendering existing secrets permanently unreadable. Fixed: the method now tracks whether keyring threw an exception. If keyring failed AND no fallback file exists, a `RuntimeError` is raised. New keys are only generated on genuine first-time setup (nothing exists anywhere).
+
+**Rate limiter per-identity config** (`orchestrator.py`, `identities/__init__.py`): `RateLimiter` previously had hardcoded defaults (`max_tokens=10`, `refill_rate=0.5`) for all identities. These are now configurable via `security.rate_limiter_max_tokens` and `security.rate_limiter_refill_rate` in `personality.yaml`. Defaults are unchanged — all existing identities work without modification.
+
+**SQLite transaction context managers** (`sqlite_backend.py`): Replaced explicit `try/commit/except sqlite3.Error/rollback` with Python's `sqlite3.Connection` context manager (`with self._conn:`). The `except sqlite3.Error` guard missed Python-internal exceptions (e.g. `MemoryError`, `KeyboardInterrupt`) that could occur between `execute` and `commit`, leaving transactions in an inconsistent state. The context manager rolls back on any exception.
+
+### Intentional design (not changed)
+
+**`ThreadPoolExecutor(max_workers=1)`**: SQLite is not thread-safe. One dedicated thread serializes all write operations without blocking the async event loop. Increasing workers would require explicit locking around every connection call. This is the correct pattern for stdlib sqlite3 in an async context.
+
+**`Optional[object]` for LLM clients**: Three backends (`OllamaClient`, `GatewayClient`, `CloudLLMClient`) share a structural interface but no formal `Protocol`. The `object` annotation reflects genuine polymorphism via duck typing. A typed Protocol refactor is possible future work but not a correctness issue.
+
+**Preflight cache TTL**: The preflight cache has an explicit `cache_ttl` parameter (default 3600s) and `_evict_expired_cache()`. Eviction fires on cache access, not a background timer — appropriate for agent-scale message volumes where a background eviction goroutine would add complexity without meaningful benefit.
+
+---
+
+## Three-Pass Security Review (February 2026)
+
+A comprehensive three-pass review was conducted covering correctness, test coverage, architecture, security, documentation, and performance. Below is a summary of findings.
+
+### Confirmed false alarms — investigated but not changed
+
+| Finding | Resolution |
+|---------|-----------|
+| `rate_limiter.py` race condition | asyncio is cooperative/single-threaded. There is no `await` between the token check and token deduction in `allow()`, making concurrent race conditions impossible. A warning comment is added to `test_rate_limiter.py`. |
+| `output_safety.py` empty identity_name | Line 88 guards with `if identity_name else ""`, and line 93 filters with `if p`, so an empty string never reaches `re.compile()`. Confirmed correct via `test_empty_identity_name_does_not_crash`. |
+| `email_agent/plugin.py` silent exception | Line 155 has an explicit `raise` — the inner `try` block is only for DB cleanup on error. Exception propagation is preserved. |
+| `audit_log.py` blocking SQLite | Intentional for simplicity at agent scale (<1ms per insert, WAL-mode, sparse writes). Documented as intentional design above. |
+| `orchestrator.py` `hasattr(close)` | Defensive but correct — all three LLM backends implement `close()`. |
+
+### Addressed findings
+
+| # | Finding | Fix |
+|---|---------|-----|
+| 1 | `_is_plugin_stopped()` — synchronous `read_text()` in async path | Converted to `async def` using `asyncio.to_thread()`. Caller lambda updated to `await`. |
+| 2 | `except Exception: pass` without logging | Added `logger.debug("Could not read plugin control file: %s", e)`. |
+| 3 | `_windows` dict unbounded in `dashboard/security.py` | Added `_MAX_TRACKED_KEYS = 2000` class constant and LRU eviction in `check()`. |
+| 4 | Admin bypass not logged | Added `logger.debug("Preflight admin bypass for user %s", user_id)`. |
+| 5 | JSON-parse fallback in preflight not logged | Added `logger.debug("AI analysis response not valid JSON, trying regex fallback")`. |
+| 6 | `cloud_api_url` accepts non-HTTP schemes (SSRF risk) | Added `@field_validator` enforcing `http://` or `https://` prefix in `OnboardingLLMForm`. |
+| 7 | `[dev]` group in `pyproject.toml` duplicated dependencies | Removed duplicates; `[dev]` now only contains pytest-related tools. |
+| 8 | Empty `__init__.py` files in core packages | Added module docstrings to `core/__init__.py`, `core/llm/__init__.py`, `core/security/__init__.py`. |
+| 9 | `irc/plugin.py` multi-step `_current_conversation` updates across `await` points | Added `self._conversation_lock = asyncio.Lock()` and wrapped mutation blocks in `async with self._conversation_lock:`. |
+
+### Test coverage improvements
+
+Coverage for previously undertested capability modules improved significantly:
+
+| Module | Before | After |
+|--------|--------|-------|
+| `monitoring/inspector.py` | 69% | 91% |
+| `psychology/therapy_system.py` | 78% | 99% |
+| `knowledge/learning.py` | 79% | 95% |
+| `knowledge/loader.py` | 81% | 92% |
+| `knowledge/safe_learning.py` | 87% | 99% |
+
+Additional tests added: preflight cache TTL, threat score formula, admin bypass logging, rate limiter bounds, URL scheme validation, `_run_command` exception paths (timeout, FileNotFoundError), Linux memory collection, output safety edge cases.
+
+### Documented technical debt (not addressed in this review cycle)
+
+- **`email_agent/plugin.py`** (~1520 lines): Should be decomposed into `classifier.py`, `state_manager.py`, and `reply_generator.py`. Deferred as too large a refactoring for this review cycle.
+- **`moltbook/plugin.py` N+1 queries** in `_check_own_post_replies()`: Acceptable at 5 posts × 10 comments per poll cycle. A future optimization would batch the query with `post_id IN (...)` and a `GROUP BY`.

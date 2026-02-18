@@ -56,3 +56,23 @@ class TestRateLimiter:
         for i in range(500):
             rl.allow(f"key_{i}")
         assert len(rl._buckets) <= 100
+
+    def test_retry_after_with_depleted_bucket(self):
+        """retry_after() returns a positive value when bucket is depleted."""
+        rl = RateLimiter(max_tokens=2, refill_rate=0.5)  # 1 token / 2s
+        rl.allow()  # consume 1
+        rl.allow()  # consume 2 — now depleted
+        wait = rl.retry_after()
+        assert wait > 0
+        # Should refill in ~2 seconds (at 0.5 t/s rate to get 1 token)
+        assert wait <= 2.5
+
+    def test_retry_after_available_tokens(self):
+        """retry_after() returns 0.0 when tokens are available."""
+        rl = RateLimiter(max_tokens=5, refill_rate=1.0)
+        assert rl.retry_after() == 0.0
+
+    # NOTE: No concurrent access test is needed here.
+    # asyncio is cooperative (single-threaded event loop with explicit yield points).
+    # There is no `await` between the token check and the token deduction in `allow()`,
+    # so data races are impossible in asyncio. A concurrent test would be misleading.

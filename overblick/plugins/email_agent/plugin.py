@@ -15,6 +15,14 @@ Tick cycle:
    - ASK_BOSS: Send IPC to supervisor, await guidance
 4. Record classification + outcome in database
 5. If boss provides feedback, update learnings
+
+Technical debt (tracked, not addressed in Feb 2026 review):
+  This file has grown to ~1500 lines. It should be decomposed into:
+    - classifier.py     — LLM-based intent classification
+    - state_manager.py  — email state tracking and goal management
+    - reply_generator.py — reply composition and tone matching
+  The decomposition is deferred due to scope; the public API via PluginContext
+  remains stable and all code paths are tested.
 """
 
 import asyncio
@@ -295,7 +303,7 @@ class EmailAgentPlugin(PluginBase):
                 "subject": msg.subject,
                 "body": msg.body,
                 "snippet": msg.snippet,
-                "headers": msg.headers,
+                "headers": {**msg.headers, "Date": msg.timestamp},
             }
 
             # Filter old emails — mark as read but skip processing
@@ -323,8 +331,9 @@ class EmailAgentPlugin(PluginBase):
         headers = msg.get("headers", {})
         date_str = headers.get("Date") or headers.get("date")
         if not date_str:
-            # No date header — assume recent (safe default)
-            return True
+            # No date header — fail closed (skip unknown-age emails)
+            logger.warning("EmailAgent: no Date header — treating as old (fail-closed)")
+            return False
 
         try:
             msg_dt = email.utils.parsedate_to_datetime(date_str)
@@ -335,8 +344,9 @@ class EmailAgentPlugin(PluginBase):
             age_hours = (now - msg_dt).total_seconds() / 3600.0
             return age_hours <= max_hours
         except (ValueError, TypeError):
-            # Unparseable date — assume recent (safe default)
-            return True
+            # Unparseable date — fail closed (skip unknown-age emails)
+            logger.warning("EmailAgent: unparseable Date header — treating as old (fail-closed)")
+            return False
 
     async def _mark_email_read(self, message_id: str) -> None:
         """Mark an email as read in Gmail to prevent re-processing."""
