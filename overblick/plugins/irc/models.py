@@ -23,6 +23,18 @@ class ConversationState(str, Enum):
     CANCELLED = "cancelled"    # Stopped by supervisor/principal
 
 
+class IRCEventType(str, Enum):
+    """Type of event in an IRC conversation turn."""
+
+    MESSAGE = "message"        # Regular chat message
+    JOIN = "join"              # Identity joined the channel
+    PART = "part"              # Identity left the channel
+    QUIT = "quit"              # Identity disconnected
+    NETSPLIT = "netsplit"      # Network split event
+    REJOIN = "rejoin"          # Identity rejoined after split/pause
+    TOPIC = "topic"            # Channel topic was set
+
+
 class IRCTurn(BaseModel):
     """A single turn in an IRC conversation."""
 
@@ -33,6 +45,7 @@ class IRCTurn(BaseModel):
     content: str              # The message content
     timestamp: float = Field(default_factory=time.time)
     turn_number: int = 0
+    type: IRCEventType = IRCEventType.MESSAGE
 
 
 class IRCConversation(BaseModel):
@@ -41,6 +54,7 @@ class IRCConversation(BaseModel):
     id: str                                     # Unique conversation ID
     topic: str                                  # Discussion topic
     topic_description: str = ""                 # Longer description
+    channel: str = ""                           # IRC channel name (e.g. #consciousness)
     participants: list[str] = []                # Identity names
     turns: list[IRCTurn] = []                   # Conversation history
     state: ConversationState = ConversationState.ACTIVE
@@ -55,13 +69,18 @@ class IRCConversation(BaseModel):
 
     @property
     def turn_count(self) -> int:
-        """Number of turns so far."""
+        """Total number of turns (including system events)."""
         return len(self.turns)
 
     @property
+    def message_count(self) -> int:
+        """Number of actual message turns (excludes system events)."""
+        return sum(1 for t in self.turns if t.type == IRCEventType.MESSAGE)
+
+    @property
     def should_end(self) -> bool:
-        """Check if conversation has reached max turns."""
-        return self.turn_count >= self.max_turns
+        """Check if conversation has reached max message turns."""
+        return self.message_count >= self.max_turns
 
 
 class TopicState(BaseModel):

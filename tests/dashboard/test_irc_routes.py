@@ -46,6 +46,7 @@ def _make_irc_service(conversations=None, current=None):
         current.model_dump() if current else
         conv_dicts[0] if conv_dicts else None
     )
+    svc.has_data.return_value = len(conversations) > 0
 
     def get_conv(cid):
         for c in conversations:
@@ -126,24 +127,25 @@ class TestIRCPage:
 
 class TestIRCEmptyState:
     @pytest.mark.asyncio
-    async def test_irc_no_conversations(self, client, app, session_cookie):
-        """Empty state when no conversations exist."""
-        _inject_irc_service(app, _make_irc_service(conversations=[]))
+    async def test_irc_no_conversations_redirects(self, client, app, session_cookie):
+        """When no conversations exist, redirect to dashboard."""
+        svc = _make_irc_service(conversations=[])
+        svc.has_data.return_value = False
+        _inject_irc_service(app, svc)
         cookie_value, _ = session_cookie
-        resp = await client.get("/irc", cookies={SESSION_COOKIE: cookie_value})
-        assert resp.status_code == 200
-        assert "No IRC conversations yet" in resp.text
+        resp = await client.get("/irc", cookies={SESSION_COOKIE: cookie_value}, follow_redirects=False)
+        assert resp.status_code == 302
 
     @pytest.mark.asyncio
-    async def test_irc_no_service(self, client, app, session_cookie):
-        """Graceful degradation when IRC service is not available."""
+    async def test_irc_no_service_redirects(self, client, app, session_cookie):
+        """When IRC service is not available, redirect to dashboard."""
         # Remove irc_service from app state
         if hasattr(app.state, "irc_service"):
             delattr(app.state, "irc_service")
         cookie_value, _ = session_cookie
-        resp = await client.get("/irc", cookies={SESSION_COOKIE: cookie_value})
-        assert resp.status_code == 200
-        assert "No IRC conversations yet" in resp.text
+        resp = await client.get("/irc", cookies={SESSION_COOKIE: cookie_value}, follow_redirects=False)
+        assert resp.status_code == 302
+        assert "irc_not_available" in resp.headers.get("location", "")
 
 
 class TestIRCFeedPartial:

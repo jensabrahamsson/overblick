@@ -1,5 +1,7 @@
 """Tests for onboarding wizard routes."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from overblick.dashboard.auth import SESSION_COOKIE
 
@@ -24,14 +26,14 @@ class TestOnboardingWizard:
         cookie_value, _ = session_cookie
         resp = await client.get("/onboard?step=2", cookies={SESSION_COOKIE: cookie_value})
         assert resp.status_code == 200
-        assert "Choose a Personality" in resp.text
+        assert "LLM Configuration" in resp.text
 
     @pytest.mark.asyncio
     async def test_step3_renders(self, client, session_cookie):
         cookie_value, _ = session_cookie
         resp = await client.get("/onboard?step=3", cookies={SESSION_COOKIE: cookie_value})
         assert resp.status_code == 200
-        assert "LLM Configuration" in resp.text
+        assert "Choose a Personality" in resp.text
 
     @pytest.mark.asyncio
     async def test_step4_renders(self, client, session_cookie):
@@ -127,29 +129,13 @@ class TestOnboardingStep1:
 
 class TestOnboardingStep2:
     @pytest.mark.asyncio
-    async def test_personality_submit(self, client, session_cookie):
-        """Step 2 submits personality choice and redirects."""
-        cookie_value, csrf = session_cookie
-        resp = await client.post(
-            "/onboard",
-            data={"step": "2", "personality": "anomal"},
-            cookies={SESSION_COOKIE: cookie_value},
-            headers={"X-CSRF-Token": csrf},
-            follow_redirects=False,
-        )
-        assert resp.status_code == 302
-        assert "step=3" in resp.headers.get("location", "")
-
-
-class TestOnboardingStep3:
-    @pytest.mark.asyncio
     async def test_llm_config_submit(self, client, session_cookie):
-        """Step 3 submits LLM configuration."""
+        """Step 2 submits LLM configuration and redirects."""
         cookie_value, csrf = session_cookie
         resp = await client.post(
             "/onboard",
             data={
-                "step": "3",
+                "step": "2",
                 "model": "qwen3:8b",
                 "temperature": "0.7",
                 "max_tokens": "2000",
@@ -160,7 +146,7 @@ class TestOnboardingStep3:
             follow_redirects=False,
         )
         assert resp.status_code == 302
-        assert "step=4" in resp.headers.get("location", "")
+        assert "step=3" in resp.headers.get("location", "")
 
     @pytest.mark.asyncio
     async def test_llm_invalid_temperature(self, client, session_cookie):
@@ -169,7 +155,7 @@ class TestOnboardingStep3:
         resp = await client.post(
             "/onboard",
             data={
-                "step": "3",
+                "step": "2",
                 "model": "qwen3:8b",
                 "temperature": "not_a_number",
                 "max_tokens": "2000",
@@ -179,6 +165,22 @@ class TestOnboardingStep3:
             headers={"X-CSRF-Token": csrf},
         )
         assert resp.status_code == 400
+
+
+class TestOnboardingStep3:
+    @pytest.mark.asyncio
+    async def test_personality_submit(self, client, session_cookie):
+        """Step 3 submits personality choice and redirects."""
+        cookie_value, csrf = session_cookie
+        resp = await client.post(
+            "/onboard",
+            data={"step": "3", "personality": "anomal"},
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+        assert "step=4" in resp.headers.get("location", "")
 
 
 class TestOnboardingStep4:
@@ -321,10 +323,16 @@ class TestOnboardingWizardState:
         )
         assert resp.status_code == 302
 
-        # Submit step 2
+        # Submit step 2 (LLM config)
         resp = await client.post(
             "/onboard",
-            data={"step": "2", "personality": "cherry"},
+            data={
+                "step": "2",
+                "model": "qwen3:8b",
+                "temperature": "0.7",
+                "max_tokens": "2000",
+                "provider": "ollama",
+            },
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf},
             follow_redirects=False,
@@ -366,3 +374,113 @@ class TestOnboardingWizardState:
         )
         assert resp.status_code == 302
         assert resp.headers.get("location") == "/"
+
+
+class TestOnboardingChat:
+    """Tests for onboarding chat and LLM test endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_chat_missing_body(self, client, session_cookie):
+        """Chat endpoint returns 400 for invalid JSON."""
+        cookie_value, csrf = session_cookie
+        resp = await client.post(
+            "/onboard/chat",
+            content=b"not json",
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf, "Content-Type": "application/json"},
+        )
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data["success"] is False
+
+    @pytest.mark.asyncio
+    async def test_chat_missing_fields(self, client, session_cookie):
+        """Chat endpoint returns 400 when identity_name or message missing."""
+        cookie_value, csrf = session_cookie
+        resp = await client.post(
+            "/onboard/chat",
+            json={"identity_name": "", "message": ""},
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data["success"] is False
+
+    @pytest.mark.asyncio
+    @patch("overblick.shared.onboarding_chat.chat_with_identity", new_callable=AsyncMock)
+    async def test_chat_success(self, mock_chat, client, session_cookie):
+        """Chat endpoint calls shared chat function and returns response."""
+        mock_chat.return_value = {
+            "response": "Hello! I am Anomal.",
+            "identity": "anomal",
+            "success": True,
+        }
+        cookie_value, csrf = session_cookie
+
+        # First configure LLM in wizard state
+        await client.post(
+            "/onboard",
+            data={
+                "step": "2", "model": "qwen3:8b", "temperature": "0.7",
+                "max_tokens": "2000", "provider": "ollama",
+            },
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
+            follow_redirects=False,
+        )
+
+        resp = await client.post(
+            "/onboard/chat",
+            json={"identity_name": "anomal", "message": "Who are you?"},
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["response"] == "Hello! I am Anomal."
+        mock_chat.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_test_llm_no_config(self, client, session_cookie):
+        """Test LLM endpoint returns 400 when no LLM is configured."""
+        cookie_value, csrf = session_cookie
+        resp = await client.post(
+            "/onboard/test-llm",
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data["success"] is False
+        assert "Configure LLM" in data["error"]
+
+    @pytest.mark.asyncio
+    @patch("overblick.shared.onboarding_chat.test_llm_connection", new_callable=AsyncMock)
+    async def test_test_llm_success(self, mock_test, client, session_cookie):
+        """Test LLM endpoint calls shared test function."""
+        mock_test.return_value = {"success": True, "provider": "llm", "response": "Hello!"}
+        cookie_value, csrf = session_cookie
+
+        # Configure LLM first
+        await client.post(
+            "/onboard",
+            data={
+                "step": "2", "model": "qwen3:8b", "temperature": "0.7",
+                "max_tokens": "2000", "provider": "ollama",
+            },
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
+            follow_redirects=False,
+        )
+
+        resp = await client.post(
+            "/onboard/test-llm",
+            cookies={SESSION_COOKIE: cookie_value},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        mock_test.assert_called_once()

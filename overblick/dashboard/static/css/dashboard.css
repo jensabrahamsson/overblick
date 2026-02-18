@@ -569,6 +569,119 @@ button:focus-visible,
 .form-checkbox input[type="radio"] { accent-color: var(--accent); }
 .checkbox-grid { display: flex; flex-direction: column; gap: var(--space-sm); }
 
+/* --- Plugin Cards (Onboarding Step 4) --- */
+.plugin-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--space-md);
+}
+.plugin-card-grid--caps {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.plugin-card {
+    cursor: pointer;
+    display: block;
+}
+.plugin-card input[type="checkbox"] {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+.plugin-card-inner {
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    height: 100%;
+}
+.plugin-card-inner:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.plugin-card input:focus-visible + .plugin-card-inner {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.plugin-card input:checked + .plugin-card-inner {
+    border-color: var(--green);
+    background: rgba(63, 185, 80, 0.08);
+    box-shadow: 0 0 12px rgba(63, 185, 80, 0.12);
+}
+.plugin-card--shell .plugin-card-inner {
+    border-color: var(--bg-tertiary);
+}
+.plugin-card--shell .plugin-card-name {
+    color: var(--text-secondary);
+}
+.plugin-card--shell input:checked + .plugin-card-inner {
+    border-color: var(--green);
+}
+.plugin-card--shell input:checked + .plugin-card-inner .plugin-card-name {
+    color: var(--text-primary);
+}
+.plugin-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+}
+.plugin-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem; height: 2.2rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+.plugin-card-status {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.4rem;
+    border-radius: var(--radius-sm);
+}
+.plugin-card-status--functional {
+    color: var(--green);
+    background: rgba(63, 185, 80, 0.1);
+}
+.plugin-card-status--shell {
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+}
+.plugin-card-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+.plugin-card-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+.plugin-card--cap .plugin-card-inner {
+    border-color: rgba(188, 140, 255, 0.2);
+}
+.plugin-card--cap input:checked + .plugin-card-inner {
+    border-color: var(--purple);
+    background: rgba(188, 140, 255, 0.08);
+    box-shadow: 0 0 12px rgba(188, 140, 255, 0.12);
+}
+.selection-counter {
+    text-align: center;
+    padding: var(--space-sm);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
 /* --- Radio Cards (Personality Selector) --- */
 .radio-grid {
     display: grid;
@@ -1135,6 +1248,381 @@ button:focus-visible,
 
 @media (max-width: 480px) {
     .system-gauge-grid { grid-template-columns: 1fr; }
+}
+
+/* --- IRC Log Styles --- */
+.irc-log {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    background: #0a0e14;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    overflow-y: auto;
+}
+
+.irc-line {
+    display: flex;
+    gap: 0.5ch;
+    align-items: baseline;
+    padding: 1px 0;
+}
+
+.irc-time {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    font-size: 0.8rem;
+}
+
+.irc-nick {
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.irc-text {
+    color: var(--text-primary);
+    word-break: break-word;
+}
+
+/* System events (join, part, quit, netsplit, topic) */
+.irc-event {
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 2px 0;
+}
+
+.irc-event-marker {
+    font-style: normal;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.irc-event--join .irc-event-marker,
+.irc-event--rejoin .irc-event-marker { color: var(--green); }
+.irc-event--join,
+.irc-event--rejoin { color: var(--green); }
+
+.irc-event--part .irc-event-marker,
+.irc-event--quit .irc-event-marker { color: var(--red); }
+.irc-event--part,
+.irc-event--quit { color: var(--red); }
+
+.irc-event--netsplit .irc-event-marker { color: var(--amber); }
+.irc-event--netsplit { color: var(--amber); }
+
+.irc-event--topic .irc-event-marker { color: var(--purple); }
+.irc-event--topic { color: var(--purple); }
+
+/* Channel name styling */
+.irc-channel-name {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* IRC sidebar */
+.irc-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    overflow-y: auto;
+    max-height: 75vh;
+}
+
+.irc-sidebar-item {
+    display: block;
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    transition: background 0.15s;
+}
+
+.irc-sidebar-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.irc-sidebar-item--active {
+    border-color: var(--accent);
+    background: var(--bg-tertiary);
+}
+
+.irc-sidebar-channel {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.irc-sidebar-topic {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.irc-sidebar-meta {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* IRC header */
+.irc-header {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-sm);
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.irc-header-channel {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.irc-header-topic {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.irc-header-meta {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+/* Status banner inside feed */
+.irc-status-banner {
+    text-align: center;
+    padding: var(--space-md);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+}
+
+.irc-status-banner--paused { color: var(--amber); }
+.irc-status-banner--completed { color: var(--text-muted); }
+.irc-status-banner--cancelled { color: var(--red); }
+
+@media (max-width: 768px) {
+    .irc-sidebar { display: none; }
+}
+
+/* --- Onboarding Chat Panel --- */
+.onboarding-chat-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    z-index: 1000;
+    transition: background 0.2s, transform 0.15s;
+}
+
+.onboarding-chat-btn:hover {
+    background: var(--accent-hover);
+    transform: scale(1.05);
+}
+
+.onboarding-chat-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.onboarding-chat-btn:disabled {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.onboarding-chat-panel {
+    position: fixed;
+    bottom: 5rem;
+    right: 2rem;
+    width: 380px;
+    max-height: 480px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    display: none;
+    flex-direction: column;
+    z-index: 1001;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    font-family: var(--font-mono);
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.chat-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 2px 6px;
+}
+
+.chat-close:hover { color: var(--text-primary); }
+.chat-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.chat-identity-select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    margin: 0 0.75rem;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    min-height: 200px;
+    max-height: 300px;
+}
+
+.chat-msg {
+    margin-bottom: 0.75rem;
+}
+
+.chat-msg-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.chat-msg--user .chat-msg-label { color: var(--accent); }
+.chat-msg--assistant .chat-msg-label { color: var(--green); }
+
+.chat-msg-text {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+}
+
+.chat-msg--user .chat-msg-text {
+    background: rgba(88, 166, 255, 0.1);
+    border-left: 2px solid var(--accent);
+}
+
+.chat-msg--assistant .chat-msg-text {
+    border-left: 2px solid var(--green);
+}
+
+.chat-msg--system {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    padding: 0.25rem;
+}
+
+.chat-typing {
+    display: none;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.chat-input-form {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
+.chat-input {
+    flex: 1;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+}
+
+.chat-input:focus { border-color: var(--accent); }
+
+.chat-send-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.chat-send-btn:hover { background: var(--accent-hover); }
+.chat-send-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --- Chat panel mobile --- */
+@media (max-width: 480px) {
+    .onboarding-chat-panel {
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-height: 70vh;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+    .onboarding-chat-btn {
+        bottom: 1rem;
+        right: 1rem;
+    }
 }
 
 /* --- Reduced Motion --- */

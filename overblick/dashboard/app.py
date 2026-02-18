@@ -78,6 +78,17 @@ def _format_epoch(value: int | float) -> str:
         return str(value)
 
 
+def _format_irc_time(value: int | float) -> str:
+    """Format Unix timestamp to IRC-style [HH:MM] format."""
+    from datetime import datetime
+
+    try:
+        dt = datetime.fromtimestamp(float(value))
+        return dt.strftime("[%H:%M]")
+    except (ValueError, TypeError, OSError):
+        return "[??:??]"
+
+
 def _is_operational_cap(name: str) -> bool:
     """Check if a capability is operational (I/O, communication, monitoring).
 
@@ -105,9 +116,12 @@ def _create_templates() -> Jinja2Templates:
     # Register global template functions
     env.globals["_format_uptime"] = _format_uptime
     env.globals["_is_operational_cap"] = _is_operational_cap
+    # Default irc_enabled — overridden in lifespan once services are initialized
+    env.globals["irc_enabled"] = lambda: False
 
     # Register filters
     env.filters["epoch_to_datetime"] = _format_epoch
+    env.filters["irc_time"] = _format_irc_time
 
     templates = Jinja2Templates(env=env)
     return templates
@@ -134,6 +148,13 @@ async def lifespan(app: FastAPI):
     # Initialize service layer
     from .services import init_services
     await init_services(app, config)
+
+    # Register nav context globals (must be after services are initialized)
+    def _check_irc_enabled() -> bool:
+        irc_svc = getattr(app.state, "irc_service", None)
+        return irc_svc.has_data() if irc_svc else False
+
+    app.state.templates.env.globals["irc_enabled"] = _check_irc_enabled
 
     yield
 

@@ -10,7 +10,7 @@ Data is read via IRCService (JSON files), not from live plugin instances.
 import logging
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,18 @@ def _identity_color(name: str) -> str:
     return f"hsl({hue}, 65%, 60%)"
 
 
+def _is_irc_enabled(request: Request) -> bool:
+    """Check if IRC has any data to display."""
+    irc_service = _get_irc_service(request)
+    return irc_service.has_data() if irc_service else False
+
+
 @router.get("/irc", response_class=HTMLResponse)
 async def irc_page(request: Request):
     """Render the IRC conversations page."""
+    if not _is_irc_enabled(request):
+        return RedirectResponse("/?info=irc_not_available", status_code=302)
+
     templates = request.app.state.templates
 
     irc_service = _get_irc_service(request)

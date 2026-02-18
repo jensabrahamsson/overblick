@@ -8,6 +8,12 @@ Unlike a classic email filter (hard-coded if/else routing), the Email Agent uses
 
 The plugin is designed around the **Stål** personality — an experienced executive secretary with decades of diplomatic and corporate communication experience. Stål is the natural match for this plugin because the role requires precisely what Stål embodies: multilingual precision, professional judgment, cultural sensitivity, and Swiss-banker discretion. See the [Stål personality README](../../personalities/stal/README.md) for the full character profile.
 
+## Concepts
+
+**Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The Email Agent is a **functional plugin** that classifies emails via LLM and executes actions (ignore, notify, reply, ask boss).
+
+**How Email Agent fits in**: This plugin orchestrates several capabilities: `gmail` (fetch/send email), `telegram_notifier` (tracked notifications with feedback loop), and `boss_request` (supervisor research via IPC). The identity's personality drives reply tone and classification judgment. Designed around the Stal identity but usable by any identity with appropriate capabilities.
+
 ## Features
 
 - **LLM-Driven Classification**: Every email is classified by the LLM with confidence scoring — no hard-coded rules

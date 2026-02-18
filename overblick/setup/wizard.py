@@ -670,6 +670,54 @@ def register_routes(app: FastAPI) -> None:
         except Exception as e:
             return HTMLResponse(f'<span class="badge badge-red">Failed</span><span class="test-detail">{e}</span>')
 
+    # --- Chat endpoint ---
+
+    @app.post("/chat")
+    async def chat(request: Request):
+        """Chat with an identity during setup (LLM-powered)."""
+        from fastapi.responses import JSONResponse
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse(
+                {"success": False, "error": "Invalid JSON body."},
+                status_code=400,
+            )
+
+        identity_name = body.get("identity_name", "")
+        message = body.get("message", "")
+
+        if not identity_name or not message:
+            return JSONResponse(
+                {"success": False, "error": "identity_name and message are required."},
+                status_code=400,
+            )
+
+        llm_config = state.get("llm", {})
+
+        from overblick.shared.onboarding_chat import chat_with_identity
+        result = await chat_with_identity(identity_name, message, llm_config)
+
+        return JSONResponse(result)
+
+    @app.post("/test-llm")
+    async def test_llm(request: Request):
+        """Test LLM connection during setup."""
+        from fastapi.responses import JSONResponse
+
+        llm_config = state.get("llm", {})
+        if not llm_config:
+            return JSONResponse(
+                {"success": False, "error": "Configure LLM settings first."},
+                status_code=400,
+            )
+
+        from overblick.shared.onboarding_chat import test_llm_connection
+        result = await test_llm_connection(llm_config)
+
+        return JSONResponse(result)
+
     # --- Shutdown endpoint ---
 
     @app.post("/shutdown")

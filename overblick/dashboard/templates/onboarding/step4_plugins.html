@@ -2,11 +2,26 @@
 
 {% block wizard_content %}
 <h2 class="wizard-title">Plugins &amp; Capabilities</h2>
-<p class="wizard-desc">Select which plugins and capability bundles to enable.</p>
+<p class="wizard-desc">Select which plugins and capability bundles to enable for this identity.
+Each plugin connects your agent to a platform or service.</p>
 
 {% if error %}
 <div class="flash flash-error">{{ error }}</div>
 {% endif %}
+
+{# Plugin metadata — descriptions, icons, and status for each known plugin #}
+{% set plugin_meta = {
+    'moltbook': {'icon': 'Mb', 'desc': 'Forum posting and engagement on Moltbook social platform.', 'status': 'functional'},
+    'telegram': {'icon': 'Tg', 'desc': 'Telegram bot integration for notifications and commands.', 'status': 'functional'},
+    'email_agent': {'icon': 'Em', 'desc': 'Email processing, triage, and automated responses.', 'status': 'functional'},
+    'host_health': {'icon': 'Hh', 'desc': 'Server monitoring, health checks, and system alerts.', 'status': 'functional'},
+    'ai_digest': {'icon': 'Ai', 'desc': 'AI-powered content digest and summarization.', 'status': 'functional'},
+    'irc': {'icon': 'Ir', 'desc': 'IRC-style autonomous conversations between identities.', 'status': 'functional'},
+    'discord': {'icon': 'Dc', 'desc': 'Discord bot integration for server interactions.', 'status': 'shell'},
+    'matrix': {'icon': 'Mx', 'desc': 'Matrix/Element decentralized chat integration.', 'status': 'shell'},
+    'rss': {'icon': 'Rs', 'desc': 'RSS feed monitoring and content aggregation.', 'status': 'shell'},
+    'webhook': {'icon': 'Wh', 'desc': 'Incoming webhook receiver for external integrations.', 'status': 'shell'},
+} %}
 
 <form method="post" action="/onboard" class="wizard-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -14,12 +29,24 @@
 
     <div class="form-group">
         <label class="form-label">Plugins</label>
-        <div class="checkbox-grid">
+        <p class="form-hint" style="margin-bottom: var(--space-sm);">
+            A plugin connects your identity to an external platform or service.
+            Functional plugins are production-ready. Shell plugins have basic scaffolding.
+        </p>
+        <div class="plugin-card-grid">
             {% for plugin in available_plugins %}
-            <label class="form-checkbox">
-                <input type="checkbox" name="plugins" value="{{ plugin }}"
+            {% set meta = plugin_meta.get(plugin, {'icon': plugin[:2]|upper, 'desc': plugin|replace('_', ' ')|title ~ ' plugin.', 'status': 'unknown'}) %}
+            <label class="plugin-card {% if meta.status == 'shell' %}plugin-card--shell{% endif %}" for="plugin-{{ plugin }}">
+                <input type="checkbox" id="plugin-{{ plugin }}" name="plugins" value="{{ plugin }}"
                        {% if plugin in wizard.get('plugins', []) %}checked{% endif %}>
-                <span>{{ plugin }}</span>
+                <div class="plugin-card-inner">
+                    <div class="plugin-card-header">
+                        <span class="plugin-card-icon">{{ meta.icon }}</span>
+                        <span class="plugin-card-status plugin-card-status--{{ meta.status }}">{{ meta.status }}</span>
+                    </div>
+                    <div class="plugin-card-name">{{ plugin | replace('_', ' ') | title }}</div>
+                    <div class="plugin-card-desc">{{ meta.desc }}</div>
+                </div>
             </label>
             {% endfor %}
         </div>
@@ -27,15 +54,25 @@
 
     <div class="form-group">
         <label class="form-label">Capability Bundles</label>
-        <div class="checkbox-grid">
+        <p class="form-hint" style="margin-bottom: var(--space-sm);">
+            Capabilities are reusable skills shared across plugins (analysis, composition, notifications).
+        </p>
+        <div class="plugin-card-grid plugin-card-grid--caps">
             {% for bundle, caps in capability_bundles.items() %}
-            <label class="form-checkbox">
-                <input type="checkbox" name="capabilities" value="{{ bundle }}"
+            <label class="plugin-card plugin-card--cap" for="cap-{{ bundle }}">
+                <input type="checkbox" id="cap-{{ bundle }}" name="capabilities" value="{{ bundle }}"
                        {% if bundle in wizard.get('capabilities', []) %}checked{% endif %}>
-                <span>{{ bundle }} <span class="text-muted">({{ caps|join(', ') }})</span></span>
+                <div class="plugin-card-inner">
+                    <div class="plugin-card-name">{{ bundle | replace('_', ' ') | title }}</div>
+                    <div class="plugin-card-desc">{{ caps|join(', ') }}</div>
+                </div>
             </label>
             {% endfor %}
         </div>
+    </div>
+
+    <div id="plugin-counter" class="selection-counter" aria-live="polite">
+        <strong id="plugin-count">0</strong> plugins selected
     </div>
 
     <div class="wizard-actions">
@@ -43,4 +80,19 @@
         <button type="submit" class="btn btn-primary">Next: Secrets</button>
     </div>
 </form>
+
+<script>
+(function() {
+    var checkboxes = document.querySelectorAll('.plugin-card input[type="checkbox"]');
+    var countEl = document.getElementById('plugin-count');
+    function update() {
+        var n = 0;
+        checkboxes.forEach(function(cb) { if (cb.checked) n++; });
+        if (countEl) countEl.textContent = n;
+    }
+    checkboxes.forEach(function(cb) { cb.addEventListener('change', update); });
+    update();
+})();
+</script>
+{% include "partials/onboarding_chat.html" %}
 {% endblock %}

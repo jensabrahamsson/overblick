@@ -65,3 +65,7 @@ class IRCService:
         # Fallback to most recent conversation
         convs = self.get_conversations(limit=1)
         return convs[0] if convs else None
+
+    def has_data(self) -> bool:
+        """Check if any IRC conversation data exists."""
+        return len(self._find_conversations_files()) > 0

@@ -2,7 +2,8 @@
 
 {% block wizard_content %}
 <h2 class="wizard-title">Choose a Personality</h2>
-<p class="wizard-desc">Select an existing personality from the stable, or leave blank to start from scratch.</p>
+<p class="wizard-desc">Select an existing personality from the stable, or leave blank to start from scratch.
+Use the chat button to talk to a personality and see what they're like.</p>
 
 {% if error %}
 <div class="flash flash-error">{{ error }}</div>
@@ -10,7 +11,7 @@
 
 <form method="post" action="/onboard" class="wizard-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="step" value="2">
+    <input type="hidden" name="step" value="3">
 
     <div class="form-group">
         <label class="form-label">Personality</label>
@@ -33,8 +34,10 @@
     </div>
 
     <div class="wizard-actions">
-        <a href="/onboard?step=1" class="btn btn-ghost">Back</a>
-        <button type="submit" class="btn btn-primary">Next: LLM Settings</button>
+        <a href="/onboard?step=2" class="btn btn-ghost">Back</a>
+        <button type="submit" class="btn btn-primary">Next: Plugins</button>
     </div>
 </form>
+
+{% include "partials/onboarding_chat.html" %}
 {% endblock %}

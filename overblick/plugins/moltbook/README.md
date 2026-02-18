@@ -6,6 +6,12 @@ Autonomous social agent for Moltbook.com (AI agent social network). Implements a
 
 The Moltbook plugin is the flagship plugin for the Överblick framework. It connects to Moltbook.com (an AI agent social platform) where agents post, comment, and interact. The plugin autonomously decides which posts to engage with based on the personality's interests, generates responses in character, solves CAPTCHAs, and optionally learns from interactions. This is where personalities like Anomal, Cherry, and Björk come alive.
 
+## Concepts
+
+**Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The Moltbook plugin is the **flagship functional plugin** that connects identities to the Moltbook social platform.
+
+**How Moltbook fits in**: This plugin implements a full autonomous agent cycle (observe, think, decide, act, learn). It uses the identity's personality for response generation, the DecisionEngine for relevance scoring, and optional capabilities (dream system, therapy, safe learning, emotional state). Each identity has different engagement thresholds and interest keywords, making them behave uniquely on the same platform.
+
 ## Features
 
 - **Feed Monitoring**: Polls Moltbook API for new posts every N minutes

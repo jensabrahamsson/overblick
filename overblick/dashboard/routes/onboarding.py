@@ -10,7 +10,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from ..security import OnboardingNameForm, OnboardingLLMForm
 
@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Wizard steps in order
+# Wizard steps in order (LLM before personality so chat is available early)
 STEPS = [
-    "name", "personality", "llm", "plugins",
+    "name", "llm", "personality", "plugins",
     "secrets", "review", "verify",
 ]
 
@@ -94,9 +94,15 @@ async def onboard_page(request: Request):
         system_svc = request.app.state.system_service
         context["available_plugins"] = system_svc.get_available_plugins()
         context["capability_bundles"] = system_svc.get_capability_bundles()
+        # Personalities for chat selector
+        personality_svc = request.app.state.personality_service
+        context["available_personalities"] = personality_svc.list_identities()
 
     elif step_name == "review":
         context["summary"] = _build_summary(wizard_state, request)
+        # Personalities for chat selector
+        personality_svc = request.app.state.personality_service
+        context["available_personalities"] = personality_svc.list_identities()
 
     elif step_name == "verify":
         context["result"] = wizard_state.get("creation_result", {})
@@ -216,6 +222,53 @@ async def onboard_submit(request: Request):
         return RedirectResponse("/", status_code=302)
 
     return RedirectResponse(_step_url(next_step), status_code=302)
+
+
+@router.post("/onboard/chat")
+async def onboard_chat(request: Request):
+    """Chat with an identity during onboarding (LLM-powered)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            {"success": False, "error": "Invalid JSON body."},
+            status_code=400,
+        )
+
+    identity_name = body.get("identity_name", "")
+    message = body.get("message", "")
+
+    if not identity_name or not message:
+        return JSONResponse(
+            {"success": False, "error": "identity_name and message are required."},
+            status_code=400,
+        )
+
+    wizard_state = _get_wizard_state(request)
+    llm_config = wizard_state.get("llm", {})
+
+    from overblick.shared.onboarding_chat import chat_with_identity
+    result = await chat_with_identity(identity_name, message, llm_config)
+
+    return JSONResponse(result)
+
+
+@router.post("/onboard/test-llm")
+async def onboard_test_llm(request: Request):
+    """Test LLM connection during onboarding."""
+    wizard_state = _get_wizard_state(request)
+    llm_config = wizard_state.get("llm", {})
+
+    if not llm_config:
+        return JSONResponse(
+            {"success": False, "error": "Configure LLM settings first."},
+            status_code=400,
+        )
+
+    from overblick.shared.onboarding_chat import test_llm_connection
+    result = await test_llm_connection(llm_config)
+
+    return JSONResponse(result)
 
 
 def _build_summary(wizard_state: dict, request: Request) -> dict:
