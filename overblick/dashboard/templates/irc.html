@@ -98,17 +98,4 @@
     </section>
 </div>
 
-<script>
-    // Scroll feed to bottom after htmx swap
-    document.body.addEventListener('htmx:afterSwap', function(e) {
-        if (e.detail.target && e.detail.target.id === 'irc-feed') {
-            e.detail.target.scrollTop = e.detail.target.scrollHeight;
-        }
-    });
-    // Initial scroll to bottom
-    (function() {
-        var feed = document.getElementById('irc-feed');
-        if (feed) feed.scrollTop = feed.scrollHeight;
-    })();
-</script>
 {% endblock %}

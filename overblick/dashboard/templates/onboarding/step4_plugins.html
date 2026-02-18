@@ -81,18 +81,6 @@ Each plugin connects your agent to a platform or service.</p>
     </div>
 </form>
 
-<script>
-(function() {
-    var checkboxes = document.querySelectorAll('.plugin-card input[type="checkbox"]');
-    var countEl = document.getElementById('plugin-count');
-    function update() {
-        var n = 0;
-        checkboxes.forEach(function(cb) { if (cb.checked) n++; });
-        if (countEl) countEl.textContent = n;
-    }
-    checkboxes.forEach(function(cb) { cb.addEventListener('change', update); });
-    update();
-})();
-</script>
+<script src="/static/js/onboarding.js"></script>
 {% include "partials/onboarding_chat.html" %}
 {% endblock %}

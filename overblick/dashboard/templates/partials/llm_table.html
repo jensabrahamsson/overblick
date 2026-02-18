@@ -30,12 +30,12 @@
 <table class="audit-table">
     <thead>
         <tr>
-            <th>Time</th>
-            <th>Identity</th>
-            <th>Action</th>
-            <th>Duration</th>
-            <th>Response</th>
-            <th>Status</th>
+            <th scope="col">Time</th>
+            <th scope="col">Identity</th>
+            <th scope="col">Action</th>
+            <th scope="col">Duration</th>
+            <th scope="col">Response</th>
+            <th scope="col">Status</th>
             <th></th>
         </tr>
     </thead>
@@ -68,7 +68,7 @@
             </td>
             <td>
                 {% if entry.error or entry.details %}
-                <button class="btn-expand" onclick="toggleDetail(this)" aria-label="Show details" aria-expanded="false">&#9660;</button>
+                <button class="btn-expand" aria-label="Show details" aria-expanded="false">&#9660;</button>
                 {% endif %}
             </td>
         </tr>
@@ -95,17 +95,6 @@
     </tbody>
 </table>
 
-<script>
-function toggleDetail(btn) {
-    var detailRow = btn.closest('tr').nextElementSibling;
-    if (detailRow && detailRow.classList.contains('audit-detail-row')) {
-        var hidden = detailRow.hidden;
-        detailRow.hidden = !hidden;
-        btn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
-        btn.textContent = hidden ? '\u25B2' : '\u25BC';
-    }
-}
-</script>
 {% else %}
 <div class="empty-state">
     <p>No LLM calls found.</p>
