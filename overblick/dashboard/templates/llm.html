@@ -7,7 +7,7 @@
 
     <!-- Filters -->
     <div class="filter-bar">
-        <select name="identity" class="form-select"
+        <select name="identity" class="form-select" aria-label="Filter by identity"
                 hx-get="/partials/llm-table"
                 hx-trigger="change"
                 hx-target="#llm-results"
@@ -19,7 +19,7 @@
             {% endfor %}
         </select>
 
-        <select name="hours" class="form-select"
+        <select name="hours" class="form-select" aria-label="Filter by time range"
                 hx-get="/partials/llm-table"
                 hx-trigger="change"
                 hx-target="#llm-results"

@@ -26,6 +26,7 @@
     <section class="section">
         <h2 class="section-title">Agent Status</h2>
         <div id="agent-status-container"
+             aria-live="polite"
              hx-get="/partials/agent-status"
              hx-trigger="every {{ poll_interval }}s"
              hx-swap="innerHTML">

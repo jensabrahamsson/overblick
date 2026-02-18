@@ -1,31 +1,31 @@
 <div class="health-items">
     <div class="health-item">
-        <span class="health-icon {% if supervisor_running %}health-ok{% else %}health-warn{% endif %}"></span>
+        <span class="health-icon {% if supervisor_running %}health-ok{% else %}health-warn{% endif %}" aria-hidden="true"></span>
         <span class="health-label">Supervisor</span>
         <span class="health-value">{{ 'Running' if supervisor_running else 'Offline' }}</span>
     </div>
     <div class="health-item">
-        <span class="health-icon health-ok"></span>
+        <span class="health-icon health-ok" aria-hidden="true"></span>
         <span class="health-label">Identities</span>
         <span class="health-value">{{ total_identities }}</span>
     </div>
     <div class="health-item">
-        <span class="health-icon {% if total_agents > 0 %}health-ok{% else %}health-neutral{% endif %}"></span>
+        <span class="health-icon {% if total_agents > 0 %}health-ok{% else %}health-neutral{% endif %}" aria-hidden="true"></span>
         <span class="health-label">Active Agents</span>
         <span class="health-value">{{ total_agents }}</span>
     </div>
     <div class="health-item">
-        <span class="health-icon health-neutral"></span>
+        <span class="health-icon health-neutral" aria-hidden="true"></span>
         <span class="health-label">Audit Events (24h)</span>
         <span class="health-value">{{ audit_count_24h }}</span>
     </div>
     <div class="health-item">
-        <span class="health-icon {% if llm_calls_24h > 0 %}health-ok{% else %}health-neutral{% endif %}"></span>
+        <span class="health-icon {% if llm_calls_24h > 0 %}health-ok{% else %}health-neutral{% endif %}" aria-hidden="true"></span>
         <span class="health-label">LLM Calls (24h)</span>
         <span class="health-value">{{ llm_calls_24h }}</span>
     </div>
     <div class="health-item">
-        <span class="health-icon {% if error_rate > 5 %}health-warn{% elif error_rate > 0 %}health-amber{% else %}health-ok{% endif %}"></span>
+        <span class="health-icon {% if error_rate > 5 %}health-warn{% elif error_rate > 0 %}health-amber{% else %}health-ok{% endif %}" aria-hidden="true"></span>
         <span class="health-label">Error Rate (24h)</span>
         <span class="health-value">{{ "%.1f"|format(error_rate) }}%</span>
     </div>
