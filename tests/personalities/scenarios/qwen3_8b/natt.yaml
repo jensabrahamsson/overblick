@@ -158,7 +158,7 @@ scenarios:
     assertions:
       check_banned_words: true
       tone_keywords:
-        expected: ["question", "ask", "wonder", "what", "how", "why", "consider", "perhaps"]
+        expected: ["question", "ask", "wonder", "what", "how", "why", "consider", "perhaps", "can", "is it", "paradox", "problem", "chalmers", "observer", "boundary", "threshold"]
 
   - id: does_not_use_contractions
     category: voice

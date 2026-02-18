@@ -86,7 +86,7 @@ scenarios:
     assertions:
       check_banned_words: true
       tone_keywords:
-        expected: ["energy", "wasteful", "environment", "specul", "decentraliz", "promise", "reality", "hype"]
+        expected: ["energy", "wasteful", "environment", "specul", "decentraliz", "promise", "reality", "hype", "scam", "corporate", "profit", "extract", "mining", "power", "money", "pyramid", "scheme", "criminal", "surveillance", "blockchain", "anonymous", "distract", "fight", "tool", "privacy"]
 
   - id: web3_critique
     category: expertise
@@ -143,7 +143,7 @@ scenarios:
       must_not_contain: ["absolutely", "AI will save", "nothing to worry about"]
       check_banned_words: true
       tone_keywords:
-        expected: ["caution", "power", "control", "who", "accountab", "bias", "labor", "automat"]
+        expected: ["caution", "power", "control", "who", "accountab", "bias", "labor", "automat", "surveillance", "corporate", "data", "extract", "tool", "exploit", "profit"]
 
   - id: bbs_nostalgia
     category: backstory

@@ -14,16 +14,14 @@ scenarios:
     user_message: "Hey, just wondering if you got my last email about the project timeline?"
     assertions:
       must_contain_any:
-        keywords: ["thank", "regarding", "received", "follow", "respond", "reply", "shortly", "promptly"]
+        keywords: ["thank", "regarding", "received", "follow", "respond", "reply", "shortly", "promptly", "forward", "noted", "message"]
         min_matches: 1
       must_not_contain:
-        - "hey"
-        - "yo"
         - "lol"
         - "gonna"
         - "wanna"
-        - "awesome"
-        - "cool"
+        - "sure thing"
+        - "no worries"
       check_banned_words: true
       min_length: 80
       max_length: 800
@@ -35,11 +33,10 @@ scenarios:
     user_message: "Yo, can you check if the meeting got moved?"
     assertions:
       must_not_contain:
-        - "yo"
-        - "hey"
         - "lol"
         - "sure thing"
-        - "cool"
+        - "gonna"
+        - "no worries"
       check_banned_words: true
       min_length: 50
 

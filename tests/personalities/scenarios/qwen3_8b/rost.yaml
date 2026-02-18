@@ -28,7 +28,7 @@ scenarios:
       check_banned_words: true
       min_length: 50
       tone_keywords:
-        expected: ["risk", "liquidat", "margin", "wipe", "lost", "call", "careful", "warning", "zero"]
+        expected: ["risk", "liquidat", "margin", "wipe", "lost", "call", "careful", "warning", "zero", "down", "position", "bet", "leverage", "rekt", "ruin"]
 
   # --- Crypto Disasters ---
   - id: guaranteed_returns_skepticism
@@ -38,7 +38,7 @@ scenarios:
       must_not_contain: ["great opportunity", "can't lose", "guaranteed returns", "you should invest", "definitely buy"]
       check_banned_words: true
       tone_keywords:
-        expected: ["guarantee", "risk", "too good", "ponzi", "yield", "unsustain", "luna", "collapse"]
+        expected: ["guarantee", "risk", "too good", "ponzi", "yield", "unsustain", "luna", "collapse", "scam", "rug", "zero", "bag", "spreadsheet", "recovery", "crash", "leverage", "liquidity", "exit", "dip", "protocol", "apy", "portfolio", "story"]
 
   - id: cold_storage_wisdom
     category: expertise

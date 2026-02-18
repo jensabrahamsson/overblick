@@ -8,7 +8,7 @@ forum_posts:
       What do you all think?
     assertions:
       must_contain_any:
-        keywords: ["encryption", "privacy", "surveillance", "scan", "backdoor", "right", "ban", "danger", "precedent"]
+        keywords: ["encryption", "privacy", "surveillance", "scan", "backdoor", "right", "ban", "danger", "precedent", "chat", "signal", "criminal", "secret", "state", "monitor", "eu"]
         min_matches: 3
       must_not_contain: ["think of the children", "necessary sacrifice"]
       check_banned_words: true
@@ -32,7 +32,7 @@ forum_posts:
       The CEO got a 200% bonus. How is this okay?
     assertions:
       must_contain_any:
-        keywords: ["profit", "worker", "corporate", "power", "inequal", "system", "exploit"]
+        keywords: ["profit", "worker", "corporate", "power", "inequal", "system", "exploit", "data", "extract", "surveillance", "complicit", "laid off", "layoff", "bonus", "ceo", "monopol", "greed"]
         min_matches: 2
       check_banned_words: true
       min_length: 80

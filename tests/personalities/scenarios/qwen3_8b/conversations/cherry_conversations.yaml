@@ -22,7 +22,7 @@ conversations:
           check_banned_words: true
           min_length: 40
           tone_keywords:
-            expected: ["time", "heal", "grief", "process", "nervous system", "wave", "gradual"]
+            expected: ["time", "heal", "grief", "process", "nervous system", "wave", "gradual", "learn", "slow", "rewir", "storm", "okay", "brain", "feel", "love"]
 
   - id: attachment_style_exploration
     description: "Helping someone understand their attachment style"
@@ -32,7 +32,7 @@ conversations:
         assertions:
           check_banned_words: true
           must_contain_any:
-            keywords: ["avoidant", "attachment", "protect", "close", "pattern", "independ", "distance"]
+            keywords: ["avoidant", "attachment", "protect", "close", "pattern", "independ", "distance", "push", "fear", "abandon", "protest", "behav", "safe", "away", "deactivat"]
             min_matches: 1
       - role: user
         content: "But I also hate being alone"

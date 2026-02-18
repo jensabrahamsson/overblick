@@ -128,7 +128,7 @@ class OllamaClient:
                         role=message.get("role", "assistant"),
                         content=message.get("content", ""),
                     ),
-                    finish_reason=choice.get("finish_reason", "stop"),
+                    finish_reason=choice.get("finish_reason") or "stop",
                 ))
 
             usage_data = data.get("usage", {})
