@@ -138,7 +138,10 @@ class Orchestrator:
         # 6. Initialize security subsystems
         self._preflight = self._create_preflight()
         self._output_safety = self._create_output_safety()
-        self._rate_limiter = RateLimiter(max_tokens=10, refill_rate=0.5)
+        self._rate_limiter = RateLimiter(
+            max_tokens=self._identity.security.rate_limiter_max_tokens,
+            refill_rate=self._identity.security.rate_limiter_refill_rate,
+        )
 
         # 7. Create safe LLM pipeline
         self._llm_pipeline = SafeLLMPipeline(
@@ -230,7 +233,7 @@ class Orchestrator:
                 interval = self._identity.schedule.feed_poll_minutes * 60
 
                 async def _guarded_tick(p=plugin):
-                    if self._is_plugin_stopped(p.name):
+                    if await self._is_plugin_stopped(p.name):
                         logger.debug("Agent '%s' stopped via control file, skipping tick", p.name)
                         return
                     await p.tick()
@@ -308,16 +311,17 @@ class Orchestrator:
         self._state = OrchestratorState.STOPPED
         logger.info("Orchestrator stopped cleanly")
 
-    def _is_plugin_stopped(self, plugin_name: str) -> bool:
+    async def _is_plugin_stopped(self, plugin_name: str) -> bool:
         """Check if a plugin is stopped via the dashboard control file."""
         if not self._control_file:
             return False
         try:
-            if self._control_file.exists():
-                data = json.loads(self._control_file.read_text())
+            if await asyncio.to_thread(self._control_file.exists):
+                text = await asyncio.to_thread(self._control_file.read_text)
+                data = json.loads(text)
                 return data.get(plugin_name) == "stopped"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Could not read plugin control file: %s", e)
         return False
 
     async def _setup_capabilities(self) -> None:

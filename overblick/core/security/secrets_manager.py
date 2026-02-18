@@ -53,13 +53,22 @@ class SecretsManager:
         return self._fernet
 
     def _get_or_create_master_key(self) -> bytes:
-        """Get master key from keyring, or create one if missing."""
+        """Get master key from keyring, or create one if missing.
+
+        Safety invariant: a new key is only generated on genuine first-time
+        setup (nothing exists anywhere). If keyring throws an exception AND no
+        fallback file exists, we raise RuntimeError to prevent silently
+        generating a new key that would make all existing secrets permanently
+        unreadable.
+        """
+        keyring_failed = False
         try:
             import keyring
             stored = keyring.get_password(_KEYRING_SERVICE, "master_key")
             if stored:
                 return stored.encode()
         except Exception as e:
+            keyring_failed = True
             logger.warning(f"Keyring unavailable ({e}), falling back to file-based key")
 
         # Fallback: key file in secrets directory
@@ -67,7 +76,17 @@ class SecretsManager:
         if key_file.exists():
             return key_file.read_bytes().strip()
 
-        # Generate new master key
+        # If keyring threw an exception AND no file backup exists, do not
+        # generate a new key — existing secrets encrypted with the old key
+        # would become permanently unreadable.
+        if keyring_failed:
+            raise RuntimeError(
+                "Keyring is unavailable and no fallback key file exists. "
+                "Existing secrets may be encrypted with a keyring-stored key. "
+                "Restore keyring access or provide the .master_key file."
+            )
+
+        # First-time setup only: generate and store new key
         from cryptography.fernet import Fernet
         new_key = Fernet.generate_key()
 

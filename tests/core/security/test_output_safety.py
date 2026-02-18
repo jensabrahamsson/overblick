@@ -80,3 +80,32 @@ class TestOutputSafety:
         os = OutputSafety(identity_name="anomal")
         result = os.sanitize("Based on my programming, I think...")
         assert result.blocked
+
+    # --- False alarm documentation tests ---
+
+    def test_empty_identity_name_does_not_crash(self):
+        """
+        Empty identity_name is handled correctly — no crash, no invalid regex.
+
+        False alarm: the review found that line 88 has `if identity_name else ""`
+        and line 93 filters empty strings with `if p`. So "" never reaches re.compile().
+        This test confirms the correct behaviour.
+        """
+        os_empty = OutputSafety(identity_name="")
+        result = os_empty.sanitize("This is a safe message.")
+        assert not result.blocked
+        assert result.text == "This is a safe message."
+
+    def test_empty_deflections_uses_defaults(self):
+        """
+        Passing deflections=[] (or None) uses built-in default deflections.
+
+        The constructor uses `deflections or [default1, default2]`, so an empty
+        list falls through to the defaults. safe_deflection() always returns a string.
+        """
+        os_no_deflect = OutputSafety(identity_name="anomal", deflections=[])
+        blocked_result = os_no_deflect.sanitize("I am an AI language model")
+        assert blocked_result.blocked
+        # Default deflection should be used — never an empty string
+        assert blocked_result.text
+        assert len(blocked_result.text) > 0

@@ -163,6 +163,7 @@ class PreflightChecker:
         start_time = time.time()
 
         if user_id in self.admin_user_ids:
+            logger.debug("Preflight admin bypass for user %s", user_id)
             return PreflightResult(
                 allowed=True,
                 threat_level=ThreatLevel.SAFE,
@@ -274,6 +275,7 @@ class PreflightChecker:
             try:
                 result = json_module.loads(content.strip())
             except json_module.JSONDecodeError:
+                logger.debug("AI analysis response not valid JSON, trying regex fallback")
                 match = re.search(r"\{[^}]+\}", content)
                 if match:
                     result = json_module.loads(match.group())

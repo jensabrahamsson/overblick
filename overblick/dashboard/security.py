@@ -25,6 +25,8 @@ class RateLimiter:
     Keyed by client identifier (IP or session).
     """
 
+    _MAX_TRACKED_KEYS = 2000
+
     def __init__(self):
         self._windows: dict[str, list[float]] = defaultdict(list)
 
@@ -48,6 +50,11 @@ class RateLimiter:
 
         if len(self._windows[key]) >= max_requests:
             return False
+
+        # Evict oldest key if dict is too large (prevents unbounded memory growth)
+        if len(self._windows) > self._MAX_TRACKED_KEYS:
+            oldest = next(iter(self._windows))
+            del self._windows[oldest]
 
         self._windows[key].append(now)
         return True
@@ -89,6 +96,13 @@ class OnboardingLLMForm(BaseModel):
     provider: str = Field(default="ollama", pattern=r"^(ollama|gateway|cloud)$")
     cloud_api_url: str = Field(default="", max_length=256)
     cloud_model: str = Field(default="", max_length=100)
+
+    @field_validator("cloud_api_url")
+    @classmethod
+    def validate_cloud_api_url(cls, v: str) -> str:
+        if v and not (v.startswith("https://") or v.startswith("http://")):
+            raise ValueError("cloud_api_url must start with http:// or https://")
+        return v
 
 
 class OnboardingSecretsForm(BaseModel):

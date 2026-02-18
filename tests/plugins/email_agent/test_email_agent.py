@@ -2008,19 +2008,19 @@ class TestMaxEmailAgeFilter:
         assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
 
     def test_is_recent_email_no_date_header(self):
-        """Missing Date header defaults to recent (True)."""
+        """Missing Date header fails closed (False) — skip unknown-age emails."""
         msg = {"headers": {}}
-        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
 
     def test_is_recent_email_no_headers(self):
-        """Missing headers dict defaults to recent (True)."""
+        """Missing headers dict fails closed (False) — skip unknown-age emails."""
         msg = {}
-        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
 
     def test_is_recent_email_unparseable_date(self):
-        """Unparseable Date header defaults to recent (True)."""
+        """Unparseable Date header fails closed (False) — skip unknown-age emails."""
         msg = {"headers": {"Date": "not-a-date"}}
-        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
 
     def test_is_recent_email_naive_datetime(self):
         """Date header without timezone is treated as UTC."""
@@ -2075,7 +2075,8 @@ class TestMaxEmailAgeFilter:
         old_msg.subject = "Old email"
         old_msg.body = "Old content"
         old_msg.snippet = "Old content"
-        old_msg.headers = {"Date": email.utils.format_datetime(old_date)}
+        old_msg.timestamp = email.utils.format_datetime(old_date)
+        old_msg.headers = {}
 
         recent_msg = MagicMock()
         recent_msg.message_id = "recent-001"
@@ -2084,7 +2085,8 @@ class TestMaxEmailAgeFilter:
         recent_msg.subject = "Recent email"
         recent_msg.body = "Recent content"
         recent_msg.snippet = "Recent content"
-        recent_msg.headers = {"Date": email.utils.format_datetime(recent_date)}
+        recent_msg.timestamp = email.utils.format_datetime(recent_date)
+        recent_msg.headers = {}
 
         mock_gmail_capability.fetch_unread = AsyncMock(return_value=[old_msg, recent_msg])
 
@@ -2151,3 +2153,36 @@ class TestMaxEmailAgeFilter:
         msg = {"headers": {"Date": date_str}}
         # Future date → age_hours is negative → negative <= 3 → True
         assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
+
+    @pytest.mark.asyncio
+    async def test_fetch_unread_propagates_date_header(
+        self, stal_plugin_context, mock_gmail_capability,
+    ):
+        """_fetch_unread() injects msg.timestamp as Date header for age filtering."""
+        from datetime import datetime, timezone, timedelta
+
+        recent_date = datetime.now(timezone.utc) - timedelta(hours=1)
+        date_str = email.utils.format_datetime(recent_date)
+
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 5
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Create mock message with timestamp but no Date in headers
+        msg = MagicMock()
+        msg.message_id = "date-prop-001"
+        msg.thread_id = "thread-001"
+        msg.sender = "test@example.com"
+        msg.subject = "Test"
+        msg.body = "Body"
+        msg.snippet = "Body"
+        msg.timestamp = date_str
+        msg.headers = {}  # No Date in headers dict
+
+        mock_gmail_capability.fetch_unread = AsyncMock(return_value=[msg])
+
+        results = await plugin._fetch_unread()
+
+        # Should be included (Date injected from timestamp)
+        assert len(results) == 1
+        assert results[0]["headers"]["Date"] == date_str

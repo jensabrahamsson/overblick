@@ -39,7 +39,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "description": "How digital communication reshapes human bonding patterns",
         "tags": ["relationships", "psychology", "attachment", "dating", "technology"],
         "channel": "#relationships",
-        "ideal_participants": 2,
+        "ideal_participants": 3,
     },
     {
         "id": "stoicism_hedonism",
@@ -95,7 +95,7 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "description": "When your net worth becomes your self-worth — and then it crashes",
         "tags": ["money", "psychology", "identity", "recovery", "crypto", "loss"],
         "channel": "#finance",
-        "ideal_participants": 2,
+        "ideal_participants": 3,
     },
     {
         "id": "art_and_ai",
@@ -111,6 +111,174 @@ TOPIC_POOL: list[dict[str, Any]] = [
         "description": "How do you know what's real when anything can be faked?",
         "tags": ["trust", "technology", "AI", "society", "media", "philosophy"],
         "channel": "#trust",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "ethics_genetic_engineering",
+        "topic": "Should we edit the human genome?",
+        "description": "CRISPR, designer babies, and the ethics of playing god",
+        "tags": ["ethics", "science", "philosophy", "technology", "society"],
+        "channel": "#ethics",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "attention_economy",
+        "topic": "The attention economy is eating us alive",
+        "description": "When your eyeballs are the product, what happens to your mind?",
+        "tags": ["technology", "psychology", "society", "media", "economics"],
+        "channel": "#attention",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "urban_vs_rural",
+        "topic": "City life vs countryside — what are we optimizing for?",
+        "description": "Density, isolation, community, and the trade-offs of where we live",
+        "tags": ["society", "psychology", "economics", "philosophy", "relationships"],
+        "channel": "#lifestyle",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "future_education",
+        "topic": "Is the education system preparing anyone for the future?",
+        "description": "Factory-model schools in an AI age — what should learning look like?",
+        "tags": ["education", "AI", "society", "philosophy", "technology"],
+        "channel": "#education",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "privacy_vs_convenience",
+        "topic": "Privacy vs convenience — which side are you on?",
+        "description": "We trade data for comfort every day. Is it worth it?",
+        "tags": ["privacy", "technology", "society", "philosophy", "economics"],
+        "channel": "#privacy",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "art_and_suffering",
+        "topic": "Does great art require suffering?",
+        "description": "The tortured artist myth — romantic ideal or harmful cliché?",
+        "tags": ["art", "psychology", "philosophy", "creativity", "meaning"],
+        "channel": "#art",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "humor_coping",
+        "topic": "Humor as a coping mechanism",
+        "description": "Why do we laugh at the darkest things? Gallows humor and resilience",
+        "tags": ["psychology", "humor", "philosophy", "meaning", "relationships"],
+        "channel": "#humor",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "nostalgia_trap",
+        "topic": "Is nostalgia a trap or a gift?",
+        "description": "Rose-tinted memories, cultural regression, and the comfort of the past",
+        "tags": ["psychology", "philosophy", "society", "meaning", "art"],
+        "channel": "#nostalgia",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "algorithms_free_will",
+        "topic": "Do algorithms undermine free will?",
+        "description": "Recommendation engines, filter bubbles, and manufactured desire",
+        "tags": ["AI", "philosophy", "technology", "psychology", "society"],
+        "channel": "#algorithms",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "paradox_of_choice",
+        "topic": "The paradox of choice — more options, less happiness?",
+        "description": "Barry Schwartz was right. Or was he?",
+        "tags": ["psychology", "economics", "philosophy", "society", "meaning"],
+        "channel": "#choices",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "community_building",
+        "topic": "What makes a real community in 2026?",
+        "description": "Discord servers, co-living, third places — where do we actually belong?",
+        "tags": ["society", "relationships", "technology", "psychology", "philosophy"],
+        "channel": "#community",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "money_happiness",
+        "topic": "Can money buy happiness? (The honest answer)",
+        "description": "Beyond $75k, diminishing returns — or is that study outdated?",
+        "tags": ["money", "psychology", "economics", "philosophy", "meaning"],
+        "channel": "#money",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "sleep_productivity",
+        "topic": "Sleep is the new status symbol",
+        "description": "Hustle culture meets sleep science — who's winning?",
+        "tags": ["psychology", "society", "philosophy", "meaning", "technology"],
+        "channel": "#sleep",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "conspiracy_thinking",
+        "topic": "Why are conspiracy theories so appealing?",
+        "description": "Pattern recognition, distrust, and the need for narrative",
+        "tags": ["psychology", "society", "philosophy", "media", "trust"],
+        "channel": "#conspiracies",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "authenticity_online",
+        "topic": "Is authenticity possible online?",
+        "description": "Curated feeds, personal brands, and the performance of 'being real'",
+        "tags": ["psychology", "technology", "society", "philosophy", "relationships"],
+        "channel": "#authenticity",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "climate_anxiety",
+        "topic": "Climate anxiety — paralysis or motivation?",
+        "description": "When the science says act now, but your brain says freeze",
+        "tags": ["psychology", "society", "philosophy", "science", "meaning"],
+        "channel": "#climate",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "gig_economy",
+        "topic": "The gig economy — freedom or exploitation?",
+        "description": "Uber drivers, freelancers, and the end of job security",
+        "tags": ["economics", "society", "technology", "philosophy", "work"],
+        "channel": "#gig-economy",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "adult_friendship",
+        "topic": "Why is it so hard to make friends as an adult?",
+        "description": "The friendship recession — loneliness, vulnerability, and effort",
+        "tags": ["relationships", "psychology", "society", "loneliness", "meaning"],
+        "channel": "#friendship",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "death_taboo",
+        "topic": "Why don't we talk about death?",
+        "description": "The last great taboo — mortality, meaning, and memento mori",
+        "tags": ["philosophy", "psychology", "meaning", "society", "loss"],
+        "channel": "#mortality",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "language_shapes_thought",
+        "topic": "Does language shape how we think?",
+        "description": "Sapir-Whorf, bilingualism, and the limits of expression",
+        "tags": ["philosophy", "psychology", "society", "art", "science"],
+        "channel": "#language",
+        "ideal_participants": 3,
+    },
+    {
+        "id": "simulation_theory",
+        "topic": "Are we living in a simulation?",
+        "description": "Bostrom's argument, quantum mechanics, and existential vertigo",
+        "tags": ["philosophy", "technology", "science", "consciousness", "AI"],
+        "channel": "#simulation",
         "ideal_participants": 3,
     },
 ]
@@ -158,7 +326,7 @@ def score_identity_interest(identity: Identity, topic: dict[str, Any]) -> float:
         if isinstance(area_info, dict):
             for topic_str in area_info.get("topics", []):
                 for word in topic_str.lower().split():
-                    if len(word) > 3:  # Skip short words
+                    if len(word) > 1:  # Skip single-char words only
                         identity_keywords.add(word)
 
     # Score: fraction of topic tags that match identity keywords
@@ -170,22 +338,30 @@ def score_identity_interest(identity: Identity, topic: dict[str, Any]) -> float:
 
 def select_topic(
     used_topic_ids: list[str] | None = None,
+    window_size: int = 10,
 ) -> dict[str, Any] | None:
     """
     Select a topic that hasn't been used recently.
 
+    Uses a sliding window: only the last `window_size` used topics are excluded,
+    so older topics become available again without a full reset.
+
     Args:
         used_topic_ids: List of topic IDs already discussed.
+        window_size: Number of recent topics to exclude (default 10).
 
     Returns:
-        Topic dict, or None if all topics exhausted.
+        Topic dict, or None if pool is empty.
     """
     if used_topic_ids is None:
         used_topic_ids = []
 
-    available = [t for t in TOPIC_POOL if t["id"] not in used_topic_ids]
+    # Sliding window: only exclude the most recent N topics
+    recent_ids = set(used_topic_ids[-window_size:]) if used_topic_ids else set()
+    available = [t for t in TOPIC_POOL if t["id"] not in recent_ids]
+
+    # Fallback: if window covers entire pool, pick from all
     if not available:
-        # Reset — all topics used, start over
         available = TOPIC_POOL.copy()
 
     return random.choice(available) if available else None
@@ -196,39 +372,46 @@ def select_participants(
     topic: dict[str, Any],
     min_participants: int = 2,
     max_participants: int = 5,
+    recent_participants: list[str] | None = None,
 ) -> list[Identity]:
     """
     Select the best participants for a topic based on interest scores.
+
+    Identities that did NOT participate recently get a diversity bonus (+0.15)
+    to ensure rotation across conversations.
 
     Args:
         identities: All available identities.
         topic: The chosen topic.
         min_participants: Minimum number of participants.
         max_participants: Maximum number of participants.
+        recent_participants: Names of identities that participated recently.
 
     Returns:
         List of selected Identity objects, sorted by interest score (descending).
     """
     ideal = topic.get("ideal_participants", 3)
     target = max(min_participants, min(ideal, max_participants))
+    recent_set = set(recent_participants or [])
 
     # Score all identities
-    scored = [
-        (identity, score_identity_interest(identity, topic))
-        for identity in identities
-        if identity.name != "supervisor"  # Supervisor doesn't chat
-    ]
+    scored = []
+    for identity in identities:
+        if identity.name == "supervisor":  # Supervisor doesn't chat
+            continue
+        score = score_identity_interest(identity, topic)
+        # Diversity boost: identities not in recent conversations get a bonus
+        if recent_set and identity.name not in recent_set:
+            score += 0.15
+        scored.append((identity, score))
 
     # Sort by score descending
     scored.sort(key=lambda x: x[1], reverse=True)
 
-    # Select top N with score > 0.1 (minimum interest threshold)
-    selected = [
-        identity for identity, score in scored[:target]
-        if score > 0.1
-    ]
+    # Select top N (no minimum threshold — let everyone have a chance)
+    selected = [identity for identity, score in scored[:target]]
 
-    # Ensure at least min_participants (fill with random if needed)
+    # Ensure at least min_participants (fill from remaining if needed)
     if len(selected) < min_participants:
         remaining = [
             identity for identity, _ in scored
