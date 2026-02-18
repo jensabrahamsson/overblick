@@ -326,10 +326,10 @@ button:focus-visible,
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
-.status-badge.status-running { background: var(--green-dim); color: var(--green); }
-.status-badge.status-stopped { background: var(--red-dim); color: #ff7b72; }
+.status-badge.status-running { background: #0d2a1e; color: var(--green); }
+.status-badge.status-stopped { background: #2a0f0f; color: #ff7b72; }
 .status-badge.status-offline { background: var(--bg-tertiary); color: var(--text-secondary); }
-.status-badge.status-starting { background: var(--amber-dim); color: var(--amber); }
+.status-badge.status-starting { background: #2a1f0d; color: var(--amber); }
 
 /* Semantic badge variants for conversation/IRC state indicators */
 .badge-state {
@@ -341,10 +341,10 @@ button:focus-visible,
     text-transform: uppercase;
     font-family: var(--font-mono);
 }
-.badge-state--active   { background: var(--green-dim); color: var(--green); }
-.badge-state--paused   { background: var(--amber-dim); color: var(--amber); }
+.badge-state--active   { background: #0d2a1e; color: var(--green); }
+.badge-state--paused   { background: #2a1f0d; color: var(--amber); }
 .badge-state--completed { background: var(--bg-tertiary); color: var(--text-secondary); }
-.badge-state--error    { background: var(--red-dim); color: var(--red); }
+.badge-state--error    { background: #2a0f0f; color: var(--red); }
 
 /* Conversation type badges */
 .badge-type {
@@ -357,9 +357,9 @@ button:focus-visible,
 }
 .badge-type--email    { background: #0d2d4b; color: var(--accent); }
 .badge-type--research { background: #2d0d4b; color: var(--purple); }
-.badge-type--good     { background: var(--green-dim); color: var(--green); }
-.badge-type--fair     { background: var(--amber-dim); color: var(--amber); }
-.badge-type--poor     { background: var(--red-dim); color: var(--red); }
+.badge-type--good     { background: #0d2a1e; color: var(--green); }
+.badge-type--fair     { background: #2a1f0d; color: var(--amber); }
+.badge-type--poor     { background: #2a0f0f; color: var(--red); }
 .badge-type--default  { background: var(--bg-tertiary); color: var(--text-secondary); }
 
 /* --- Tags --- */
