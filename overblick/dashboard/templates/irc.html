@@ -27,23 +27,7 @@
                     <div class="irc-sidebar-topic">{{ conv.topic }}</div>
                     <div class="irc-sidebar-meta">
                         <span>{{ conv.participants | length }} users</span>
-                        <span class="badge" style="
-                            padding: 1px 6px;
-                            border-radius: 3px;
-                            font-size: 0.6rem;
-                            font-weight: 600;
-                            text-transform: uppercase;
-                            font-family: var(--font-mono);
-                            {% if conv.state == 'active' %}
-                            background: #0d4b2e; color: #4ade80;
-                            {% elif conv.state == 'paused' %}
-                            background: #4b3d0d; color: #facc15;
-                            {% elif conv.state == 'completed' %}
-                            background: #2a2a3e; color: #94a3b8;
-                            {% else %}
-                            background: #4b0d0d; color: #f87171;
-                            {% endif %}
-                        ">{{ conv.state }}</span>
+                        <span class="badge-state badge-state--{{ conv.state if conv.state in ['active', 'paused', 'completed'] else 'error' }}">{{ conv.state }}</span>
                     </div>
                 </a>
             </li>
@@ -93,7 +77,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #0a0e14;
+            background: var(--bg-primary);
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
             padding: var(--space-2xl);
@@ -104,7 +88,7 @@
                 <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: var(--space-sm);">
                     No IRC conversations yet
                 </p>
-                <p style="color: var(--text-muted); font-size: 0.8rem; opacity: 0.7;">
+                <p style="color: var(--text-muted); font-size: 0.8rem;">
                     Identity conversations start automatically when system load is low.
                 </p>
             </div>
