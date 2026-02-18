@@ -56,43 +56,6 @@
     </footer>
 
     <script src="/static/js/radar-chart.js"></script>
-    <script>
-    // Hamburger menu toggle
-    (function() {
-        var btn = document.querySelector('.nav-hamburger');
-        var links = document.getElementById('nav-links');
-        if (btn && links) {
-            btn.addEventListener('click', function() {
-                var expanded = btn.getAttribute('aria-expanded') === 'true';
-                btn.setAttribute('aria-expanded', !expanded);
-                links.classList.toggle('nav-links-open');
-            });
-            // Close menu when a link is clicked
-            links.addEventListener('click', function(e) {
-                if (e.target.classList.contains('nav-link')) {
-                    btn.setAttribute('aria-expanded', 'false');
-                    links.classList.remove('nav-links-open');
-                }
-            });
-            // Close menu on Escape key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true') {
-                    btn.setAttribute('aria-expanded', 'false');
-                    links.classList.remove('nav-links-open');
-                }
-            });
-        }
-    })();
-
-    document.body.addEventListener('htmx:responseError', function(e) {
-        var flash = document.createElement('div');
-        flash.className = 'flash flash-error';
-        flash.setAttribute('role', 'alert');
-        flash.textContent = 'Request failed. Please try again.';
-        var main = document.getElementById('main-content');
-        if (main) main.prepend(flash);
-        setTimeout(function() { flash.remove(); }, 5000);
-    });
-    </script>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>

@@ -20,7 +20,7 @@
     <!-- Filter -->
     <div class="filter-bar" style="margin-bottom: 1.5rem;">
         <select name="identity" class="form-select" aria-label="Filter by agent"
-                onchange="window.location.href='/conversations?identity=' + this.value">
+                data-action="filter-conversations">
             <option value="">All Agents</option>
             {% for ident in identities %}
             <option value="{{ ident }}" {% if selected_identity == ident %}selected{% endif %}>{{ ident }}</option>

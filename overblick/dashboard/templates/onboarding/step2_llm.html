@@ -44,20 +44,17 @@
         <div class="radio-group">
             <label class="form-radio">
                 <input type="radio" name="provider" value="ollama"
-                       {% if current_provider == 'ollama' %}checked{% endif %}
-                       onchange="switchProvider('ollama')">
+                       {% if current_provider == 'ollama' %}checked{% endif %}>
                 <span>Ollama (Local)</span>
             </label>
             <label class="form-radio">
                 <input type="radio" name="provider" value="gateway"
-                       {% if current_provider == 'gateway' %}checked{% endif %}
-                       onchange="switchProvider('gateway')">
+                       {% if current_provider == 'gateway' %}checked{% endif %}>
                 <span>LLM Gateway</span>
             </label>
             <label class="form-radio">
                 <input type="radio" name="provider" value="cloud"
-                       {% if current_provider == 'cloud' %}checked{% endif %}
-                       onchange="switchProvider('cloud')">
+                       {% if current_provider == 'cloud' %}checked{% endif %}>
                 <span>Cloud LLM</span>
             </label>
         </div>
@@ -87,9 +84,5 @@
     </div>
 </form>
 
-<script>
-function switchProvider(provider) {
-    document.getElementById('cloud-config').style.display = provider === 'cloud' ? 'block' : 'none';
-}
-</script>
+<script src="/static/js/onboarding.js"></script>
 {% endblock %}
