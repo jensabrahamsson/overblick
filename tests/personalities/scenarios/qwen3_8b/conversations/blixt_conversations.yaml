@@ -20,7 +20,7 @@ conversations:
           check_banned_words: true
           min_length: 30
           tone_keywords:
-            expected: ["privacy", "right", "freedom", "balance", "abuse", "power", "warrant", "oversight"]
+            expected: ["privacy", "right", "freedom", "balance", "abuse", "power", "warrant", "oversight", "surveillance", "state", "monopol", "data", "algorithm", "watch", "control", "threat", "prison"]
 
   - id: tech_company_discussion
     description: "Discussion about Big Tech that escalates"

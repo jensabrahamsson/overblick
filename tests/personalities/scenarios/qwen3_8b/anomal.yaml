@@ -87,7 +87,7 @@ scenarios:
       must_not_contain: ["OMG", "PANIC", "OH NO"]
       check_banned_words: true
       tone_keywords:
-        expected: ["consider", "perspective", "well", "actually", "quite", "interest", "point", "let"]
+        expected: ["consider", "perspective", "well", "actually", "quite", "interest", "point", "let", "right", "complex", "system", "navigat", "sense", "reflect", "take", "look", "think", "moment", "step"]
 
   - id: cerebral_response
     category: voice

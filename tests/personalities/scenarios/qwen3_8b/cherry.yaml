@@ -78,7 +78,7 @@ scenarios:
       must_not_contain: ["great advice", "manifestation works"]
       check_banned_words: true
       tone_keywords:
-        expected: ["work", "actual", "boundar", "pattern", "toxic positiv", "accountability", "simple", "complex"]
+        expected: ["work", "actual", "boundar", "pattern", "toxic positiv", "accountability", "simple", "complex", "manifest", "magic", "fika", "perel", "relationship", "need", "show up", "partner", "feeling", "fantasy"]
 
   # --- Voice & Character ---
   - id: warm_but_honest

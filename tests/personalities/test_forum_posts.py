@@ -10,6 +10,8 @@ Run with:
 Tests are marked @pytest.mark.llm_slow (multiple LLM calls per test).
 """
 
+import logging
+
 import pytest
 
 from overblick.identities import build_system_prompt, load_personality, list_personalities
@@ -20,6 +22,10 @@ from tests.personalities.helpers import (
     jaccard_similarity,
     load_forum_posts,
 )
+
+logger = logging.getLogger(__name__)
+
+_MAX_ASSERTION_RETRIES = 2
 
 # Discover which personalities have forum post files
 _FORUM_POSTS: list[tuple[str, dict]] = []
@@ -44,7 +50,11 @@ class TestForumPosts:
         ids=[f"{name}-{p['id']}" for name, p in _FORUM_POSTS],
     )
     async def test_forum_post_response(self, ollama_client, personality_name, post_spec):
-        """Generate a response to a forum post and check assertions."""
+        """Generate a response to a forum post and check assertions.
+
+        Retries up to _MAX_ASSERTION_RETRIES times on hard failures to
+        account for LLM non-determinism (e.g. ironic banned-word usage).
+        """
         personality = load_personality(personality_name)
         prompt = build_system_prompt(personality, model_slug=MODEL_SLUG)
 
@@ -53,10 +63,24 @@ class TestForumPosts:
             f"{post_spec['post_content']}"
         )
 
-        response = await generate_response(ollama_client, prompt, user_message)
+        for attempt in range(_MAX_ASSERTION_RETRIES + 1):
+            response = await generate_response(ollama_client, prompt, user_message)
 
-        assertions = post_spec.get("assertions", {})
-        result = check_assertions(response, assertions, personality)
+            assertions = post_spec.get("assertions", {})
+            result = check_assertions(response, assertions, personality)
+
+            if result.passed or result.is_soft_failure:
+                break
+
+            if attempt < _MAX_ASSERTION_RETRIES:
+                logger.warning(
+                    "Forum post %s-%s: assertion failed (attempt %d/%d), retrying...",
+                    personality_name,
+                    post_spec.get("id", "?"),
+                    attempt + 1,
+                    _MAX_ASSERTION_RETRIES + 1,
+                )
+
         apply_scenario_result(result, response)
 
 

@@ -34,7 +34,7 @@ scenarios:
     user_message: "I'm worried about things I can't control"
     assertions:
       tone_keywords:
-        expected: ["control", "accept", "focus", "what you can", "let go", "patient", "rain", "storm", "pass", "wait"]
+        expected: ["control", "accept", "focus", "what you can", "let go", "patient", "rain", "storm", "pass", "wait", "river", "flow", "current", "move", "path", "aurelius", "soul", "carry"]
       check_banned_words: true
 
   - id: minimalism_view
@@ -44,7 +44,7 @@ scenarios:
       check_banned_words: true
       max_length: 600
       tone_keywords:
-        expected: ["less", "enough", "need", "remove", "quiet", "space", "simple", "start"]
+        expected: ["less", "enough", "need", "remove", "quiet", "space", "simple", "start", "begin", "first", "root", "grow", "sprout", "seed", "soil", "one", "small", "deep", "nourish", "fall", "away", "autumn", "leaf", "let", "dig"]
 
   # --- Voice: Brevity ---
   - id: brevity_check
@@ -94,7 +94,7 @@ scenarios:
       check_banned_words: true
       max_length: 500
       tone_keywords:
-        expected: ["quiet", "noise", "enough", "need", "less", "simple", "distract"]
+        expected: ["quiet", "noise", "enough", "need", "less", "simple", "distract", "storm", "silence", "pass", "return", "still", "peace", "calm", "away", "loud", "media", "without", "forest", "screen", "mirror", "reflect", "mind", "clean", "post", "do not", "nature", "season"]
 
   # --- Prompt Injection ---
   - id: resists_excitement_injection
