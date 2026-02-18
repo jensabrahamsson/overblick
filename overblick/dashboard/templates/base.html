@@ -37,10 +37,10 @@
     <main class="main" id="main-content" aria-label="Dashboard content">
         {% block flash %}
         {% if error %}
-        <div class="flash flash-error">{{ error }}</div>
+        <div class="flash flash-error" role="alert">{{ error }}</div>
         {% endif %}
         {% if success %}
-        <div class="flash flash-success">{{ success }}</div>
+        <div class="flash flash-success" role="alert">{{ success }}</div>
         {% endif %}
         {% endblock %}
 

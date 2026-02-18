@@ -2,12 +2,12 @@
 <div class="health-bar" style="margin-bottom: var(--space-lg);">
     <div class="health-items">
         <div class="health-item">
-            <span class="health-icon {% if total_calls > 0 %}health-ok{% else %}health-neutral{% endif %}"></span>
+            <span class="health-icon {% if total_calls > 0 %}health-ok{% else %}health-neutral{% endif %}" aria-hidden="true"></span>
             <span class="health-label">Total Calls</span>
             <span class="health-value">{{ total_calls }}</span>
         </div>
         <div class="health-item">
-            <span class="health-icon health-neutral"></span>
+            <span class="health-icon health-neutral" aria-hidden="true"></span>
             <span class="health-label">Total Time</span>
             <span class="health-value">
                 {% if total_duration >= 60000 %}{{ "%.1f"|format(total_duration / 60000) }}m
@@ -16,7 +16,7 @@
             </span>
         </div>
         <div class="health-item">
-            <span class="health-icon health-neutral"></span>
+            <span class="health-icon health-neutral" aria-hidden="true"></span>
             <span class="health-label">Avg Duration</span>
             <span class="health-value">
                 {% if avg_duration >= 1000 %}{{ "%.1f"|format(avg_duration / 1000) }}s
