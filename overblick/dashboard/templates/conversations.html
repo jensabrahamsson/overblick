@@ -40,26 +40,7 @@
                     <span style="margin-left: 0.4rem;">({{ conv.relative_time }})</span>
                     {% endif %}
                 </span>
-                <span class="badge" style="
-                    padding: 0.2rem 0.6rem;
-                    border-radius: 4px;
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    {% if conv.conversation_type == 'email' %}
-                    background: #0d2d4b; color: #60a5fa;
-                    {% elif conv.conversation_type == 'research' %}
-                    background: #2d0d4b; color: #c084fc;
-                    {% elif conv.health_grade == 'good' %}
-                    background: #0d4b2e; color: #4ade80;
-                    {% elif conv.health_grade == 'fair' %}
-                    background: #4b3d0d; color: #facc15;
-                    {% elif conv.health_grade == 'poor' %}
-                    background: #4b0d0d; color: #f87171;
-                    {% else %}
-                    background: #2a2a3e; color: #94a3b8;
-                    {% endif %}
-                ">{% if conv.conversation_type == 'email' %}email{% elif conv.conversation_type == 'research' %}research{% elif conv.health_grade %}{{ conv.health_grade }}{% else %}{{ conv.source }}{% endif %}</span>
+                <span class="badge-type badge-type--{% if conv.conversation_type == 'email' %}email{% elif conv.conversation_type == 'research' %}research{% elif conv.health_grade == 'good' %}good{% elif conv.health_grade == 'fair' %}fair{% elif conv.health_grade == 'poor' %}poor{% else %}default{% endif %}">{% if conv.conversation_type == 'email' %}email{% elif conv.conversation_type == 'research' %}research{% elif conv.health_grade %}{{ conv.health_grade }}{% else %}{{ conv.source }}{% endif %}</span>
             </div>
 
             <!-- Inquiry (left-aligned) -->
