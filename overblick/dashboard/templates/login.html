@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/css/dashboard.css?v=2">
 </head>
 <body class="login-body">
-    <div class="login-container">
+    <main class="login-container">
         <div class="login-logo">
             <img src="/static/img/overblick-logo.svg" alt="Överblick" class="login-logo-img">
             <h1 class="login-title">Överblick</h1>
@@ -15,7 +15,7 @@
         </div>
 
         {% if error %}
-        <div class="flash flash-error">{{ error }}</div>
+        <div class="flash flash-error" role="alert">{{ error }}</div>
         {% endif %}
 
         <form method="post" action="/login" class="login-form">
@@ -28,6 +28,7 @@
                     name="password"
                     class="form-input"
                     placeholder="Enter password"
+                    autocomplete="current-password"
                     autofocus
                     required
                 >
@@ -38,6 +39,6 @@
         <p class="login-note">
             Localhost only (127.0.0.1). Read-only monitoring.
         </p>
-    </div>
+    </main>
 </body>
 </html>

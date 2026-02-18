@@ -6,7 +6,7 @@
 Use the chat button to talk to a personality and see what they're like.</p>
 
 {% if error %}
-<div class="flash flash-error">{{ error }}</div>
+<div class="flash flash-error" role="alert">{{ error }}</div>
 {% endif %}
 
 <form method="post" action="/onboard" class="wizard-form">

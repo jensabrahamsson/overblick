@@ -19,7 +19,7 @@
 
     <!-- Filter -->
     <div class="filter-bar" style="margin-bottom: 1.5rem;">
-        <select name="identity" class="form-select"
+        <select name="identity" class="form-select" aria-label="Filter by agent"
                 onchange="window.location.href='/conversations?identity=' + this.value">
             <option value="">All Agents</option>
             {% for ident in identities %}
@@ -89,7 +89,7 @@
             {% if conv.acknowledgment %}
             <!-- Acknowledgment from initiator (left-aligned) -->
             <div style="display: flex; margin-top: 0.75rem;">
-                <div style="max-width: 80%; background: var(--bg-input, #252540); padding: 0.5rem 1rem; border-radius: 12px 12px 12px 2px; opacity: 0.85;">
+                <div style="max-width: 80%; background: var(--bg-input, #252540); padding: 0.5rem 1rem; border-radius: 12px 12px 12px 2px;">
                     <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px;">
                         {{ conv.sender }} — ack
                     </div>

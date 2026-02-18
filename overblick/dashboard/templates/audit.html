@@ -7,7 +7,7 @@
 
     <!-- Filters -->
     <div class="filter-bar">
-        <select name="identity" class="form-select"
+        <select name="identity" class="form-select" aria-label="Filter by identity"
                 hx-get="/partials/audit-filtered"
                 hx-trigger="change"
                 hx-target="#audit-results"
@@ -19,7 +19,7 @@
             {% endfor %}
         </select>
 
-        <select name="category" class="form-select"
+        <select name="category" class="form-select" aria-label="Filter by category"
                 hx-get="/partials/audit-filtered"
                 hx-trigger="change"
                 hx-target="#audit-results"
@@ -31,7 +31,7 @@
             {% endfor %}
         </select>
 
-        <select name="action" class="form-select"
+        <select name="action" class="form-select" aria-label="Filter by action"
                 hx-get="/partials/audit-filtered"
                 hx-trigger="change"
                 hx-target="#audit-results"
@@ -43,7 +43,7 @@
             {% endfor %}
         </select>
 
-        <select name="hours" class="form-select"
+        <select name="hours" class="form-select" aria-label="Filter by time range"
                 hx-get="/partials/audit-filtered"
                 hx-trigger="change"
                 hx-target="#audit-results"

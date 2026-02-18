@@ -1,7 +1,7 @@
 {% for card in agent_cards %}
 <div class="agent-card" id="agent-{{ card.name }}">
     <div class="agent-card-header">
-        <span class="status-dot status-{{ card.state }}"></span>
+        <span class="status-dot status-{{ card.state }}" aria-hidden="true"></span>
         <a href="/agent/{{ card.name }}" class="agent-card-name">{{ card.display_name }}</a>
         {% if card.restart_count > 0 %}
         <span class="restart-badge" title="{{ card.restart_count }} restart{{ 's' if card.restart_count != 1 else '' }}">{{ card.restart_count }}x</span>
