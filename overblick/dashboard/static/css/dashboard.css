@@ -1272,10 +1272,17 @@ button:focus-visible,
     .system-gauge-grid { grid-template-columns: 1fr 1fr; }
     .form-row { flex-direction: column; }
     .wizard-step-label { display: none; }
+    .wizard-step { min-width: 40px; }
     .health-items { flex-direction: column; gap: var(--space-sm); }
     .system-overview-items { flex-direction: column; gap: var(--space-sm); }
     .system-llm-stats { flex-direction: column; gap: var(--space-sm); }
     .filter-bar { flex-direction: column; }
+    #llm-results, #audit-results { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .system-disk-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .irc-page { flex-direction: column; }
+    .irc-sidebar { max-height: 200px; overflow-y: auto; }
+    .conversations-page { overflow-x: hidden; }
+    .conversation-entry { overflow-wrap: break-word; word-break: break-word; }
 }
 
 @media (max-width: 480px) {
