@@ -367,13 +367,17 @@ class IRCPlugin(PluginBase):
             })
 
         try:
-            result = await self.ctx.llm_pipeline.generate(
+            result = await self.ctx.llm_pipeline.chat(
                 messages=messages,
-                identity_name=speaker_name,
-                action="irc_conversation",
+                user_id=speaker_name,
+                audit_action="irc_conversation",
+                skip_preflight=True,  # Internal prompt, not external content
             )
-            if result and result.get("content"):
-                return result["content"].strip()
+            if result.blocked:
+                logger.warning("IRC: Turn blocked for %s: %s", speaker_name, result.block_reason)
+                return None
+            if result.content:
+                return result.content.strip()
         except Exception as e:
             logger.error("IRC: Failed to generate turn for %s: %s", speaker_name, e)
 
