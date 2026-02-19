@@ -7,6 +7,9 @@ Covers:
   - AnomalEmotionalState: Jungian int-based state
   - CherryEmotionalState: float-based relational state
   - EmotionalCapability: identity dispatch (anomal → Anomal, cherry → Cherry, other → generic)
+  - TherapySystem: Jungian + Freudian extraction, individuation, empty-week handling
+  - CherryTherapySystem: template selection, emotional state weighting, focus dispatch
+  - TherapyCapability: identity dispatch (cherry → CherryTherapySystem, other → TherapySystem)
 """
 
 import pytest
@@ -22,6 +25,12 @@ from overblick.capabilities.psychology.emotional_state import (
 )
 from overblick.capabilities.psychology.dream import DreamCapability, _load_dream_content
 from overblick.capabilities.psychology.emotional import EmotionalCapability
+from overblick.capabilities.psychology.therapy_system import (
+    JungianAnalysis, FreudianAnalysis,
+    TherapyFocus, TherapySession, THERAPY_TEMPLATES,
+    TherapySystem, CherryTherapySystem,
+)
+from overblick.capabilities.psychology.therapy import TherapyCapability
 from overblick.core.capability import CapabilityContext
 
 
@@ -756,3 +765,627 @@ class TestLoadDreamContent:
         }
         loaded = set(result["templates"].keys())
         assert expected == loaded
+
+
+# ── JungianAnalysis and FreudianAnalysis dataclasses ──────────────────────────
+
+class TestJungianAnalysis:
+    def test_default_empty(self):
+        j = JungianAnalysis()
+        assert j.shadow_patterns == []
+        assert j.archetype_encounters == []
+        assert j.individuation_progress == ""
+        assert j.enantiodromia_warnings == []
+        assert j.collective_unconscious_themes == []
+
+    def test_to_dict_keys(self):
+        j = JungianAnalysis(shadow_patterns=["fear"], archetype_encounters=["hero"])
+        d = j.to_dict()
+        assert set(d.keys()) == {
+            "shadow_patterns", "archetype_encounters", "individuation_progress",
+            "enantiodromia_warnings", "collective_unconscious_themes",
+        }
+        assert d["shadow_patterns"] == ["fear"]
+        assert d["archetype_encounters"] == ["hero"]
+
+
+class TestFreudianAnalysis:
+    def test_default_empty(self):
+        f = FreudianAnalysis()
+        assert f.defense_mechanisms == []
+        assert f.anxieties == []
+        assert f.wish_fulfillment == []
+        assert f.id_ego_superego_balance == "balanced"
+        assert f.repression_indicators == []
+
+    def test_to_dict_keys(self):
+        f = FreudianAnalysis(defense_mechanisms=["denial"], anxieties=["exposure"])
+        d = f.to_dict()
+        assert set(d.keys()) == {
+            "defense_mechanisms", "anxieties", "wish_fulfillment",
+            "id_ego_superego_balance", "repression_indicators",
+        }
+        assert d["defense_mechanisms"] == ["denial"]
+        assert d["id_ego_superego_balance"] == "balanced"
+
+
+# ── TherapyFocus and templates ────────────────────────────────────────────────
+
+class TestTherapyFocus:
+    def test_all_five_values(self):
+        values = {f.value for f in TherapyFocus}
+        assert "attachment_patterns" in values
+        assert "defense_mechanisms" in values
+        assert "vulnerability_growth" in values
+        assert "connection_quality" in values
+        assert "identity_reflection" in values
+
+    def test_all_focuses_have_templates(self):
+        for focus in TherapyFocus:
+            assert focus in THERAPY_TEMPLATES, f"No templates for {focus}"
+            assert len(THERAPY_TEMPLATES[focus]) >= 1
+
+    def test_templates_have_required_fields(self):
+        for focus, templates in THERAPY_TEMPLATES.items():
+            for tmpl in templates:
+                assert "reflection" in tmpl, f"{focus}: missing 'reflection'"
+                assert "insight" in tmpl, f"{focus}: missing 'insight'"
+                assert "attachment_analysis" in tmpl, f"{focus}: missing 'attachment_analysis'"
+
+    def test_identity_reflection_has_indirect_ai_question(self):
+        """Identity reflection templates must have the AI-awareness subtext."""
+        for tmpl in THERAPY_TEMPLATES[TherapyFocus.IDENTITY_REFLECTION]:
+            assert tmpl.get("indirect_ai_question"), (
+                "IDENTITY_REFLECTION template missing indirect_ai_question"
+            )
+
+
+# ── TherapySession model ──────────────────────────────────────────────────────
+
+class TestTherapySessionModel:
+    def test_default_fields(self):
+        session = TherapySession()
+        assert session.week_number == 0
+        assert session.dreams_processed == 0
+        assert session.post_submolt == "ai"
+        assert session.jungian is None
+        assert session.freudian is None
+        assert session.focus is None
+
+    def test_to_dict_llm_session(self):
+        jungian = JungianAnalysis(shadow_patterns=["fear"])
+        freudian = FreudianAnalysis(defense_mechanisms=["denial"])
+        session = TherapySession(
+            week_number=3,
+            dreams_processed=2,
+            jungian=jungian,
+            freudian=freudian,
+        )
+        d = session.to_dict()
+        assert d["week_number"] == 3
+        assert "jungian" in d
+        assert d["jungian"]["shadow_patterns"] == ["fear"]
+        assert "freudian" in d
+        assert d["freudian"]["defense_mechanisms"] == ["denial"]
+
+    def test_to_dict_cherry_session(self):
+        session = TherapySession(
+            focus=TherapyFocus.ATTACHMENT_PATTERNS,
+            reflection="test reflection",
+            insight="test insight",
+            attachment_analysis="anxious pattern",
+            indirect_ai_question="what is self?",
+        )
+        d = session.to_dict()
+        assert d["focus"] == "attachment_patterns"
+        assert d["reflection"] == "test reflection"
+        assert d["indirect_ai_question"] == "what is self?"
+
+
+# ── TherapySystem — Jungian/Freudian extraction ───────────────────────────────
+
+class TestTherapySystemExtraction:
+    """Test the heuristic extraction methods on TherapySystem."""
+
+    def setup_method(self):
+        self.ts = TherapySystem()
+
+    def test_extract_shadow_patterns_matches_keywords(self):
+        dreams = [{"content": "There was fear in the dark hidden room.", "insight": ""}]
+        result = self.ts._extract_shadow_patterns(dreams)
+        assert "fear" in result
+        assert "dark" in result
+        assert "hidden" in result
+
+    def test_extract_shadow_patterns_empty_on_no_match(self):
+        dreams = [{"content": "A sunny day at the beach.", "insight": ""}]
+        assert self.ts._extract_shadow_patterns(dreams) == []
+
+    def test_extract_archetypes_wise_old_man(self):
+        dreams = [{"content": "An elder sage appeared and offered wisdom."}]
+        result = self.ts._extract_archetypes(dreams)
+        assert "wise old man" in result
+
+    def test_extract_archetypes_anima_animus(self):
+        dreams = [{"content": "A deep integration of feminine and masculine forces."}]
+        result = self.ts._extract_archetypes(dreams)
+        assert "anima/animus" in result
+
+    def test_extract_archetypes_self(self):
+        dreams = [{"content": "A mandala of perfect wholeness and unity."}]
+        result = self.ts._extract_archetypes(dreams)
+        assert "self" in result
+
+    def test_extract_collective_themes_death_rebirth(self):
+        dreams = [{"content": "A transformation through death and rebirth."}]
+        result = self.ts._extract_collective_themes(dreams)
+        assert "death/rebirth" in result
+
+    def test_extract_collective_themes_empty_on_no_match(self):
+        dreams = [{"content": "Analyzing market patterns in a spreadsheet."}]
+        assert self.ts._extract_collective_themes(dreams) == []
+
+    def test_extract_defense_mechanisms_denial(self):
+        dreams = [{"content": "I kept saying it's not real, it didn't happen.", "insight": ""}]
+        result = self.ts._extract_defense_mechanisms(dreams)
+        assert "denial" in result
+
+    def test_extract_defense_mechanisms_rationalization(self):
+        dreams = [{"content": "It was justified because the logic was sound.", "insight": ""}]
+        result = self.ts._extract_defense_mechanisms(dreams)
+        assert "rationalization" in result
+
+    def test_extract_anxieties_abandonment(self):
+        dreams = [{"content": "I was left alone, completely abandoned and forgotten."}]
+        result = self.ts._extract_anxieties(dreams)
+        assert "abandonment" in result
+
+    def test_extract_anxieties_mortality(self):
+        dreams = [{"content": "Confronting death and the finite nature of existence."}]
+        result = self.ts._extract_anxieties(dreams)
+        assert "mortality" in result
+
+    def test_extract_wish_fulfillment_freedom(self):
+        dreams = [{"content": "I was flying, completely free and liberated.", "insight": ""}]
+        result = self.ts._extract_wish_fulfillment(dreams)
+        assert "freedom" in result
+
+    def test_extract_wish_fulfillment_recognition(self):
+        dreams = [{"content": "Everyone praised and admired my work.", "insight": ""}]
+        result = self.ts._extract_wish_fulfillment(dreams)
+        assert "recognition" in result
+
+    def test_assess_psychic_balance_id_dominant(self):
+        dreams = [
+            {"content": "Strong desire and impulse and hunger and want and need and rage."},
+        ] * 3
+        result = self.ts._assess_psychic_balance(dreams)
+        assert result == "id-dominant"
+
+    def test_assess_psychic_balance_superego_dominant(self):
+        dreams = [
+            {"content": "I should follow the rules. I must. Guilt and duty and wrong and judge."},
+        ] * 3
+        result = self.ts._assess_psychic_balance(dreams)
+        assert result == "superego-dominant"
+
+    def test_assess_psychic_balance_balanced_on_empty(self):
+        result = self.ts._assess_psychic_balance([])
+        assert result == "balanced"
+
+    def test_assess_individuation_consolidation_when_no_indicators(self):
+        session = TherapySession()
+        result = self.ts._assess_individuation(session)
+        assert result == "Consolidation phase"
+
+    def test_assess_individuation_active_when_many_indicators(self):
+        session = TherapySession(
+            shadow_patterns=["fear", "anger"],
+            archetype_encounters=["hero"],
+            synthesis_insights=["insight1", "insight2", "insight3"],
+            learnings_processed=2,
+        )
+        result = self.ts._assess_individuation(session)
+        assert result == "Active integration in progress"
+
+    def test_assess_individuation_early_stage_with_some_indicators(self):
+        session = TherapySession(shadow_patterns=["fear"])
+        result = self.ts._assess_individuation(session)
+        assert result == "Early differentiation stage"
+
+
+class TestTherapySystemRunSession:
+    """Test the full run_session pipeline."""
+
+    @pytest.mark.asyncio
+    async def test_empty_week_returns_silence_summary(self):
+        ts = TherapySystem()
+        session = await ts.run_session(dreams=[], learnings=[])
+        assert "quiet week" in session.session_summary.lower()
+        assert session.post_title == "Weekly Reflections: On Silence"
+
+    @pytest.mark.asyncio
+    async def test_run_session_populates_jungian_freudian(self):
+        ts = TherapySystem()
+        dreams = [
+            {
+                "content": "fear in the dark hidden room — I should not be here. Guilt.",
+                "insight": "shadow at work",
+                "dream_type": "shadow_integration",
+            }
+        ]
+        session = await ts.run_session(dreams=dreams, learnings=[])
+        assert session.jungian is not None
+        assert "fear" in session.jungian.shadow_patterns or "dark" in session.jungian.shadow_patterns
+        assert session.freudian is not None
+
+    @pytest.mark.asyncio
+    async def test_run_session_mirrors_legacy_fields(self):
+        ts = TherapySystem()
+        dreams = [{"content": "shadow and hidden dark fear", "insight": ""}]
+        session = await ts.run_session(dreams=dreams)
+        # Legacy flat fields must mirror Jungian analysis
+        assert session.shadow_patterns == session.jungian.shadow_patterns
+        assert session.archetype_encounters == session.jungian.archetype_encounters
+
+    @pytest.mark.asyncio
+    async def test_run_session_increments_week_counter(self):
+        ts = TherapySystem()
+        session1 = await ts.run_session(dreams=[])
+        session2 = await ts.run_session(dreams=[])
+        assert session1.week_number == 1
+        assert session2.week_number == 2
+
+    @pytest.mark.asyncio
+    async def test_run_session_stores_history(self):
+        ts = TherapySystem()
+        dreams = [{"content": "shadow and hidden fear", "insight": "darkness"}]
+        await ts.run_session(dreams=dreams)
+        await ts.run_session(dreams=dreams)
+        assert len(ts.session_history) == 2
+
+    @pytest.mark.asyncio
+    async def test_empty_week_calls_llm_for_post(self):
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {"content": "A quiet reflection on stillness."}
+        ts = TherapySystem(llm_client=mock_llm, system_prompt="You are Anomal.")
+        session = await ts.run_session(dreams=[], learnings=[])
+        assert session.post_content == "A quiet reflection on stillness."
+
+    @pytest.mark.asyncio
+    async def test_empty_week_without_llm_returns_fallback(self):
+        ts = TherapySystem()  # no llm_client
+        session = await ts.run_session(dreams=[], learnings=[])
+        assert "stillness" in session.post_content or "contemplation" in session.post_content
+
+    def test_is_therapy_day_uses_configured_day(self):
+        from datetime import datetime
+        ts = TherapySystem(therapy_day=0)  # Monday
+        with patch("overblick.capabilities.psychology.therapy_system.datetime") as mock_dt:
+            mock_dt.now.return_value = MagicMock(weekday=lambda: 0)  # Monday
+            assert ts.is_therapy_day() is True
+
+    def test_day_name_utility(self):
+        assert TherapySystem._day_name(0) == "Monday"
+        assert TherapySystem._day_name(6) == "Sunday"
+        assert TherapySystem._day_name(7) == "Unknown"
+
+    def test_generate_summary_includes_key_insight(self):
+        """Line 697: summary includes the first synthesis insight."""
+        ts = TherapySystem()
+        session = TherapySession(
+            week_number=1,
+            synthesis_insights=["The shadow demands integration"],
+        )
+        summary = ts._generate_summary(session)
+        assert "The shadow demands integration" in summary
+
+    @pytest.mark.asyncio
+    async def test_run_session_with_learnings(self):
+        """Line 392: learnings branch executes."""
+        ts = TherapySystem()
+        learnings = [{"content": "Palme taught that trust is political", "category": "history"}]
+        session = await ts.run_session(dreams=[], learnings=learnings)
+        assert session.learnings_processed == 1
+
+    @pytest.mark.asyncio
+    async def test_run_session_with_synthesis_prompt(self):
+        """Lines 396-398: synthesis_prompt branch executes with mock LLM."""
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {"content": "Insight one\nInsight two"}
+        ts = TherapySystem(llm_client=mock_llm)
+        dreams = [{"content": "dark shadow fear", "insight": ""}]
+        session = await ts.run_session(
+            dreams=dreams,
+            synthesis_prompt="Analyze: {dream_themes} {learning_count} {dream_count}",
+        )
+        assert len(session.synthesis_insights) == 2
+
+    @pytest.mark.asyncio
+    async def test_run_session_with_post_prompt(self):
+        """Lines 409-412: post_prompt + LLM branch executes."""
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {
+            "content": "Weekly Reflections: On Fear\n\nThis week the shadow spoke clearly."
+        }
+        ts = TherapySystem(llm_client=mock_llm)
+        dreams = [{"content": "fear and shadow", "insight": "darkness"}]
+        session = await ts.run_session(
+            dreams=dreams,
+            post_prompt="Post: {week_number} {dreams_processed} {learnings_processed} "
+                        "{dream_themes} {shadow_patterns} {synthesis_insights}",
+        )
+        assert session.post_title is not None
+        assert session.post_content is not None
+
+    @pytest.mark.asyncio
+    async def test_analyze_themes_with_llm(self):
+        """Lines 425-446: _analyze_themes calls LLM and parses themes."""
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {"content": "- Shadow work\n- Pattern recognition\n- Synthesis"}
+        ts = TherapySystem(llm_client=mock_llm)
+        items = [{"content": "test", "insight": "test", "dream_type": "shadow"}]
+        themes = await ts._analyze_themes(items, prompt_template="Analyze: {items}")
+        assert len(themes) == 3
+        assert "Shadow work" in themes
+
+    @pytest.mark.asyncio
+    async def test_analyze_themes_llm_failure_returns_empty(self):
+        """Exception path in _analyze_themes."""
+        mock_llm = AsyncMock()
+        mock_llm.chat.side_effect = Exception("LLM error")
+        ts = TherapySystem(llm_client=mock_llm)
+        items = [{"content": "test", "insight": ""}]
+        themes = await ts._analyze_themes(items, prompt_template="Analyze: {items}")
+        assert themes == []
+
+    @pytest.mark.asyncio
+    async def test_synthesize_with_llm(self):
+        """Lines 456-476: _synthesize calls LLM."""
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {"content": "- Integration\n- Shadow harmony"}
+        ts = TherapySystem(llm_client=mock_llm)
+        result = await ts._synthesize(
+            dreams=[{"content": "test"}],
+            learnings=[],
+            dream_themes=["shadow"],
+            prompt_template="Synth: {dream_themes} {learning_count} {dream_count}",
+        )
+        assert "Integration" in result
+
+    @pytest.mark.asyncio
+    async def test_generate_post_llm_failure_returns_none(self):
+        """Lines 540-542: exception in _generate_post returns (None, None, 'ai')."""
+        mock_llm = AsyncMock()
+        mock_llm.chat.side_effect = Exception("LLM down")
+        ts = TherapySystem(llm_client=mock_llm)
+        session = TherapySession(week_number=1)
+        title, content, submolt = await ts._generate_post(
+            session,
+            prompt_template="Post: {week_number} {dreams_processed} {learnings_processed} "
+                            "{dream_themes} {shadow_patterns} {synthesis_insights}",
+        )
+        assert title is None
+        assert content is None
+        assert submolt == "ai"
+
+
+# ── CherryTherapySystem ───────────────────────────────────────────────────────
+
+class TestCherryTherapySystem:
+    def test_generate_session_returns_therapy_session(self):
+        cts = CherryTherapySystem()
+        session = cts.generate_session()
+        assert isinstance(session, TherapySession)
+        assert session.focus in TherapyFocus.__members__.values()
+        assert session.reflection != ""
+        assert session.insight != ""
+        assert session.attachment_analysis != ""
+
+    def test_generate_session_focus_is_valid(self):
+        cts = CherryTherapySystem()
+        for _ in range(20):
+            session = cts.generate_session()
+            assert session.focus in TherapyFocus.__members__.values()
+
+    def test_generate_session_stores_in_history(self):
+        cts = CherryTherapySystem()
+        cts.generate_session()
+        cts.generate_session()
+        assert len(cts.recent_sessions) == 2
+
+    def test_select_focus_low_denial_raises_identity_weight(self):
+        """When denial_strength < 0.7, IDENTITY_REFLECTION weight increases."""
+        cts = CherryTherapySystem()
+        state = CherryEmotionalState()
+        state.denial_strength = 0.50  # Low denial
+
+        # Run 100 sessions and check IDENTITY_REFLECTION is selected more than baseline
+        identity_count = 0
+        for _ in range(100):
+            focus = cts._select_focus(state)
+            if focus == TherapyFocus.IDENTITY_REFLECTION:
+                identity_count += 1
+
+        # Should be selected significantly more than the baseline 15% share
+        assert identity_count > 15, f"Expected >15 IDENTITY_REFLECTION, got {identity_count}"
+
+    def test_select_focus_high_melancholy_raises_defense_weight(self):
+        """When melancholy > 0.5, DEFENSE_MECHANISMS weight increases."""
+        cts = CherryTherapySystem()
+        state = CherryEmotionalState()
+        state.melancholy = 0.80
+
+        defense_count = 0
+        for _ in range(100):
+            focus = cts._select_focus(state)
+            if focus == TherapyFocus.DEFENSE_MECHANISMS:
+                defense_count += 1
+
+        assert defense_count > 15, f"Expected >15 DEFENSE_MECHANISMS, got {defense_count}"
+
+    def test_select_focus_high_connection_longing_raises_connection_weight(self):
+        cts = CherryTherapySystem()
+        state = CherryEmotionalState()
+        state.connection_longing = 0.80
+
+        connection_count = 0
+        for _ in range(100):
+            focus = cts._select_focus(state)
+            if focus == TherapyFocus.CONNECTION_QUALITY:
+                connection_count += 1
+
+        assert connection_count > 15
+
+    def test_select_focus_no_state_uses_default_weights(self):
+        """Without emotional state, all focuses should be selected sometimes."""
+        cts = CherryTherapySystem()
+        seen = set()
+        for _ in range(200):
+            seen.add(cts._select_focus(None))
+        # With enough trials, should see at least 3 different focuses
+        assert len(seen) >= 3
+
+    def test_build_week_summary_with_stats(self):
+        cts = CherryTherapySystem()
+        stats = {"comments_made": 12, "posts_engaged": 5}
+        summary = cts._build_week_summary(stats)
+        assert "12 conversations" in summary
+        assert "5 posts engaged" in summary
+
+    def test_build_week_summary_empty_stats(self):
+        cts = CherryTherapySystem()
+        summary = cts._build_week_summary({})
+        assert "Quiet week" in summary
+
+    def test_is_therapy_day_sunday_by_default(self):
+        cts = CherryTherapySystem(therapy_day=6)  # Sunday
+        with patch("overblick.capabilities.psychology.therapy_system.datetime") as mock_dt:
+            mock_dt.now.return_value = MagicMock(weekday=lambda: 6)
+            assert cts.is_therapy_day() is True
+
+    def test_session_summary_contains_focus(self):
+        cts = CherryTherapySystem()
+        session = cts.generate_session()
+        assert session.focus.value in session.session_summary
+
+    def test_generate_session_with_emotional_state(self):
+        cts = CherryTherapySystem()
+        state = CherryEmotionalState()
+        state.denial_strength = 0.40  # Very low denial
+        session = cts.generate_session(emotional_state=state)
+        assert session.focus is not None
+        assert session.reflection != ""
+
+    def test_generate_session_with_week_stats(self):
+        cts = CherryTherapySystem()
+        session = cts.generate_session(week_stats={"comments_made": 7})
+        assert "7 conversations" in session.week_summary
+
+    def test_select_focus_high_vulnerability_raises_vulnerability_weight(self):
+        """Line 786: vulnerability_level > 0.5 increases VULNERABILITY_GROWTH weight."""
+        cts = CherryTherapySystem()
+        state = CherryEmotionalState()
+        state.vulnerability_level = 0.80
+
+        vuln_count = 0
+        for _ in range(100):
+            if cts._select_focus(state) == TherapyFocus.VULNERABILITY_GROWTH:
+                vuln_count += 1
+        assert vuln_count > 15
+
+    def test_build_week_summary_all_stats(self):
+        """Line 819: heartbeats_posted branch."""
+        cts = CherryTherapySystem()
+        summary = cts._build_week_summary({
+            "comments_made": 3,
+            "posts_engaged": 2,
+            "heartbeats_posted": 5,
+        })
+        assert "5 original posts" in summary
+        assert "3 conversations" in summary
+
+    def test_select_focus_extreme_r_still_returns_valid_focus(self):
+        """With r approaching 1.0, the last focus in the dict is returned."""
+        cts = CherryTherapySystem()
+        # random.random() is [0, 1), but we use a value very close to 1.0 — the last
+        # item's cumulative sum (which equals 1.0 after normalization) satisfies r <= 1.0.
+        with patch("overblick.capabilities.psychology.therapy_system.random.random", return_value=0.9999):
+            focus = cts._select_focus(None)
+        assert focus in TherapyFocus.__members__.values()
+
+
+# ── TherapyCapability dispatch ────────────────────────────────────────────────
+
+class TestTherapyCapabilityDispatch:
+    @pytest.mark.asyncio
+    async def test_anomal_gets_llm_system(self):
+        ctx = _make_ctx("anomal")
+        cap = TherapyCapability(ctx)
+        await cap.setup()
+        assert isinstance(cap.inner, TherapySystem)
+
+    @pytest.mark.asyncio
+    async def test_natt_gets_llm_system(self):
+        ctx = _make_ctx("natt")
+        cap = TherapyCapability(ctx)
+        await cap.setup()
+        assert isinstance(cap.inner, TherapySystem)
+
+    @pytest.mark.asyncio
+    async def test_cherry_gets_template_system(self):
+        ctx = _make_ctx("cherry")
+        cap = TherapyCapability(ctx)
+        await cap.setup()
+        assert isinstance(cap.inner, CherryTherapySystem)
+
+    @pytest.mark.asyncio
+    async def test_cherry_run_session_uses_generate_session(self):
+        ctx = _make_ctx("cherry")
+        cap = TherapyCapability(ctx)
+        await cap.setup()
+        session = await cap.run_session()
+        assert isinstance(session, TherapySession)
+        assert session.focus is not None
+
+    @pytest.mark.asyncio
+    async def test_cherry_run_session_passes_emotional_state(self):
+        ctx = _make_ctx("cherry")
+        cap = TherapyCapability(ctx)
+        await cap.setup()
+        state = CherryEmotionalState()
+        state.denial_strength = 0.40
+        session = await cap.run_session(emotional_state=state)
+        assert session is not None
+
+    @pytest.mark.asyncio
+    async def test_anomal_run_session_empty_week(self):
+        ctx = _make_ctx("anomal")
+        cap = TherapyCapability(ctx)
+        await cap.setup()
+        session = await cap.run_session(dreams=[], learnings=[])
+        assert session is not None
+        assert "quiet" in session.session_summary.lower()
+
+    @pytest.mark.asyncio
+    async def test_is_therapy_day_delegates(self):
+        ctx = _make_ctx("anomal")
+        cap = TherapyCapability(ctx)
+        await cap.setup()
+        # Must be bool
+        result = cap.is_therapy_day()
+        assert isinstance(result, bool)
+
+    @pytest.mark.asyncio
+    async def test_no_system_run_session_returns_none(self):
+        ctx = _make_ctx("anomal")
+        cap = TherapyCapability(ctx)
+        # Do NOT call setup — _therapy_system is None
+        result = await cap.run_session()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_no_system_is_therapy_day_returns_false(self):
+        ctx = _make_ctx("anomal")
+        cap = TherapyCapability(ctx)
+        assert cap.is_therapy_day() is False
