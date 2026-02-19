@@ -49,9 +49,10 @@
                     <span class="info-label">Identity</span>
                     <span class="info-value">{{ identity.identity_ref or 'default' }}</span>
                 </div>
+                {% if identity.llm %}
                 <div class="info-item">
                     <span class="info-label">LLM Model</span>
-                    <span class="info-value mono">{{ identity.llm.model }}</span>
+                    <span class="info-value mono">{{ identity.llm.model or '—' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Temperature</span>
@@ -61,6 +62,12 @@
                     <span class="info-label">Max Tokens</span>
                     <span class="info-value">{{ identity.llm.max_tokens }}</span>
                 </div>
+                {% else %}
+                <div class="info-item">
+                    <span class="info-label">LLM</span>
+                    <span class="info-value text-muted">Not configured</span>
+                </div>
+                {% endif %}
             </div>
         </div>
 

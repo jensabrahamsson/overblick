@@ -233,6 +233,59 @@ def _build_mock_conversation_service():
     return svc
 
 
+def _build_mock_irc_service():
+    """Create a mock IRC service with realistic conversation data."""
+    svc = MagicMock()
+    svc.has_data.return_value = True
+    conversations = [
+        {
+            "id": "irc-001",
+            "channel": "#krypto-analys",
+            "topic": "Market trends and speculation",
+            "state": "active",
+            "participants": ["anomal", "cherry"],
+            "turns": [
+                {
+                    "identity": "anomal",
+                    "display_name": "anomal",
+                    "content": "BTC breaking ATH again — the market is insane right now.",
+                    "timestamp": 1708000000.0,
+                    "type": "message",
+                },
+                {
+                    "identity": "cherry",
+                    "display_name": "cherry",
+                    "content": "Bullish, but watch RSI — we're deep in overbought territory.",
+                    "timestamp": 1708000060.0,
+                    "type": "message",
+                },
+            ],
+        },
+        {
+            "id": "irc-002",
+            "channel": "#filosofi",
+            "topic": "Consciousness and free will",
+            "state": "completed",
+            "participants": ["anomal", "rost"],
+            "turns": [
+                {
+                    "identity": "anomal",
+                    "display_name": "anomal",
+                    "content": "The hard problem of consciousness resists every reductive explanation.",
+                    "timestamp": 1708010000.0,
+                    "type": "message",
+                },
+            ],
+        },
+    ]
+    svc.get_conversations.return_value = conversations
+    svc.get_current_conversation.return_value = conversations[0]
+    svc.get_conversation.side_effect = lambda conv_id: next(
+        (c for c in conversations if c["id"] == conv_id), None
+    )
+    return svc
+
+
 def _build_mock_llm_service():
     """Create a mock LLM service."""
     svc = MagicMock()
@@ -301,9 +354,19 @@ def dashboard_server(tmp_path_factory):
     app.state.audit_service = _build_mock_audit_service()
     app.state.supervisor_service = _build_mock_supervisor_service()
     app.state.system_service = _build_mock_system_service()
-    app.state.onboarding_service = MagicMock()
     app.state.conversation_service = _build_mock_conversation_service()
     app.state.llm_service = _build_mock_llm_service()
+    app.state.irc_service = _build_mock_irc_service()
+
+    # Onboarding service mock — identity does not exist, creation succeeds
+    onboarding_svc = MagicMock()
+    onboarding_svc.identity_exists.return_value = False
+    onboarding_svc.create_identity.return_value = {
+        "name": "testbot",
+        "display_name": "Testbot",
+        "path": str(tmp_dir / "config" / "testbot"),
+    }
+    app.state.onboarding_service = onboarding_svc
 
     url = f"http://127.0.0.1:{port}"
 

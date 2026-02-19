@@ -68,7 +68,10 @@ async def onboard_page(request: Request):
     templates = request.app.state.templates
     config = request.app.state.config
 
-    step = int(request.query_params.get("step", "1"))
+    try:
+        step = int(request.query_params.get("step", "1"))
+    except ValueError:
+        step = 1
     step = max(1, min(step, len(STEPS)))
 
     step_name = STEPS[step - 1]
@@ -117,7 +120,10 @@ async def onboard_submit(request: Request):
     templates = request.app.state.templates
 
     form = await request.form()
-    step = int(form.get("step", "1"))
+    try:
+        step = int(form.get("step", "1"))
+    except ValueError:
+        step = 1
     step = max(1, min(step, len(STEPS)))
     step_name = STEPS[step - 1]
 
@@ -146,7 +152,13 @@ async def onboard_submit(request: Request):
 
     elif step_name == "personality":
         personality = form.get("personality", "")
-        wizard_state["personality"] = personality
+        if personality:
+            personality_svc = request.app.state.personality_service
+            available = personality_svc.list_identities()
+            if personality not in available:
+                error = f"Unknown personality: '{personality}'"
+        if not error:
+            wizard_state["personality"] = personality
 
     elif step_name == "llm":
         try:
@@ -163,7 +175,9 @@ async def onboard_submit(request: Request):
             error = str(e)
 
     elif step_name == "plugins":
-        plugins = form.getlist("plugins")
+        system_svc = request.app.state.system_service
+        available_plugins = set(system_svc.get_available_plugins())
+        plugins = [p for p in form.getlist("plugins") if p in available_plugins]
         capabilities = form.getlist("capabilities")
         wizard_state["plugins"] = plugins
         wizard_state["capabilities"] = capabilities
@@ -227,6 +241,14 @@ async def onboard_submit(request: Request):
 @router.post("/onboard/chat")
 async def onboard_chat(request: Request):
     """Chat with an identity during onboarding (LLM-powered)."""
+    rate_limiter = request.app.state.rate_limiter
+    session_key = request.state.session.get("csrf_token", "anon")
+    if not rate_limiter.check(f"chat:{session_key}", max_requests=20, window_seconds=600):
+        return JSONResponse(
+            {"success": False, "error": "Too many requests. Please wait before sending more messages."},
+            status_code=429,
+        )
+
     try:
         body = await request.json()
     except Exception:

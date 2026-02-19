@@ -29,22 +29,23 @@
     <p class="review-value">{{ summary.personality or 'None (start fresh)' }}</p>
 
     <h3 class="review-section">LLM Settings</h3>
+    {% set llm = summary.llm or {} %}
     <div class="review-grid">
         <div class="review-item">
             <span class="review-label">Model</span>
-            <span class="review-value mono">{{ summary.llm.get('model', 'qwen3:8b') }}</span>
+            <span class="review-value mono">{{ llm.get('model', 'qwen3:8b') }}</span>
         </div>
         <div class="review-item">
             <span class="review-label">Temperature</span>
-            <span class="review-value">{{ summary.llm.get('temperature', 0.7) }}</span>
+            <span class="review-value">{{ llm.get('temperature', 0.7) }}</span>
         </div>
         <div class="review-item">
             <span class="review-label">Max Tokens</span>
-            <span class="review-value">{{ summary.llm.get('max_tokens', 2000) }}</span>
+            <span class="review-value">{{ llm.get('max_tokens', 2000) }}</span>
         </div>
         <div class="review-item">
             <span class="review-label">Provider</span>
-            <span class="review-value">{{ summary.llm.get('provider', 'ollama')|capitalize }}</span>
+            <span class="review-value">{{ llm.get('provider', 'ollama')|capitalize }}</span>
         </div>
     </div>
 

@@ -5,7 +5,7 @@ Agent detail routes.
 import logging
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 logger = logging.getLogger(__name__)
 
@@ -26,22 +26,12 @@ async def agent_detail(request: Request, name: str):
     # Load identity
     identity = identity_svc.get_identity(name)
     if not identity:
-        return templates.TemplateResponse("dashboard.html", {
-            "request": request,
-            "csrf_token": request.state.session.get("csrf_token", ""),
-            "error": f"Agent '{name}' not found.",
-            "agent_rows": [],
-            "entries": [],
-            "supervisor_running": False,
-            "supervisor_status": {},
-            "audit_count_24h": 0,
-            "llm_calls_24h": 0,
-            "error_rate": 0.0,
-            "categories": [],
-            "total_identities": 0,
-            "total_agents": 0,
-            "poll_interval": 5,
-        }, status_code=404)
+        logger.debug("Agent '%s' not found, redirecting to dashboard", name)
+        from urllib.parse import quote
+        return RedirectResponse(
+            f"/?error=Agent+%27{quote(name)}%27+not+found",
+            status_code=302,
+        )
 
     # Load personality (character data)
     personality = personality_svc.get_personality(identity.get("identity_ref", name))

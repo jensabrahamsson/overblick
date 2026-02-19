@@ -25,7 +25,8 @@ async def audit_page(request: Request):
     params = dict(request.query_params)
     try:
         filters = AuditFilterForm(**params)
-    except Exception:
+    except Exception as e:
+        logger.debug("Audit filter validation failed, using defaults: %s", e)
         filters = AuditFilterForm()
 
     entries = audit_svc.query(
@@ -56,7 +57,8 @@ async def audit_filtered_partial(request: Request):
     params = dict(request.query_params)
     try:
         filters = AuditFilterForm(**params)
-    except Exception:
+    except Exception as e:
+        logger.debug("Audit filter validation failed, using defaults: %s", e)
         filters = AuditFilterForm()
 
     entries = audit_svc.query(

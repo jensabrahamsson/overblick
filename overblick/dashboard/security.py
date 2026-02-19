@@ -118,6 +118,14 @@ class OnboardingSecretsForm(BaseModel):
                 raise ValueError(f"Invalid secret key name: {key}")
         return v
 
+    @field_validator("values")
+    @classmethod
+    def validate_values(cls, v: list[str]) -> list[str]:
+        for value in v:
+            if len(value) > 1024:
+                raise ValueError("Secret value exceeds maximum length of 1024 characters")
+        return v
+
 
 class AuditFilterForm(BaseModel):
     """Audit trail filter parameters."""

@@ -19,7 +19,10 @@ async def llm_page(request: Request):
     audit_svc = request.app.state.audit_service
     identity_svc = request.app.state.identity_service
 
-    hours = int(request.query_params.get("hours", "24"))
+    try:
+        hours = int(request.query_params.get("hours", "24"))
+    except ValueError:
+        hours = 24
     identity = request.query_params.get("identity", "")
 
     entries = audit_svc.query(
@@ -52,7 +55,10 @@ async def llm_table_partial(request: Request):
     templates = request.app.state.templates
     audit_svc = request.app.state.audit_service
 
-    hours = int(request.query_params.get("hours", "24"))
+    try:
+        hours = int(request.query_params.get("hours", "24"))
+    except ValueError:
+        hours = 24
     identity = request.query_params.get("identity", "")
 
     entries = audit_svc.query(
