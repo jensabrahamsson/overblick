@@ -2186,3 +2186,213 @@ class TestMaxEmailAgeFilter:
         # Should be included (Date injected from timestamp)
         assert len(results) == 1
         assert results[0]["headers"]["Date"] == date_str
+
+    @pytest.mark.asyncio
+    async def test_fetch_passes_since_days_to_gmail(
+        self, stal_plugin_context, mock_gmail_capability,
+    ):
+        """_fetch_unread() passes since_days=1 when max_email_age_hours=5."""
+        import math
+
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 5
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        mock_gmail_capability.fetch_unread = AsyncMock(return_value=[])
+
+        await plugin._fetch_unread()
+
+        # since_days = ceil(5/24) = 1
+        expected_since_days = max(1, math.ceil(5 / 24))
+        mock_gmail_capability.fetch_unread.assert_called_once_with(
+            max_results=10, since_days=expected_since_days,
+        )
+
+    @pytest.mark.asyncio
+    async def test_fetch_passes_none_since_days_when_no_age_filter(
+        self, stal_plugin_context, mock_gmail_capability,
+    ):
+        """_fetch_unread() passes since_days=None when no max_email_age_hours."""
+        stal_plugin_context.identity.raw_config["email_agent"].pop("max_email_age_hours", None)
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        mock_gmail_capability.fetch_unread = AsyncMock(return_value=[])
+
+        await plugin._fetch_unread()
+
+        mock_gmail_capability.fetch_unread.assert_called_once_with(
+            max_results=10, since_days=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_since_days_minimum_one(
+        self, stal_plugin_context, mock_gmail_capability,
+    ):
+        """since_days is always at least 1, even for sub-24-hour age limits."""
+        stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 1
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        mock_gmail_capability.fetch_unread = AsyncMock(return_value=[])
+
+        await plugin._fetch_unread()
+
+        # ceil(1/24) = 1, but even ceil(0.5/24) = 1
+        mock_gmail_capability.fetch_unread.assert_called_once_with(
+            max_results=10, since_days=1,
+        )
+
+
+class TestDraftReplyNotification:
+    """Test the draft reply notification feature (show_draft_replies)."""
+
+    @pytest.mark.asyncio
+    async def test_draft_reply_sent_after_notify(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """_send_draft_reply_notification() sends a Telegram message with the draft."""
+        stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # LLM returns notification summary, then draft reply
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
+            PipelineResult(content="Meeting request from colleague."),  # notification
+            PipelineResult(content="Dear colleague, I'll check the calendar."),  # draft
+        ])
+
+        email_dict = {
+            "sender": "colleague@example.com",
+            "subject": "Meeting",
+            "body": "Can we meet?",
+            "snippet": "Can we meet?",
+            "message_id": "msg-001",
+            "thread_id": "thread-001",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="Important",
+        )
+
+        await plugin._execute_action(email_dict, classification)
+
+        # Telegram should have been called twice: notification + draft
+        assert mock_telegram_notifier.send_notification.called or \
+               mock_telegram_notifier.send_notification_tracked.called
+        # Draft was sent via send_notification
+        mock_telegram_notifier.send_notification.assert_called_once()
+        draft_text = mock_telegram_notifier.send_notification.call_args[0][0]
+        assert "Suggested reply" in draft_text
+        assert "Dear colleague" in draft_text
+
+    @pytest.mark.asyncio
+    async def test_draft_reply_not_sent_when_flag_false(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """No draft is sent when show_draft_replies is False (default)."""
+        # Explicitly disable draft replies
+        stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = False
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="Important meeting request.")
+        )
+
+        email_dict = {
+            "sender": "boss@example.com",
+            "subject": "Urgent",
+            "body": "Call me now.",
+            "snippet": "Call me now.",
+            "message_id": "msg-002",
+            "thread_id": "thread-002",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="Urgent",
+        )
+
+        await plugin._execute_action(email_dict, classification)
+
+        # send_notification (for draft) must NOT have been called
+        mock_telegram_notifier.send_notification.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_draft_reply_skipped_on_llm_failure(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """Draft notification fails silently when LLM returns empty/blocked result."""
+        stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
+            PipelineResult(content="Meeting request."),  # notification succeeds
+            PipelineResult(content="", blocked=True),    # draft LLM blocked
+        ])
+
+        email_dict = {
+            "sender": "someone@example.com",
+            "subject": "Hi",
+            "body": "Hey there.",
+            "snippet": "Hey there.",
+            "message_id": "msg-003",
+            "thread_id": "thread-003",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="test",
+        )
+
+        # Should not raise despite draft failure
+        result = await plugin._execute_action(email_dict, classification)
+        assert result == "notification_sent"
+        # Draft send_notification should not have been called (blocked)
+        mock_telegram_notifier.send_notification.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_draft_not_sent_when_notification_fails(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """Draft is not sent when the primary notification fails."""
+        stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Notification fails (tracked returns None = failure)
+        mock_telegram_notifier.send_notification_tracked = AsyncMock(return_value=None)
+
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="Some notification content.")
+        )
+
+        email_dict = {
+            "sender": "x@example.com",
+            "subject": "Test",
+            "body": "Test.",
+            "snippet": "Test.",
+            "message_id": "msg-004",
+            "thread_id": "thread-004",
+        }
+        classification = EmailClassification(
+            intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="test",
+        )
+
+        result = await plugin._execute_action(email_dict, classification)
+        assert result == "notification_failed"
+        # Draft should NOT be sent since notification failed
+        mock_telegram_notifier.send_notification.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_show_draft_replies_loaded_from_config(self, stal_plugin_context):
+        """show_draft_replies is loaded from config correctly."""
+        stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+        assert plugin._show_draft_replies is True
+
+    @pytest.mark.asyncio
+    async def test_show_draft_replies_default_false(self, stal_plugin_context):
+        """show_draft_replies defaults to False when not configured."""
+        stal_plugin_context.identity.raw_config["email_agent"].pop("show_draft_replies", None)
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+        assert plugin._show_draft_replies is False

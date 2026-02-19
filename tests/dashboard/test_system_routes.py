@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 from overblick.dashboard.auth import SESSION_COOKIE
 from overblick.capabilities.monitoring.models import (
-    HostHealth, MemoryInfo, CPUInfo, DiskInfo, PowerInfo,
+    HostHealth, MemoryInfo, CPUInfo, PowerInfo,
 )
 
 
@@ -17,10 +17,6 @@ def _fake_host_health() -> HostHealth:
         uptime="3 days, 2:15",
         memory=MemoryInfo(total_mb=16384.0, used_mb=10240.0, available_mb=6144.0, percent_used=62.5),
         cpu=CPUInfo(load_1m=2.1, load_5m=1.8, load_15m=1.5, core_count=8),
-        disks=[
-            DiskInfo(mount="/", total_gb=500.0, used_gb=250.0, available_gb=250.0, percent_used=50.0),
-            DiskInfo(mount="/Volumes/Data", total_gb=1000.0, used_gb=600.0, available_gb=400.0, percent_used=60.0),
-        ],
         power=PowerInfo(on_battery=False, battery_percent=85.0, time_remaining=None),
         errors=[],
     )
@@ -75,7 +71,7 @@ class TestSystemPage:
 
     @pytest.mark.asyncio
     async def test_system_shows_gauges(self, client, session_cookie):
-        """Page displays RAM, CPU, Disk gauges."""
+        """Page displays RAM, CPU, and Battery gauges."""
         cookie_value, _ = session_cookie
         with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()), \
              patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
@@ -83,7 +79,6 @@ class TestSystemPage:
 
         assert "RAM" in resp.text
         assert "CPU" in resp.text
-        assert "Disk" in resp.text
         assert "Battery" in resp.text
 
     @pytest.mark.asyncio
@@ -122,7 +117,6 @@ class TestSystemMetricsPartial:
              patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
             resp = await client.get("/system/metrics", cookies={SESSION_COOKIE: cookie_value})
 
-        # Battery gauge block should not render
         assert "gauge-sublabel\">Battery</text>" not in resp.text
 
 
@@ -142,34 +136,9 @@ class TestSystemGracefulDegradation:
     async def test_inspect_failure_returns_defaults(self, client, session_cookie):
         """Page still renders when host inspection fails."""
         cookie_value, _ = session_cookie
-        # _collect_host_health catches exceptions and returns HostHealth()
         with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=HostHealth()), \
              patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
             resp = await client.get("/system", cookies={SESSION_COOKIE: cookie_value})
 
         assert resp.status_code == 200
         assert "System Health" in resp.text
-
-    @pytest.mark.asyncio
-    async def test_disk_table_hidden_with_single_disk(self, client, session_cookie):
-        """Disk volumes table only shows when there are multiple disks."""
-        cookie_value, _ = session_cookie
-        health = _fake_host_health()
-        health.disks = [DiskInfo(mount="/", total_gb=500.0, used_gb=250.0, available_gb=250.0, percent_used=50.0)]
-
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=health), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
-            resp = await client.get("/system/metrics", cookies={SESSION_COOKIE: cookie_value})
-
-        assert "Disk Volumes" not in resp.text
-
-    @pytest.mark.asyncio
-    async def test_disk_table_shown_with_multiple_disks(self, client, session_cookie):
-        """Disk volumes table shows when there are 2+ disks."""
-        cookie_value, _ = session_cookie
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
-            resp = await client.get("/system/metrics", cookies={SESSION_COOKIE: cookie_value})
-
-        assert "Disk Volumes" in resp.text
-        assert "/Volumes/Data" in resp.text

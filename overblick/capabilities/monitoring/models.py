@@ -27,15 +27,6 @@ class CPUInfo(BaseModel):
     core_count: int = 0
 
 
-class DiskInfo(BaseModel):
-    """Disk usage for a single mount point."""
-    mount: str = "/"
-    total_gb: float = 0.0
-    used_gb: float = 0.0
-    available_gb: float = 0.0
-    percent_used: float = 0.0
-
-
 class PowerInfo(BaseModel):
     """Power/battery information (macOS-specific)."""
     on_battery: bool = False
@@ -51,7 +42,6 @@ class HostHealth(BaseModel):
     uptime: str = ""
     memory: MemoryInfo = MemoryInfo()
     cpu: CPUInfo = CPUInfo()
-    disks: list[DiskInfo] = []
     power: PowerInfo = PowerInfo()
     errors: list[str] = []
 
@@ -74,12 +64,6 @@ class HostHealth(BaseModel):
             issues += 2
         elif self.cpu.load_1m > self.cpu.core_count:
             issues += 1
-
-        for disk in self.disks:
-            if disk.percent_used > 95:
-                issues += 2
-            elif disk.percent_used > 85:
-                issues += 1
 
         if issues >= 3:
             return "poor"
@@ -106,14 +90,6 @@ class HostHealth(BaseModel):
             f"CPU: {self.cpu.core_count} cores, "
             f"load avg {self.cpu.load_1m:.2f} / {self.cpu.load_5m:.2f} / {self.cpu.load_15m:.2f}",
         ]
-
-        if self.disks:
-            lines.append("")
-            for disk in self.disks:
-                lines.append(
-                    f"Disk [{disk.mount}]: {disk.used_gb:.1f}/{disk.total_gb:.1f} GB "
-                    f"({disk.percent_used:.1f}% used, {disk.available_gb:.1f} GB free)"
-                )
 
         if self.power.battery_percent is not None:
             lines.append("")

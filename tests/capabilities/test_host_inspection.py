@@ -9,7 +9,6 @@ import pytest
 
 from overblick.capabilities.monitoring.models import (
     CPUInfo,
-    DiskInfo,
     HealthInquiry,
     HealthResponse,
     HostHealth,
@@ -35,7 +34,6 @@ class TestHostHealthModel:
         health = HostHealth(
             memory=MemoryInfo(total_mb=16000, used_mb=8000, available_mb=8000, percent_used=50),
             cpu=CPUInfo(load_1m=1.0, load_5m=1.0, load_15m=1.0, core_count=8),
-            disks=[DiskInfo(mount="/", total_gb=500, used_gb=200, available_gb=300, percent_used=40)],
         )
         assert health.health_grade == "good"
 
@@ -52,7 +50,6 @@ class TestHostHealthModel:
         health = HostHealth(
             memory=MemoryInfo(total_mb=16000, used_mb=15000, available_mb=1000, percent_used=93),
             cpu=CPUInfo(load_1m=20.0, core_count=8),
-            disks=[DiskInfo(mount="/", total_gb=500, used_gb=490, available_gb=10, percent_used=98)],
         )
         assert health.health_grade == "poor"
 
@@ -72,7 +69,6 @@ class TestHostHealthModel:
             uptime="5 days",
             memory=MemoryInfo(total_mb=16000, used_mb=8000, available_mb=8000, percent_used=50),
             cpu=CPUInfo(load_1m=1.5, load_5m=1.2, load_15m=1.0, core_count=8),
-            disks=[DiskInfo(mount="/", total_gb=500, used_gb=200, available_gb=300, percent_used=40)],
         )
         summary = health.to_summary()
 
@@ -82,7 +78,6 @@ class TestHostHealthModel:
         assert "GOOD" in summary
         assert "8000/16000 MB" in summary
         assert "8 cores" in summary
-        assert "200.0/500.0 GB" in summary
 
     def test_to_summary_includes_power(self):
         """Summary includes power info when battery data is available."""
@@ -139,7 +134,7 @@ class TestCommandWhitelisting:
 
     def test_expected_commands_in_whitelist(self):
         """All expected commands are whitelisted."""
-        expected = {"vm_stat", "sysctl", "df", "uptime", "pmset", "free", "cat", "hostname"}
+        expected = {"vm_stat", "sysctl", "uptime", "pmset", "free", "cat", "hostname"}
         assert expected.issubset(_ALLOWED_COMMANDS)
 
     def test_dangerous_commands_not_in_whitelist(self):
@@ -186,11 +181,6 @@ class TestHostInspectionCapability:
                     )
                 if cmd == "sysctl":
                     return "17179869184"  # 16 GB
-                if cmd == "df":
-                    return (
-                        "Filesystem     Size   Used  Avail Capacity  Mounted on\n"
-                        "/dev/disk1s1  466G   200G   266G    43%    /\n"
-                    )
                 if cmd == "uptime":
                     return " 14:30  up 5 days, 3:45, 2 users, load averages: 1.50 1.30 1.20"
                 if cmd == "pmset":

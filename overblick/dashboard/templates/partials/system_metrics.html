@@ -76,33 +76,6 @@
             </div>
         </div>
 
-        <!-- Disk Gauge -->
-        {% if root_disk %}
-        {% set disk_pct = root_disk.percent_used %}
-        {% set disk_status = 'healthy' if disk_pct < 70 else ('warning' if disk_pct < 85 else 'critical') %}
-        {% set disk_color = 'var(--green)' if disk_pct < 70 else ('var(--amber)' if disk_pct < 85 else 'var(--red)') %}
-        <div class="system-gauge-card card">
-            <div class="system-gauge-ring">
-                <svg viewBox="0 0 120 120" class="gauge-svg" role="meter" aria-valuenow="{{ '%.0f' | format(disk_pct) }}" aria-valuemin="0" aria-valuemax="100" aria-label="Disk usage {{ '%.0f' | format(disk_pct) }} percent, {{ disk_status }}">
-                    <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
-                    <circle cx="60" cy="60" r="52" fill="none"
-                            stroke="{{ disk_color }}" stroke-width="8"
-                            stroke-linecap="round"
-                            stroke-dasharray="326.73"
-                            stroke-dashoffset="{{ 326.73 - (326.73 * disk_pct / 100) }}"
-                            class="gauge-ring-fill"
-                            transform="rotate(-90 60 60)"/>
-                    <text x="60" y="55" text-anchor="middle" class="gauge-percent" aria-hidden="true">{{ "%.0f" | format(disk_pct) }}%</text>
-                    <text x="60" y="72" text-anchor="middle" class="gauge-sublabel" aria-hidden="true">Disk</text>
-                </svg>
-            </div>
-            <div class="system-gauge-details">
-                <span class="gauge-detail-line">{{ "%.1f" | format(root_disk.used_gb) }} / {{ "%.1f" | format(root_disk.total_gb) }} GB</span>
-                <span class="gauge-detail-sub">{{ "%.1f" | format(root_disk.available_gb) }} GB free</span>
-            </div>
-        </div>
-        {% endif %}
-
         <!-- Battery Gauge (macOS only) -->
         {% if health.power.battery_percent is not none %}
         {% set batt_pct = health.power.battery_percent %}
@@ -185,42 +158,6 @@
     {% endif %}
 </div>
 
-{% if health.disks | length > 1 %}
-<!-- Disk Volumes -->
-<div class="section">
-    <h2 class="section-title">Disk Volumes</h2>
-    <div class="card">
-        <table class="system-disk-table" aria-label="Disk volumes">
-            <thead>
-                <tr>
-                    <th scope="col">Mount</th>
-                    <th scope="col">Total</th>
-                    <th scope="col">Used</th>
-                    <th scope="col">Free</th>
-                    <th scope="col">Usage</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for disk in health.disks %}
-                <tr>
-                    <td class="mono">{{ disk.mount }}</td>
-                    <td>{{ "%.1f" | format(disk.total_gb) }} GB</td>
-                    <td>{{ "%.1f" | format(disk.used_gb) }} GB</td>
-                    <td>{{ "%.1f" | format(disk.available_gb) }} GB</td>
-                    <td>
-                        <div class="system-disk-bar-container">
-                            {% set d_color = 'var(--green)' if disk.percent_used < 70 else ('var(--amber)' if disk.percent_used < 85 else 'var(--red)') %}
-                            <div class="system-disk-bar" style="width: {{ disk.percent_used }}%; background: {{ d_color }};" role="progressbar" aria-valuenow="{{ '%.1f' | format(disk.percent_used) }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ disk.mount }} usage"></div>
-                            <span class="system-disk-bar-label">{{ "%.1f" | format(disk.percent_used) }}%</span>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
 
 {% if health.errors %}
 <div class="section">

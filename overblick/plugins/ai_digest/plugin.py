@@ -91,15 +91,24 @@ class AiDigestPlugin(PluginBase):
         digest_config = raw_config.get("ai_digest", {})
 
         self._feeds = digest_config.get("feeds", _DEFAULT_FEEDS)
-        self._recipient = digest_config.get("recipient", "")
         self._digest_hour = digest_config.get("hour", 7)
         self._timezone = digest_config.get("timezone", "Europe/Stockholm")
         self._top_n = digest_config.get("top_n", _DEFAULT_TOP_N)
 
+        # Recipient: secrets take priority over config (keeps email addresses
+        # out of checked-in YAML files).
+        recipient_from_secrets: Optional[str] = None
+        try:
+            recipient_from_secrets = self.ctx.get_secret("ai_digest_recipient")
+        except Exception:
+            pass
+        self._recipient = recipient_from_secrets or digest_config.get("recipient", "")
+
         if not self._recipient:
             raise RuntimeError(
-                f"Missing ai_digest.recipient for identity {identity.name}. "
-                "Set the email address in identity config."
+                f"Missing ai_digest recipient for identity {identity.name}. "
+                "Set it via: python -m overblick secrets set "
+                f"{identity.name} ai_digest_recipient your@email.com"
             )
 
         # --- Build system prompt from personality ---

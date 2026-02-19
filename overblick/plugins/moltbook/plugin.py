@@ -579,7 +579,9 @@ class MoltbookPlugin(PluginBase):
         """Collect prompt context from all enabled capabilities."""
         parts = []
         for cap in self._capabilities.values():
-            if cap.enabled:
+            # Use getattr: framework capabilities (e.g. EmailCapability, GmailCapability)
+            # may be shared into this dict but don't implement CapabilityBase.enabled.
+            if getattr(cap, "enabled", False):
                 ctx = cap.get_prompt_context()
                 if ctx:
                     parts.append(ctx)

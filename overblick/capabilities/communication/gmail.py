@@ -25,6 +25,7 @@ import asyncio
 import imaplib
 import logging
 import smtplib
+from datetime import datetime, timedelta, timezone
 from email.header import decode_header as _decode_header
 from email.mime.text import MIMEText
 from email.parser import BytesParser
@@ -119,12 +120,19 @@ class GmailCapability:
 
     # ── Read (IMAP) ──────────────────────────────────────────────────────
 
-    async def fetch_unread(self, max_results: int = 10) -> list[GmailMessage]:
+    async def fetch_unread(
+        self,
+        max_results: int = 10,
+        since_days: Optional[int] = None,
+    ) -> list[GmailMessage]:
         """
         Fetch unread messages from Gmail inbox via IMAP.
 
         Args:
             max_results: Maximum number of messages to return.
+            since_days: Only fetch messages from the last N days (IMAP SINCE
+                filter). When set, old messages are excluded at the server
+                level — they are never transferred over the network.
 
         Returns:
             List of GmailMessage objects, newest first.
@@ -135,13 +143,15 @@ class GmailCapability:
 
         try:
             return await asyncio.to_thread(
-                self._imap_fetch_unread, max_results,
+                self._imap_fetch_unread, max_results, since_days,
             )
         except Exception as e:
             logger.error("Gmail fetch_unread failed: %s", e, exc_info=True)
             return []
 
-    def _imap_fetch_unread(self, max_results: int) -> list[GmailMessage]:
+    def _imap_fetch_unread(
+        self, max_results: int, since_days: Optional[int] = None,
+    ) -> list[GmailMessage]:
         """Fetch unread messages via IMAP (blocking, run in thread pool)."""
         results = []
 
@@ -149,7 +159,19 @@ class GmailCapability:
             imap.login(self._email, self._password)
             imap.select("INBOX")
 
-            status, data = imap.uid("search", None, "UNSEEN")
+            # Build search criteria — optionally restrict to recent messages
+            # at the server level to avoid fetching ancient unread emails.
+            search_criteria = "UNSEEN"
+            if since_days is not None:
+                cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
+                imap_date = cutoff.strftime("%d-%b-%Y")  # e.g. "14-Feb-2026"
+                search_criteria = f"UNSEEN SINCE {imap_date}"
+                logger.debug(
+                    "GmailCapability: fetching unread since %s (last %d day(s))",
+                    imap_date, since_days,
+                )
+
+            status, data = imap.uid("search", None, search_criteria)
             if status != "OK" or not data[0]:
                 return []
 

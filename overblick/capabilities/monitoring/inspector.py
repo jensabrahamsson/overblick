@@ -19,7 +19,6 @@ from pathlib import Path
 
 from overblick.capabilities.monitoring.models import (
     CPUInfo,
-    DiskInfo,
     HostHealth,
     MemoryInfo,
     PowerInfo,
@@ -31,7 +30,6 @@ logger = logging.getLogger(__name__)
 _ALLOWED_COMMANDS: frozenset[str] = frozenset({
     "vm_stat",
     "sysctl",
-    "df",
     "ps",
     "uptime",
     "pmset",
@@ -118,10 +116,9 @@ class HostInspectionCapability:
         # Run all collectors concurrently
         memory_task = self._collect_memory()
         cpu_task = self._collect_cpu()
-        disk_task = self._collect_disk()
         uptime_task = self._collect_uptime()
 
-        tasks = [memory_task, cpu_task, disk_task, uptime_task]
+        tasks = [memory_task, cpu_task, uptime_task]
 
         # Power info only on macOS
         power_task = None
@@ -140,19 +137,15 @@ class HostInspectionCapability:
         if isinstance(results[1], Exception):
             errors.append(f"cpu: {results[1]}")
 
-        disks = results[2] if not isinstance(results[2], Exception) else []
+        uptime = results[2] if not isinstance(results[2], Exception) else ""
         if isinstance(results[2], Exception):
-            errors.append(f"disk: {results[2]}")
-
-        uptime = results[3] if not isinstance(results[3], Exception) else ""
-        if isinstance(results[3], Exception):
-            errors.append(f"uptime: {results[3]}")
+            errors.append(f"uptime: {results[2]}")
 
         power = PowerInfo()
         if power_task is not None:
-            power = results[4] if not isinstance(results[4], Exception) else PowerInfo()
-            if isinstance(results[4], Exception):
-                errors.append(f"power: {results[4]}")
+            power = results[3] if not isinstance(results[3], Exception) else PowerInfo()
+            if isinstance(results[3], Exception):
+                errors.append(f"power: {results[3]}")
 
         return HostHealth(
             hostname=socket.gethostname(),
@@ -160,7 +153,6 @@ class HostInspectionCapability:
             uptime=uptime,
             memory=memory,
             cpu=cpu,
-            disks=disks,
             power=power,
             errors=errors,
         )
@@ -273,45 +265,6 @@ class HostInspectionCapability:
             load_15m=round(load_15m, 2),
             core_count=core_count,
         )
-
-    async def _collect_disk(self) -> list[DiskInfo]:
-        """Collect disk usage from df command."""
-        output = await _run_command("df", "-h")
-        if not output:
-            return []
-
-        disks = []
-        for line in output.splitlines()[1:]:  # Skip header
-            parts = line.split()
-            if len(parts) < 6:
-                continue
-
-            mount = parts[-1]
-            # Only track real filesystems
-            if not mount.startswith("/") or mount.startswith("/dev"):
-                continue
-            # Skip pseudo-filesystems
-            if any(x in parts[0] for x in ["devfs", "tmpfs", "map "]):
-                continue
-
-            try:
-                # Parse size values (handles G, M, T suffixes)
-                total = self._parse_size_to_gb(parts[1])
-                used = self._parse_size_to_gb(parts[2])
-                available = self._parse_size_to_gb(parts[3])
-                percent = float(parts[4].rstrip("%"))
-
-                disks.append(DiskInfo(
-                    mount=mount,
-                    total_gb=round(total, 1),
-                    used_gb=round(used, 1),
-                    available_gb=round(available, 1),
-                    percent_used=percent,
-                ))
-            except (ValueError, IndexError):
-                continue
-
-        return disks
 
     @staticmethod
     def _parse_size_to_gb(size_str: str) -> float:

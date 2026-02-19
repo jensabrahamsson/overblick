@@ -56,20 +56,10 @@ def _build_metrics_context(
     if health.cpu.core_count > 0:
         cpu_percent = min(100.0, (health.cpu.load_1m / health.cpu.core_count) * 100)
 
-    # Primary disk (root mount)
-    root_disk = None
-    for disk in health.disks:
-        if disk.mount == "/":
-            root_disk = disk
-            break
-    if root_disk is None and health.disks:
-        root_disk = health.disks[0]
-
     return {
         "health": health,
         "health_grade": health.health_grade,
         "cpu_percent": round(cpu_percent, 1),
-        "root_disk": root_disk,
         "gateway": gateway,
         "gateway_available": gateway is not None,
     }

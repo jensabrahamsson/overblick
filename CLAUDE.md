@@ -51,10 +51,16 @@ python -m overblick dashboard --port 9090
 # Run dashboard tests only
 ./venv/bin/python3 -m pytest tests/dashboard/ -v
 
-# Manager script
+# Manager script — individual agents
 ./scripts/overblick_manager.sh start anomal
 ./scripts/overblick_manager.sh stop anomal
-./scripts/overblick_manager.sh status
+./scripts/overblick_manager.sh status all
+
+# Manager script — supervisor (starts/stops ALL agents at once)
+./scripts/overblick_manager.sh supervisor-start "anomal cherry natt stal"
+./scripts/overblick_manager.sh supervisor-stop
+./scripts/overblick_manager.sh supervisor-status
+./scripts/overblick_manager.sh supervisor-logs
 ```
 
 ## Key Principles

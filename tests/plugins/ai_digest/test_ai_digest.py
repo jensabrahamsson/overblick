@@ -445,3 +445,78 @@ class TestSecurity:
         call_args = ai_digest_context.llm_pipeline.chat.call_args
         user_msg = call_args[1]["messages"][1]["content"]
         assert "<<<EXTERNAL_" in user_msg
+
+
+class TestRecipientFromSecrets:
+    """Test that ai_digest_recipient can be loaded from secrets."""
+
+    @pytest.mark.asyncio
+    async def test_recipient_from_secrets_overrides_config(
+        self, ai_digest_context,
+    ):
+        """Secret ai_digest_recipient takes priority over config recipient."""
+        ai_digest_context._secrets_getter = lambda key: (
+            "secret@example.com" if key == "ai_digest_recipient" else None
+        )
+        # Config has a different (placeholder) recipient
+        ai_digest_context.identity.raw_config["ai_digest"]["recipient"] = "placeholder@example.com"
+
+        plugin = AiDigestPlugin(ai_digest_context)
+        await plugin.setup()
+
+        assert plugin._recipient == "secret@example.com"
+
+    @pytest.mark.asyncio
+    async def test_recipient_falls_back_to_config(self, ai_digest_context):
+        """When secret is missing, config recipient is used as fallback."""
+        # No secrets getter (default mock has no ai_digest_recipient)
+        ai_digest_context._secrets_getter = lambda key: None
+        ai_digest_context.identity.raw_config["ai_digest"]["recipient"] = "config@example.com"
+
+        plugin = AiDigestPlugin(ai_digest_context)
+        await plugin.setup()
+
+        assert plugin._recipient == "config@example.com"
+
+    @pytest.mark.asyncio
+    async def test_missing_recipient_raises_with_helpful_message(
+        self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline,
+    ):
+        """RuntimeError message guides user to set the secret."""
+        from overblick.identities import Personality, LLMSettings
+        identity = Personality(
+            name="anomal",
+            llm=LLMSettings(),
+            raw_config={"ai_digest": {"recipient": ""}},
+        )
+        ctx = PluginContext(
+            identity_name="anomal",
+            data_dir=tmp_path / "data",
+            log_dir=tmp_path / "logs",
+            llm_client=mock_llm_client,
+            llm_pipeline=mock_pipeline,
+            audit_log=mock_audit_log,
+            quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
+            identity=identity,
+        )
+        ctx._secrets_getter = lambda key: None
+
+        plugin = AiDigestPlugin(ctx)
+        with pytest.raises(RuntimeError, match="secrets set"):
+            await plugin.setup()
+
+    @pytest.mark.asyncio
+    async def test_recipient_used_in_send(self, ai_digest_context):
+        """Recipient resolved from secrets is used when sending the digest."""
+        ai_digest_context._secrets_getter = lambda key: (
+            "from_secret@example.com" if key == "ai_digest_recipient" else None
+        )
+
+        plugin = AiDigestPlugin(ai_digest_context)
+        await plugin.setup()
+
+        await plugin._send_digest("Digest content", 3)
+
+        email_cap = ai_digest_context.capabilities["email"]
+        call_kwargs = email_cap.send.call_args[1]
+        assert call_kwargs["to"] == "from_secret@example.com"

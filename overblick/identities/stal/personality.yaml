@@ -571,6 +571,7 @@ operational:
 email_agent:
   max_email_age_hours: 5               # Skip emails older than 5 hours (prevents stale processing)
   dry_run: true                        # Safety: classify + notify, never send actual replies
+  show_draft_replies: true             # Send draft reply to Telegram after each NOTIFY (trust-building)
   filter_mode: "opt_in"               # "opt_in" or "opt_out"
   allowed_senders: []                  # Populate with approved senders
   blocked_senders: []                  # Used when filter_mode = opt_out

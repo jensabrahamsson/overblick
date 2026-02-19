@@ -107,6 +107,7 @@ class EmailAgentPlugin(PluginBase):
         self._principal_name: str = ""
         self._dry_run: bool = False
         self._max_email_age_hours: Optional[float] = None
+        self._show_draft_replies: bool = False
         # Reputation system config (learned thresholds)
         self._auto_ignore_sender_threshold: float = 0.9
         self._auto_ignore_sender_min_count: int = 5
@@ -196,6 +197,11 @@ class EmailAgentPlugin(PluginBase):
         self._dry_run = ea_config.get("dry_run", False)
         if self._dry_run:
             logger.info("EmailAgentPlugin running in DRY RUN mode — no emails will be sent")
+
+        # Draft replies: send a second Telegram message with Stål's suggested reply
+        self._show_draft_replies = ea_config.get("show_draft_replies", False)
+        if self._show_draft_replies:
+            logger.info("EmailAgentPlugin: draft reply mode enabled — suggested replies will be sent to Telegram")
 
         # Reputation thresholds (configurable, not hardcoded)
         reputation_config = ea_config.get("reputation", {})
@@ -292,7 +298,13 @@ class EmailAgentPlugin(PluginBase):
             logger.debug("EmailAgent: gmail capability not available")
             return []
 
-        messages = await gmail_cap.fetch_unread(max_results=10)
+        # Translate max_email_age_hours → IMAP SINCE days (server-side filter).
+        # Ceil to nearest day (min 1) so we never cut off same-day emails.
+        since_days: Optional[int] = None
+        if self._max_email_age_hours is not None:
+            since_days = max(1, math.ceil(self._max_email_age_hours / 24))
+
+        messages = await gmail_cap.fetch_unread(max_results=10, since_days=since_days)
 
         results = []
         for msg in messages:
@@ -856,6 +868,8 @@ class EmailAgentPlugin(PluginBase):
                 success = await self._send_notification(
                     email, classification, email_record_id=email_record_id,
                 )
+                if success and self._show_draft_replies:
+                    await self._send_draft_reply_notification(email)  # best-effort
                 if success:
                     self._state.notifications_sent += 1
                 return "notification_sent" if success else "notification_failed"
@@ -957,6 +971,56 @@ class EmailAgentPlugin(PluginBase):
         except Exception as e:
             logger.error("EmailAgent: notification generation failed: %s", e, exc_info=True)
             return False
+
+    async def _send_draft_reply_notification(self, email: dict[str, Any]) -> None:
+        """
+        Generate a draft reply and send it as a second Telegram message.
+
+        Called after a successful NOTIFY when show_draft_replies is enabled.
+        Lets the principal see how Stål would respond, building trust before
+        automatic replies are activated. Always best-effort — failures are
+        logged as warnings, never propagated.
+        """
+        sender = email.get("sender", "")
+        subject = email.get("subject", "")
+        body = email.get("body", "")
+
+        safe_sender = wrap_external_content(sender, "email_sender")
+        safe_subject = wrap_external_content(subject, "email_subject")
+        safe_body = wrap_external_content(body[:3000], "email_body")
+
+        messages = reply_prompt(
+            sender=safe_sender,
+            subject=safe_subject,
+            body=safe_body,
+            sender_context="No previous interactions",
+            interaction_history="First contact",
+            principal_name=self._principal_name,
+        )
+
+        try:
+            result = await self.ctx.llm_pipeline.chat(
+                messages=messages,
+                audit_action="email_draft_reply",
+                skip_preflight=True,
+            )
+            if not result or result.blocked or not result.content:
+                logger.warning(
+                    "EmailAgent: draft reply blocked or empty for email from %s", sender,
+                )
+                return
+
+            draft_text = f"\u270f\ufe0f *Suggested reply:*\n\n{result.content.strip()}"
+
+            notifier = self.ctx.get_capability("telegram_notifier")
+            if notifier:
+                await notifier.send_notification(draft_text)
+
+        except Exception as e:
+            logger.warning(
+                "EmailAgent: draft reply notification failed for email from %s: %s",
+                sender, e,
+            )
 
     async def _request_research(self, query: str, context: str = "") -> Optional[str]:
         """Ask the supervisor for research via BossRequestCapability."""

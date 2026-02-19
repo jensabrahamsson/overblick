@@ -116,7 +116,7 @@ opening_phrases:
 
 # AI Digest Plugin Configuration
 ai_digest:
-  recipient: "you@example.com"
+  recipient: ""  # Set ai_digest_recipient in config/secrets/anomal.yaml instead
   hour: 7  # Send digest at 07:00 CET
   timezone: "Europe/Stockholm"
   top_n: 5  # Select top 5 articles

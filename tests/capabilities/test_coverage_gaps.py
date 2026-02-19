@@ -103,7 +103,6 @@ class TestInspectorExceptionPaths:
             raise RuntimeError("collector failed")
 
         with patch.object(inspector, "_collect_memory", side_effect=RuntimeError("mem fail")), \
-             patch.object(inspector, "_collect_disk", side_effect=RuntimeError("disk fail")), \
              patch.object(inspector, "_collect_uptime", new_callable=AsyncMock, return_value="1 day"), \
              patch.object(inspector, "_collect_cpu", new_callable=AsyncMock) as mock_cpu:
             from overblick.capabilities.monitoring.models import CPUInfo
@@ -114,7 +113,6 @@ class TestInspectorExceptionPaths:
             assert isinstance(health, HostHealth)
             # Errors are recorded for failed collectors
             assert any("mem fail" in e for e in health.errors)
-            assert any("disk fail" in e for e in health.errors)
 
 
 class TestLinuxMemoryCollection:

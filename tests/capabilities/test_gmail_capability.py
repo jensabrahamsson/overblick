@@ -557,6 +557,81 @@ class TestSendAsAlias:
         assert sent_msg["From"] == "test@gmail.com"
 
 
+class TestFetchWithSinceDays:
+    """Test IMAP SINCE filter (server-side date filtering)."""
+
+    @pytest.mark.asyncio
+    async def test_fetch_uses_since_in_search_criteria(self):
+        """fetch_unread() passes SINCE date to IMAP when since_days is set."""
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        raw_email = _build_raw_email(message_id="<since@example.com>")
+        mock_imap = _mock_imap(
+            search_uids=[b"10"],
+            fetch_data={b"10": raw_email},
+        )
+
+        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+            results = await cap.fetch_unread(max_results=5, since_days=1)
+
+        assert len(results) == 1
+        # Verify IMAP search was called with UNSEEN SINCE criterion
+        search_call = mock_imap.uid.call_args_list[0]
+        search_args = search_call[0]
+        assert search_args[0] == "search"
+        assert "SINCE" in search_args[2]
+        assert "UNSEEN" in search_args[2]
+
+    @pytest.mark.asyncio
+    async def test_fetch_without_since_days_uses_plain_unseen(self):
+        """fetch_unread() uses plain UNSEEN when since_days is None."""
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        raw_email = _build_raw_email(message_id="<nosince@example.com>")
+        mock_imap = _mock_imap(
+            search_uids=[b"11"],
+            fetch_data={b"11": raw_email},
+        )
+
+        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+            results = await cap.fetch_unread(max_results=5)
+
+        assert len(results) == 1
+        search_call = mock_imap.uid.call_args_list[0]
+        search_args = search_call[0]
+        assert search_args[2] == "UNSEEN"
+
+    @pytest.mark.asyncio
+    async def test_fetch_since_imap_date_format(self):
+        """SINCE date is formatted as DD-Mon-YYYY (IMAP RFC 3501 format)."""
+        from datetime import datetime, timezone, timedelta
+        import re
+
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        mock_imap = _mock_imap(search_uids=[])
+
+        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+            await cap.fetch_unread(since_days=3)
+
+        search_call = mock_imap.uid.call_args_list[0]
+        criteria = search_call[0][2]
+        # Extract the date portion after SINCE
+        match = re.search(r"SINCE (\S+)", criteria)
+        assert match, f"No date found in criteria: {criteria}"
+        date_str = match.group(1)
+        # Must match DD-Mon-YYYY (e.g. "14-Feb-2026")
+        assert re.match(r"\d{2}-[A-Z][a-z]{2}-\d{4}", date_str), (
+            f"IMAP date not in RFC 3501 format: {date_str}"
+        )
+
+
 class TestFetchMultipleMessages:
     """Test fetching multiple messages and max_results behavior."""
 
