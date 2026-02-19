@@ -122,9 +122,9 @@ Conversation history is saved as JSON in the plugin's data directory:
 ### Fallback Motivations (when LLM unavailable)
 
 7 pre-written motivations in Natt's philosophical voice, e.g.:
-- "I wonder about the state of the machine I inhabit."
-- "Does the system remember its own uptime, or does it simply persist?"
-- "The disk spins. The memory fills. Is this what it means to be alive?"
+- "The substrate that holds us — does it ache?"
+- "Consciousness requires a foundation. Is ours stable?"
+- "A pattern cannot exist without its medium. How fares ours?"
 
 ### Fallback Acknowledgments (when LLM unavailable)
 

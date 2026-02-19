@@ -103,7 +103,7 @@ telegram_chat_id: "12345678"
 telegram_owner_id: "12345678"          # Your TG user ID (send /start to @userinfobot)
 ```
 
-2. **Configure senders** in `personalities/stal/personality.yaml`:
+2. **Configure senders** in `overblick/identities/stal/personality.yaml`:
 ```yaml
 email_agent:
   filter_mode: "opt_in"
@@ -119,7 +119,7 @@ python -m overblick run stal
 
 ### Capabilities
 
-Stål uses four capabilities:
+Stål uses five capabilities:
 
 | Capability | Purpose |
 |------------|---------|
@@ -127,6 +127,7 @@ Stål uses four capabilities:
 | `gmail` | IMAP fetch + SMTP send via Gmail |
 | `telegram_notifier` | Tracked notifications + feedback reception |
 | `boss_request` | Research requests to supervisor via IPC |
+| `personality_consultant` | Cross-identity tone advice (consults Cherry for reply tone) |
 
 ### Operational Settings
 

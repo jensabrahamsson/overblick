@@ -149,14 +149,14 @@ overblick/
 ├── __main__.py              # CLI: python -m overblick run anomal
 ├── core/                    # Framework core
 │   ├── orchestrator.py      # Wires everything together, runs plugins
-│   ├── identity.py          # Legacy identity system
+│   ├── # identity system lives in overblick/identities/__init__.py
 │   ├── plugin_base.py       # PluginBase + PluginContext
 │   ├── plugin_registry.py   # Security whitelist of loadable plugins
 │   ├── capability.py        # CapabilityBase + CapabilityContext + Registry
 │   ├── event_bus.py         # Pub/sub event system
 │   ├── scheduler.py         # Periodic task scheduler
 │   ├── permissions.py       # Action authorization
-│   ├── emotional_state.py   # Emotional state tracking
+│   ├── # emotional state lives in overblick/capabilities/psychology/emotional_state.py
 │   ├── quiet_hours.py       # GPU bedroom mode
 │   ├── llm/                 # LLM abstraction layer
 │   │   ├── client.py        # Abstract LLMClient
@@ -173,18 +173,19 @@ overblick/
 │   │   ├── audit_log.py         # Immutable audit trail
 │   │   └── secrets_manager.py   # Fernet-encrypted secrets
 │   └── database/            # Abstract DB with SQLite + PostgreSQL
-├── personalities/           # The personality stable (YAML-driven)
+├── identities/              # The identity stable (YAML-driven)
 │   ├── __init__.py          # Identity class, load_identity(), build_system_prompt()
-│   ├── anomal/              # Each personality is a directory
-│   │   ├── personality.yaml # Character definition
+│   ├── anomal/              # Each identity is a directory
+│   │   ├── personality.yaml # Character + operational definition
 │   │   └── llm_hints/       # Model-specific tuning
 │   │       └── qwen3_8b.yaml
-│   ├── cherry/
-│   ├── blixt/
 │   ├── bjork/
+│   ├── blixt/
+│   ├── cherry/
+│   ├── natt/
 │   ├── prisma/
 │   ├── rost/
-│   └── natt/
+│   └── stal/
 ├── plugins/                 # Connector plugins (external integrations)
 │   ├── moltbook/            # Moltbook.com social network
 │   ├── telegram/            # Telegram bot

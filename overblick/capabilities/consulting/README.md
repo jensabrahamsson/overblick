@@ -6,7 +6,7 @@ Consult any personality in the stable for advice — without requiring that pers
 
 ### How It Works
 
-1. **Load** the consultant's personality YAML via `load_personality()`
+1. **Load** the consultant's personality YAML via `load_identity()`
 2. **Build** their system prompt via `build_system_prompt(personality, platform="Internal Consultation")`
 3. **Call** the LLM through the caller's `SafeLLMPipeline` with the consultant's system prompt
 4. **Return** the advice to the calling plugin

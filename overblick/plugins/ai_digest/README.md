@@ -4,13 +4,13 @@ Daily AI news digest plugin that fetches, ranks, and summarizes AI news articles
 
 ## Overview
 
-The AI Digest plugin implements a fully automated morning news briefing system. It polls configured RSS feeds for AI-related content, uses the LLM to rank articles by relevance and importance, generates a personality-driven summary, and delivers it via the Gmail plugin through the event bus. The digest runs once per day at a configured hour (default 07:00 CET).
+The AI Digest plugin implements a fully automated morning news briefing system. It polls configured RSS feeds for AI-related content, uses the LLM to rank articles by relevance and importance, generates a personality-driven summary, and delivers it via the email capability directly. The digest runs once per day at a configured hour (default 07:00 CET).
 
 ## Concepts
 
 **Plugin vs Capability vs Identity**: A *plugin* connects an identity to a platform or service. A *capability* is a reusable skill shared across plugins. An *identity* is a character with voice, traits, and backstory. The AI Digest plugin is a **scheduled plugin** that fetches RSS feeds, ranks articles via LLM, and delivers a personality-driven email digest.
 
-**How AI Digest fits in**: This plugin bridges RSS content and email delivery. It uses the identity's personality voice for digest writing, the SafeLLMPipeline for all LLM calls, and the Event Bus to trigger email sending via the Gmail capability. No secrets required for the plugin itself (RSS feeds are public), but Gmail credentials are needed for delivery.
+**How AI Digest fits in**: This plugin bridges RSS content and email delivery. It uses the identity's personality voice for digest writing, the SafeLLMPipeline for all LLM calls, and the email capability (`ctx.get_capability("email")`) for direct SMTP delivery. No secrets required for the plugin itself (RSS feeds are public), but email (SMTP) credentials are needed for delivery.
 
 ## Features
 
@@ -18,7 +18,7 @@ The AI Digest plugin implements a fully automated morning news briefing system. 
 - **Time-Based Filtering**: Only processes articles published in the last 24 hours
 - **LLM-Powered Ranking**: Uses the personality's voice to evaluate and rank articles by importance
 - **Personality-Driven Summaries**: Generates digest in the agent's unique voice (Anomal, Cherry, etc.)
-- **Event Bus Integration**: Emits `email.send_request` events for the Gmail plugin to handle delivery
+- **Direct Email Delivery**: Sends digest via the email capability (`ctx.get_capability("email").send()`)
 - **State Persistence**: Tracks last digest date to prevent duplicates
 - **Quiet Hours Support**: Respects the identity's quiet hours configuration
 - **Security-First**: All RSS content wrapped in boundary markers, all LLM calls through SafeLLMPipeline
@@ -96,7 +96,7 @@ await plugin.tick()  # Will run if it's past the digest hour
 
 ### Output Example
 
-The digest is delivered as HTML email with structure:
+The digest is delivered as plain text email with structure:
 
 ```
 Subject: AI News Digest — 2026-02-14
@@ -114,19 +114,21 @@ Subject: AI News Digest — 2026-02-14
 [Personality-driven closing]
 ```
 
-## Events
+## Delivery
 
-### Emits
+The plugin delivers the digest by calling the email capability directly:
 
-- **`email.send_request`** - Sends digest to Gmail plugin for delivery
-  - `to`: Recipient email address
-  - `subject`: "AI News Digest — YYYY-MM-DD"
-  - `body`: Markdown-formatted digest content
-  - `plugin`: "ai_digest"
+```python
+email_cap = self.ctx.get_capability("email")
+await email_cap.send(
+    to=self._recipient,
+    subject=f"AI News Digest — {date}",
+    body=digest_content,
+    html=False,
+)
+```
 
-### Subscribes
-
-None. This plugin operates on a schedule, not event-driven.
+No event bus is used. The email capability must be configured with SMTP credentials for delivery to work.
 
 ## Architecture
 
@@ -152,8 +154,8 @@ None. This plugin operates on a schedule, not event-driven.
    └─ Receive markdown-formatted summary
 
 4. DELIVER
-   ├─ Emit email.send_request event
-   ├─ Gmail plugin handles SMTP delivery
+   ├─ Call email capability send() directly
+   ├─ SMTP delivery via EmailCapability
    └─ Audit log records digest sent
 
 5. PERSIST
@@ -165,7 +167,7 @@ None. This plugin operates on a schedule, not event-driven.
 - **`_fetch_all_feeds()`**: RSS polling and parsing with 24h time filter
 - **`_rank_articles()`**: LLM-powered article ranking (returns indices)
 - **`_generate_digest()`**: Personality-driven summary generation
-- **`_send_digest()`**: Event bus emission to Gmail plugin
+- **`_send_digest()`**: Direct email delivery via email capability
 - **`_is_digest_time()`**: Scheduling logic (hour + timezone + date tracking)
 
 ### State Management
@@ -198,7 +200,7 @@ pytest tests/plugins/ai_digest/ --cov=overblick.plugins.ai_digest
 - RSS feed fetching and time filtering
 - LLM ranking with JSON parsing
 - Digest generation in personality voice
-- Event bus emission
+- Email delivery via capability
 - State persistence across restarts
 - Quiet hours respect
 - Security (boundary markers, pipeline usage)
@@ -236,9 +238,9 @@ All LLM calls go through `SafeLLMPipeline`, which provides:
 
 The plugin uses public RSS feeds and requires no authentication. It's completely read-only from external sources.
 
-### Event Bus Security
+### Email Delivery Security
 
-The `email.send_request` event contains the recipient email in plaintext. Ensure the event bus is not exposed to untrusted subscribers.
+The recipient email is passed directly to the email capability. No event bus exposure.
 
 ## Configuration Examples
 
@@ -279,7 +281,7 @@ ai_digest:
 
 1. Check `logs/<identity>_ai_digest.log` for errors
 2. Verify `hour` and `timezone` settings
-3. Confirm Gmail plugin is configured with SMTP credentials
+3. Confirm email capability is configured with SMTP credentials
 4. Check `data/<identity>/ai_digest_state.json` - delete if stuck
 
 ### Empty Digest

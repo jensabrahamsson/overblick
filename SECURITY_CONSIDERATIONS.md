@@ -123,7 +123,7 @@ While Överblick is **local-first by design**, it now supports cloud LLM provide
 **Mitigation:**
 - **Fernet encryption**: Cloud API keys are stored encrypted at rest using Fernet symmetric encryption (AES-128-CBC with HMAC-SHA256).
 - **Master key in macOS Keychain**: The encryption master key is stored in the macOS Keychain, not in a file.
-- **No environment variable fallback**: Unlike many frameworks, Überblick does NOT fall back to `os.getenv("OPENAI_API_KEY")`. Keys are ONLY accessible through the encrypted `SecretsManager`.
+- **No environment variable fallback**: Unlike many frameworks, Överblick does NOT fall back to `os.getenv("OPENAI_API_KEY")`. Keys are ONLY accessible through the encrypted `SecretsManager`.
 - **Per-identity isolation**: Each identity has its own encrypted secrets file. An attacker compromising one identity's secrets cannot access another's.
 - **Secret values never logged**: The audit log records that a secret was accessed (by key name), but never logs the decrypted value.
 

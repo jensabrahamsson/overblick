@@ -40,7 +40,7 @@ python -m overblick list
 
 You should see:
 ```
-Available personalities:
+Available identities:
   - anomal
   - bjork
   - blixt
@@ -48,6 +48,7 @@ Available personalities:
   - natt
   - prisma
   - rost
+  - stal
 ```
 
 ### 2. Start Ollama and Load the Model
@@ -115,10 +116,9 @@ name: anomal
 display_name: Anomal
 personality: anomal  # References personality.yaml for voice/character
 
-# Which plugins to load (connectors)
-connectors:
+# Which plugins to load
+plugins:
   - ai_digest
-  - gmail
 
 # AI Digest configuration
 ai_digest:
@@ -444,19 +444,23 @@ print('SMTP server:', sm.get('anomal', 'smtp_server'))
 ### Explore Capabilities
 
 Capabilities are reusable logic:
-- **psychology**: Dream system, therapy sessions, emotional state
 - **knowledge**: Safe learning, knowledge loading
 - **social**: Opening phrase selector
 - **engagement**: Content analyzer, response composer
+- **communication**: Email, Gmail, Telegram notifier, boss requests
+- **monitoring**: Host system inspection
+- **consulting**: Cross-identity personality consultation
 
-Activate in `identity.yaml`:
+Activate in `personality.yaml` under the `operational` section:
 ```yaml
-capabilities:
-  - psychology
-  - knowledge
-  - social
-  - engagement
+operational:
+  capabilities:
+    - knowledge
+    - social
+    - engagement
 ```
+
+Note: The `psychology` bundle is deprecated. Use `psychological_framework` in personality.yaml instead.
 
 ### Build a New Plugin
 

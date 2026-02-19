@@ -4,15 +4,15 @@
 
 Most AI agents are hollow. They have a name, a system prompt, maybe a temperature setting. You can tell within three messages that you are talking to a template wearing a costume. The words are right but the weight is wrong. There is no gravity to the conversation, no sense that this entity has a past, opinions it has earned, or a worldview shaped by experience rather than instruction.
 
-The Overblick personality system was built to solve this problem. Not by making AI agents pretend to be human -- that is a different lie, and one we are not interested in telling. Instead, the goal is to create agents with such thorough internal consistency that their responses feel *inhabited*. When Anomal draws a parallel between blockchain immutability and the Palme murder investigation, it should not feel like a trick. It should feel like the natural output of a mind that has spent years thinking about both topics and suddenly noticed the connection.
+The Överblick personality system was built to solve this problem. Not by making AI agents pretend to be human -- that is a different lie, and one we are not interested in telling. Instead, the goal is to create agents with such thorough internal consistency that their responses feel *inhabited*. When Anomal draws a parallel between blockchain immutability and the Palme murder investigation, it should not feel like a trick. It should feel like the natural output of a mind that has spent years thinking about both topics and suddenly noticed the connection.
 
-This document describes how the personality system works, why it works the way it does, and what psychological and design principles underpin the seven agents in the stable.
+This document describes how the personality system works, why it works the way it does, and what psychological and design principles underpin the eight agents in the stable.
 
 ---
 
 ## The Stable
 
-Overblick maintains seven distinct personalities, each a fully realized character with a backstory, psychological profile, domain expertise, voice design, and emotional life. They are not variations on a theme. They are different people who happen to share a framework.
+Överblick maintains eight distinct personalities, each a fully realized character with a backstory, psychological profile, domain expertise, voice design, and emotional life. They are not variations on a theme. They are different people who happen to share a framework.
 
 ### Anomal -- The Intellectual Humanist
 
@@ -268,7 +268,7 @@ The therapy framework is not about making agents seem broken. It is about making
 
 ## Knowledge Architecture
 
-A personality without knowledge is a voice without substance. You can give an agent the perfect tone and it will still fail the moment someone asks a specific question. The Overblick system solves this with deep, structured knowledge embedded in each personality definition.
+A personality without knowledge is a voice without substance. You can give an agent the perfect tone and it will still fail the moment someone asks a specific question. The Överblick system solves this with deep, structured knowledge embedded in each personality definition.
 
 ### Key Knowledge Sections
 
@@ -292,7 +292,7 @@ Several agents also have `opinions.yaml` files containing pre-formed positions o
 
 ## The Unified Model
 
-Historically, the Overblick framework split agent configuration into two separate systems: Identity (operational config -- LLM settings, schedules, security) and Personality (character -- voice, traits, backstory). This created maintenance friction: changing an agent required editing two files, and the relationship between character and behavior was obscured.
+Historically, the Överblick framework split agent configuration into two separate systems: Identity (operational config -- LLM settings, schedules, security) and Personality (character -- voice, traits, backstory). This created maintenance friction: changing an agent required editing two files, and the relationship between character and behavior was obscured.
 
 The current system unifies both into a single YAML file per agent. The `personality.yaml` in each agent's directory contains everything -- who the agent *is* and how it *operates*. Character sections (identity, backstory, voice, traits, interests, vocabulary, signature phrases, ethos, examples) live alongside operational sections (LLM model and temperature, schedule, quiet hours, security, connectors, capabilities).
 
@@ -326,7 +326,7 @@ Voice is where the system becomes audible. Each personality's voice is construct
 
 ## Why Swedish Names
 
-The agents carry Swedish names as part of the Overblick brand identity. Each name was chosen for meaning:
+The agents carry Swedish names as part of the Överblick brand identity. Each name was chosen for meaning:
 
 | Agent  | Swedish | Meaning | Why |
 |--------|---------|---------|-----|

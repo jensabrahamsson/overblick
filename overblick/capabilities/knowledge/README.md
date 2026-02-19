@@ -71,7 +71,7 @@ def propose_learning(
 
     Args:
         content: The knowledge content to learn.
-        category: Learning category (FACT, CONCEPT, PATTERN, TECHNIQUE, INSIGHT).
+        category: Learning category (FACTUAL, OPINION, PERSON, PATTERN, CORRECTION).
         source_context: Context where this learning originated.
         source_agent: Agent who provided this information.
 
@@ -287,15 +287,15 @@ await learning.setup()
 # Propose a new fact
 learning.propose_learning(
     content="GPT-4 was released in March 2023",
-    category=LearningCategory.FACT,
+    category=LearningCategory.FACTUAL,
     source_context="Discussion with Alice about AI history",
     source_agent="alice",
 )
 
-# Propose a concept
+# Propose an opinion
 learning.propose_learning(
     content="Attention is all you need: attention mechanisms can replace recurrence",
-    category=LearningCategory.CONCEPT,
+    category=LearningCategory.OPINION,
     source_context="Reading research papers",
     source_agent="research",
 )
@@ -336,7 +336,7 @@ learnings = LearningCapability.extract_potential_learnings(
 
 for item in learnings:
     print(f"Extracted: {item['content']} (category: {item['category']})")
-    # Output: "The capital of France is Paris" (category: FACT)
+    # Output: "The capital of France is Paris" (category: FACTUAL)
 ```
 
 ### Combining Knowledge and Learning
@@ -447,7 +447,7 @@ async def test_safe_learning(mock_llm_client):
     # Propose learning
     learning.propose_learning(
         content="New AI breakthrough",
-        category=LearningCategory.FACT,
+        category=LearningCategory.FACTUAL,
         source_context="test",
         source_agent="test",
     )
@@ -494,11 +494,11 @@ The LearningCapability wraps the SafeLearningModule:
 
 ```python
 class LearningCategory(Enum):
-    FACT = "fact"
-    CONCEPT = "concept"
+    FACTUAL = "factual"
+    OPINION = "opinion"
+    PERSON = "person"
     PATTERN = "pattern"
-    TECHNIQUE = "technique"
-    INSIGHT = "insight"
+    CORRECTION = "correction"
 
 class ProposedLearning(BaseModel):
     content: str

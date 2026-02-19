@@ -30,7 +30,7 @@ async def inspect(self) -> HostHealth:
 ```
 
 **Whitelisted commands (immutable frozenset):**
-- `vm_stat`, `sysctl`, `df`, `ps`, `uptime`, `pmset` (macOS)
+- `vm_stat`, `sysctl`, `ps`, `uptime`, `pmset` (macOS)
 - `free`, `nproc`, `cat`, `hostname` (Linux)
 
 No other executables can be invoked. This is enforced at the code level.
@@ -43,15 +43,14 @@ Complete system health snapshot:
 
 ```python
 class HostHealth(BaseModel):
-    hostname: str
-    platform: str            # "darwin" or "linux"
-    memory: MemoryInfo | None
-    cpu: CPUInfo | None
-    disks: list[DiskInfo]
-    uptime: str | None
-    power: PowerInfo | None  # macOS only
-    errors: list[str]        # Errors from failed collectors
-    timestamp: str           # ISO 8601
+    timestamp: str = ""      # ISO 8601 (auto-generated)
+    hostname: str = ""
+    platform: str = ""       # "darwin" or "linux"
+    uptime: str = ""
+    memory: MemoryInfo = MemoryInfo()
+    cpu: CPUInfo = CPUInfo()
+    power: PowerInfo = PowerInfo()  # macOS only
+    errors: list[str] = []   # Errors from failed collectors
 
     @property
     def health_grade(self) -> str:
@@ -67,36 +66,27 @@ class HostHealth(BaseModel):
 |--------|-----------------|-------------------|
 | Memory | > 75% used | > 90% used |
 | CPU | load > core count | load > 2x core count |
-| Disk | > 85% used (per mount) | > 95% used (per mount) |
-
 **Grading:** 0 issues = "good", 1-2 issues = "fair", 3+ issues = "poor"
 
 ### Supporting Models
 
 ```python
 class MemoryInfo(BaseModel):
-    total_mb: float
-    used_mb: float
-    available_mb: float
-    percent_used: float
+    total_mb: float = 0.0
+    used_mb: float = 0.0
+    available_mb: float = 0.0
+    percent_used: float = 0.0
 
 class CPUInfo(BaseModel):
-    load_1m: float
-    load_5m: float
-    load_15m: float
-    core_count: int
-
-class DiskInfo(BaseModel):
-    mount: str
-    total_gb: float
-    used_gb: float
-    available_gb: float
-    percent_used: float
+    load_1m: float = 0.0
+    load_5m: float = 0.0
+    load_15m: float = 0.0
+    core_count: int = 0
 
 class PowerInfo(BaseModel):       # macOS only
-    on_battery: bool
-    battery_percent: float | None
-    time_remaining: str | None
+    on_battery: bool = False
+    battery_percent: float | None = None
+    time_remaining: str | None = None
 ```
 
 ### IPC Models

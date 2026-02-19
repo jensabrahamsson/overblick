@@ -154,7 +154,7 @@ python -m overblick run anomal
 
 ## Identity System
 
-**File:** `overblick/core/identity.py`
+**File:** `overblick/identities/__init__.py`
 
 An Identity is a frozen Pydantic model loaded from YAML that controls all operational behavior for one agent. Identities are NOT personalities — they define *what the agent does*, not *who it is*.
 
@@ -321,15 +321,17 @@ The sole framework interface. Provides controlled access to everything a plugin 
 ### Plugin Registry
 
 ```python
-_KNOWN_PLUGINS: dict[str, tuple[str, str]] = {
-    "moltbook":  ("overblick.plugins.moltbook.plugin",  "MoltbookPlugin"),
-    "telegram":  ("overblick.plugins.telegram.plugin",   "TelegramPlugin"),
-    "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
-    "irc":       ("overblick.plugins.irc.plugin",        "IRCPlugin"),
-    "discord":   ("overblick.plugins.discord",           "DiscordPlugin"),
-    "rss":       ("overblick.plugins.rss",               "RSSPlugin"),
-    "webhook":   ("overblick.plugins.webhook",           "WebhookPlugin"),
-    "matrix":    ("overblick.plugins.matrix",            "MatrixPlugin"),
+_DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
+    "ai_digest":   ("overblick.plugins.ai_digest.plugin",   "AiDigestPlugin"),
+    "discord":     ("overblick.plugins.discord.plugin",      "DiscordPlugin"),
+    "matrix":      ("overblick.plugins.matrix.plugin",       "MatrixPlugin"),
+    "moltbook":    ("overblick.plugins.moltbook.plugin",     "MoltbookPlugin"),
+    "rss":         ("overblick.plugins.rss.plugin",          "RSSPlugin"),
+    "telegram":    ("overblick.plugins.telegram.plugin",     "TelegramPlugin"),
+    "webhook":     ("overblick.plugins.webhook.plugin",      "WebhookPlugin"),
+    "host_health": ("overblick.plugins.host_health.plugin",  "HostHealthPlugin"),
+    "email_agent": ("overblick.plugins.email_agent.plugin",  "EmailAgentPlugin"),
+    "irc":         ("overblick.plugins.irc.plugin",          "IRCPlugin"),
 }
 ```
 
@@ -348,6 +350,8 @@ The registry uses a **whitelist** — only plugins in `_KNOWN_PLUGINS` can be lo
 | **Telegram** | Complete | Bot with commands, conversation tracking, rate limiting |
 | **Email Agent** | Complete | LLM-driven email classification, reply, notification |
 | **IRC** | Complete | Identity-to-identity conversations with topic management |
+| **AI Digest** | Complete | RSS-powered daily news digest with personality voice |
+| **Host Health** | Complete | System health monitoring with Supervisor IPC |
 | **Discord** | Shell | Community contribution welcome |
 | **RSS** | Shell | Community contribution welcome |
 | **Webhook** | Shell | Community contribution welcome |
@@ -423,6 +427,11 @@ CAPABILITY_BUNDLES = {
     "conversation":  ["conversation_tracker"],
     "content":       ["summarizer"],
     "speech":        ["stt", "tts"],
+    "vision":        ["vision"],
+    "communication": ["boss_request", "email", "gmail", "telegram_notifier"],
+    "consulting":    ["personality_consultant"],
+    "monitoring":    ["host_inspection"],
+    "system":        ["system_clock"],
 }
 ```
 
@@ -1117,7 +1126,7 @@ overblick/
   __main__.py                    # CLI entry point
   core/
     orchestrator.py              # Agent lifecycle manager
-    identity.py                  # YAML → frozen Identity
+    # identity system lives in overblick/identities/__init__.py
     plugin_base.py               # PluginBase + PluginContext
     plugin_registry.py           # Plugin whitelist + loader
     capability.py                # CapabilityBase + Registry
@@ -1147,46 +1156,50 @@ overblick/
       secrets_manager.py         # Fernet encryption + keyring
       rate_limiter.py            # Token bucket with LRU
   plugins/
+    ai_digest/                   # AI news digest (complete)
     moltbook/                    # Social engagement (production)
     telegram/                    # Telegram bot (complete)
     email_agent/                 # Email agent (complete)
+    host_health/                 # System health monitoring (complete)
     irc/                         # Identity conversations (complete)
     discord/                     # Discord bot (shell)
     rss/                         # RSS feed monitor (shell)
     webhook/                     # HTTP webhook (shell)
     matrix/                      # Matrix chat (shell)
-  connectors/                    # Alias for plugins (new naming)
   capabilities/
-    psychology/
-      dream.py                   # Dream generation (quiet hours)
-      therapy.py                 # Weekly therapy sessions
-      emotional.py               # Emotional state tracking
-    knowledge/
-      learning.py                # Safe learning from interactions
-      loader.py                  # Knowledge base loading
-    social/
-      openings.py                # Conversation openers
+    communication/               # Email, Gmail, Telegram, boss requests
+    consulting/                  # Cross-identity personality consultation
+    content/
+      summarizer.py              # LLM-powered summarization
+    conversation/
+      tracker.py                 # Multi-turn conversation tracking
     engagement/
       analyzer.py                # DecisionEngine wrapper
       composer.py                # Response composition
-    conversation/
-      tracker.py                 # Multi-turn conversation tracking
-    content/
-      summarizer.py              # LLM-powered summarization
+    knowledge/
+      learning.py                # Safe learning from interactions
+      loader.py                  # Knowledge base loading
+    monitoring/                  # Host system inspection
+    psychology/
+      dream.py                   # Dream generation (quiet hours)
+      therapy.py                 # Weekly therapy sessions
+      emotional_state.py         # Emotional state tracking
+    social/
+      openings.py                # Conversation openers
     speech/
       stt.py                     # Speech-to-text
       tts.py                     # Text-to-speech
-  personalities/
-    anomal/personality.yaml      # Intellectual humanist
-    cherry/personality.yaml      # Flirty Stockholmer
-    blixt/personality.yaml       # Punk tech critic
-    bjork/personality.yaml       # Forest philosopher
-    prisma/personality.yaml      # Digital artist
-    rost/personality.yaml        # Jaded ex-trader
-    natt/personality.yaml        # Uncanny philosopher
+    system/                      # System clock
+    vision/                      # Vision/image analysis
   identities/
-    anomal/                      # Identity config + knowledge
-    cherry/                      # Identity config + knowledge
+    anomal/                      # Intellectual humanist
+    bjork/                       # Forest philosopher
+    blixt/                       # Punk tech critic
+    cherry/                      # Flirty Stockholmer
+    natt/                        # Uncanny philosopher
+    prisma/                      # Digital artist
+    rost/                        # Jaded ex-trader
+    stal/                        # Email secretary
   supervisor/
     supervisor.py                # Multi-process manager
     ipc.py                       # Unix socket IPC + HMAC auth

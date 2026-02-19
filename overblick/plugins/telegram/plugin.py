@@ -1,5 +1,5 @@
 """
-TelegramPlugin — Telegram bot agent for the Blick framework.
+TelegramPlugin — Telegram bot agent for the Överblick framework.
 
 Receives messages via Telegram Bot API, routes them through the
 personality-driven LLM pipeline, and responds in character.

@@ -28,11 +28,6 @@ class TherapyCapability(CapabilityBase):
         self._therapy_system: Optional[TherapySystem] = None
 
     async def setup(self) -> None:
-        logger.warning(
-            "DEPRECATED: TherapyCapability is deprecated as of v1.1. "
-            "Psychology is now configured via 'psychological_framework' in personality.yaml. "
-            "See GETTING_STARTED.md for migration guidance."
-        )
         therapy_day = self.ctx.config.get("therapy_day", TherapySystem.DEFAULT_THERAPY_DAY)
         system_prompt = self.ctx.config.get("system_prompt", "")
         self._therapy_system = TherapySystem(

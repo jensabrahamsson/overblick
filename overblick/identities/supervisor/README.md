@@ -105,6 +105,21 @@ Agent A → Supervisor IPC → Agent B
 
 **Benefits:** Centralized audit, permission enforcement, agent decoupling, dead letter queue for undeliverable messages.
 
+### Psychological Framework
+
+**Framework:** Jungian
+**Domains:** Archetypes, shadow work, collective unconscious
+**Archetype:** Guardian/Shepherd
+**Self-reflection mode:** Systems analysis
+
+The Supervisor's Jungian framework manifests as a guardian archetype — authority balanced with empathy, system health measured by how failures are handled, trust built through consistency.
+
+### Capabilities
+
+- `monitoring` — Host system inspection (host_inspection)
+- `boss_request` — Handles research requests from agents
+- `personality_consultant` — Cross-identity consultation
+
 ### Request Handlers
 
 | Handler | Purpose | Uses |
@@ -143,7 +158,7 @@ Includes **trend analysis** (last 5 audits) and **prompt tweak recommendations**
 - **Vigilance:** 0.95 — always watching
 - **Protectiveness:** 0.90 — guardian instinct
 - **Decisiveness:** 0.85 — acts when needed
-- **Formality:** 0.80 — professional and measured
+- **Patience:** 0.80 — steady under pressure
 - **Humor:** 0.10 — nearly absent
 
 ### Operational Settings

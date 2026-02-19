@@ -72,7 +72,7 @@ python -m overblick dashboard --port 9090
 - **Documentation:** Every identity, capability, and plugin MUST have its own README.md explaining purpose, usage, configuration, and examples
 
 ## Secrets Management
-- Secrets are per-identity, stored in `config/<identity>/secrets.yaml` (Fernet-encrypted at rest)
+- Secrets are per-identity, stored in `config/secrets/<identity>.yaml` (Fernet-encrypted at rest)
 - Accessed via `ctx.get_secret("key")` in plugins — NEVER hardcode credentials or personal names in code
 - **CRITICAL:** Personal names (e.g. `principal_name`) are secrets, not config. The `{principal_name}` placeholder in personality YAML files is resolved at runtime from secrets, making personalities reusable across different principals.
 - Key secrets for the email agent (Stål):

@@ -37,7 +37,7 @@ IPC bridge to the Supervisor for web research requests. Agents ask the boss for 
 ### EmailCapability
 
 ```python
-async def send_email(
+async def send(
     self,
     to: str,
     subject: str,
@@ -65,16 +65,26 @@ async def send_email(
 ### GmailCapability
 
 ```python
-async def fetch_unread(self, limit: int = 10) -> list[dict]:
-    """Fetch unread emails from IMAP inbox, newest first."""
+async def fetch_unread(
+    self,
+    max_results: int = 10,
+    since_days: int | None = None,
+) -> list[GmailMessage]:
+    """Fetch unread emails from IMAP inbox, newest first.
+
+    Args:
+        max_results: Maximum number of emails to return.
+        since_days: If set, uses IMAP SINCE filter to only fetch
+                    emails from the last N days (server-side filtering).
+    """
 
 async def send_reply(
     self,
+    thread_id: str,
+    message_id: str,
     to: str,
     subject: str,
     body: str,
-    thread_id: str = "",
-    message_id: str = "",
 ) -> bool:
     """Send a reply with proper threading headers."""
 
@@ -104,7 +114,7 @@ async def send_notification_tracked(
 async def send_html(self, message: str) -> bool:
     """Send an HTML-formatted notification."""
 
-async def fetch_updates(self, limit: int = 100) -> list[TelegramUpdate]:
+async def fetch_updates(self, limit: int = 10) -> list[TelegramUpdate]:
     """Poll for new messages (offset-based, avoids re-processing)."""
 ```
 
@@ -195,7 +205,7 @@ capabilities:
     # Config passed to capability setup
 ```
 
-Secrets are loaded per-identity from `config/<identity>/secrets.yaml` via `ctx.get_secret()`.
+Secrets are loaded per-identity from `config/secrets/<identity>.yaml` via `ctx.get_secret()`.
 
 ## Security
 
