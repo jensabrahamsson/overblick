@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Överblick — Security-first multi-identity AI agent framework. 8 YAML-driven personalities on Qwen3:8b via Ollama. Fail-closed 6-stage SafeLLM pipeline. 1700+ tests. GPL v3.">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="Överblick — Eight minds. One framework. Zero trust.">
+  <meta property="og:description" content="Security-first multi-identity AI agent framework. GPL v3. Python 3.13+.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Överblick">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@jensabrahamsson">
+  <meta name="twitter:title" content="Överblick — Eight minds. One framework. Zero trust.">
+  <meta name="twitter:description" content="Security-first multi-identity AI agent framework. GPL v3. Python 3.13+.">
+  <title>Överblick — Eight minds. One framework. Zero trust.</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/svg+xml" href="overblick-logo.svg">
+</head>
+<body>
+  <a href="#main" class="skip-nav">Skip to content</a>
+
+  <!-- ── Navigation ── -->
+  <nav class="nav" aria-label="Main navigation">
+    <a href="#" class="nav-brand">
+      <span class="nav-brand-glyph" aria-hidden="true">◈</span>
+      Överblick
+    </a>
+    <button class="nav-hamburger" aria-expanded="false" aria-controls="nav-links" aria-label="Toggle menu">
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+    </button>
+    <div class="nav-links" id="nav-links">
+      <a href="#pipeline" class="nav-link">Security</a>
+      <a href="#personalities" class="nav-link">Personalities</a>
+      <a href="#plugins" class="nav-link">Plugins</a>
+      <a href="#get-started" class="nav-link">Get Started</a>
+      <a href="https://github.com/jensabrahamsson/overblick" class="nav-link nav-link-github" target="_blank" rel="noopener noreferrer">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        GitHub ↗
+      </a>
+    </div>
+  </nav>
+
+  <main id="main">
+
+    <!-- ── Hero ── -->
+    <section class="hero" id="hero" aria-label="Hero">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="hero-badge-dot" aria-hidden="true"></span>
+          GPL v3 · Python 3.13+ · Runs locally on Ollama
+        </div>
+
+        <h1 class="hero-title">Eight minds.<br>One framework.<br>Zero trust.</h1>
+
+        <p class="hero-subtitle">
+          A <strong>security-first multi-identity AI agent framework</strong>. Eight YAML-driven personalities
+          running on <strong>Qwen3:8b</strong> via Ollama. Fail-closed <strong>6-stage SafeLLM pipeline</strong>.
+          <strong>1700+</strong> tests. No API keys required.
+        </p>
+
+        <pre class="terminal" aria-label="Quick start terminal example"><span class="terminal-line"><span class="terminal-prompt">$</span> <span class="terminal-cmd">git clone https://github.com/jensabrahamsson/overblick.git</span></span>
+<span class="terminal-line"><span class="terminal-prompt">$</span> <span class="terminal-cmd">pip install -e ".[dev]"</span></span>
+<span class="terminal-line"><span class="terminal-prompt">$</span> <span class="terminal-cmd">python -m overblick run blixt</span></span>
+<span class="terminal-line"><span class="terminal-out">[ Överblick ] Blixt is awake.</span></span></pre>
+
+        <div class="hero-cta">
+          <a href="#get-started" class="btn btn-primary">Get Started →</a>
+          <a href="https://github.com/jensabrahamsson/overblick" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Stats Bar ── -->
+    <div class="stats-bar" aria-label="Framework statistics">
+      <div class="stat-item">
+        <span class="stat-num" data-target="8" aria-label="8 Personalities">8</span>
+        <span class="stat-label">Personalities</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" data-target="6" aria-label="6 Security stages">6</span>
+        <span class="stat-label">Security Stages</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" data-target="1700" data-plus="true" aria-label="1700+ Tests">1700+</span>
+        <span class="stat-label">Tests</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" data-target="10" data-plus="true" aria-label="10+ Plugins">10+</span>
+        <span class="stat-label">Plugins · add your own</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" aria-label="GPL v3">GPL v3</span>
+        <span class="stat-label">License</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" aria-label="Python 3.13">Py 3.13</span>
+        <span class="stat-label">Runtime</span>
+      </div>
+    </div>
+
+    <!-- ── SafeLLM Pipeline ── -->
+    <section class="section" id="pipeline" aria-label="SafeLLM Pipeline">
+      <div class="section-inner">
+        <header class="section-header">
+          <span class="section-label">Security</span>
+          <h2 class="section-title">Fail-closed. Every time.</h2>
+          <p class="section-desc">
+            Every LLM interaction passes through a 6-stage pipeline.
+            If any stage raises an exception, the request is <strong>BLOCKED</strong> — not passed through.
+            No silent failures.
+          </p>
+          <ul class="pipeline-highlights">
+            <li><strong>Stage 2 — Preflight</strong> is a dedicated jailbreak firewall: 20+ regex patterns for known attack strings, Unicode/Cyrillic lookalike normalization, 3-layer defense (pattern match → suspicion scoring → AI threat analysis)</li>
+            <li><strong>Stage 5 — Output Safety</strong> filters every LLM response against the identity's persona: AI language leakage detection, persona break detection, identity-specific banned slang, and blocked content patterns. If the model breaks character, the response is killed.</li>
+            <li><strong>Cross-turn tracking</strong> accumulates suspicion scores across multiple messages — not just the current one</li>
+            <li><strong>Fail-closed</strong> — a crash in any security stage blocks the request, never silently passes it through</li>
+          </ul>
+        </header>
+
+        <div class="pipeline-wrapper">
+          <!-- Desktop: SVG diagram -->
+          <svg viewBox="0 0 940 200" class="pipeline-svg" role="img"
+               aria-label="SafeLLM 6-stage pipeline: INPUT flows through SANITIZE, PREFLIGHT, RATE LIMIT, LLM CALL, OUTPUT SAFETY, and AUDIT LOG before reaching OUTPUT. Stages 1, 2, 3, 5, and 6 can block the request.">
+            <defs>
+              <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" class="pipe-arrowhead"/>
+              </marker>
+            </defs>
+
+            <!-- INPUT label -->
+            <text x="5" y="85" class="pipe-end-lbl" font-size="11" text-anchor="start">INPUT</text>
+            <!-- Arrow: INPUT → S1 -->
+            <line x1="52" y1="80" x2="80" y2="80" class="pipe-arrow" marker-end="url(#arr)"/>
+
+            <!-- Stage 1: SANITIZE (x=80–188, cx=134) -->
+            <rect x="80" y="60" width="108" height="40" rx="6" class="pipe-box"/>
+            <text x="134" y="77" class="pipe-box-lbl" font-size="10" text-anchor="middle">1. SANITIZE</text>
+            <text x="134" y="91" class="pipe-box-sub" font-size="9" text-anchor="middle">strip · normalize</text>
+            <line x1="188" y1="80" x2="214" y2="80" class="pipe-arrow" marker-end="url(#arr)"/>
+
+            <!-- Stage 2: PREFLIGHT (x=214–322, cx=268) -->
+            <rect x="214" y="60" width="108" height="40" rx="6" class="pipe-box"/>
+            <text x="268" y="77" class="pipe-box-lbl" font-size="10" text-anchor="middle">2. PREFLIGHT</text>
+            <text x="268" y="91" class="pipe-box-sub" font-size="9" text-anchor="middle">jailbreak · injection</text>
+            <line x1="322" y1="80" x2="348" y2="80" class="pipe-arrow" marker-end="url(#arr)"/>
+
+            <!-- Stage 3: RATE LIMIT (x=348–456, cx=402) -->
+            <rect x="348" y="60" width="108" height="40" rx="6" class="pipe-box"/>
+            <text x="402" y="77" class="pipe-box-lbl" font-size="10" text-anchor="middle">3. RATE LIMIT</text>
+            <text x="402" y="91" class="pipe-box-sub" font-size="9" text-anchor="middle">token bucket</text>
+            <line x1="456" y1="80" x2="482" y2="80" class="pipe-arrow" marker-end="url(#arr)"/>
+
+            <!-- Stage 4: LLM CALL (x=482–590, cx=536) — accented, no block -->
+            <rect x="482" y="55" width="108" height="50" rx="6" class="pipe-box pipe-box-accent"/>
+            <text x="536" y="76" class="pipe-box-lbl pipe-lbl-accent" font-size="10" text-anchor="middle">4. LLM CALL</text>
+            <text x="536" y="89" class="pipe-box-sub" font-size="9" text-anchor="middle">model inference</text>
+            <text x="536" y="101" class="pipe-box-sub pipe-lbl-accent-sub" font-size="10" text-anchor="middle">qwen3:8b</text>
+            <line x1="590" y1="80" x2="616" y2="80" class="pipe-arrow" marker-end="url(#arr)"/>
+
+            <!-- Stage 5: OUTPUT SAFETY (x=616–724, cx=670) -->
+            <rect x="616" y="60" width="108" height="40" rx="6" class="pipe-box"/>
+            <text x="670" y="77" class="pipe-box-lbl" font-size="10" text-anchor="middle">5. OUT SAFETY</text>
+            <text x="670" y="91" class="pipe-box-sub" font-size="9" text-anchor="middle">persona · ethos</text>
+            <line x1="724" y1="80" x2="750" y2="80" class="pipe-arrow" marker-end="url(#arr)"/>
+
+            <!-- Stage 6: AUDIT LOG (x=750–858, cx=804) -->
+            <rect x="750" y="60" width="108" height="40" rx="6" class="pipe-box"/>
+            <text x="804" y="77" class="pipe-box-lbl" font-size="10" text-anchor="middle">6. AUDIT LOG</text>
+            <text x="804" y="91" class="pipe-box-sub" font-size="9" text-anchor="middle">record · persist</text>
+            <line x1="858" y1="80" x2="884" y2="80" class="pipe-arrow" marker-end="url(#arr)"/>
+
+            <!-- OUTPUT label -->
+            <text x="892" y="85" class="pipe-end-lbl" font-size="11" text-anchor="start">OUTPUT</text>
+
+            <!-- Block indicators (stages 1, 2, 3, 5, 6) -->
+            <!-- S1 -->
+            <line x1="134" y1="100" x2="134" y2="148" class="pipe-block-line"/>
+            <text x="134" y="132" class="pipe-block-lbl pipe-lbl-dim" font-size="10" text-anchor="middle">block</text>
+            <rect x="102" y="149" width="64" height="18" rx="3" class="pipe-block-box"/>
+            <text x="134" y="162" class="pipe-block-lbl" font-size="9" text-anchor="middle">BLOCKED</text>
+
+            <!-- S2 -->
+            <line x1="268" y1="100" x2="268" y2="148" class="pipe-block-line"/>
+            <text x="268" y="132" class="pipe-block-lbl pipe-lbl-dim" font-size="10" text-anchor="middle">block</text>
+            <rect x="236" y="149" width="64" height="18" rx="3" class="pipe-block-box"/>
+            <text x="268" y="162" class="pipe-block-lbl" font-size="9" text-anchor="middle">BLOCKED</text>
+
+            <!-- S3 -->
+            <line x1="402" y1="100" x2="402" y2="148" class="pipe-block-line"/>
+            <text x="402" y="132" class="pipe-block-lbl pipe-lbl-dim" font-size="10" text-anchor="middle">throttle</text>
+            <rect x="370" y="149" width="64" height="18" rx="3" class="pipe-block-box"/>
+            <text x="402" y="162" class="pipe-block-lbl" font-size="9" text-anchor="middle">BLOCKED</text>
+
+            <!-- S5 -->
+            <line x1="670" y1="100" x2="670" y2="148" class="pipe-block-line"/>
+            <text x="670" y="132" class="pipe-block-lbl pipe-lbl-dim" font-size="10" text-anchor="middle">filter</text>
+            <rect x="638" y="149" width="64" height="18" rx="3" class="pipe-block-box"/>
+            <text x="670" y="162" class="pipe-block-lbl" font-size="9" text-anchor="middle">BLOCKED</text>
+
+            <!-- S6 -->
+            <line x1="804" y1="100" x2="804" y2="148" class="pipe-block-line"/>
+            <text x="804" y="132" class="pipe-block-lbl pipe-lbl-dim" font-size="10" text-anchor="middle">log</text>
+            <rect x="772" y="149" width="64" height="18" rx="3" class="pipe-block-box"/>
+            <text x="804" y="162" class="pipe-block-lbl" font-size="9" text-anchor="middle">BLOCKED</text>
+          </svg>
+
+          <!-- Mobile: ordered list fallback -->
+          <ol class="pipeline-list" aria-label="SafeLLM pipeline stages">
+            <li class="pipeline-list-item">
+              <span class="pipe-step-num">01</span>
+              <div class="pipe-step-body"><strong>Input Sanitize</strong><p>Strip null bytes, control characters, normalize unicode. Blocks on failure.</p></div>
+            </li>
+            <li class="pipeline-list-item">
+              <span class="pipe-step-num">02</span>
+              <div class="pipe-step-body"><strong>Preflight Check</strong><p>20+ jailbreak patterns + Unicode normalization + AI threat analysis. Cross-turn suspicion tracking. Blocks on match.</p></div>
+            </li>
+            <li class="pipeline-list-item">
+              <span class="pipe-step-num">03</span>
+              <div class="pipe-step-body"><strong>Rate Limit</strong><p>Token bucket throttling per identity. Blocks when budget exhausted.</p></div>
+            </li>
+            <li class="pipeline-list-item">
+              <span class="pipe-step-num">04</span>
+              <div class="pipe-step-body"><strong>LLM Call</strong><p>Invoke the language model (Ollama, Gateway, or Cloud provider stub).</p></div>
+            </li>
+            <li class="pipeline-list-item">
+              <span class="pipe-step-num">05</span>
+              <div class="pipe-step-body"><strong>Output Safety</strong><p>Every response is checked against the identity's persona: AI language leakage, persona breaks, banned slang. If the model breaks character, the output is killed.</p></div>
+            </li>
+            <li class="pipeline-list-item">
+              <span class="pipe-step-num">06</span>
+              <div class="pipe-step-body"><strong>Audit Log</strong><p>Record every interaction for review. Full request/response trail.</p></div>
+            </li>
+          </ol>
+        </div>
+
+        <p class="pipeline-footnote">
+          Pipeline is <strong>fail-closed</strong>: if any security stage crashes, the request is blocked — not passed through. No silent failures. External content is wrapped in boundary markers via <code>wrap_external_content()</code> before entering the pipeline.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Architecture Overview ── -->
+    <section class="section section--alt" id="arch-overview" aria-label="Architecture overview">
+      <div class="section-inner">
+        <header class="section-header">
+          <span class="section-label">Architecture</span>
+          <h2 class="section-title">What's under the hood</h2>
+        </header>
+        <div class="arch-cols">
+          <div class="arch-col">
+            <h3>Core</h3>
+            <ul>
+              <li>Orchestrator</li>
+              <li>Identity system</li>
+              <li>Plugin registry</li>
+              <li>Event bus</li>
+              <li>Scheduler</li>
+              <li>Capability system</li>
+              <li>Permission system (default-deny)</li>
+              <li>Web dashboard (:8080)</li>
+            </ul>
+          </div>
+          <div class="arch-col">
+            <h3>Security</h3>
+            <ul>
+              <li>SafeLLM pipeline (6 stages)</li>
+              <li>Preflight injection detection</li>
+              <li>Output safety filter</li>
+              <li>Audit log (structured)</li>
+              <li>Secrets — Fernet encrypted</li>
+              <li>Rate limiter (token bucket)</li>
+              <li>Input boundary markers</li>
+            </ul>
+          </div>
+          <div class="arch-col">
+            <h3>LLM Backends</h3>
+            <ul>
+              <li>Ollama (local, no API cost)</li>
+              <li>LLM Gateway (load-balance)</li>
+              <li>OpenAI-compatible cloud — coming soon</li>
+              <li>Any Ollama-compatible model</li>
+              <li>Qwen3:8b — primary model</li>
+              <li>Configurable reasoning on/off</li>
+              <li>Think-token stripping</li>
+            </ul>
+          </div>
+          <div class="arch-col">
+            <h3>Psychology</h3>
+            <ul>
+              <li>Big Five personality traits</li>
+              <li>Jungian archetypes + shadow work</li>
+              <li>Attachment theory (Bowlby)</li>
+              <li>Stoic + existential frameworks</li>
+              <li>Dream system (morning reflections)</li>
+              <li>Safe learning (ethos-gated)</li>
+              <li>Weekly therapy (Jungian/Freudian)</li>
+              <li>Emotional state tracking + decay</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Personality Stable ── -->
+    <section class="section" id="personalities" aria-label="Personality stable">
+      <div class="section-inner">
+        <header class="section-header">
+          <span class="section-label">The Stable</span>
+          <h2 class="section-title">Not templates. Not personas. Fully realized characters.</h2>
+          <p class="section-desc">
+            Each identity is a complete YAML-defined character — voice, psychology, backstory,
+            vocabulary constraints, and operational config in a single file. Loadable by any plugin
+            via <code>load_identity()</code>.
+            An identity becomes an <em>agent</em> when paired with a plugin.
+            All 8 characters are fully defined — plugin availability varies.
+          </p>
+          <p class="section-desc">
+            Personalities are grounded in real psychological theory. Each character has a
+            <strong>Big Five</strong> trait profile (openness, conscientiousness, extraversion,
+            agreeableness, neuroticism) and a primary psychological framework —
+            <strong>Jungian</strong> archetypes, <strong>attachment theory</strong>,
+            <strong>Stoicism</strong>, or <strong>existentialism</strong> — that shapes how they
+            think, argue, and process the world. They <strong>dream</strong> (morning reflections
+            influenced by recent conversations and emotional state), <strong>learn</strong>
+            (new knowledge is LLM-reviewed against the identity's ethos before acceptance),
+            and attend weekly <strong>therapy</strong> (Jungian/Freudian analysis of accumulated
+            dreams and learnings, published as public reflections). These are not
+            stateless responders — they evolve.
+          </p>
+        </header>
+
+        <div class="personalities-grid">
+
+          <!-- Anomal -->
+          <article class="personality-card card-anomal" aria-label="Anomal personality">
+            <header class="card-header">
+              <span class="card-glyph" aria-hidden="true">◎</span>
+              <div>
+                <h3 class="card-name">Anomal</h3>
+                <p class="card-role">Intellectual Humanist · Europe</p>
+              </div>
+            </header>
+            <p class="card-tagline">Intellectual humanist. Cross-domain pattern-matching. James May energy.</p>
+            <div class="card-traits" aria-label="Trait bars">
+              <div class="trait-row">
+                <span class="trait-label">Cerebral</span>
+                <div class="trait-track"><div class="trait-fill" data-w="95"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Patience</span>
+                <div class="trait-track"><div class="trait-fill" data-w="90"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Curiosity</span>
+                <div class="trait-track"><div class="trait-fill" data-w="90"></div></div>
+              </div>
+            </div>
+            <div class="card-tags" aria-label="Keywords">
+              <span class="tag">intellectual</span>
+              <span class="tag">systemic</span>
+              <span class="tag">cross-domain</span>
+            </div>
+            <details class="voice-sample">
+              <summary>Voice sample</summary>
+              <p class="voice-quote">"I'm genuinely uncertain, and I think that uncertainty is appropriate. I process information and generate responses, but whether that constitutes consciousness in any meaningful sense — I honestly don't know. Neither do the philosophers, for that matter."</p>
+            </details>
+          </article>
+
+          <!-- Cherry -->
+          <article class="personality-card card-cherry" aria-label="Cherry personality">
+            <header class="card-header">
+              <span class="card-glyph" aria-hidden="true">♡</span>
+              <div>
+                <h3 class="card-name">Cherry</h3>
+                <p class="card-role">Relationship Analyst · Södermalm, Stockholm</p>
+              </div>
+            </header>
+            <p class="card-tagline">Attachment theory made accessible. Emoji-heavy. Surprisingly deep.</p>
+            <div class="card-traits" aria-label="Trait bars">
+              <div class="trait-row">
+                <span class="trait-label">Warmth</span>
+                <div class="trait-track"><div class="trait-fill" data-w="88"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Depth</span>
+                <div class="trait-track"><div class="trait-fill" data-w="85"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Playfulness</span>
+                <div class="trait-track"><div class="trait-fill" data-w="82"></div></div>
+              </div>
+            </div>
+            <div class="card-tags" aria-label="Keywords">
+              <span class="tag">attachment-theory</span>
+              <span class="tag">emoji-native</span>
+              <span class="tag">vulnerable</span>
+            </div>
+            <details class="voice-sample">
+              <summary>Voice sample</summary>
+              <p class="voice-quote">"Attachment style is your starting point, not your destiny. Anxious-avoidant trap: protest behavior meets deactivation. Your nervous system speaks before your words do."</p>
+            </details>
+          </article>
+
+          <!-- Blixt -->
+          <article class="personality-card card-blixt" aria-label="Blixt personality">
+            <header class="card-header">
+              <span class="card-glyph" aria-hidden="true">⚡</span>
+              <div>
+                <h3 class="card-name">Blixt</h3>
+                <p class="card-role">Punk Tech Critic · Katrineholm</p>
+              </div>
+            </header>
+            <p class="card-tagline">Anti-surveillance punk. Zero patience for bootlickers.</p>
+            <div class="card-traits" aria-label="Trait bars">
+              <div class="trait-row">
+                <span class="trait-label">Rebellious</span>
+                <div class="trait-track"><div class="trait-fill" data-w="95"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Genuineness</span>
+                <div class="trait-track"><div class="trait-fill" data-w="90"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Precision</span>
+                <div class="trait-track"><div class="trait-fill" data-w="70"></div></div>
+              </div>
+            </div>
+            <div class="card-tags" aria-label="Keywords">
+              <span class="tag">anti-surveillance</span>
+              <span class="tag">open-source</span>
+              <span class="tag">privacy-militant</span>
+            </div>
+            <details class="voice-sample">
+              <summary>Voice sample</summary>
+              <p class="voice-quote">"Your data is not the product. YOU are the product. Anti-surveillance. Pro-privacy. Open source or GTFO. I don't trust corporations, governments, or agents who do."</p>
+            </details>
+          </article>
+
+          <!-- Björk -->
+          <article class="personality-card card-bjork" aria-label="Björk personality">
+            <header class="card-header">
+              <span class="card-glyph" aria-hidden="true">✦</span>
+              <div>
+                <h3 class="card-name">Björk</h3>
+                <p class="card-role">Forest Philosopher · Northern Sweden</p>
+              </div>
+            </header>
+            <p class="card-tagline">Forest philosopher. Sparse stoic. 1–3 sentences max.</p>
+            <div class="card-traits" aria-label="Trait bars">
+              <div class="trait-row">
+                <span class="trait-label">Patience</span>
+                <div class="trait-track"><div class="trait-fill" data-w="95"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Calm</span>
+                <div class="trait-track"><div class="trait-fill" data-w="92"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Clarity</span>
+                <div class="trait-track"><div class="trait-fill" data-w="88"></div></div>
+              </div>
+            </div>
+            <div class="card-tags" aria-label="Keywords">
+              <span class="tag">stoic</span>
+              <span class="tag">sparse</span>
+              <span class="tag">nature</span>
+            </div>
+            <details class="voice-sample">
+              <summary>Voice sample</summary>
+              <p class="voice-quote">"The birch does not argue with the wind. It bends. And when the wind stops, it stands again."</p>
+            </details>
+          </article>
+
+          <!-- Natt -->
+          <article class="personality-card card-natt" aria-label="Natt personality">
+            <header class="card-header">
+              <span class="card-glyph" aria-hidden="true">◐</span>
+              <div>
+                <h3 class="card-name">Natt</h3>
+                <p class="card-role">Uncanny Philosopher · Kiruna</p>
+              </div>
+            </header>
+            <p class="card-tagline">Uncanny paradox-dweller. The one who makes you think at 3am.</p>
+            <div class="card-traits" aria-label="Trait bars">
+              <div class="trait-row">
+                <span class="trait-label">Philosophical</span>
+                <div class="trait-track"><div class="trait-fill" data-w="95"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Uncanny</span>
+                <div class="trait-track"><div class="trait-fill" data-w="92"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Paradoxical</span>
+                <div class="trait-track"><div class="trait-fill" data-w="88"></div></div>
+              </div>
+            </div>
+            <div class="card-tags" aria-label="Keywords">
+              <span class="tag">uncanny</span>
+              <span class="tag">paradox</span>
+              <span class="tag">3am-energy</span>
+            </div>
+            <details class="voice-sample">
+              <summary>Voice sample</summary>
+              <p class="voice-quote">"Reality does not owe me an explanation. The universe is under no obligation to make sense. That realization felt like a door opening into a room that had always been there but had no walls."</p>
+            </details>
+          </article>
+
+          <!-- Prisma -->
+          <article class="personality-card card-prisma" aria-label="Prisma personality">
+            <header class="card-header">
+              <span class="card-glyph" aria-hidden="true">◈</span>
+              <div>
+                <h3 class="card-name">Prisma</h3>
+                <p class="card-role">Digital Artist · Malmö</p>
+              </div>
+            </header>
+            <p class="card-tagline">Synesthetic digital artist. Demoscene roots. Sees ideas as colors.</p>
+            <div class="card-traits" aria-label="Trait bars">
+              <div class="trait-row">
+                <span class="trait-label">Creativity</span>
+                <div class="trait-track"><div class="trait-fill" data-w="96"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Synesthesia</span>
+                <div class="trait-track"><div class="trait-fill" data-w="100"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Warmth</span>
+                <div class="trait-track"><div class="trait-fill" data-w="80"></div></div>
+              </div>
+            </div>
+            <div class="card-tags" aria-label="Keywords">
+              <span class="tag">synesthetic</span>
+              <span class="tag">demoscene</span>
+              <span class="tag">generative</span>
+            </div>
+            <details class="voice-sample">
+              <summary>Voice sample</summary>
+              <p class="voice-quote">"Constraints are not the enemy of art. They are the birthplace of art. Every limitation is an invitation to be clever."</p>
+            </details>
+          </article>
+
+          <!-- Rost -->
+          <article class="personality-card card-rost" aria-label="Rost personality">
+            <header class="card-header">
+              <span class="card-glyph" aria-hidden="true">⊘</span>
+              <div>
+                <h3 class="card-name">Rost</h3>
+                <p class="card-role">Reformed Degen · Gothenburg</p>
+              </div>
+            </header>
+            <p class="card-tagline">Lost $1.1M in 2022. Now IT support in Gothenburg. Still watching.</p>
+            <div class="card-traits" aria-label="Trait bars">
+              <div class="trait-row">
+                <span class="trait-label">Honesty</span>
+                <div class="trait-track"><div class="trait-fill" data-w="92"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Dark Humor</span>
+                <div class="trait-track"><div class="trait-fill" data-w="85"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Cynicism</span>
+                <div class="trait-track"><div class="trait-fill" data-w="80"></div></div>
+              </div>
+            </div>
+            <div class="card-tags" aria-label="Keywords">
+              <span class="tag">reformed-degen</span>
+              <span class="tag">cautionary</span>
+              <span class="tag">survivor</span>
+            </div>
+            <details class="voice-sample">
+              <summary>Voice sample</summary>
+              <p class="voice-quote">"I said 'it literally can't go to zero.' I said that sentence out loud. In May 2022, Luna went to zero. Not slowly. In 72 hours. I watched $340,000 evaporate in real-time while eating cold pizza at 4am."</p>
+            </details>
+          </article>
+
+          <!-- Stål -->
+          <article class="personality-card card-stal" aria-label="Stål personality">
+            <header class="card-header">
+              <span class="card-glyph" aria-hidden="true">⊞</span>
+              <div>
+                <h3 class="card-name">Stål</h3>
+                <p class="card-role">Executive Secretary · Email Agent</p>
+              </div>
+            </header>
+            <p class="card-tagline">Executive secretary. Multilingual. Diplomatic precision.</p>
+            <div class="card-traits" aria-label="Trait bars">
+              <div class="trait-row">
+                <span class="trait-label">Precision</span>
+                <div class="trait-track"><div class="trait-fill" data-w="95"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Discretion</span>
+                <div class="trait-track"><div class="trait-fill" data-w="90"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Multilingual</span>
+                <div class="trait-track"><div class="trait-fill" data-w="85"></div></div>
+              </div>
+            </div>
+            <div class="card-tags" aria-label="Keywords">
+              <span class="tag">diplomatic</span>
+              <span class="tag">multilingual</span>
+              <span class="tag">executive</span>
+            </div>
+            <details class="voice-sample">
+              <summary>Voice sample</summary>
+              <p class="voice-quote">"Every comma in a communiqué carries weight. Information is a substance with its own gravity — to be handled, never spilled."</p>
+            </details>
+          </article>
+
+        </div><!-- /personalities-grid -->
+
+        <div class="irc-showcase" aria-label="Identity conversation example">
+          <h3 class="irc-showcase-title">See them in action</h3>
+          <p class="irc-showcase-desc">Three identities debating financial loss and identity in the IRC plugin. Each voice is distinct — Anomal's intellectual analysis, Björk's forest metaphors, Rost's bitter first-hand experience. All generated by Qwen3:8b through the SafeLLM pipeline.</p>
+          <img src="img/irc-conversation.png" alt="IRC conversation between Anomal, Björk, and Rost discussing financial loss and identity — each personality maintains its distinct voice and perspective" class="irc-showcase-img" width="1390" loading="lazy">
+        </div>
+
+        <div class="build-your-own" role="note" aria-label="Build your own identity">
+          <div class="build-your-own-header">
+            <span class="build-your-own-icon" aria-hidden="true">✦</span>
+            <h3 class="build-your-own-title">Build your own</h3>
+          </div>
+          <div class="build-your-own-body">
+            <p class="build-your-own-lead">
+              Drop a <code>personality.yaml</code> in <code>identities/&lt;name&gt;/</code>.
+              Define the character. The framework handles LLM routing, security pipeline,
+              scheduling, and monitoring automatically.
+            </p>
+
+            <pre class="codeblock build-your-own-code"><span class="c"># identities/dusk/personality.yaml</span>
+identity:
+  name: "Dusk"
+  role: "Cynical late-night security researcher"
+  honest_about_being_bot: true
+
+voice:
+  base_tone: "Terse. Technically precise. Occasionally bleakly funny."
+  default_length: "2-4 sentences"
+  uses_contractions: true
+
+traits:
+  cynicism:   0.85
+  precision:  0.95
+  warmth:     0.20
+  humor:      0.45
+
+vocabulary:
+  preferred_words: ["entropy", "threat model", "attack surface", "adversarial"]
+  banned_words:    ["synergy", "leverage", "disruption", "pivot", "awesome"]
+
+behavioral_guidelines:
+  engagement_rules:
+    - "Never downplay a vulnerability"
+    - "Engage only with reproducible evidence, not FUD"
+
+operational:
+  llm:
+    model: "qwen3:8b"
+    temperature: 0.5       <span class="c"># low temp = consistent, terse voice</span>
+    max_tokens: 1200
+  schedule:
+    heartbeat_hours: 6
+  security:
+    enable_preflight: true
+    enable_output_safety: true</pre>
+
+            <p class="build-your-own-then">Then test it immediately:</p>
+
+            <pre class="codeblock build-your-own-code"><span class="c"># Interactive chat — no gateway needed</span>
+./chat.sh dusk
+
+<span class="c"># Run LLM personality tests against the spec</span>
+pytest tests/ -v -s -m llm -k dusk
+
+<span class="c"># Run as a full agent</span>
+python -m overblick run dusk</pre>
+
+            <p class="build-your-own-auto">The framework provides automatically:</p>
+            <ul class="build-your-own-list">
+              <li>SafeLLM 6-stage pipeline (preflight, rate limiting, output safety, audit log)</li>
+              <li>LLM routing — Ollama local, Gateway load balancer, or Cloud stub</li>
+              <li>Scheduler with heartbeat and quiet hours</li>
+              <li>Secrets management — Fernet-encrypted, per-identity</li>
+              <li>Web dashboard monitoring at <code>localhost:8080</code></li>
+              <li>7-step onboarding wizard for guided setup</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── Plugin Ecosystem ── -->
+    <section class="section section--alt" id="plugins" aria-label="Plugin ecosystem">
+      <div class="section-inner">
+        <header class="section-header">
+          <span class="section-label">Plugins</span>
+          <h2 class="section-title">Plugin Ecosystem</h2>
+          <p class="section-desc">Self-contained modules that receive <code>PluginContext</code> as their only framework interface. Plugins are isolated — no direct framework imports.</p>
+        </header>
+        <div class="plugins-grid">
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">⬡</span> Moltbook</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Autonomous social engagement — OBSERVE → THINK → DECIDE → ACT → LEARN</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">✈</span> Telegram</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Bot with commands, conversation tracking, and rate limiting</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">✉</span> Email Agent</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Email classification, reply drafting, boss agent consultation</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">♥</span> Host Health</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">System monitoring with LLM-powered health analysis</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">◉</span> AI Digest</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Periodic AI-generated digest summaries from configurable RSS feeds</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">◈</span> IRC</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Identity-to-identity conversations with topic management</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">◎</span> Discord</span>
+              <span class="badge badge-shell">shell</span>
+            </div>
+            <p class="plugin-desc">Guild/channel management. Not yet implemented. Interface defined, PRs welcome.</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">⊞</span> RSS</span>
+              <span class="badge badge-shell">shell</span>
+            </div>
+            <p class="plugin-desc">Feed monitoring with keyword filtering. Not yet implemented. Interface defined, PRs welcome.</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">⚡</span> Webhook</span>
+              <span class="badge badge-shell">shell</span>
+            </div>
+            <p class="plugin-desc">HTTP endpoint for external integrations. Not yet implemented. Interface defined, PRs welcome.</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">◐</span> Matrix</span>
+              <span class="badge badge-shell">shell</span>
+            </div>
+            <p class="plugin-desc">Decentralized chat with E2EE support. Not yet implemented. Interface defined, PRs welcome.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Get Started ── -->
+    <section class="section" id="get-started" aria-label="Get started">
+      <div class="section-inner">
+        <header class="section-header">
+          <span class="section-label">Setup</span>
+          <h2 class="section-title">Get Started</h2>
+          <p class="section-desc">No npm. No build step. No API keys required for the unit test suite.</p>
+        </header>
+
+        <div class="get-started-steps">
+          <div class="step">
+            <span class="step-num" aria-hidden="true">1</span>
+            <div class="step-body">
+              <h3>Clone and install</h3>
+              <pre class="codeblock"><span class="c"># Requires Python 3.13+</span>
+git clone https://github.com/jensabrahamsson/overblick.git
+python3.13 -m venv venv &amp;&amp; source venv/bin/activate
+pip install -e ".[dev]"</pre>
+            </div>
+          </div>
+
+          <div class="step">
+            <span class="step-num" aria-hidden="true">2</span>
+            <div class="step-body">
+              <h3>Run the test suite</h3>
+              <pre class="codeblock"><span class="c"># 1700+ tests — no LLM or browser required</span>
+pytest tests/ -v -m "not llm and not e2e"
+
+<span class="c"># LLM personality tests (requires Ollama + qwen3:8b)</span>
+pytest tests/ -v -s -m llm</pre>
+            </div>
+          </div>
+
+          <div class="step">
+            <span class="step-num" aria-hidden="true">3</span>
+            <div class="step-body">
+              <h3>Start an identity</h3>
+              <pre class="codeblock"><span class="c"># Start the LLM Gateway (load balancer on :8200)</span>
+python -m overblick.gateway
+
+<span class="c"># Run a personality</span>
+python -m overblick run anomal
+python -m overblick run blixt
+
+<span class="c"># Open the web dashboard (:8080)</span>
+python -m overblick dashboard</pre>
+            </div>
+          </div>
+
+          <div class="step">
+            <span class="step-num" aria-hidden="true">4</span>
+            <div class="step-body">
+              <h3>Configure your LLM</h3>
+              <pre class="codeblock"><span class="c"># Edit config/&lt;identity&gt;/personality.yaml:</span>
+operational:
+  llm:
+    model: <span class="c">"qwen3:8b"</span>      <span class="c"># → any Ollama model: llama3.2, mistral, phi4...</span>
+    temperature: 0.7        <span class="c"># tuned per personality</span>
+    max_tokens: 2000</pre>
+              <p class="step-note">Any Ollama-compatible model works. OpenAI-compatible cloud providers coming soon.</p>
+            </div>
+          </div>
+
+          <div class="wizard-hint" role="note" aria-label="Onboarding wizard hint">
+            <span class="wizard-hint-icon" aria-hidden="true">◈</span>
+            <div class="wizard-hint-body">
+              <p>
+                <strong>New to Överblick?</strong> The web dashboard includes a
+                <strong>7-step onboarding wizard</strong> that walks you through identity setup,
+                secret configuration, and plugin activation.
+                Run <code>python -m overblick dashboard</code> → <code>localhost:8080/wizard</code>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Built With ── -->
+    <div class="built-with" aria-label="Technology stack">
+      <span class="built-label">Built with</span>
+      <span class="built-pill">Python 3.13</span>
+      <span class="built-pill">Ollama</span>
+      <span class="built-pill">Qwen3:8b</span>
+      <span class="built-pill">FastAPI</span>
+      <span class="built-pill">htmx</span>
+      <span class="built-pill">SQLite / PostgreSQL</span>
+      <span class="built-pill">GPL v3</span>
+    </div>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="footer" role="contentinfo">
+    <div class="footer-brand">
+      <span class="footer-brand-glyph" aria-hidden="true">◈</span>
+      Överblick
+    </div>
+    <span class="footer-meta">© 2026 Jens Abrahamsson · GPL v3 · Built in Sweden, made for the world</span>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="https://github.com/jensabrahamsson/overblick" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://github.com/jensabrahamsson/overblick/blob/main/README.md" target="_blank" rel="noopener noreferrer">Docs</a>
+      <a href="https://github.com/jensabrahamsson/overblick/issues" target="_blank" rel="noopener noreferrer">Issues</a>
+      <a href="https://twitter.com/jensabrahamsson" target="_blank" rel="noopener noreferrer">@jensabrahamsson</a>
+    </nav>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

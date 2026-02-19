@@ -226,6 +226,7 @@ class Orchestrator:
 
         self._audit_log.log("orchestrator_started", category="lifecycle")
         logger.info(f"Överblick orchestrator running as '{self._identity.display_name}'")
+        print(f"\n  [ Överblick ] {self._identity.display_name} is awake.\n")
 
         try:
             # Register plugin ticks in scheduler (guarded by control file)
