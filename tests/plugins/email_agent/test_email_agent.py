@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from overblick.core.llm.pipeline import PipelineResult
+from overblick.plugins.email_agent.classifier import EmailClassifier
 from overblick.plugins.email_agent.database import EmailAgentDB, MIGRATIONS
 from overblick.plugins.email_agent.models import (
     AgentGoal,
@@ -25,6 +26,7 @@ from overblick.capabilities.consulting.personality_consultant import (
     PersonalityConsultantCapability,
 )
 from overblick.plugins.email_agent.plugin import EmailAgentPlugin
+from overblick.plugins.email_agent.reputation import ReputationManager
 from overblick.plugins.email_agent.prompts import (
     boss_consultation_prompt,
     classification_prompt,
@@ -127,7 +129,7 @@ class TestEmailClassification:
         await plugin.setup()
 
         raw = '{"intent": "reply", "confidence": 0.95, "reasoning": "Meeting request", "priority": "normal"}'
-        result = plugin._parse_classification(raw)
+        result = plugin._classifier._parse(raw)
 
         assert result is not None
         assert result.intent == EmailIntent.REPLY
@@ -141,7 +143,7 @@ class TestEmailClassification:
         await plugin.setup()
 
         raw = 'Here is my analysis:\n{"intent": "ignore", "confidence": 0.85, "reasoning": "Newsletter", "priority": "low"}\nDone.'
-        result = plugin._parse_classification(raw)
+        result = plugin._classifier._parse(raw)
 
         assert result is not None
         assert result.intent == EmailIntent.IGNORE
@@ -152,7 +154,7 @@ class TestEmailClassification:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        result = plugin._parse_classification("This is not JSON at all")
+        result = plugin._classifier._parse("This is not JSON at all")
         assert result is None
 
     @pytest.mark.asyncio
@@ -162,11 +164,64 @@ class TestEmailClassification:
         await plugin.setup()
 
         raw = '{"intent": "ask_boss", "confidence": 0.4, "reasoning": "Uncertain", "priority": "high"}'
-        result = plugin._parse_classification(raw)
+        result = plugin._classifier._parse(raw)
 
         assert result is not None
         assert result.intent == EmailIntent.ASK_BOSS
         assert result.confidence == 0.4
+
+    @pytest.mark.asyncio
+    async def test_classify_email_retries_on_prose_response(self, stal_plugin_context):
+        """When LLM returns prose instead of JSON, classify() retries.
+
+        When _parse() returns None (prose, not JSON), the classifier sends
+        a follow-up turn with an explicit JSON reminder. The retry must succeed
+        if the second call returns valid JSON.
+        """
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        valid_json = '{"intent": "notify", "confidence": 0.8, "reasoning": "Newsletter", "priority": "low"}'
+
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
+            PipelineResult(content="I think this email should be handled as a notification."),
+            PipelineResult(content=valid_json),
+        ])
+
+        result = await plugin._classifier.classify(
+            sender="newsletter@example.com",
+            subject="Weekly digest",
+            body="Here is your weekly update...",
+        )
+
+        assert result is not None
+        assert result.intent == EmailIntent.NOTIFY
+        assert result.confidence == 0.8
+        # Retry was actually triggered (two LLM calls made)
+        assert stal_plugin_context.llm_pipeline.chat.call_count == 2
+        # Second call must contain the JSON reminder
+        retry_messages = stal_plugin_context.llm_pipeline.chat.call_args_list[1][1]["messages"]
+        assert any("valid JSON only" in m.get("content", "") for m in retry_messages)
+
+    @pytest.mark.asyncio
+    async def test_classify_email_returns_none_when_both_calls_fail(self, stal_plugin_context):
+        """Returns None when both the initial call and the retry return prose."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
+            PipelineResult(content="I cannot decide. More context needed."),
+            PipelineResult(content="Still not JSON, sorry."),
+        ])
+
+        result = await plugin._classifier.classify(
+            sender="unknown@example.com",
+            subject="???",
+            body="Mystery email.",
+        )
+
+        assert result is None
+        assert stal_plugin_context.llm_pipeline.chat.call_count == 2
 
 
 class TestEmailAgentTick:
@@ -252,7 +307,7 @@ class TestEmailAgentActions:
             "message_id": "msg-001",
         }
 
-        result = await plugin._send_reply(email)
+        result = await plugin._reply_gen.generate_and_send(email)
 
         assert result is True
         mock_gmail_capability.send_reply.assert_called_once()
@@ -916,7 +971,7 @@ class TestResearchIntegration:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        result = await plugin._request_research("What is the weather?")
+        result = await plugin._reply_gen._request_research("What is the weather?")
 
         assert result is not None
         assert "Research summary" in result
@@ -930,7 +985,7 @@ class TestResearchIntegration:
         plugin = EmailAgentPlugin(stal_context_no_ipc)
         await plugin.setup()
 
-        result = await plugin._request_research("test query")
+        result = await plugin._reply_gen._request_research("test query")
         assert result is None
 
 
@@ -1110,90 +1165,66 @@ class TestDatabaseNotificationTracking:
 class TestIntentNormalization:
     """Test normalization of hallucinated LLM intents to valid EmailIntent values."""
 
-    @pytest.mark.asyncio
-    async def test_valid_intents_pass_through(self, stal_plugin_context):
+    def test_valid_intents_pass_through(self):
         """Valid intent strings return unchanged."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._normalize_intent("ignore") == "ignore"
-        assert plugin._normalize_intent("notify") == "notify"
-        assert plugin._normalize_intent("reply") == "reply"
-        assert plugin._normalize_intent("ask_boss") == "ask_boss"
+        assert EmailClassifier.normalize_intent("ignore") == "ignore"
+        assert EmailClassifier.normalize_intent("notify") == "notify"
+        assert EmailClassifier.normalize_intent("reply") == "reply"
+        assert EmailClassifier.normalize_intent("ask_boss") == "ask_boss"
 
-    @pytest.mark.asyncio
-    async def test_alias_escalate_maps_to_ask_boss(self, stal_plugin_context):
+    def test_alias_escalate_maps_to_ask_boss(self):
         """'escalate' (common LLM hallucination) maps to 'ask_boss'."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._normalize_intent("escalate") == "ask_boss"
+        assert EmailClassifier.normalize_intent("escalate") == "ask_boss"
 
-    @pytest.mark.asyncio
-    async def test_alias_verify_maps_to_ask_boss(self, stal_plugin_context):
+    def test_alias_verify_maps_to_ask_boss(self):
         """'verify' maps to 'ask_boss'."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._normalize_intent("verify") == "ask_boss"
+        assert EmailClassifier.normalize_intent("verify") == "ask_boss"
 
-    @pytest.mark.asyncio
-    async def test_alias_block_maps_to_ignore(self, stal_plugin_context):
+    def test_alias_block_maps_to_ignore(self):
         """'block' maps to 'ignore'."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._normalize_intent("block") == "ignore"
+        assert EmailClassifier.normalize_intent("block") == "ignore"
 
-    @pytest.mark.asyncio
-    async def test_alias_spam_maps_to_ignore(self, stal_plugin_context):
+    def test_alias_spam_maps_to_ignore(self):
         """'spam' maps to 'ignore'."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._normalize_intent("spam") == "ignore"
+        assert EmailClassifier.normalize_intent("spam") == "ignore"
 
-    @pytest.mark.asyncio
-    async def test_case_insensitive(self, stal_plugin_context):
+    def test_case_insensitive(self):
         """Intent normalization is case-insensitive."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._normalize_intent("IGNORE") == "ignore"
-        assert plugin._normalize_intent("Escalate") == "ask_boss"
+        assert EmailClassifier.normalize_intent("IGNORE") == "ignore"
+        assert EmailClassifier.normalize_intent("Escalate") == "ask_boss"
 
-    @pytest.mark.asyncio
-    async def test_unknown_intent_returns_none(self, stal_plugin_context):
+    def test_unknown_intent_returns_none(self):
         """Completely unrecognizable intents return None."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._normalize_intent("do_a_backflip") is None
+        assert EmailClassifier.normalize_intent("do_a_backflip") is None
 
-    @pytest.mark.asyncio
-    async def test_whitespace_stripped(self, stal_plugin_context):
+    def test_whitespace_stripped(self):
         """Whitespace is stripped from intents."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._normalize_intent("  escalate  ") == "ask_boss"
+        assert EmailClassifier.normalize_intent("  escalate  ") == "ask_boss"
 
 
 class TestSafeSenderName:
     """Test filename sanitization for sender profiles."""
 
-    @pytest.mark.asyncio
-    async def test_simple_email(self, stal_plugin_context):
+    def test_simple_email(self):
         """Simple email address produces clean filename."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        result = plugin._safe_sender_name("user@example.com")
+        result = ReputationManager._safe_sender_name("user@example.com")
         assert result == "user_at_example_com"
 
-    @pytest.mark.asyncio
-    async def test_display_name_with_angle_brackets(self, stal_plugin_context):
+    def test_display_name_with_angle_brackets(self):
         """Display name + angle brackets extracts just the email."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        result = plugin._safe_sender_name("Alice <alice@acme.org>")
+        result = ReputationManager._safe_sender_name("Alice <alice@acme.org>")
         assert result == "alice_at_acme_org"
 
-    @pytest.mark.asyncio
-    async def test_complex_display_name(self, stal_plugin_context):
+    def test_complex_display_name(self):
         """Complex display names with quotes and special chars are handled."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        result = plugin._safe_sender_name(
+        result = ReputationManager._safe_sender_name(
             '"Adam Mancini from Adam Mancini\'s S&P 500" <tradecompanion@substack.com>'
         )
         assert result == "tradecompanion_at_substack_com"
 
-    @pytest.mark.asyncio
-    async def test_no_slashes_or_quotes(self, stal_plugin_context):
+    def test_no_slashes_or_quotes(self):
         """Result never contains filesystem-dangerous characters."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        result = plugin._safe_sender_name(
+        result = ReputationManager._safe_sender_name(
             'Test "Quoted" <user/path@domain.com>'
         )
         assert "/" not in result
@@ -1204,23 +1235,17 @@ class TestSafeSenderName:
 class TestSenderReputation:
     """Test sender and domain reputation system."""
 
-    @pytest.mark.asyncio
-    async def test_extract_domain_simple(self, stal_plugin_context):
+    def test_extract_domain_simple(self):
         """Extracts domain from plain email address."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._extract_domain("user@example.com") == "example.com"
+        assert ReputationManager.extract_domain("user@example.com") == "example.com"
 
-    @pytest.mark.asyncio
-    async def test_extract_domain_with_name(self, stal_plugin_context):
+    def test_extract_domain_with_name(self):
         """Extracts domain from 'Name <email>' format."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._extract_domain("Alice <alice@acme.org>") == "acme.org"
+        assert ReputationManager.extract_domain("Alice <alice@acme.org>") == "acme.org"
 
-    @pytest.mark.asyncio
-    async def test_extract_domain_no_at(self, stal_plugin_context):
+    def test_extract_domain_no_at(self):
         """Returns empty string when no @ found."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._extract_domain("invalid-sender") == ""
+        assert ReputationManager.extract_domain("invalid-sender") == ""
 
     @pytest.mark.asyncio
     async def test_unknown_sender_reputation(self, stal_plugin_context):
@@ -1228,7 +1253,7 @@ class TestSenderReputation:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        rep = await plugin._get_sender_reputation("unknown@example.com")
+        rep = await plugin._reputation.get_sender_reputation("unknown@example.com")
         assert rep["known"] is False
 
     @pytest.mark.asyncio
@@ -1248,7 +1273,7 @@ class TestSenderReputation:
         profile_path = plugin._profiles_dir / f"{safe_name}.json"
         profile_path.write_text(json.dumps(profile.model_dump(), indent=2))
 
-        rep = await plugin._get_sender_reputation("newsletter@spam.com")
+        rep = await plugin._reputation.get_sender_reputation("newsletter@spam.com")
         assert rep["known"] is True
         assert rep["total"] == 10
         assert rep["ignore_rate"] == 0.9
@@ -1262,7 +1287,7 @@ class TestSenderReputation:
         await plugin.setup()
 
         rep = {"known": True, "total": 10, "ignore_rate": 0.95}
-        assert plugin._should_auto_ignore_sender(rep) is True
+        assert plugin._reputation.should_auto_ignore_sender(rep) is True
 
     @pytest.mark.asyncio
     async def test_should_auto_ignore_sender_false_low_count(self, stal_plugin_context):
@@ -1271,7 +1296,7 @@ class TestSenderReputation:
         await plugin.setup()
 
         rep = {"known": True, "total": 3, "ignore_rate": 1.0}
-        assert plugin._should_auto_ignore_sender(rep) is False
+        assert plugin._reputation.should_auto_ignore_sender(rep) is False
 
     @pytest.mark.asyncio
     async def test_should_auto_ignore_sender_false_low_rate(self, stal_plugin_context):
@@ -1280,7 +1305,7 @@ class TestSenderReputation:
         await plugin.setup()
 
         rep = {"known": True, "total": 10, "ignore_rate": 0.5}
-        assert plugin._should_auto_ignore_sender(rep) is False
+        assert plugin._reputation.should_auto_ignore_sender(rep) is False
 
     @pytest.mark.asyncio
     async def test_auto_ignore_skips_llm(self, stal_plugin_context):
@@ -1709,26 +1734,20 @@ class TestScoredConsultation:
 class TestReputationContext:
     """Test reputation context building for prompts."""
 
-    @pytest.mark.asyncio
-    async def test_build_reputation_context_known_sender(self, stal_plugin_context):
+    def test_build_reputation_context_known_sender(self):
         """Builds reputation context string for known sender."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-
         sender_rep = {
             "known": True, "total": 10, "ignore_rate": 0.8,
             "notify_count": 2, "reply_count": 0,
         }
         domain_rep = {"known": False}
 
-        context = plugin._build_reputation_context(sender_rep, domain_rep)
+        context = EmailClassifier.build_reputation_context(sender_rep, domain_rep)
         assert "10 previous emails" in context
         assert "80%" in context
 
-    @pytest.mark.asyncio
-    async def test_build_reputation_context_with_domain(self, stal_plugin_context):
+    def test_build_reputation_context_with_domain(self):
         """Builds context with both sender and domain info."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-
         sender_rep = {
             "known": True, "total": 5, "ignore_rate": 0.6,
             "notify_count": 2, "reply_count": 0,
@@ -1738,33 +1757,28 @@ class TestReputationContext:
             "ignore_rate": 0.9, "negative_feedback": 3, "positive_feedback": 0,
         }
 
-        context = plugin._build_reputation_context(sender_rep, domain_rep)
+        context = EmailClassifier.build_reputation_context(sender_rep, domain_rep)
         assert "example.com" in context
         assert "50 total emails" in context
         assert "3 negative" in context
 
-    @pytest.mark.asyncio
-    async def test_build_email_signals_with_headers(self, stal_plugin_context):
+    def test_build_email_signals_with_headers(self):
         """Builds signal context from email headers."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-
         headers = {
             "List-Unsubscribe": "<mailto:unsub@example.com>",
             "Precedence": "bulk",
             "List-Id": "marketing.example.com",
         }
 
-        signals = plugin._build_email_signals(headers)
+        signals = EmailClassifier.build_email_signals(headers)
         assert "List-Unsubscribe" in signals
         assert "newsletter" in signals.lower()
         assert "bulk" in signals
         assert "marketing.example.com" in signals
 
-    @pytest.mark.asyncio
-    async def test_build_email_signals_empty(self, stal_plugin_context):
+    def test_build_email_signals_empty(self):
         """Returns empty string when no headers."""
-        plugin = EmailAgentPlugin(stal_plugin_context)
-        assert plugin._build_email_signals({}) == ""
+        assert EmailClassifier.build_email_signals({}) == ""
 
 
 class TestEnhancedPrompts:

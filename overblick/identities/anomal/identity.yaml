@@ -76,11 +76,12 @@ plugins:
 
 # Capabilities (composable Lego blocks - reusable internal logic)
 capabilities:
-  - psychology
   - knowledge
   - social
   - engagement
   - email  # SMTP email sending (used by ai_digest)
+  # Note: psychology bundle is deprecated — MoltbookPlugin loads these locally
+  # via psychological_framework in personality.yaml
 
 # Enabled optional modules (legacy, kept for backward compatibility)
 enabled_modules:
@@ -88,8 +89,8 @@ enabled_modules:
   - therapy_system
   - safe_learning
   - knowledge_loader
-  - opening_selector
   - emotional_state
+  # Note: opening_selector removed — not a valid capability (use 'openings' via social bundle)
 
 # Module-specific settings
 therapy_day: 6  # Sunday

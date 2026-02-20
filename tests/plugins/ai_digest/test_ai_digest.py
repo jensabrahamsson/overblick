@@ -465,6 +465,48 @@ class TestSecurity:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_handles_empty_ranking_response(self, ai_digest_context):
+        """Plugin falls back to first N articles when LLM returns empty content.
+
+        This tests the guard added at lines 265-267 of plugin.py:
+            if not result.content or not result.content.strip(): ...
+        Without this guard, _parse_selection() would raise AttributeError on None.
+        """
+        ai_digest_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="")
+        )
+        plugin = AiDigestPlugin(ai_digest_context)
+        await plugin.setup()
+
+        articles = [
+            FeedArticle(title=f"Article {i}", link=f"https://example.com/{i}")
+            for i in range(10)
+        ]
+        result = await plugin._rank_articles(articles)
+
+        # Falls back to first top_n articles (top_n=5 in fixture)
+        assert len(result) == 5
+        assert result[0].title == "Article 0"
+
+    @pytest.mark.asyncio
+    async def test_handles_none_ranking_response(self, ai_digest_context):
+        """Plugin falls back to first N articles when LLM returns None content."""
+        ai_digest_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content=None)
+        )
+        plugin = AiDigestPlugin(ai_digest_context)
+        await plugin.setup()
+
+        articles = [
+            FeedArticle(title=f"Article {i}", link=f"https://example.com/{i}")
+            for i in range(10)
+        ]
+        result = await plugin._rank_articles(articles)
+
+        assert len(result) == 5
+        assert result[0].title == "Article 0"
+
+    @pytest.mark.asyncio
     async def test_wraps_external_content(self, ai_digest_context):
         """Article content is wrapped in boundary markers before LLM call."""
         plugin = AiDigestPlugin(ai_digest_context)

@@ -67,18 +67,19 @@ plugins:
 
 # Capabilities (composable Lego blocks)
 capabilities:
-  - psychology
   - knowledge
   - social
   - engagement
+  # Note: psychology bundle is deprecated — MoltbookPlugin loads these locally
+  # via psychological_framework in personality.yaml
 
 # Enabled optional modules (legacy, kept for backward compatibility)
 enabled_modules:
   - dream_system
   - therapy_system
   - knowledge_loader
-  - opening_selector
   - emotional_state
+  # Note: opening_selector removed — not a valid capability (use 'openings' via social bundle)
 
 # Module-specific settings
 therapy_day: 6  # Sunday

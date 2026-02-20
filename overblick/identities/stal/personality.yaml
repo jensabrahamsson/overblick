@@ -558,11 +558,12 @@ operational:
     enable_output_safety: true
 
   capabilities:
-    - "email_agent"
+    - "email"
     - "gmail"
     - "telegram_notifier"
     - "boss_request"
     - "personality_consultant"
+    # Note: email_agent is a plugin, not a capability — removed
 
   plugins:
     - "email_agent"

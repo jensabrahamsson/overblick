@@ -15,14 +15,6 @@ Tick cycle:
    - ASK_BOSS: Send IPC to supervisor, await guidance
 4. Record classification + outcome in database
 5. If boss provides feedback, update learnings
-
-Technical debt (tracked, not addressed in Feb 2026 review):
-  This file has grown to ~1500 lines. It should be decomposed into:
-    - classifier.py     — LLM-based intent classification
-    - state_manager.py  — email state tracking and goal management
-    - reply_generator.py — reply composition and tone matching
-  The decomposition is deferred due to scope; the public API via PluginContext
-  remains stable and all code paths are tested.
 """
 
 import asyncio
@@ -40,6 +32,7 @@ from overblick.capabilities.consulting.personality_consultant import (
 )
 from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.security.input_sanitizer import wrap_external_content
+from overblick.plugins.email_agent.classifier import EmailClassifier
 from overblick.plugins.email_agent.database import EmailAgentDB
 from overblick.plugins.email_agent.models import (
     AgentGoal,
@@ -52,13 +45,11 @@ from overblick.plugins.email_agent.models import (
 )
 from overblick.plugins.email_agent.prompts import (
     boss_consultation_prompt,
-    classification_prompt,
     feedback_classification_prompt,
     notification_prompt,
-    reply_prompt,
-    reply_prompt_with_research,
-    tone_consultation_prompt,
 )
+from overblick.plugins.email_agent.reply_generator import ReplyGenerator
+from overblick.plugins.email_agent.reputation import ReputationManager
 from overblick.supervisor.ipc import IPCMessage
 
 logger = logging.getLogger(__name__)
@@ -89,6 +80,11 @@ class EmailAgentPlugin(PluginBase):
 
     Uses Stål's personality for reply generation. All decision-making
     flows through the LLM pipeline (SafeLLMPipeline).
+
+    Internal helpers:
+      - EmailClassifier  — LLM classification, intent normalisation, context building
+      - ReputationManager — sender/domain reputation and profile persistence
+      - ReplyGenerator   — reply composition, tone consultation, draft notifications
     """
 
     name = "email_agent"
@@ -124,6 +120,10 @@ class EmailAgentPlugin(PluginBase):
         self._discovered_consultants: dict[str, list[str]] = {}
         # Cached auto-ignore domains
         self._auto_ignore_domains: set[str] = set()
+        # Helper instances (set in setup())
+        self._classifier: Optional[EmailClassifier] = None
+        self._reputation: Optional[ReputationManager] = None
+        self._reply_gen: Optional[ReplyGenerator] = None
 
     async def setup(self) -> None:
         """Initialize the email agent: database, state, goals, prompt."""
@@ -181,7 +181,6 @@ class EmailAgentPlugin(PluginBase):
         self._principal_name = self.ctx.get_secret("principal_name") or ""
 
         # Max email age — skip emails older than this (hours).
-        # Always applies a filter to prevent processing old backlog on restart.
         age_val = ea_config.get("max_email_age_hours")
         if age_val is not None:
             try:
@@ -198,7 +197,6 @@ class EmailAgentPlugin(PluginBase):
                 )
                 self._max_email_age_hours = _DEFAULT_MAX_EMAIL_AGE_HOURS
         else:
-            # No configured limit — apply default to avoid processing old backlog
             self._max_email_age_hours = _DEFAULT_MAX_EMAIL_AGE_HOURS
             logger.info(
                 "EmailAgent: max_email_age_hours not configured — defaulting to %dh",
@@ -217,43 +215,53 @@ class EmailAgentPlugin(PluginBase):
 
         # Reputation thresholds (configurable, not hardcoded)
         reputation_config = ea_config.get("reputation", {})
-        self._auto_ignore_sender_threshold = reputation_config.get(
-            "sender_ignore_rate", 0.9,
-        )
-        self._auto_ignore_sender_min_count = reputation_config.get(
-            "sender_min_interactions", 5,
-        )
-        self._auto_ignore_domain_threshold = reputation_config.get(
-            "domain_ignore_rate", 0.9,
-        )
-        self._auto_ignore_domain_min_count = reputation_config.get(
-            "domain_min_interactions", 10,
-        )
+        self._auto_ignore_sender_threshold = reputation_config.get("sender_ignore_rate", 0.9)
+        self._auto_ignore_sender_min_count = reputation_config.get("sender_min_interactions", 5)
+        self._auto_ignore_domain_threshold = reputation_config.get("domain_ignore_rate", 0.9)
+        self._auto_ignore_domain_min_count = reputation_config.get("domain_min_interactions", 10)
 
         # Cross-identity consultation config
         self._relevance_consultants = ea_config.get("relevance_consultants", [])
         consultation_config = ea_config.get("consultation", {})
-        self._consultation_confidence_low = consultation_config.get(
-            "confidence_low", 0.5,
-        )
-        self._consultation_confidence_high = consultation_config.get(
-            "confidence_high", 0.8,
-        )
-        self._consultation_identities = consultation_config.get(
-            "identities", "explicit",
-        )
+        self._consultation_confidence_low = consultation_config.get("confidence_low", 0.5)
+        self._consultation_confidence_high = consultation_config.get("confidence_high", 0.8)
+        self._consultation_identities = consultation_config.get("identities", "explicit")
 
         # Load cached auto-ignore domains from DB
         if self._db:
-            self._auto_ignore_domains = set(
-                await self._db.get_auto_ignore_domains()
-            )
+            self._auto_ignore_domains = set(await self._db.get_auto_ignore_domains())
 
         # Run GDPR cleanup on startup
         await self._db.purge_gdpr_data(self.GDPR_RETENTION_DAYS)
 
         # Check interval from schedule
         self._check_interval = identity.schedule.feed_poll_minutes * 60
+
+        # Wire helper instances
+        self._reputation = ReputationManager(
+            db=self._db,
+            profiles_dir=self._profiles_dir,
+            thresholds={
+                "sender_ignore_rate": self._auto_ignore_sender_threshold,
+                "sender_min_interactions": self._auto_ignore_sender_min_count,
+                "domain_ignore_rate": self._auto_ignore_domain_threshold,
+                "domain_min_interactions": self._auto_ignore_domain_min_count,
+            },
+        )
+        self._classifier = EmailClassifier(
+            ctx=self.ctx,
+            state=self._state,
+            learnings=self._learnings,
+            db=self._db,
+            principal_name=self._principal_name,
+            allowed_senders=self._allowed_senders,
+        )
+        self._reply_gen = ReplyGenerator(
+            ctx=self.ctx,
+            principal_name=self._principal_name,
+            db=self._db,
+            reputation=self._reputation,
+        )
 
         logger.info(
             "EmailAgentPlugin setup for '%s' (filter: %s, learnings: %d, goals: %d)",
@@ -271,15 +279,12 @@ class EmailAgentPlugin(PluginBase):
         """
         now = time.time()
 
-        # Guard: check interval
         if self._state.last_check and (now - self._state.last_check < self._check_interval):
             return
 
-        # Guard: quiet hours
         if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
             return
 
-        # Guard: LLM pipeline required
         if not self.ctx.llm_pipeline:
             logger.debug("EmailAgent: no LLM pipeline available")
             return
@@ -290,7 +295,6 @@ class EmailAgentPlugin(PluginBase):
             emails = await self._fetch_unread()
             for email in emails:
                 await self._process_email(email)
-            # Check for Telegram feedback after processing emails
             await self._check_tg_feedback()
         except Exception as e:
             logger.error("EmailAgent tick failed: %s", e, exc_info=True)
@@ -310,8 +314,6 @@ class EmailAgentPlugin(PluginBase):
             logger.debug("EmailAgent: gmail capability not available")
             return []
 
-        # Translate max_email_age_hours → IMAP SINCE days (server-side filter).
-        # Ceil to nearest day (min 1) so we never cut off same-day emails.
         since_days: Optional[int] = None
         if self._max_email_age_hours is not None:
             since_days = max(1, math.ceil(self._max_email_age_hours / 24))
@@ -330,7 +332,6 @@ class EmailAgentPlugin(PluginBase):
                 "headers": {**msg.headers, "Date": msg.timestamp},
             }
 
-            # Filter old emails — mark as read but skip processing
             if self._max_email_age_hours is not None:
                 if not self._is_recent_email(msg_dict, self._max_email_age_hours):
                     logger.info(
@@ -355,20 +356,17 @@ class EmailAgentPlugin(PluginBase):
         headers = msg.get("headers", {})
         date_str = headers.get("Date") or headers.get("date")
         if not date_str:
-            # No date header — fail closed (skip unknown-age emails)
             logger.warning("EmailAgent: no Date header — treating as old (fail-closed)")
             return False
 
         try:
             msg_dt = email.utils.parsedate_to_datetime(date_str)
-            # Ensure timezone-aware comparison
             if msg_dt.tzinfo is None:
                 msg_dt = msg_dt.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
             age_hours = (now - msg_dt).total_seconds() / 3600.0
             return age_hours <= max_hours
         except (ValueError, TypeError):
-            # Unparseable date — fail closed (skip unknown-age emails)
             logger.warning("EmailAgent: unparseable Date header — treating as old (fail-closed)")
             return False
 
@@ -405,20 +403,20 @@ class EmailAgentPlugin(PluginBase):
         message_id = email.get("message_id", "")
         headers = email.get("headers", {})
 
-        # 1. Deduplication: skip emails already processed
+        # 1. Deduplication
         if message_id and self._db and await self._db.has_been_processed(message_id):
             logger.debug("EmailAgent: skipping already-processed email %s", message_id)
             return
 
         # 2. Get sender + domain reputation
-        sender_rep = await self._get_sender_reputation(sender)
-        domain_rep = await self._get_domain_reputation(sender)
+        sender_rep = await self._reputation.get_sender_reputation(sender)
+        domain_rep = await self._reputation.get_domain_reputation(sender)
 
         # 3. Auto-ignore check (learned, not hardcoded)
-        domain = self._extract_domain(sender)
+        domain = self._reputation.extract_domain(sender)
         if (
-            self._should_auto_ignore_sender(sender_rep)
-            or self._should_auto_ignore_domain(domain_rep)
+            self._reputation.should_auto_ignore_sender(sender_rep)
+            or self._reputation.should_auto_ignore_domain(domain_rep)
             or domain in self._auto_ignore_domains
         ):
             logger.info(
@@ -431,10 +429,8 @@ class EmailAgentPlugin(PluginBase):
                 reasoning="Auto-ignored based on learned sender/domain reputation",
                 priority="low",
             )
-            # Record and update stats without LLM call
-            email_record_id = None
             if self._db:
-                email_record_id = await self._db.record_email(EmailRecord(
+                await self._db.record_email(EmailRecord(
                     gmail_message_id=message_id,
                     email_from=sender,
                     email_subject=subject,
@@ -446,7 +442,7 @@ class EmailAgentPlugin(PluginBase):
                 ))
             self._state.emails_processed += 1
             await self._mark_email_read(message_id)
-            await self._update_sender_profile(sender, classification)
+            await self._reputation.update_sender_profile(sender, classification)
             if self._db and domain:
                 await self._db.update_domain_stats(domain, "ignore")
             return
@@ -455,10 +451,10 @@ class EmailAgentPlugin(PluginBase):
         safe_subject = wrap_external_content(subject, "email_subject")
         safe_body = wrap_external_content(body[:3000], "email_body")
 
-        reputation_context = self._build_reputation_context(sender_rep, domain_rep)
-        email_signals = self._build_email_signals(headers)
+        reputation_context = self._classifier.build_reputation_context(sender_rep, domain_rep)
+        email_signals = self._classifier.build_email_signals(headers)
 
-        classification = await self._classify_email(
+        classification = await self._classifier.classify(
             sender, safe_subject, safe_body,
             sender_reputation=reputation_context,
             email_signals=email_signals,
@@ -505,22 +501,19 @@ class EmailAgentPlugin(PluginBase):
                 action_taken="pending",
             ))
 
-        # 7. Execute action (pass record_id for notification tracking)
+        # 7. Execute action
         action_taken = await self._execute_action(
             email, classification, email_record_id=email_record_id,
         )
 
-        # Update action_taken in database
         if self._db and email_record_id:
             await self._db.update_action_taken(email_record_id, action_taken)
 
         self._state.emails_processed += 1
-
-        # Always mark email as read in Gmail after processing
         await self._mark_email_read(message_id)
 
         # 8. Update sender profile + domain reputation
-        await self._update_sender_profile(sender, classification)
+        await self._reputation.update_sender_profile(sender, classification)
         if self._db and domain:
             await self._db.update_domain_stats(domain, classification.intent.value)
 
@@ -528,159 +521,6 @@ class EmailAgentPlugin(PluginBase):
             "EmailAgent: processed email from %s — %s (confidence: %.2f)",
             sender, classification.intent.value, classification.confidence,
         )
-
-    @staticmethod
-    def _extract_domain(sender: str) -> str:
-        """Extract domain from an email sender string like 'Name <user@domain.com>'."""
-        addr = sender
-        if "<" in addr and ">" in addr:
-            addr = addr[addr.index("<") + 1:addr.index(">")]
-        if "@" in addr:
-            return addr.split("@", 1)[1].lower().strip()
-        return ""
-
-    @staticmethod
-    def _safe_sender_name(sender: str) -> str:
-        """Create a filesystem-safe filename from an email sender string.
-
-        Strips display name parts, quotes, angle brackets, and replaces
-        problematic characters with underscores.
-        """
-        import re
-        # Extract just the email address if present
-        addr = sender
-        if "<" in addr and ">" in addr:
-            addr = addr[addr.index("<") + 1:addr.index(">")]
-        # Replace @ and . with readable alternatives
-        safe = addr.replace("@", "_at_").replace(".", "_")
-        # Remove any remaining problematic filesystem characters
-        safe = re.sub(r'[<>:"/\\|?*\'"&()!,\s]', '_', safe)
-        # Collapse multiple underscores
-        safe = re.sub(r'_+', '_', safe).strip('_')
-        return safe[:200]  # Filesystem path length safety
-
-    async def _get_sender_reputation(self, sender: str) -> dict[str, Any]:
-        """Calculate reputation for a specific sender from profile data."""
-        profile = await self._load_sender_profile(sender)
-        if profile.total_interactions == 0:
-            return {"known": False}
-
-        total = profile.total_interactions
-        ignore_count = profile.intent_distribution.get("ignore", 0)
-        notify_count = profile.intent_distribution.get("notify", 0)
-        reply_count = profile.intent_distribution.get("reply", 0)
-        ignore_rate = ignore_count / total if total > 0 else 0.0
-
-        return {
-            "known": True,
-            "total": total,
-            "ignore_rate": round(ignore_rate, 2),
-            "ignore_count": ignore_count,
-            "notify_count": notify_count,
-            "reply_count": reply_count,
-            "avg_confidence": round(profile.avg_confidence, 2),
-        }
-
-    async def _get_domain_reputation(self, sender: str) -> dict[str, Any]:
-        """Get aggregate reputation for a sender's domain from DB."""
-        domain = self._extract_domain(sender)
-        if not domain or not self._db:
-            return {"known": False}
-
-        stats = await self._db.get_domain_stats(domain)
-        if not stats:
-            return {"known": False, "domain": domain}
-
-        total = (
-            stats["ignore_count"]
-            + stats["notify_count"]
-            + stats["reply_count"]
-        )
-        if total == 0:
-            return {"known": False, "domain": domain}
-
-        ignore_rate = stats["ignore_count"] / total
-
-        return {
-            "known": True,
-            "domain": domain,
-            "total": total,
-            "ignore_rate": round(ignore_rate, 2),
-            "ignore_count": stats["ignore_count"],
-            "notify_count": stats["notify_count"],
-            "reply_count": stats["reply_count"],
-            "negative_feedback": stats["negative_feedback_count"],
-            "positive_feedback": stats["positive_feedback_count"],
-            "auto_ignore": bool(stats["auto_ignore"]),
-        }
-
-    def _should_auto_ignore_sender(self, reputation: dict[str, Any]) -> bool:
-        """Check if sender should be auto-ignored based on learned reputation."""
-        if not reputation.get("known"):
-            return False
-        total = reputation.get("total", 0)
-        ignore_rate = reputation.get("ignore_rate", 0.0)
-        return (
-            total >= self._auto_ignore_sender_min_count
-            and ignore_rate >= self._auto_ignore_sender_threshold
-        )
-
-    def _should_auto_ignore_domain(self, reputation: dict[str, Any]) -> bool:
-        """Check if domain should be auto-ignored based on learned reputation."""
-        if not reputation.get("known"):
-            return False
-        if reputation.get("auto_ignore"):
-            return True
-        total = reputation.get("total", 0)
-        ignore_rate = reputation.get("ignore_rate", 0.0)
-        positive = reputation.get("positive_feedback", 0)
-        return (
-            total >= self._auto_ignore_domain_min_count
-            and ignore_rate >= self._auto_ignore_domain_threshold
-            and positive == 0
-        )
-
-    def _build_reputation_context(
-        self,
-        sender_rep: dict[str, Any],
-        domain_rep: dict[str, Any],
-    ) -> str:
-        """Build a reputation context string for the classification prompt."""
-        parts = []
-        if sender_rep.get("known"):
-            parts.append(
-                f"Sender: {sender_rep['total']} previous emails, "
-                f"{sender_rep['ignore_rate']*100:.0f}% ignored, "
-                f"{sender_rep.get('notify_count', 0)} notified, "
-                f"{sender_rep.get('reply_count', 0)} replied"
-            )
-        if domain_rep.get("known"):
-            feedback = ""
-            neg = domain_rep.get("negative_feedback", 0)
-            pos = domain_rep.get("positive_feedback", 0)
-            if neg or pos:
-                feedback = f", feedback: {pos} positive / {neg} negative"
-            parts.append(
-                f"Domain ({domain_rep['domain']}): {domain_rep['total']} total emails, "
-                f"{domain_rep['ignore_rate']*100:.0f}% ignored{feedback}"
-            )
-        return "\n".join(parts)
-
-    def _build_email_signals(self, headers: dict[str, str]) -> str:
-        """Build email signal context from headers for the classification prompt."""
-        if not headers:
-            return ""
-        parts = []
-        if "List-Unsubscribe" in headers:
-            parts.append("- Has List-Unsubscribe header (likely newsletter/mailing list)")
-        if "Precedence" in headers:
-            val = headers["Precedence"].lower()
-            parts.append(f"- Precedence: {val} (automated/bulk email)")
-        if "List-Id" in headers:
-            parts.append(f"- List-Id: {headers['List-Id']} (mailing list)")
-        if "X-Mailer" in headers:
-            parts.append(f"- X-Mailer: {headers['X-Mailer']}")
-        return "\n".join(parts)
 
     def _build_consultant_registry(self) -> dict[str, list[str]]:
         """
@@ -698,7 +538,6 @@ class EmailAgentPlugin(PluginBase):
                     )
             return self._discovered_consultants
 
-        # Explicit mode: convert legacy list format to dict
         return {
             entry["identity"]: entry.get("keywords", [])
             for entry in self._relevance_consultants
@@ -727,7 +566,6 @@ class EmailAgentPlugin(PluginBase):
         body_lower = email.get("body", "")[:500].lower()
         text = f"{subject_lower} {body_lower}"
 
-        # Score each identity by keyword count — pick highest
         best_identity = None
         best_score = 0
         for identity_name, keywords in registry.items():
@@ -764,103 +602,7 @@ class EmailAgentPlugin(PluginBase):
                 )
             return response
         except Exception as e:
-            logger.debug(
-                "EmailAgent: identity consultation failed: %s", e,
-            )
-            return None
-
-    async def _classify_email(
-        self, sender: str, subject: str, body: str,
-        sender_reputation: str = "",
-        email_signals: str = "",
-    ) -> Optional[EmailClassification]:
-        """Run classification prompt — pure LLM decision."""
-        # Build context strings
-        goals_text = "\n".join(
-            f"- {g.description} (priority: {g.priority})"
-            for g in self._state.goals
-        ) or "No active goals"
-
-        learnings_text = "\n".join(
-            f"- [{l.learning_type}] {l.content}"
-            for l in self._learnings[:10]
-        ) or "No learnings yet"
-
-        # Get sender history from DB
-        sender_history_text = "No previous interactions"
-        if self._db:
-            history = await self._db.get_sender_history(sender, limit=5)
-            if history:
-                sender_history_text = "\n".join(
-                    f"- {r.email_subject}: {r.classified_intent} (confidence: {r.confidence:.2f})"
-                    for r in history
-                )
-
-        messages = classification_prompt(
-            goals=goals_text,
-            learnings=learnings_text,
-            sender_history=sender_history_text,
-            sender=sender,
-            subject=subject,
-            body=body,
-            principal_name=self._principal_name,
-            allowed_senders=", ".join(self._allowed_senders),
-            sender_reputation=sender_reputation,
-            email_signals=email_signals,
-        )
-
-        try:
-            result = await self.ctx.llm_pipeline.chat(
-                messages=messages,
-                audit_action="email_classification",
-                skip_preflight=True,  # System-generated content
-            )
-            if result and not result.blocked and result.content:
-                return self._parse_classification(result.content)
-        except Exception as e:
-            logger.error("EmailAgent: classification LLM call failed: %s", e, exc_info=True)
-
-        return None
-
-    def _parse_classification(self, raw: str) -> Optional[EmailClassification]:
-        """Parse LLM JSON output into EmailClassification."""
-        # Extract JSON from response (may have surrounding text)
-        try:
-            # Try direct parse first
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            # Try extracting JSON from text
-            start = raw.find("{")
-            end = raw.rfind("}") + 1
-            if start >= 0 and end > start:
-                try:
-                    data = json.loads(raw[start:end])
-                except json.JSONDecodeError:
-                    logger.warning("EmailAgent: could not parse classification JSON: %s", raw[:200])
-                    return None
-            else:
-                logger.warning("EmailAgent: no JSON found in classification response")
-                return None
-
-        try:
-            intent_str = data.get("intent", "ignore").lower().strip()
-            # Normalize hallucinated intents to valid values
-            normalized = self._normalize_intent(intent_str)
-            if not normalized:
-                normalized = "ignore"  # Safe default
-                logger.info(
-                    "EmailAgent: unrecognizable LLM intent '%s' — defaulting to ignore",
-                    intent_str,
-                )
-            intent = EmailIntent(normalized)
-            return EmailClassification(
-                intent=intent,
-                confidence=float(data.get("confidence", 0.5)),
-                reasoning=str(data.get("reasoning", "")),
-                priority=str(data.get("priority", "normal")),
-            )
-        except (ValueError, KeyError) as e:
-            logger.warning("EmailAgent: invalid classification data: %s", e)
+            logger.debug("EmailAgent: identity consultation failed: %s", e)
             return None
 
     async def _execute_action(
@@ -881,7 +623,8 @@ class EmailAgentPlugin(PluginBase):
                     email, classification, email_record_id=email_record_id,
                 )
                 if success and self._show_draft_replies:
-                    await self._send_draft_reply_notification(email)  # best-effort
+                    notifier = self.ctx.get_capability("telegram_notifier")
+                    await self._reply_gen.send_draft_notification(email, notifier)
                 if success:
                     self._state.notifications_sent += 1
                 return "notification_sent" if success else "notification_failed"
@@ -893,7 +636,6 @@ class EmailAgentPlugin(PluginBase):
                         "falling back to notification",
                         sender,
                     )
-                    # Fall back to NOTIFY — important email, just can't reply
                     success = await self._send_notification(
                         email, classification, email_record_id=email_record_id,
                     )
@@ -901,7 +643,11 @@ class EmailAgentPlugin(PluginBase):
                         self._state.notifications_sent += 1
                     return "reply_suppressed_notify_fallback" if success else "reply_suppressed_notify_failed"
 
-                success = await self._send_reply(email)
+                if self._dry_run:
+                    logger.info("DRY RUN: would reply to %s re: %s — skipped", sender, email.get("subject", ""))
+                    return "dry_run_reply_skipped"
+
+                success = await self._reply_gen.generate_and_send(email)
                 if success:
                     self._state.emails_replied += 1
                 return "reply_sent" if success else "reply_failed"
@@ -911,7 +657,6 @@ class EmailAgentPlugin(PluginBase):
                 if success:
                     self._state.boss_consultations += 1
                     return "boss_consulted"
-                # Fallback: if boss unavailable, send notification instead
                 logger.info(
                     "EmailAgent: boss consultation failed for %s — falling back to notify",
                     email.get("sender", ""),
@@ -958,13 +703,11 @@ class EmailAgentPlugin(PluginBase):
                 f"{result.content.strip()}"
             )
 
-            # Send via Telegram notifier capability (tracked when possible)
             notifier = self.ctx.get_capability("telegram_notifier")
             if not notifier:
                 logger.warning("EmailAgent: telegram_notifier capability not available")
                 return False
 
-            # Use tracked send to enable feedback loop
             tg_message_id = await notifier.send_notification_tracked(
                 notification_text, ref_id=str(email_record_id or ""),
             )
@@ -984,210 +727,6 @@ class EmailAgentPlugin(PluginBase):
             logger.error("EmailAgent: notification generation failed: %s", e, exc_info=True)
             return False
 
-    async def _send_draft_reply_notification(self, email: dict[str, Any]) -> None:
-        """
-        Generate a draft reply and send it as a second Telegram message.
-
-        Called after a successful NOTIFY when show_draft_replies is enabled.
-        Lets the principal see how Stål would respond, building trust before
-        automatic replies are activated. Always best-effort — failures are
-        logged as warnings, never propagated.
-        """
-        sender = email.get("sender", "")
-        subject = email.get("subject", "")
-        body = email.get("body", "")
-
-        safe_sender = wrap_external_content(sender, "email_sender")
-        safe_subject = wrap_external_content(subject, "email_subject")
-        safe_body = wrap_external_content(body[:3000], "email_body")
-
-        messages = reply_prompt(
-            sender=safe_sender,
-            subject=safe_subject,
-            body=safe_body,
-            sender_context="No previous interactions",
-            interaction_history="First contact",
-            principal_name=self._principal_name,
-        )
-
-        try:
-            result = await self.ctx.llm_pipeline.chat(
-                messages=messages,
-                audit_action="email_draft_reply",
-                skip_preflight=True,
-            )
-            if not result or result.blocked or not result.content:
-                logger.warning(
-                    "EmailAgent: draft reply blocked or empty for email from %s", sender,
-                )
-                return
-
-            draft_text = f"\u270f\ufe0f *Suggested reply:*\n\n{result.content.strip()}"
-
-            notifier = self.ctx.get_capability("telegram_notifier")
-            if notifier:
-                await notifier.send_notification(draft_text)
-
-        except Exception as e:
-            logger.warning(
-                "EmailAgent: draft reply notification failed for email from %s: %s",
-                sender, e,
-            )
-
-    async def _request_research(self, query: str, context: str = "") -> Optional[str]:
-        """Ask the supervisor for research via BossRequestCapability."""
-        boss_cap = self.ctx.get_capability("boss_request")
-        if not boss_cap or not boss_cap.configured:
-            logger.debug("EmailAgent: boss_request capability not available for research")
-            return None
-        return await boss_cap.request_research(query, context)
-
-    async def _send_reply(
-        self, email: dict[str, Any], research_context: str = "",
-    ) -> bool:
-        """Generate and send an email reply via the Gmail plugin event bus."""
-        sender = email.get("sender", "")
-        subject = email.get("subject", "")
-
-        if self._dry_run:
-            logger.info("DRY RUN: would reply to %s re: %s — skipped", sender, subject)
-            return True
-        body = email.get("body", "")
-
-        # Get sender context from profile (GDPR-safe) and DB history
-        profile = await self._load_sender_profile(sender)
-        sender_context = "No previous interactions"
-        interaction_history = "First contact"
-
-        if profile.total_interactions > 0:
-            sender_context = (
-                f"Total interactions: {profile.total_interactions}. "
-                f"Preferred language: {profile.preferred_language or 'unknown'}. "
-                f"Avg confidence: {profile.avg_confidence:.2f}. "
-                f"Last contact: {profile.last_interaction_date}."
-            )
-            if profile.notes:
-                sender_context += f" Notes: {profile.notes}"
-
-        if self._db:
-            history = await self._db.get_sender_history(sender, limit=5)
-            if history:
-                interaction_history = "\n".join(
-                    f"- {r.email_subject}: {r.classified_intent}"
-                    for r in history[:3]
-                )
-
-        # Consult Cherry for tone advice before generating the reply
-        tone_guidance = await self._consult_tone(sender, subject, body, sender_context)
-        if tone_guidance:
-            research_context = (
-                f"{research_context}\n\n{tone_guidance}" if research_context
-                else tone_guidance
-            )
-
-        safe_sender = wrap_external_content(sender, "email_sender")
-        safe_subject = wrap_external_content(subject, "email_subject")
-        safe_body = wrap_external_content(body[:3000], "email_body")
-        if research_context:
-            messages = reply_prompt_with_research(
-                sender=safe_sender,
-                subject=safe_subject,
-                body=safe_body,
-                sender_context=sender_context,
-                interaction_history=interaction_history,
-                principal_name=self._principal_name,
-                research_context=research_context,
-            )
-        else:
-            messages = reply_prompt(
-                sender=safe_sender,
-                subject=safe_subject,
-                body=safe_body,
-                sender_context=sender_context,
-                interaction_history=interaction_history,
-                principal_name=self._principal_name,
-            )
-
-        try:
-            result = await self.ctx.llm_pipeline.chat(
-                messages=messages,
-                audit_action="email_reply",
-            )
-            if not result or result.blocked or not result.content:
-                return False
-
-            # Send via GmailCapability (thread-aware reply)
-            gmail_cap = self.ctx.get_capability("gmail")
-            if gmail_cap:
-                reply_subject = subject if subject.startswith("Re:") else f"Re: {subject}"
-                thread_id = email.get("thread_id", "")
-                msg_id = email.get("message_id", "")
-                success = await gmail_cap.send_reply(
-                    thread_id=thread_id,
-                    message_id=msg_id,
-                    to=sender,
-                    subject=reply_subject,
-                    body=result.content.strip(),
-                )
-                return success
-            else:
-                logger.warning("EmailAgent: gmail capability not available for reply")
-                return False
-
-        except Exception as e:
-            logger.error("EmailAgent: reply generation failed: %s", e, exc_info=True)
-            return False
-
-    async def _consult_tone(
-        self,
-        sender: str,
-        subject: str,
-        body: str,
-        sender_context: str,
-    ) -> Optional[str]:
-        """
-        Consult a personality (default: Cherry) for tone advice.
-
-        Returns tone guidance string to inject into the reply prompt,
-        or None if the capability is unavailable or consultation fails.
-        """
-        consultant = self.ctx.get_capability("personality_consultant")
-        if not consultant:
-            return None
-
-        query = tone_consultation_prompt(
-            sender=sender,
-            subject=subject,
-            body=body[:2000],
-            sender_context=sender_context,
-        )
-
-        try:
-            raw = await consultant.consult(query=query)
-            if not raw:
-                return None
-
-            # Parse JSON advice from consultant
-            advice = json.loads(
-                raw[raw.find("{"):raw.rfind("}") + 1] if "{" in raw else raw,
-            )
-            tone = advice.get("tone", "professional")
-            guidance = advice.get("guidance", "")
-
-            logger.info(
-                "EmailAgent: tone consultation result — tone=%s for email from %s",
-                tone, sender,
-            )
-
-            if tone == "warm" and guidance:
-                return f"TONE GUIDANCE (from personality consultation): {guidance}"
-
-            return None
-
-        except (json.JSONDecodeError, Exception) as e:
-            logger.debug("EmailAgent: tone consultation parse error: %s", e)
-            return None
-
     async def _consult_boss(
         self, email: dict[str, Any], classification: EmailClassification,
     ) -> bool:
@@ -1200,7 +739,6 @@ class EmailAgentPlugin(PluginBase):
         subject = email.get("subject", "")
         snippet = email.get("snippet", email.get("body", "")[:200])
 
-        # Generate question for boss
         messages = boss_consultation_prompt(
             sender=sender,
             subject=subject,
@@ -1222,7 +760,6 @@ class EmailAgentPlugin(PluginBase):
         except Exception as e:
             logger.debug("EmailAgent: question generation failed: %s", e)
 
-        # Send IPC message
         msg = IPCMessage(
             msg_type="email_consultation",
             payload={
@@ -1238,58 +775,12 @@ class EmailAgentPlugin(PluginBase):
         try:
             response = await self.ctx.ipc_client.send(msg, timeout=30.0)
             if response and response.payload:
-                # Process boss guidance
                 await self._process_boss_response(email, classification, response)
                 return True
         except Exception as e:
             logger.error("EmailAgent: IPC consultation failed: %s", e, exc_info=True)
 
         return False
-
-    # Map common LLM-hallucinated intents to valid EmailIntent values
-    _INTENT_ALIASES: dict[str, str] = {
-        "escalate": "ask_boss",
-        "verify": "ask_boss",
-        "flag": "ask_boss",
-        "report": "ask_boss",
-        "block": "ignore",
-        "spam": "ignore",
-        "delete": "ignore",
-        "archive": "ignore",
-        "skip": "ignore",
-        "forward": "notify",
-        "alert": "notify",
-        "respond": "reply",
-        "answer": "reply",
-    }
-
-    def _normalize_intent(self, raw_intent: str) -> Optional[str]:
-        """Normalize a raw intent string to a valid EmailIntent value.
-
-        Returns the normalized intent string or None if unrecognizable.
-        """
-        clean = raw_intent.strip().lower()
-
-        # Direct match
-        try:
-            EmailIntent(clean)
-            return clean
-        except ValueError:
-            pass
-
-        # Alias match
-        mapped = self._INTENT_ALIASES.get(clean)
-        if mapped:
-            logger.debug(
-                "EmailAgent: mapped boss intent '%s' → '%s'", raw_intent, mapped,
-            )
-            return mapped
-
-        logger.warning(
-            "EmailAgent: unrecognizable boss intent '%s' — ignoring advice",
-            raw_intent,
-        )
-        return None
 
     async def _process_boss_response(
         self,
@@ -1301,12 +792,10 @@ class EmailAgentPlugin(PluginBase):
         advised_action = response.payload.get("advised_action", "")
         reasoning = response.payload.get("reasoning", "")
 
-        # Normalize the advised action to a valid EmailIntent
-        normalized = self._normalize_intent(advised_action) if advised_action else None
+        normalized = EmailClassifier.normalize_intent(advised_action) if advised_action else None
         if not normalized:
             return
 
-        # Store learning from boss feedback (only valid actions)
         if self._db:
             await self._db.store_learning(AgentLearning(
                 learning_type="classification",
@@ -1314,11 +803,8 @@ class EmailAgentPlugin(PluginBase):
                 source="boss_feedback",
                 email_from=email.get("sender"),
             ))
-
-            # Refresh learnings
             self._learnings = await self._db.get_learnings(limit=50)
 
-        # Execute the advised action
         advised_classification = EmailClassification(
             intent=EmailIntent(normalized),
             confidence=1.0,
@@ -1326,60 +812,6 @@ class EmailAgentPlugin(PluginBase):
             priority=classification.priority,
         )
         await self._execute_action(email, advised_classification)
-
-    async def _update_sender_profile(
-        self, sender: str, classification: EmailClassification,
-    ) -> None:
-        """
-        Update the consolidated sender profile after each conversation.
-
-        Profile files contain GDPR-safe aggregate data only:
-        interaction counts, language preference, intent distribution.
-        No email bodies, no personal content.
-        """
-        if not self._profiles_dir:
-            return
-
-        profile = await self._load_sender_profile(sender)
-
-        # Update aggregate stats
-        profile.total_interactions += 1
-        profile.last_interaction_date = datetime.now().strftime("%Y-%m-%d")
-        profile.avg_confidence = (
-            (profile.avg_confidence * (profile.total_interactions - 1) + classification.confidence)
-            / profile.total_interactions
-        )
-
-        # Update intent distribution
-        intent = classification.intent.value
-        profile.intent_distribution[intent] = profile.intent_distribution.get(intent, 0) + 1
-
-        # Save profile (async to avoid blocking event loop)
-        safe_name = self._safe_sender_name(sender)
-        profile_path = self._profiles_dir / f"{safe_name}.json"
-        try:
-            data = json.dumps(profile.model_dump(), indent=2)
-            await asyncio.to_thread(profile_path.write_text, data)
-        except Exception as e:
-            logger.error("EmailAgent: failed to save sender profile for %s: %s", sender, e, exc_info=True)
-
-    async def _load_sender_profile(self, sender: str) -> SenderProfile:
-        """Load a sender profile from disk, or create a new one."""
-        if not self._profiles_dir:
-            return SenderProfile(email=sender)
-
-        safe_name = self._safe_sender_name(sender)
-        profile_path = self._profiles_dir / f"{safe_name}.json"
-
-        if profile_path.exists():
-            try:
-                text = await asyncio.to_thread(profile_path.read_text)
-                data = json.loads(text)
-                return SenderProfile(**data)
-            except (json.JSONDecodeError, Exception) as e:
-                logger.warning("EmailAgent: failed to load sender profile: %s", e)
-
-        return SenderProfile(email=sender)
 
     async def _check_tg_feedback(self) -> None:
         """Check for principal's Telegram feedback on sent notifications."""
@@ -1397,32 +829,27 @@ class EmailAgentPlugin(PluginBase):
             return
 
         for update in updates:
-            # Only process replies to our tracked notifications
             if not update.reply_to_message_id:
                 continue
 
-            # Look up the original notification
             tracking = await self._db.get_notification_by_tg_id(
                 update.reply_to_message_id,
             )
             if not tracking:
                 continue
 
-            # Classify the feedback via LLM
             sentiment, learning_text, should_ack = await self._classify_feedback(
                 feedback_text=update.text,
                 original_notification=tracking.get("notification_text", ""),
                 original_email_subject=tracking.get("email_subject", ""),
             )
 
-            # Record feedback in DB
             await self._db.record_feedback(
                 tracking_id=tracking["id"],
                 text=update.text,
                 sentiment=sentiment,
             )
 
-            # Update the email record with feedback
             was_correct = sentiment == "positive"
             email_record_id = tracking.get("email_record_id")
             if email_record_id:
@@ -1432,59 +859,36 @@ class EmailAgentPlugin(PluginBase):
                     was_correct=was_correct,
                 )
 
-            # Store as learning (structured for reputation system)
             email_from = tracking.get("email_from", "")
             if learning_text:
                 learning_type = "classification"
                 if sentiment == "negative":
                     learning_type = "sender_reputation"
-                    learning_text = (
-                        f"IGNORE emails from {email_from}: {learning_text}"
-                    )
+                    learning_text = f"IGNORE emails from {email_from}: {learning_text}"
                 await self._db.store_learning(AgentLearning(
                     learning_type=learning_type,
                     content=learning_text,
                     source="principal_feedback",
                     email_from=email_from,
                 ))
-                # Refresh learnings cache
                 self._learnings = await self._db.get_learnings(limit=50)
 
-            # Update domain reputation with feedback
             if email_from:
-                domain = self._extract_domain(email_from)
+                domain = self._reputation.extract_domain(email_from)
                 if domain:
-                    await self._db.update_domain_stats(
-                        domain, "", feedback=sentiment,
-                    )
-                    # Check if domain should now be auto-ignored
-                    domain_rep = await self._get_domain_reputation(email_from)
-                    if self._should_auto_ignore_domain(domain_rep):
+                    await self._db.update_domain_stats(domain, "", feedback=sentiment)
+                    domain_rep = await self._reputation.get_domain_reputation(email_from)
+                    if self._reputation.should_auto_ignore_domain(domain_rep):
                         await self._db.set_auto_ignore(domain, True)
                         self._auto_ignore_domains.add(domain)
                         logger.info(
-                            "EmailAgent: auto-ignore enabled for domain %s "
-                            "after negative feedback",
+                            "EmailAgent: auto-ignore enabled for domain %s after negative feedback",
                             domain,
                         )
 
-            # Update sender profile on negative feedback
             if sentiment == "negative" and email_from:
-                profile = await self._load_sender_profile(email_from)
-                profile.intent_distribution["ignore"] = (
-                    profile.intent_distribution.get("ignore", 0) + 1
-                )
-                safe_name = self._safe_sender_name(email_from)
-                profile_path = self._profiles_dir / f"{safe_name}.json"
-                try:
-                    data = json.dumps(profile.model_dump(), indent=2)
-                    await asyncio.to_thread(profile_path.write_text, data)
-                except Exception as e:
-                    logger.debug(
-                        "EmailAgent: failed to update sender profile: %s", e,
-                    )
+                await self._reputation.penalize_sender(email_from)
 
-            # Acknowledge if appropriate
             if should_ack and notifier.configured:
                 await notifier.send_notification(
                     "Noted, I'll adjust my classification accordingly."
@@ -1501,7 +905,6 @@ class EmailAgentPlugin(PluginBase):
     ) -> tuple[str, str, bool]:
         """Classify principal feedback via LLM. Returns (sentiment, learning, should_ack)."""
         if not self.ctx.llm_pipeline:
-            # Heuristic fallback
             lower = feedback_text.lower()
             if any(w in lower for w in ("bra", "tack", "great", "good", "thanks")):
                 return "positive", "", False

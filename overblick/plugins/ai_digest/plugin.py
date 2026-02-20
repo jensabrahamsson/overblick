@@ -262,9 +262,16 @@ class AiDigestPlugin(PluginBase):
             logger.warning("AiDigestPlugin ranking blocked: %s", result.block_reason)
             return articles[:self._top_n]
 
+        if not result.content or not result.content.strip():
+            logger.warning("AiDigestPlugin: ranking returned empty response, using first %d articles", self._top_n)
+            return articles[:self._top_n]
+
         # Parse the LLM's selection
         try:
-            selected_indices = self._parse_selection(result.content or "", len(articles))
+            selected_indices = self._parse_selection(result.content, len(articles))
+            if not selected_indices:
+                logger.warning("AiDigestPlugin: ranking parsed no valid indices, using first %d articles", self._top_n)
+                return articles[:self._top_n]
             return [articles[i] for i in selected_indices]
         except Exception as e:
             logger.error("AiDigestPlugin: failed to parse ranking: %s", e, exc_info=True)

@@ -3,17 +3,14 @@ Abstract plugin interface + PluginContext.
 
 Plugins are self-contained modules that receive PluginContext as their
 ONLY interface to the framework. This ensures clean isolation.
-
-Type annotations use TYPE_CHECKING to avoid circular imports while
-providing full IDE/mypy support for all framework services.
 """
 
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Optional
 
-from pydantic import BaseModel, ConfigDict, PrivateAttr
+from pydantic import BaseModel, ConfigDict, PrivateAttr, SkipValidation
 
 if TYPE_CHECKING:
     from overblick.core.db.engagement_db import EngagementDB
@@ -23,6 +20,7 @@ if TYPE_CHECKING:
     from overblick.core.llm.response_router import ResponseRouter
     from overblick.core.permissions import PermissionChecker
     from overblick.core.quiet_hours import QuietHoursChecker
+    from overblick.core.scheduler import Scheduler
     from overblick.core.security.audit_log import AuditLog
     from overblick.core.security.output_safety import OutputSafety
     from overblick.core.security.preflight import PreflightChecker
@@ -47,11 +45,6 @@ class PluginContext(BaseModel):
     - Engagement DB
     - Security subsystems
     - Permission checker
-
-    Note: Fields use ``Any`` at runtime because Pydantic cannot resolve
-    TYPE_CHECKING forward references without ``model_rebuild()``. The
-    TYPE_CHECKING block above provides IDE/mypy support via the
-    imported type names in docstrings and comments.
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -60,26 +53,28 @@ class PluginContext(BaseModel):
     log_dir: Path
 
     # Framework services (set by orchestrator before plugin.setup())
-    llm_client: Any = None  # LLMClient
-    event_bus: Any = None  # EventBus
-    scheduler: Any = None
-    audit_log: Any = None  # AuditLog
-    quiet_hours_checker: Any = None  # QuietHoursChecker
-    response_router: Any = None  # ResponseRouter
+    # SkipValidation preserves the type annotation for IDE/mypy while allowing
+    # mock objects in tests without Pydantic instance checks at runtime.
+    llm_client: Annotated[Optional["LLMClient"], SkipValidation] = None
+    event_bus: Annotated[Optional["EventBus"], SkipValidation] = None
+    scheduler: Annotated[Optional["Scheduler"], SkipValidation] = None
+    audit_log: Annotated[Optional["AuditLog"], SkipValidation] = None
+    quiet_hours_checker: Annotated[Optional["QuietHoursChecker"], SkipValidation] = None
+    response_router: Annotated[Optional["ResponseRouter"], SkipValidation] = None
 
     # Preferred over raw llm_client for plugin use
-    llm_pipeline: Any = None  # SafeLLMPipeline
+    llm_pipeline: Annotated[Optional["SafeLLMPipeline"], SkipValidation] = None
 
-    identity: Any = None  # Identity
+    identity: Annotated[Optional["Identity"], SkipValidation] = None
 
-    engagement_db: Any = None  # EngagementDB
+    engagement_db: Annotated[Optional["EngagementDB"], SkipValidation] = None
 
-    preflight_checker: Any = None  # PreflightChecker
-    output_safety: Any = None  # OutputSafety
+    preflight_checker: Annotated[Optional["PreflightChecker"], SkipValidation] = None
+    output_safety: Annotated[Optional["OutputSafety"], SkipValidation] = None
 
-    permissions: Any = None  # PermissionChecker
+    permissions: Annotated[Optional["PermissionChecker"], SkipValidation] = None
 
-    ipc_client: Any = None  # IPCClient
+    ipc_client: Annotated[Optional["IPCClient"], SkipValidation] = None
 
     # Shared capabilities (populated by orchestrator)
     capabilities: dict[str, Any] = {}
@@ -203,3 +198,22 @@ class PluginBase(ABC):
 
     def __repr__(self) -> str:
         return f"<{self._name} identity={self.ctx.identity_name}>"
+
+
+# Real imports for model_rebuild() — these modules do not import from plugin_base,
+# so there is no circular dependency. Placed after class definitions per PEP 8 E402.
+from overblick.core.db.engagement_db import EngagementDB  # noqa: E402
+from overblick.core.event_bus import EventBus  # noqa: E402
+from overblick.core.llm.client import LLMClient  # noqa: E402
+from overblick.core.llm.pipeline import SafeLLMPipeline  # noqa: E402
+from overblick.core.llm.response_router import ResponseRouter  # noqa: E402
+from overblick.core.permissions import PermissionChecker  # noqa: E402
+from overblick.core.quiet_hours import QuietHoursChecker  # noqa: E402
+from overblick.core.scheduler import Scheduler  # noqa: E402
+from overblick.core.security.audit_log import AuditLog  # noqa: E402
+from overblick.core.security.output_safety import OutputSafety  # noqa: E402
+from overblick.core.security.preflight import PreflightChecker  # noqa: E402
+from overblick.identities import Identity  # noqa: E402
+from overblick.supervisor.ipc import IPCClient  # noqa: E402
+
+PluginContext.model_rebuild()
