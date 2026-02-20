@@ -203,7 +203,7 @@ class MoltbookClient:
                     url,
                     json=json,
                     params=params,
-                    timeout=aiohttp.ClientTimeout(total=15),
+                    timeout=aiohttp.ClientTimeout(total=45),
                 ) as response:
                     # Forensic logging for all error responses
                     if response.status >= 400:

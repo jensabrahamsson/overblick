@@ -940,6 +940,13 @@ parallel_examples:
 # OPERATIONAL CONFIGURATION
 ################################################################################
 
+################################################################################
+# OPERATIONAL CONFIGURATION
+################################################################################
+operational:
+  capabilities:
+    - "email"          # Required by ai_digest plugin for SMTP delivery
+
 # Active plugins
 plugins:
   - ai_digest
