@@ -87,6 +87,11 @@ class TelegramNotifier:
         """Whether the notifier has valid credentials."""
         return self._base_url is not None
 
+    @property
+    def chat_id(self) -> str:
+        """The configured Telegram chat ID, or empty string if not set."""
+        return self._chat_id or ""
+
     async def _ensure_session(self) -> aiohttp.ClientSession:
         """Ensure a persistent HTTP session exists and return it."""
         if self._session is None or self._session.closed:

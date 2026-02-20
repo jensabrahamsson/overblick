@@ -101,7 +101,7 @@ def mock_telegram_notifier():
     notifier.send_notification_tracked = AsyncMock(return_value=42)
     notifier.fetch_updates = AsyncMock(return_value=[])
     notifier.configured = True
-    notifier._chat_id = "12345"
+    notifier.chat_id = "12345"
     return notifier
 
 

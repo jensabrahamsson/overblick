@@ -161,8 +161,8 @@ class EmailAgentPlugin(PluginBase):
             if self._db:
                 try:
                     await self._db.close()
-                except Exception:
-                    pass
+                except Exception as close_err:
+                    logger.warning("EmailAgent: DB close failed during setup cleanup: %s", close_err)
                 self._db = None
             raise
 
@@ -698,7 +698,7 @@ class EmailAgentPlugin(PluginBase):
                 return False
 
             notification_text = (
-                f"*Epost fr\u00e5n {sender}*\n"
+                f"*Email from {sender}*\n"
                 f"_{subject}_\n\n"
                 f"{result.content.strip()}"
             )
@@ -713,7 +713,7 @@ class EmailAgentPlugin(PluginBase):
             )
 
             if tg_message_id and email_record_id and self._db:
-                chat_id = notifier._chat_id or ""
+                chat_id = notifier.chat_id
                 await self._db.track_notification(
                     email_record_id=email_record_id,
                     tg_message_id=tg_message_id,

@@ -62,6 +62,7 @@ class IRCPlugin(PluginBase):
         self._identities: dict[str, Any] = {}  # Loaded identity objects
         self._data_dir: Optional[Path] = None
         self._running = False
+        self._host_inspector = None
         self._recent_participants: list[str] = []  # Track recent participants for diversity
         # Protects multi-step mutations of _current_conversation across await points
         self._conversation_lock = asyncio.Lock()
@@ -205,9 +206,10 @@ class IRCPlugin(PluginBase):
     async def _is_system_idle(self) -> bool:
         """Check if system load is low enough for IRC conversations."""
         try:
-            from overblick.capabilities.monitoring.inspector import HostInspectionCapability
-            inspector = HostInspectionCapability()
-            health = await inspector.inspect()
+            if self._host_inspector is None:
+                from overblick.capabilities.monitoring.inspector import HostInspectionCapability
+                self._host_inspector = HostInspectionCapability()
+            health = await self._host_inspector.inspect()
 
             # CPU must be below 50% of core count
             if health.cpu.core_count > 0:

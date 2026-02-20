@@ -539,6 +539,9 @@ class MoltbookPlugin(PluginBase):
 
         try:
             post = await self._client.create_post(title, content, submolt=submolt)
+            if not post:
+                logger.error("MoltbookPlugin: create_post returned None for heartbeat '%s'", title)
+                return False
             await self._heartbeat.record_heartbeat(post.id, title)
             await self.ctx.engagement_db.track_my_post(post.id, title)
 
