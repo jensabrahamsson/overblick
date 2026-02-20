@@ -386,14 +386,20 @@ class IRCPlugin(PluginBase):
         if not participants:
             return None
 
-        turns = self._current_conversation.turns
+        # Only consider actual messages — ignore JOIN, TOPIC, PART, NETSPLIT, etc.
+        # Without this filter, the TOPIC system event (owned by participant[0]) would
+        # prevent the initiator from ever being selected first.
+        message_turns = [
+            t for t in self._current_conversation.turns
+            if t.type == IRCEventType.MESSAGE
+        ]
 
-        if not turns:
-            # First turn — pick randomly
+        if not message_turns:
+            # No messages yet — let the initiator (participant[0]) speak first
             return participants[0]
 
         # Avoid same speaker twice in a row
-        last_speaker = turns[-1].identity
+        last_speaker = message_turns[-1].identity
         others = [p for p in participants if p != last_speaker]
 
         if not others:

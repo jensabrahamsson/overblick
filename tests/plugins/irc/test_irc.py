@@ -388,6 +388,27 @@ class TestIRCPluginSpeakerSelection:
         assert speaker != "anomal"
         assert speaker == "cherry"
 
+    def test_initiator_can_speak_after_topic_event(self, irc_plugin):
+        # Regression: _start_conversation() emits JOIN + TOPIC events owned by
+        # participant[0]. Without filtering system events, _select_next_speaker()
+        # would treat the TOPIC event as participant[0]'s last turn and exclude
+        # them from speaking first — the initiator never participated.
+        from overblick.plugins.irc.models import IRCEventType
+        turns = [
+            IRCTurn(identity="anomal", content="#consciousness", type=IRCEventType.JOIN),
+            IRCTurn(identity="cherry", content="#consciousness", type=IRCEventType.JOIN),
+            IRCTurn(identity="anomal", content="consciousness", type=IRCEventType.TOPIC),
+        ]
+        irc_plugin._current_conversation = IRCConversation(
+            id="irc-speak3",
+            topic="Consciousness",
+            participants=["anomal", "cherry"],
+            turns=turns,
+        )
+        # With only system events, no real message yet → initiator speaks first
+        speaker = irc_plugin._select_next_speaker()
+        assert speaker == "anomal"
+
     def test_no_conversation_returns_none(self, irc_plugin):
         assert irc_plugin._select_next_speaker() is None
 
