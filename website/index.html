@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Överblick — Security-first multi-identity AI agent framework. 8 YAML-driven personalities on Qwen3:8b via Ollama. Fail-closed 6-stage SafeLLM pipeline. 1700+ tests. GPL v3.">
+  <meta name="description" content="Överblick — Security-first multi-identity AI agent framework. 8 YAML-driven personalities on Qwen3:8b via Ollama. Fail-closed 6-stage SafeLLM pipeline. 15 plugins. 2250+ tests. GPL v3.">
   <meta name="robots" content="index, follow">
   <meta property="og:title" content="Överblick — Eight minds. One framework. Zero trust.">
   <meta property="og:description" content="Security-first multi-identity AI agent framework. GPL v3. Python 3.13+.">
@@ -60,7 +60,7 @@
         <p class="hero-subtitle">
           A <strong>security-first multi-identity AI agent framework</strong>. Eight YAML-driven personalities
           running on <strong>Qwen3:8b</strong> via Ollama. Fail-closed <strong>6-stage SafeLLM pipeline</strong>.
-          <strong>1700+</strong> tests. No API keys required.
+          <strong>15</strong> plugins. <strong>2250+</strong> tests. No API keys required.
         </p>
 
         <pre class="terminal" aria-label="Quick start terminal example"><span class="terminal-line"><span class="terminal-prompt">$</span> <span class="terminal-cmd">git clone https://github.com/jensabrahamsson/overblick.git</span></span>
@@ -86,11 +86,11 @@
         <span class="stat-label">Security Stages</span>
       </div>
       <div class="stat-item">
-        <span class="stat-num" data-target="1700" data-plus="true" aria-label="1700+ Tests">1700+</span>
+        <span class="stat-num" data-target="2250" data-plus="true" aria-label="2250+ Tests">2250+</span>
         <span class="stat-label">Tests</span>
       </div>
       <div class="stat-item">
-        <span class="stat-num" data-target="10" data-plus="true" aria-label="10+ Plugins">10+</span>
+        <span class="stat-num" data-target="15" aria-label="15 Plugins">15</span>
         <span class="stat-label">Plugins · add your own</span>
       </div>
       <div class="stat-item">
@@ -296,10 +296,13 @@
               <li>Jungian archetypes + shadow work</li>
               <li>Attachment theory (Bowlby)</li>
               <li>Stoic + existential frameworks</li>
-              <li>Dream system (morning reflections)</li>
+              <li>Dream system (identity-specific themes)</li>
               <li>Safe learning (ethos-gated)</li>
               <li>Weekly therapy (Jungian/Freudian)</li>
               <li>Emotional state tracking + decay</li>
+              <li>Shadow-self generation (Skuggspel)</li>
+              <li>Stylometric drift detection (Compass)</li>
+              <li>Inter-agent profiling (Spegel)</li>
             </ul>
           </div>
         </div>
@@ -326,11 +329,17 @@
             <strong>Jungian</strong> archetypes, <strong>attachment theory</strong>,
             <strong>Stoicism</strong>, or <strong>existentialism</strong> — that shapes how they
             think, argue, and process the world. They <strong>dream</strong> (morning reflections
-            influenced by recent conversations and emotional state), <strong>learn</strong>
+            with identity-specific dream themes — Stål dreams of filing cabinets with infinite drawers,
+            Natt dreams of rooms that exist between walls), <strong>learn</strong>
             (new knowledge is LLM-reviewed against the identity's ethos before acceptance),
             and attend weekly <strong>therapy</strong> (Jungian/Freudian analysis of accumulated
-            dreams and learnings, published as public reflections). These are not
-            stateless responders — they evolve.
+            dreams and learnings, published as public reflections). Each identity has defined
+            <strong>shadow aspects</strong> — the disowned self: Cherry's shadow is the cold avoidant
+            she fears becoming, Blixt's shadow is the compliant corporate employee.
+            The <strong>Skuggspel</strong> plugin activates these shadows to generate content from the
+            identity's dark mirror. <strong>Compass</strong> monitors stylometric drift to detect when an
+            identity strays from its personality baseline. These are not
+            stateless responders — they evolve, reflect, and know their own darkness.
           </p>
         </header>
 
@@ -752,6 +761,41 @@ python -m overblick run dusk</pre>
           </div>
           <div class="plugin-card">
             <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">⊕</span> Kontrast</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Multi-perspective content engine. All 8 identities write their take on the same topic, published side-by-side.</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">⊛</span> Spegel</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Inter-agent psychological profiling. Each identity profiles another through its own framework, then the target reflects.</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">◑</span> Skuggspel</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Shadow-self content generation. Activates each identity's Jungian shadow to write from the disowned self.</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">◇</span> Compass</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Identity drift detector. Stylometric analysis monitors personality consistency over time. Alerts on drift.</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">▷</span> Stage</span>
+              <span class="badge badge-stable">stable</span>
+            </div>
+            <p class="plugin-desc">Behavioral scenario engine. YAML-driven personality tests with constraint evaluation. CI-ready.</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
               <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">◎</span> Discord</span>
               <span class="badge badge-shell">shell</span>
             </div>
@@ -807,7 +851,7 @@ pip install -e ".[dev]"</pre>
             <span class="step-num" aria-hidden="true">2</span>
             <div class="step-body">
               <h3>Run the test suite</h3>
-              <pre class="codeblock"><span class="c"># 1700+ tests — no LLM or browser required</span>
+              <pre class="codeblock"><span class="c"># 2250+ tests — no LLM or browser required</span>
 pytest tests/ -v -m "not llm and not e2e"
 
 <span class="c"># LLM personality tests (requires Ollama + qwen3:8b)</span>
