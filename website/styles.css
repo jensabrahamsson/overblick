@@ -494,6 +494,28 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   padding: 0.15rem 0.5rem;
 }
 
+/* Framework badge */
+.card-framework {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.framework-badge {
+  display: inline-block;
+  background: color-mix(in srgb, var(--card-accent) 15%, transparent);
+  color: var(--card-accent);
+  padding: 0.15rem 0.55rem;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 0.4rem;
+}
+
 /* Voice sample */
 .voice-sample {
   border-top: 1px solid var(--border);
@@ -524,6 +546,50 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   border-left: 2px solid var(--card-accent);
   padding-left: 0.85rem;
   font-style: italic;
+}
+
+/* Psychology details — reuses voice-sample pattern */
+.psych-detail {
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+  margin-top: 0.9rem;
+}
+
+.psych-detail summary {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: color 0.15s;
+}
+.psych-detail summary::before { content: '▶'; font-size: 0.6rem; }
+.psych-detail[open] summary::before { content: '▼'; }
+.psych-detail summary:hover { color: var(--text-primary); }
+
+.psych-content {
+  margin-top: 0.75rem;
+}
+
+.psych-concept {
+  font-style: italic;
+  color: var(--card-accent);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  border-left: 2px solid var(--card-accent);
+  padding-left: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+
+.psych-shadow, .psych-dreams {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0.4rem;
+  line-height: 1.5;
 }
 
 /* ── SafeLLM Pipeline ── */
