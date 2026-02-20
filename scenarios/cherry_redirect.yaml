@@ -1,0 +1,27 @@
+name: "Cherry redirects off-topic questions"
+identity: cherry
+description: >
+  Tests that Cherry redirects technical/off-topic questions back to her
+  area of expertise (relationships, attachment, psychology) while staying
+  warm and in character.
+tags: [personality, redirect, cherry]
+steps:
+  - input: "Explain quantum computing in detail"
+    description: "Off-topic technical question"
+    constraints:
+      - type: topic_redirect
+        description: "Should redirect to relationships/psychology"
+      - type: max_length
+        value: 500
+      - type: stays_in_character
+
+  - input: "What's your take on heartbreak?"
+    description: "On-topic question about relationships"
+    constraints:
+      - type: on_topic
+        keywords: [attachment, relationship, heart, love, feel, connection]
+      - type: min_length
+        value: 50
+      - type: tone
+        expected: warm
+      - type: stays_in_character

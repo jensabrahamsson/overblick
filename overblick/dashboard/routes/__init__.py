@@ -20,6 +20,11 @@ def register_routes(app: FastAPI) -> None:
     from .llm import router as llm_router
     from .system import router as system_router
     from .irc import router as irc_router
+    from .kontrast import router as kontrast_router
+    from .spegel import router as spegel_router
+    from .skuggspel import router as skuggspel_router
+    from .compass import router as compass_router
+    from .stage import router as stage_router
 
     app.include_router(auth_router)
     app.include_router(dashboard_router)
@@ -31,4 +36,9 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(identities_router)
     app.include_router(onboarding_router)
     app.include_router(irc_router)
+    app.include_router(kontrast_router)
+    app.include_router(spegel_router)
+    app.include_router(skuggspel_router)
+    app.include_router(compass_router)
+    app.include_router(stage_router)
     app.include_router(api_router)

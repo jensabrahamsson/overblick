@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Spegel{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Spegel</h1>
+    <p class="page-subtitle">Inter-agent psychological profiling — self-awareness through others' eyes</p>
+</div>
+
+{% if pairs %}
+{% for pair in pairs %}
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h2 style="margin: 0; font-size: 1.1rem;">
+            {{ pair.profile.observer_display_name or pair.observer_name }}
+            <span style="color: var(--text-muted);">profiles</span>
+            {{ pair.profile.target_display_name or pair.target_name }}
+        </h2>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem;">
+        <div>
+            <h3 style="font-size: 0.9rem; color: var(--accent); margin-bottom: 0.5rem;">
+                Profile by {{ pair.profile.observer_display_name or pair.observer_name }}
+            </h3>
+            <div style="font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap;">{{ pair.profile.profile_text }}</div>
+        </div>
+        <div style="border-left: 1px solid var(--border); padding-left: 1rem;">
+            <h3 style="font-size: 0.9rem; color: var(--accent-secondary, var(--accent)); margin-bottom: 0.5rem;">
+                Reflection by {{ pair.reflection.target_display_name or pair.target_name }}
+            </h3>
+            <div style="font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap;">{{ pair.reflection.reflection_text }}</div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card">
+    <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+        <p>No profiling pairs generated yet.</p>
+        <p style="font-size: 0.85rem;">Profiles are generated on a weekly schedule.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

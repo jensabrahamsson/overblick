@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Kontrast{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Kontrast</h1>
+    <p class="page-subtitle">Multi-perspective content — same topic, different worldviews</p>
+</div>
+
+{% if pieces %}
+{% for piece in pieces %}
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h2 style="margin: 0; font-size: 1.3rem;">{{ piece.topic }}</h2>
+        <span class="badge badge-info">{{ piece.identity_count }} perspectives</span>
+        <span class="badge">{{ piece.article_count }} articles</span>
+    </div>
+    {% if piece.source_summary %}
+    <p style="color: var(--text-muted); padding: 0.5rem 1rem; font-style: italic;">{{ piece.source_summary }}</p>
+    {% endif %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; padding: 1rem;">
+        {% for p in piece.perspectives %}
+        <div class="card" style="border-left: 3px solid hsl({{ (loop.index * 45) % 360 }}, 65%, 55%);">
+            <div class="card-header" style="padding: 0.5rem 0.75rem;">
+                <strong style="color: hsl({{ (loop.index * 45) % 360 }}, 65%, 60%);">{{ p.display_name or p.identity_name }}</strong>
+                <span class="badge" style="font-size: 0.7rem;">{{ p.word_count }} words</span>
+            </div>
+            <div style="padding: 0.75rem; font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap;">{{ p.content }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card">
+    <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+        <p>No Kontrast pieces generated yet.</p>
+        <p style="font-size: 0.85rem;">Pieces are generated when RSS feeds detect new topics.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

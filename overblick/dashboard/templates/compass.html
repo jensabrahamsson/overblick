@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Compass{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Compass</h1>
+    <p class="page-subtitle">Identity drift detection — monitoring personality integrity over time</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+    <div class="card">
+        <div class="card-header"><h2 style="margin: 0; font-size: 1rem;">Active Baselines</h2></div>
+        <div style="padding: 1rem;">
+            {% if baselines %}
+            <table style="width: 100%; font-size: 0.85rem;">
+                <thead><tr><th>Identity</th><th>Samples</th><th>Established</th></tr></thead>
+                <tbody>
+                {% for name, bl in baselines.items() %}
+                <tr>
+                    <td><strong>{{ name }}</strong></td>
+                    <td>{{ bl.sample_count }}</td>
+                    <td>{{ bl.established_at|epoch_to_datetime }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: var(--text-muted);">No baselines established yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 style="margin: 0; font-size: 1rem;">Recent Alerts</h2>
+            {% if alerts %}<span class="badge" style="background: var(--danger, #c53030); color: white;">{{ alerts|length }}</span>{% endif %}
+        </div>
+        <div style="padding: 1rem;">
+            {% if alerts %}
+            {% for alert in alerts[:10] %}
+            <div style="padding: 0.5rem; margin-bottom: 0.5rem; border-left: 3px solid var(--danger, #c53030); font-size: 0.85rem;">
+                <strong>{{ alert.identity_name }}</strong> — drift {{ "%.2f"|format(alert.drift_score) }} (threshold: {{ alert.threshold }})
+                <br><span style="color: var(--text-muted);">{{ alert.drifted_dimensions|join(', ') }}</span>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p style="color: var(--text-muted);">No drift alerts.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if drift_history %}
+<div class="card">
+    <div class="card-header"><h2 style="margin: 0; font-size: 1rem;">Drift History</h2></div>
+    <div style="padding: 1rem; overflow-x: auto;">
+        <table style="width: 100%; font-size: 0.85rem;">
+            <thead><tr><th>Identity</th><th>Drift Score</th><th>Drifted Dimensions</th><th>Samples</th><th>Time</th></tr></thead>
+            <tbody>
+            {% for dm in drift_history[:30] %}
+            <tr style="{% if dm.drift_score > drift_threshold %}color: var(--danger, #c53030);{% endif %}">
+                <td><strong>{{ dm.identity_name }}</strong></td>
+                <td>{{ "%.2f"|format(dm.drift_score) }}</td>
+                <td>{{ dm.drifted_dimensions|join(', ') or '-' }}</td>
+                <td>{{ dm.sample_count }}</td>
+                <td>{{ dm.measured_at|epoch_to_datetime }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

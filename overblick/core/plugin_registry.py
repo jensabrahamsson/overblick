@@ -25,6 +25,11 @@ _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
     "irc": ("overblick.plugins.irc.plugin", "IRCPlugin"),
+    "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
+    "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
+    "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
+    "compass": ("overblick.plugins.compass.plugin", "CompassPlugin"),
+    "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
 }
 
 # Module-level alias for backward compatibility (tests import this)

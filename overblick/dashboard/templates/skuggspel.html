@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Skuggspel{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Skuggspel</h1>
+    <p class="page-subtitle">Shadow-self content — the repressed side of each identity</p>
+</div>
+
+{% if posts %}
+{% for post in posts %}
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.1rem;">
+                <span style="opacity: 0.6;">Shadow of</span> {{ post.display_name or post.identity_name }}
+            </h2>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Topic: {{ post.topic }}</span>
+        </div>
+        <span class="badge" style="background: var(--danger, #c53030); color: white;">SHADOW</span>
+    </div>
+    <div style="padding: 1rem;">
+        <div style="padding: 0.75rem; border-left: 3px solid var(--danger, #c53030); background: rgba(197, 48, 48, 0.05); font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap;">{{ post.shadow_content }}</div>
+        <div style="margin-top: 0.75rem; padding: 0.5rem; background: var(--bg-secondary, #1a1a2e); border-radius: 4px; font-size: 0.8rem; color: var(--text-muted);">
+            <strong>Shadow profile:</strong> {{ post.shadow_profile.shadow_description }}
+            {% if post.shadow_profile.framework %}
+            <br><strong>Framework:</strong> {{ post.shadow_profile.framework }}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card">
+    <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+        <p>No shadow posts generated yet.</p>
+        <p style="font-size: 0.85rem;">Shadow content is generated on a configurable schedule.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
