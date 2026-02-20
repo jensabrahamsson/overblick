@@ -63,6 +63,9 @@ from overblick.supervisor.ipc import IPCMessage
 
 logger = logging.getLogger(__name__)
 
+# Default max email age when not configured — prevents processing months-old backlog
+_DEFAULT_MAX_EMAIL_AGE_HOURS = 48
+
 # Default goals for a new agent
 _DEFAULT_GOALS = [
     AgentGoal(
@@ -177,7 +180,8 @@ class EmailAgentPlugin(PluginBase):
         # Load principal name from secrets (injected at runtime — never hardcoded)
         self._principal_name = self.ctx.get_secret("principal_name") or ""
 
-        # Max email age — skip emails older than this (hours), None = no filter
+        # Max email age — skip emails older than this (hours).
+        # Always applies a filter to prevent processing old backlog on restart.
         age_val = ea_config.get("max_email_age_hours")
         if age_val is not None:
             try:
@@ -188,10 +192,18 @@ class EmailAgentPlugin(PluginBase):
                 self._max_email_age_hours = parsed
             else:
                 logger.warning(
-                    "EmailAgent: invalid max_email_age_hours=%r — must be positive number, ignoring",
-                    age_val,
+                    "EmailAgent: invalid max_email_age_hours=%r — must be positive number, "
+                    "falling back to default %dh",
+                    age_val, _DEFAULT_MAX_EMAIL_AGE_HOURS,
                 )
-                self._max_email_age_hours = None
+                self._max_email_age_hours = _DEFAULT_MAX_EMAIL_AGE_HOURS
+        else:
+            # No configured limit — apply default to avoid processing old backlog
+            self._max_email_age_hours = _DEFAULT_MAX_EMAIL_AGE_HOURS
+            logger.info(
+                "EmailAgent: max_email_age_hours not configured — defaulting to %dh",
+                _DEFAULT_MAX_EMAIL_AGE_HOURS,
+            )
 
         # Dry-run mode: classify and notify, but never send actual email replies
         self._dry_run = ea_config.get("dry_run", False)

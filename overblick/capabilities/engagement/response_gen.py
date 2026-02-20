@@ -164,6 +164,30 @@ class ResponseGenerator:
 
         return await self._call_llm(prompt, audit_action="reply_generation", priority=priority)
 
+    async def generate_dm_reply(
+        self,
+        sender_name: str,
+        message: str,
+        prompt_template: str,
+        priority: str = "high",
+    ) -> Optional[str]:
+        """Generate a reply to a direct message.
+
+        DM replies are time-sensitive, so priority defaults to 'high' to avoid
+        LLM gateway queuing delays.
+        """
+        safe_sender = wrap_external_content(sender_name, "sender_name")
+        safe_message = wrap_external_content(message[:500], "message")
+
+        prompt = prompt_template.format(
+            sender=safe_sender,
+            message=safe_message,
+        )
+
+        return await self._call_llm(
+            prompt, audit_action="generate_dm_reply", priority=priority,
+        )
+
     async def generate_heartbeat(
         self,
         prompt_template: str,

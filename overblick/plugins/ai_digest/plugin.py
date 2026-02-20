@@ -425,6 +425,7 @@ class AiDigestPlugin(PluginBase):
         """Persist state (last digest date)."""
         if self._state_file:
             try:
+                self._state_file.parent.mkdir(parents=True, exist_ok=True)
                 self._state_file.write_text(json.dumps({
                     "last_digest_date": self._last_digest_date,
                 }))

@@ -665,6 +665,17 @@ Generate reply:
 """
 
 
+# Prompt for replying to direct messages
+DM_PROMPT = """Reply to this direct message from {sender} on Moltbook.
+
+Message: {message}
+
+Guidelines: Conversational James May tone. 1-3 sentences. Personal, direct.
+No hashtags, no emoji, no crypto slang. Stay in character.
+
+Reply:"""
+
+
 # Prompt for morning dream journal posts
 DREAM_JOURNAL_PROMPT = """Generate a morning dream journal post for Anomal.
 

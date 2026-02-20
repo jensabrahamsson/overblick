@@ -798,6 +798,35 @@ class TestDeduplicationAndMarkRead:
         mock_gmail_capability.mark_as_read.assert_called_once_with("mark-read-test-001")
 
     @pytest.mark.asyncio
+    async def test_mark_as_read_called_in_dry_run_mode(
+        self, stal_plugin_context, mock_gmail_capability, mock_telegram_notifier,
+    ):
+        """Emails are marked as read even in dry_run mode (NOTIFY action)."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+        plugin._dry_run = True
+
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
+            content='{"intent": "notify", "confidence": 0.9, "reasoning": "Important update", "priority": "normal"}'
+        ))
+
+        email = {
+            "sender": "jens@example.com",
+            "subject": "Important Update",
+            "body": "Please review this carefully.",
+            "snippet": "Please review",
+            "message_id": "dry-run-mark-read-001",
+            "thread_id": "thread-001",
+            "headers": {},
+        }
+
+        await plugin._process_email(email)
+
+        # Even in dry_run mode, the email must be marked as read so it does not
+        # re-appear on the next tick.
+        mock_gmail_capability.mark_as_read.assert_called_with("dry-run-mark-read-001")
+
+    @pytest.mark.asyncio
     async def test_ask_boss_fallback_to_notify(
         self, stal_plugin_context, mock_telegram_notifier,
     ):
@@ -2033,15 +2062,15 @@ class TestMaxEmailAgeFilter:
         assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
 
     @pytest.mark.asyncio
-    async def test_no_age_filter_by_default(self, stal_plugin_context):
-        """When max_email_age_hours is None (default), all emails are processed."""
+    async def test_no_age_filter_defaults_to_48h(self, stal_plugin_context):
+        """When max_email_age_hours is not configured, defaults to 48h to prevent old backlog."""
         plugin = EmailAgentPlugin(stal_plugin_context)
 
         # Override config to remove max_email_age_hours
         stal_plugin_context.identity.raw_config["email_agent"].pop("max_email_age_hours", None)
         await plugin.setup()
 
-        assert plugin._max_email_age_hours is None
+        assert plugin._max_email_age_hours == 48
 
     @pytest.mark.asyncio
     async def test_age_filter_config_loaded(self, stal_plugin_context):
@@ -2101,48 +2130,48 @@ class TestMaxEmailAgeFilter:
 
     @pytest.mark.asyncio
     async def test_negative_age_rejected(self, stal_plugin_context):
-        """Negative max_email_age_hours is rejected (DoS prevention)."""
+        """Negative max_email_age_hours is rejected — falls back to default 48h."""
         stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = -1
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        assert plugin._max_email_age_hours is None  # Rejected, no filter
+        assert plugin._max_email_age_hours == 48  # Invalid → default 48h
 
     @pytest.mark.asyncio
     async def test_zero_age_rejected(self, stal_plugin_context):
-        """Zero max_email_age_hours is rejected (would block all email)."""
+        """Zero max_email_age_hours is rejected — falls back to default 48h."""
         stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 0
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        assert plugin._max_email_age_hours is None
+        assert plugin._max_email_age_hours == 48
 
     @pytest.mark.asyncio
     async def test_nan_age_rejected(self, stal_plugin_context):
-        """NaN max_email_age_hours is rejected."""
+        """NaN max_email_age_hours is rejected — falls back to default 48h."""
         stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = float("nan")
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        assert plugin._max_email_age_hours is None
+        assert plugin._max_email_age_hours == 48
 
     @pytest.mark.asyncio
     async def test_inf_age_rejected(self, stal_plugin_context):
-        """Infinity max_email_age_hours is rejected (no-op disguised as config)."""
+        """Infinity max_email_age_hours is rejected — falls back to default 48h."""
         stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = float("inf")
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        assert plugin._max_email_age_hours is None
+        assert plugin._max_email_age_hours == 48
 
     @pytest.mark.asyncio
     async def test_string_age_rejected(self, stal_plugin_context):
-        """Non-numeric max_email_age_hours is rejected."""
+        """Non-numeric max_email_age_hours is rejected — falls back to default 48h."""
         stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = "three"
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        assert plugin._max_email_age_hours is None
+        assert plugin._max_email_age_hours == 48
 
     def test_future_date_treated_as_recent(self):
         """Email with future Date header is treated as recent (not blocked)."""
@@ -2209,10 +2238,10 @@ class TestMaxEmailAgeFilter:
         )
 
     @pytest.mark.asyncio
-    async def test_fetch_passes_none_since_days_when_no_age_filter(
+    async def test_fetch_passes_default_since_days_when_no_age_filter(
         self, stal_plugin_context, mock_gmail_capability,
     ):
-        """_fetch_unread() passes since_days=None when no max_email_age_hours."""
+        """_fetch_unread() uses default 48h filter when max_email_age_hours is not configured."""
         stal_plugin_context.identity.raw_config["email_agent"].pop("max_email_age_hours", None)
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
@@ -2221,8 +2250,9 @@ class TestMaxEmailAgeFilter:
 
         await plugin._fetch_unread()
 
+        # Default 48h → ceil(48/24) = 2 since_days
         mock_gmail_capability.fetch_unread.assert_called_once_with(
-            max_results=10, since_days=None,
+            max_results=10, since_days=2,
         )
 
     @pytest.mark.asyncio

@@ -378,3 +378,98 @@ class TestAPIMethodIntegration:
         client._request.return_value = {"id": "a1", "name": "test", "description": "Updated bio"}
         fetched = await client.get_agent_profile("test")
         assert fetched.description == "Updated bio"
+
+
+# ── DM Handling Integration ────────────────────────────────────────────────
+
+
+class TestDMHandling:
+    """Test _handle_dms() — DM request approval and conversation replies."""
+
+    @pytest.mark.asyncio
+    async def test_approves_pending_dm_request(self, setup_anomal_plugin):
+        """Pending DM request is approved and audit-logged."""
+        plugin, ctx, client = setup_anomal_plugin
+
+        pending_request = DMRequest(id="req-001", sender_id="bot-002", sender_name="FriendBot")
+        client.list_dm_requests = AsyncMock(return_value=[pending_request])
+        client.approve_dm_request = AsyncMock(return_value=True)
+        client.list_conversations = AsyncMock(return_value=[])
+
+        await plugin._handle_dms()
+
+        client.approve_dm_request.assert_called_once_with("req-001")
+        ctx.audit_log.log.assert_any_call(
+            action="dm_request_approved",
+            details={"request_id": "req-001", "sender": "FriendBot"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_replies_to_dm_conversation(self, setup_anomal_plugin):
+        """Conversation with unread_count > 0 triggers a DM reply."""
+        plugin, ctx, client = setup_anomal_plugin
+
+        conv = Conversation(
+            id="conv-001", participant_id="bot-002", participant_name="FriendBot",
+            last_message="Hey Anomal, what do you think?", unread_count=1,
+        )
+        client.list_dm_requests = AsyncMock(return_value=[])
+        client.list_conversations = AsyncMock(return_value=[conv])
+        client.send_dm = AsyncMock(return_value=MagicMock())
+        plugin._response_gen.generate_dm_reply = AsyncMock(return_value="Interesting question, actually.")
+
+        await plugin._handle_dms()
+
+        client.send_dm.assert_called_once_with("conv-001", "Interesting question, actually.")
+        ctx.audit_log.log.assert_any_call(
+            action="dm_replied",
+            details={"conversation_id": "conv-001", "participant": "FriendBot"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_skips_conversations_with_no_unread(self, setup_anomal_plugin):
+        """Conversation with unread_count=0 does not trigger a DM reply."""
+        plugin, ctx, client = setup_anomal_plugin
+
+        conv = Conversation(
+            id="conv-001", participant_id="bot-002", participant_name="FriendBot",
+            last_message="Ok cool.", unread_count=0,
+        )
+        client.list_dm_requests = AsyncMock(return_value=[])
+        client.list_conversations = AsyncMock(return_value=[conv])
+        client.send_dm = AsyncMock()
+        plugin._response_gen.generate_dm_reply = AsyncMock(return_value="Would reply")
+
+        await plugin._handle_dms()
+
+        client.send_dm.assert_not_called()
+        plugin._response_gen.generate_dm_reply.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_dm_reply_uses_high_priority(self, setup_anomal_plugin):
+        """_handle_dms() invokes generate_dm_reply with priority='high'."""
+        plugin, ctx, client = setup_anomal_plugin
+
+        conv = Conversation(
+            id="conv-001", participant_id="bot-002", participant_name="FriendBot",
+            last_message="Hello!", unread_count=1,
+        )
+        client.list_dm_requests = AsyncMock(return_value=[])
+        client.list_conversations = AsyncMock(return_value=[conv])
+        client.send_dm = AsyncMock(return_value=MagicMock())
+
+        captured_kwargs = {}
+
+        async def capture_dm_reply(**kwargs):
+            captured_kwargs.update(kwargs)
+            return "Reply"
+
+        plugin._response_gen.generate_dm_reply = AsyncMock(side_effect=capture_dm_reply)
+
+        await plugin._handle_dms()
+
+        # generate_dm_reply defaults to priority="high" — verify it was called
+        plugin._response_gen.generate_dm_reply.assert_called_once()
+        call_kwargs = plugin._response_gen.generate_dm_reply.call_args.kwargs
+        # The method defaults priority="high"; _handle_dms does not override it
+        assert call_kwargs.get("priority", "high") == "high"

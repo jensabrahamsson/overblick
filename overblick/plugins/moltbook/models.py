@@ -206,6 +206,7 @@ class Conversation(BaseModel):
     participant_id: str
     participant_name: str = ""
     last_message: str = ""
+    unread_count: int = 0
     updated_at: Optional[datetime] = None
 
     @classmethod
@@ -216,6 +217,7 @@ class Conversation(BaseModel):
             participant_id=data.get("participant_id", ""),
             participant_name=data.get("participant_name", ""),
             last_message=data.get("last_message", ""),
+            unread_count=int(data.get("unread_count", 0)),
             updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None,
         )
 

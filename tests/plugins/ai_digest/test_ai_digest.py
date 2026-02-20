@@ -376,6 +376,45 @@ class TestTeardown:
         data = json.loads(state_file.read_text())
         assert data["last_digest_date"] == "2026-02-14"
 
+    @pytest.mark.asyncio
+    async def test_save_state_creates_missing_directory(self, tmp_path, mock_llm_client,
+                                                          mock_audit_log, mock_pipeline):
+        """_save_state() creates parent directories if they do not exist."""
+        from overblick.identities import Personality, LLMSettings
+        from unittest.mock import MagicMock
+        from pathlib import Path
+
+        identity = Personality(
+            name="test",
+            llm=LLMSettings(),
+            raw_config={"ai_digest": {"recipient": "test@example.com"}},
+        )
+        # Set up plugin with an existing data_dir (setup needs to succeed)
+        data_dir = tmp_path / "data"
+        ctx = PluginContext(
+            identity_name="test",
+            data_dir=data_dir,
+            log_dir=tmp_path / "logs",
+            llm_client=mock_llm_client,
+            llm_pipeline=mock_pipeline,
+            audit_log=mock_audit_log,
+            quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
+            identity=identity,
+        )
+        plugin = AiDigestPlugin(ctx)
+        await plugin.setup()
+
+        # Now point the state file at a new non-existent subdirectory to test mkdir
+        deep_dir = tmp_path / "deep" / "nested" / "dir"
+        plugin._state_file = deep_dir / "ai_digest_state.json"
+        assert not deep_dir.exists()
+
+        plugin._mark_digest_sent()
+
+        assert plugin._state_file.exists()
+        data = json.loads(plugin._state_file.read_text())
+        assert data["last_digest_date"] is not None
+
 
 class TestSecurity:
     """Verify security patterns are correctly implemented."""

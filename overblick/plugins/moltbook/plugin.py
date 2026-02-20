@@ -250,6 +250,9 @@ class MoltbookPlugin(PluginBase):
             # Step 6: Check replies to our posts
             await self._check_own_post_replies()
 
+            # Step 7: Handle direct messages
+            await self._handle_dms()
+
             # Persist status after successful tick
             self._persist_status()
 
@@ -400,6 +403,57 @@ class MoltbookPlugin(PluginBase):
 
             except MoltbookError as e:
                 logger.debug("Could not check replies for %s: %s", post_id, e)
+
+    async def _handle_dms(self) -> None:
+        """Handle incoming DM requests and conversations.
+
+        1. Approve any pending DM requests.
+        2. For each conversation with unread messages, generate and send a reply.
+        """
+        prompts = self._load_prompts(self.ctx.identity.name)
+        dm_prompt = getattr(prompts, "DM_PROMPT", "Reply to this DM from {sender}:\n{message}\n\nReply:")
+
+        try:
+            # Approve pending DM requests
+            requests = await self._client.list_dm_requests()
+            for req in requests:
+                try:
+                    await self._client.approve_dm_request(req.id)
+                    self.ctx.audit_log.log(
+                        action="dm_request_approved",
+                        details={"request_id": req.id, "sender": req.sender_name},
+                    )
+                    logger.info("DM request approved from %s", req.sender_name)
+                except MoltbookError as e:
+                    logger.warning("Failed to approve DM request %s: %s", req.id, e)
+
+            # Reply to conversations with unread messages
+            conversations = await self._client.list_conversations()
+            for conv in conversations:
+                if conv.unread_count <= 0:
+                    continue
+
+                response = await self._response_gen.generate_dm_reply(
+                    sender_name=conv.participant_name,
+                    message=conv.last_message,
+                    prompt_template=dm_prompt,
+                )
+
+                if not response:
+                    logger.warning("Empty DM reply generated for conv %s, skipping", conv.id)
+                    continue
+
+                await self._client.send_dm(conv.id, response)
+                self.ctx.audit_log.log(
+                    action="dm_replied",
+                    details={"conversation_id": conv.id, "participant": conv.participant_name},
+                )
+                logger.info("DM replied to %s in conversation %s", conv.participant_name, conv.id)
+
+        except SuspensionError:
+            raise  # Let tick() handle the 24h backoff
+        except MoltbookError as e:
+            logger.warning("DM handling error: %s", e)
 
     async def _handle_moltcaptcha(self, post_id: str, source) -> None:
         """Solve and reply to a MoltCaptcha challenge.
