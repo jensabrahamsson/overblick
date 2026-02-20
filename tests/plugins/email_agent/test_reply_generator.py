@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from overblick.core.llm.pipeline import PipelineResult
+from overblick.plugins.email_agent.models import EmailRecord
 from overblick.plugins.email_agent.reply_generator import ReplyGenerator
 from overblick.plugins.email_agent.reputation import ReputationManager
 
@@ -198,57 +199,145 @@ class TestSendDraftNotification:
 
     @pytest.mark.asyncio
     async def test_sends_draft_via_notifier(self, tmp_path):
-        """Happy path: LLM generates draft, notifier sends it."""
+        """Happy path: LLM generates draft, notifier sends tracked message."""
         ctx = MagicMock()
         ctx.llm_pipeline.chat = AsyncMock(
             return_value=PipelineResult(content="Dear colleague, I'll check the calendar.")
         )
+        ctx.get_capability = MagicMock(return_value=None)  # No tone consultant
         notifier = AsyncMock()
-        notifier.send_notification = AsyncMock()
+        notifier.send_notification_tracked = AsyncMock(return_value=42)
 
-        gen = make_reply_gen(ctx=ctx, tmp_path=tmp_path)
-        await gen.send_draft_notification(sample_email(), notifier)
+        db = MagicMock()
+        db.get_sender_history = AsyncMock(return_value=[])
 
-        notifier.send_notification.assert_called_once()
-        text = notifier.send_notification.call_args[0][0]
-        assert "Suggested reply" in text
-        assert "I'll check the calendar" in text
+        gen = make_reply_gen(ctx=ctx, db=db, tmp_path=tmp_path)
+        result = await gen.send_draft_notification(sample_email(), notifier)
+
+        assert result is not None
+        tg_id, draft_body = result
+        assert tg_id == 42
+        assert "I'll check the calendar" in draft_body
+        notifier.send_notification_tracked.assert_called_once()
+        text = notifier.send_notification_tracked.call_args[0][0]
+        assert "Draft reply to" in text
+        assert 'Reply "skicka"' in text
 
     @pytest.mark.asyncio
-    async def test_no_op_when_notifier_is_none(self, tmp_path):
-        """Returns immediately without LLM call when notifier is None."""
+    async def test_returns_none_when_notifier_is_none(self, tmp_path):
+        """Returns None without LLM call when notifier is None."""
         ctx = MagicMock()
         ctx.llm_pipeline.chat = AsyncMock()
 
         gen = make_reply_gen(ctx=ctx, tmp_path=tmp_path)
-        await gen.send_draft_notification(sample_email(), notifier=None)
+        result = await gen.send_draft_notification(sample_email(), notifier=None)
 
+        assert result is None
         ctx.llm_pipeline.chat.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_no_op_when_llm_blocked(self, tmp_path):
-        """Does not call notifier when LLM result is blocked."""
+    async def test_returns_none_when_llm_blocked(self, tmp_path):
+        """Returns None when LLM result is blocked."""
         ctx = MagicMock()
         ctx.llm_pipeline.chat = AsyncMock(
             return_value=PipelineResult(content="", blocked=True)
         )
+        ctx.get_capability = MagicMock(return_value=None)
         notifier = AsyncMock()
 
-        gen = make_reply_gen(ctx=ctx, tmp_path=tmp_path)
-        await gen.send_draft_notification(sample_email(), notifier)
+        db = MagicMock()
+        db.get_sender_history = AsyncMock(return_value=[])
 
-        notifier.send_notification.assert_not_called()
+        gen = make_reply_gen(ctx=ctx, db=db, tmp_path=tmp_path)
+        result = await gen.send_draft_notification(sample_email(), notifier)
+
+        assert result is None
+        notifier.send_notification_tracked.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_exception_is_swallowed(self, tmp_path):
         """Exceptions during draft notification are swallowed (best-effort)."""
         ctx = MagicMock()
         ctx.llm_pipeline.chat = AsyncMock(side_effect=RuntimeError("LLM error"))
+        ctx.get_capability = MagicMock(return_value=None)
         notifier = AsyncMock()
 
-        gen = make_reply_gen(ctx=ctx, tmp_path=tmp_path)
-        # Should not raise
-        await gen.send_draft_notification(sample_email(), notifier)
+        db = MagicMock()
+        db.get_sender_history = AsyncMock(return_value=[])
+
+        gen = make_reply_gen(ctx=ctx, db=db, tmp_path=tmp_path)
+        result = await gen.send_draft_notification(sample_email(), notifier)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_loads_real_sender_context(self, tmp_path):
+        """Draft notification loads real sender profile and DB history."""
+        ctx = MagicMock()
+        ctx.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="Thanks for your email.")
+        )
+        ctx.get_capability = MagicMock(return_value=None)
+        notifier = AsyncMock()
+        notifier.send_notification_tracked = AsyncMock(return_value=99)
+
+        db = MagicMock()
+        db.get_sender_history = AsyncMock(return_value=[
+            EmailRecord(
+                email_from="colleague@example.com",
+                email_subject="Previous meeting",
+                classified_intent="reply",
+                confidence=0.9,
+                reasoning="Meeting request",
+            ),
+        ])
+
+        from overblick.plugins.email_agent.models import SenderProfile
+        profiles_dir = tmp_path / "sender_profiles"
+        profiles_dir.mkdir(parents=True, exist_ok=True)
+        reputation = ReputationManager(db=db, profiles_dir=profiles_dir, thresholds={})
+        # Pre-populate a sender profile
+        profile = SenderProfile(
+            email="colleague@example.com",
+            total_interactions=3,
+            preferred_language="en",
+            avg_confidence=0.92,
+            last_interaction_date="2026-02-20",
+        )
+        await reputation.save_sender_profile("colleague@example.com", profile)
+
+        gen = make_reply_gen(ctx=ctx, db=db, reputation=reputation, tmp_path=tmp_path)
+        result = await gen.send_draft_notification(sample_email(), notifier)
+
+        assert result is not None
+        # Verify LLM was called with real context (not hardcoded defaults)
+        call_kwargs = ctx.llm_pipeline.chat.call_args[1]
+        messages = call_kwargs["messages"]
+        # Sender context is in the system message (reply_prompt puts it there)
+        system_msg = messages[0]["content"]
+        assert "Total interactions: 3" in system_msg
+        assert "Preferred language: en" in system_msg
+        # Interaction history from DB is also in the system message
+        assert "Previous meeting" in system_msg
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_tg_send_fails(self, tmp_path):
+        """Returns None when tracked notification send returns None."""
+        ctx = MagicMock()
+        ctx.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="Draft reply text.")
+        )
+        ctx.get_capability = MagicMock(return_value=None)
+        notifier = AsyncMock()
+        notifier.send_notification_tracked = AsyncMock(return_value=None)
+
+        db = MagicMock()
+        db.get_sender_history = AsyncMock(return_value=[])
+
+        gen = make_reply_gen(ctx=ctx, db=db, tmp_path=tmp_path)
+        result = await gen.send_draft_notification(sample_email(), notifier)
+
+        assert result is None
 
 
 # ---------------------------------------------------------------------------

@@ -2295,7 +2295,7 @@ class TestDraftReplyNotification:
     async def test_draft_reply_sent_after_notify(
         self, stal_plugin_context, mock_telegram_notifier,
     ):
-        """_send_draft_reply_notification() sends a Telegram message with the draft."""
+        """Draft reply sent as tracked TG message with approval instructions."""
         stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
@@ -2320,14 +2320,12 @@ class TestDraftReplyNotification:
 
         await plugin._execute_action(email_dict, classification)
 
-        # Telegram should have been called twice: notification + draft
-        assert mock_telegram_notifier.send_notification.called or \
-               mock_telegram_notifier.send_notification_tracked.called
-        # Draft was sent via send_notification
-        mock_telegram_notifier.send_notification.assert_called_once()
-        draft_text = mock_telegram_notifier.send_notification.call_args[0][0]
-        assert "Suggested reply" in draft_text
+        # send_notification_tracked called twice: notification + draft
+        assert mock_telegram_notifier.send_notification_tracked.call_count == 2
+        draft_text = mock_telegram_notifier.send_notification_tracked.call_args_list[1][0][0]
+        assert "Draft reply to" in draft_text
         assert "Dear colleague" in draft_text
+        assert 'Reply "skicka"' in draft_text
 
     @pytest.mark.asyncio
     async def test_draft_reply_not_sent_when_flag_false(
@@ -2357,8 +2355,8 @@ class TestDraftReplyNotification:
 
         await plugin._execute_action(email_dict, classification)
 
-        # send_notification (for draft) must NOT have been called
-        mock_telegram_notifier.send_notification.assert_not_called()
+        # Only notification tracked call, no draft
+        assert mock_telegram_notifier.send_notification_tracked.call_count == 1
 
     @pytest.mark.asyncio
     async def test_draft_reply_skipped_on_llm_failure(
@@ -2389,8 +2387,8 @@ class TestDraftReplyNotification:
         # Should not raise despite draft failure
         result = await plugin._execute_action(email_dict, classification)
         assert result == "notification_sent"
-        # Draft send_notification should not have been called (blocked)
-        mock_telegram_notifier.send_notification.assert_not_called()
+        # Only the notification tracked call, draft LLM was blocked
+        assert mock_telegram_notifier.send_notification_tracked.call_count == 1
 
     @pytest.mark.asyncio
     async def test_draft_not_sent_when_notification_fails(
@@ -2422,8 +2420,8 @@ class TestDraftReplyNotification:
 
         result = await plugin._execute_action(email_dict, classification)
         assert result == "notification_failed"
-        # Draft should NOT be sent since notification failed
-        mock_telegram_notifier.send_notification.assert_not_called()
+        # Only one send_notification_tracked call (the failed notification)
+        assert mock_telegram_notifier.send_notification_tracked.call_count == 1
 
     @pytest.mark.asyncio
     async def test_show_draft_replies_loaded_from_config(self, stal_plugin_context):
@@ -2440,3 +2438,378 @@ class TestDraftReplyNotification:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
         assert plugin._show_draft_replies is False
+
+    @pytest.mark.asyncio
+    async def test_draft_tracked_in_db(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """Draft reply is tracked in DB with body and thread ID."""
+        stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # LLM calls in order: classify → notification → draft reply
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
+            PipelineResult(
+                content='{"intent": "notify", "confidence": 0.9, "reasoning": "Meeting request", "priority": "normal"}'
+            ),
+            PipelineResult(content="Important meeting notification."),
+            PipelineResult(content="Dear colleague, sounds good."),
+        ])
+
+        email_dict = {
+            "sender": "colleague@example.com",
+            "subject": "Meeting",
+            "body": "Can we meet?",
+            "snippet": "Can we meet?",
+            "message_id": "draft-track-001",
+            "thread_id": "thread-draft-001",
+            "headers": {},
+        }
+
+        await plugin._process_email(email_dict)
+
+        # The draft should be tracked via the second send_notification_tracked call
+        # First call (tg_id=42) is the notification, second call (tg_id=42) is the draft
+        assert mock_telegram_notifier.send_notification_tracked.call_count == 2
+
+        # Verify DB tracking: the draft's tg_message_id is 42 (mock returns 42)
+        tracking = await plugin._db.get_notification_by_tg_id(42)
+        assert tracking is not None
+
+
+class TestDraftApproveToSend:
+    """Test the approve-to-send flow for draft replies."""
+
+    @pytest.mark.asyncio
+    async def test_is_send_approval_accepts_keywords(self, stal_plugin_context):
+        """_is_send_approval() recognizes all approval keywords."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        for word in ["skicka", "send", "ja", "yes", "ok", "approve", "godkänn", "\U0001f44d"]:
+            assert plugin._is_send_approval(word) is True, f"Should accept '{word}'"
+            assert plugin._is_send_approval(f" {word} ") is True, f"Should accept padded '{word}'"
+            assert plugin._is_send_approval(word.upper()) is True, f"Should accept '{word.upper()}'"
+
+    @pytest.mark.asyncio
+    async def test_is_send_approval_rejects_non_keywords(self, stal_plugin_context):
+        """_is_send_approval() rejects non-approval text."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        for word in ["maybe", "nej", "no", "wait", "later", "bra", "tack"]:
+            assert plugin._is_send_approval(word) is False, f"Should reject '{word}'"
+
+    @pytest.mark.asyncio
+    async def test_send_approved_draft_happy_path(
+        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+    ):
+        """_send_approved_draft() sends the reply via Gmail and confirms via TG."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        tracking = {
+            "id": 1,
+            "email_record_id": 10,
+            "draft_reply_body": "Dear colleague, sounds good.",
+            "email_from": "jens@example.com",  # In allowed_senders
+            "email_subject": "Meeting",
+            "original_email_thread_id": "thread-001",
+            "gmail_message_id": "msg-001",
+            "is_draft_reply": True,
+        }
+
+        await plugin._send_approved_draft(tracking, mock_telegram_notifier)
+
+        mock_gmail_capability.send_reply.assert_called_once()
+        call_kwargs = mock_gmail_capability.send_reply.call_args.kwargs
+        assert call_kwargs["to"] == "jens@example.com"
+        assert call_kwargs["subject"] == "Re: Meeting"
+        assert call_kwargs["body"] == "Dear colleague, sounds good."
+        assert call_kwargs["thread_id"] == "thread-001"
+        assert call_kwargs["message_id"] == "msg-001"
+
+        # Confirmation sent
+        mock_telegram_notifier.send_notification.assert_called_once()
+        confirm_text = mock_telegram_notifier.send_notification.call_args[0][0]
+        assert "Reply sent to" in confirm_text
+
+    @pytest.mark.asyncio
+    async def test_send_approved_draft_blocked_for_disallowed_sender(
+        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+    ):
+        """_send_approved_draft() rejects drafts to non-allowed senders."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        tracking = {
+            "id": 1,
+            "email_record_id": 10,
+            "draft_reply_body": "Some reply text.",
+            "email_from": "unknown@nobody.com",  # NOT in allowed_senders
+            "email_subject": "Spam",
+            "original_email_thread_id": "thread-001",
+            "gmail_message_id": "msg-001",
+            "is_draft_reply": True,
+        }
+
+        await plugin._send_approved_draft(tracking, mock_telegram_notifier)
+
+        # Gmail should NOT be called
+        mock_gmail_capability.send_reply.assert_not_called()
+        # Error message sent to TG
+        mock_telegram_notifier.send_notification.assert_called_once()
+        error_text = mock_telegram_notifier.send_notification.call_args[0][0]
+        assert "not in the allowed senders list" in error_text
+
+    @pytest.mark.asyncio
+    async def test_send_approved_draft_no_draft_body(
+        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+    ):
+        """_send_approved_draft() handles missing draft body gracefully."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        tracking = {
+            "id": 1,
+            "email_record_id": 10,
+            "draft_reply_body": "",  # Empty!
+            "email_from": "jens@example.com",
+            "email_subject": "Test",
+        }
+
+        await plugin._send_approved_draft(tracking, mock_telegram_notifier)
+
+        mock_gmail_capability.send_reply.assert_not_called()
+        mock_telegram_notifier.send_notification.assert_called_once()
+        assert "draft text not found" in mock_telegram_notifier.send_notification.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_send_approved_draft_gmail_unavailable(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """_send_approved_draft() handles missing Gmail capability."""
+        # Remove gmail from capabilities
+        stal_plugin_context.capabilities.pop("gmail", None)
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        tracking = {
+            "id": 1,
+            "email_record_id": 10,
+            "draft_reply_body": "Reply text.",
+            "email_from": "jens@example.com",
+            "email_subject": "Test",
+            "original_email_thread_id": "thread-001",
+            "gmail_message_id": "msg-001",
+        }
+
+        await plugin._send_approved_draft(tracking, mock_telegram_notifier)
+
+        mock_telegram_notifier.send_notification.assert_called_once()
+        assert "Gmail not available" in mock_telegram_notifier.send_notification.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_check_tg_feedback_intercepts_draft_approval(
+        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+    ):
+        """_check_tg_feedback() detects 'skicka' reply to a draft and sends email."""
+        stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Insert an email record
+        record_id = await plugin._db.record_email(EmailRecord(
+            gmail_message_id="gmail-001",
+            email_from="jens@example.com",
+            email_subject="Meeting next week?",
+            classified_intent="notify",
+            confidence=0.9,
+            reasoning="Important",
+            action_taken="notification_sent",
+        ))
+
+        # Track a draft notification
+        await plugin._db.track_draft_notification(
+            email_record_id=record_id,
+            tg_message_id=100,
+            tg_chat_id="12345",
+            draft_reply_body="Dear Jens, I'll check the calendar.",
+            original_thread_id="thread-meeting-001",
+        )
+
+        # Simulate TG update: principal replies "skicka" to the draft message
+        from overblick.capabilities.communication.telegram_notifier import TelegramUpdate
+        mock_telegram_notifier.fetch_updates = AsyncMock(return_value=[
+            TelegramUpdate(
+                message_id=200,
+                text="skicka",
+                reply_to_message_id=100,
+            ),
+        ])
+
+        await plugin._check_tg_feedback()
+
+        # Gmail should have been called to send the reply
+        mock_gmail_capability.send_reply.assert_called_once()
+        call_kwargs = mock_gmail_capability.send_reply.call_args.kwargs
+        assert call_kwargs["to"] == "jens@example.com"
+        assert call_kwargs["subject"] == "Re: Meeting next week?"
+        assert call_kwargs["body"] == "Dear Jens, I'll check the calendar."
+        assert call_kwargs["thread_id"] == "thread-meeting-001"
+
+        # Confirmation sent
+        confirm_calls = [
+            c for c in mock_telegram_notifier.send_notification.call_args_list
+            if "Reply sent" in c[0][0]
+        ]
+        assert len(confirm_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_check_tg_feedback_non_approval_still_classified(
+        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+    ):
+        """Non-approval replies to draft messages get classified as normal feedback."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Insert record + draft tracking
+        record_id = await plugin._db.record_email(EmailRecord(
+            gmail_message_id="gmail-002",
+            email_from="jens@example.com",
+            email_subject="Test",
+            classified_intent="notify",
+            confidence=0.9,
+            reasoning="Test",
+            action_taken="notification_sent",
+        ))
+        await plugin._db.track_draft_notification(
+            email_record_id=record_id,
+            tg_message_id=101,
+            tg_chat_id="12345",
+            draft_reply_body="Draft text.",
+            original_thread_id="thread-001",
+        )
+
+        # Principal says something that is NOT an approval
+        from overblick.capabilities.communication.telegram_notifier import TelegramUpdate
+        mock_telegram_notifier.fetch_updates = AsyncMock(return_value=[
+            TelegramUpdate(
+                message_id=201,
+                text="Bra att du flaggade det!",
+                reply_to_message_id=101,
+            ),
+        ])
+
+        # Mock LLM for feedback classification
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
+            content='{"sentiment": "positive", "learning": "", "should_acknowledge": false}'
+        ))
+
+        await plugin._check_tg_feedback()
+
+        # Gmail should NOT be called (not an approval)
+        mock_gmail_capability.send_reply.assert_not_called()
+
+
+class TestDraftReplyDatabaseTracking:
+    """Test database tracking of draft reply notifications."""
+
+    @pytest.mark.asyncio
+    async def test_track_and_retrieve_draft_notification(self, tmp_path):
+        """Can track a draft notification and retrieve it by TG message ID."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+
+        db_path = tmp_path / "test_draft_tracking.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        # Insert email record first
+        record_id = await db.record_email(EmailRecord(
+            gmail_message_id="gmail-draft-001",
+            email_from="test@example.com",
+            email_subject="Draft Test",
+            classified_intent="notify",
+            confidence=0.9,
+            reasoning="Test",
+            action_taken="notification_sent",
+        ))
+
+        # Track draft notification
+        tracking_id = await db.track_draft_notification(
+            email_record_id=record_id,
+            tg_message_id=200,
+            tg_chat_id="12345",
+            draft_reply_body="Dear colleague, happy to help.",
+            original_thread_id="thread-draft-001",
+        )
+        assert tracking_id > 0
+
+        # Retrieve by TG message ID
+        result = await db.get_notification_by_tg_id(200)
+        assert result is not None
+        assert result["is_draft_reply"] == 1  # SQLite TRUE
+        assert result["draft_reply_body"] == "Dear colleague, happy to help."
+        assert result["original_email_thread_id"] == "thread-draft-001"
+        assert result["email_from"] == "test@example.com"
+        assert result["email_subject"] == "Draft Test"
+        assert result["gmail_message_id"] == "gmail-draft-001"
+
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_regular_notification_has_draft_fields_false(self, tmp_path):
+        """Regular (non-draft) notifications have is_draft_reply=FALSE."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+
+        db_path = tmp_path / "test_regular_tracking.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        record_id = await db.record_email(EmailRecord(
+            email_from="test@example.com",
+            email_subject="Regular Test",
+            classified_intent="notify",
+            confidence=0.9,
+            reasoning="Test",
+        ))
+
+        await db.track_notification(
+            email_record_id=record_id,
+            tg_message_id=300,
+            tg_chat_id="12345",
+            notification_text="Regular notification",
+        )
+
+        result = await db.get_notification_by_tg_id(300)
+        assert result is not None
+        assert result["is_draft_reply"] == 0  # SQLite FALSE
+        assert result["draft_reply_body"] == ""
+
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_migration_v7_applies_on_fresh_db(self, tmp_path):
+        """Migration v7 applies cleanly on a fresh database."""
+        from overblick.core.database.base import DatabaseConfig
+        from overblick.core.database.sqlite_backend import SQLiteBackend
+
+        db_path = tmp_path / "test_migration_v7.db"
+        config = DatabaseConfig(sqlite_path=str(db_path))
+        backend = SQLiteBackend(config)
+        db = EmailAgentDB(backend)
+        await db.setup()
+
+        # Verify migration count includes v7
+        assert len(MIGRATIONS) == 7
+        assert MIGRATIONS[6].version == 7
+        assert MIGRATIONS[6].name == "draft_reply_tracking"
+
+        await db.close()

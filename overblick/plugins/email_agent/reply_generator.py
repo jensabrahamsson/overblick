@@ -140,33 +140,72 @@ class ReplyGenerator:
 
     async def send_draft_notification(
         self, email: dict[str, Any], notifier: Any,
-    ) -> None:
+    ) -> Optional[tuple[int, str]]:
         """
-        Generate a draft reply and send it as a Telegram message.
+        Generate a draft reply and send it as a tracked Telegram message.
 
         Lets the principal see how Stål would respond, building trust before
-        automatic replies are activated. Always best-effort — failures are
-        logged as warnings, never propagated.
+        automatic replies are activated. Returns (tg_message_id, draft_body)
+        so the caller can track it in the database for approve-to-send.
+
+        Always best-effort — failures are logged as warnings, never propagated.
         """
         if not notifier:
-            return
+            return None
 
         sender = email.get("sender", "")
         subject = email.get("subject", "")
         body = email.get("body", "")
 
+        # Load real sender context (same as generate_and_send)
+        profile = await self._reputation.load_sender_profile(sender)
+        sender_context = "No previous interactions"
+        interaction_history = "First contact"
+
+        if profile.total_interactions > 0:
+            sender_context = (
+                f"Total interactions: {profile.total_interactions}. "
+                f"Preferred language: {profile.preferred_language or 'unknown'}. "
+                f"Avg confidence: {profile.avg_confidence:.2f}. "
+                f"Last contact: {profile.last_interaction_date}."
+            )
+            if profile.notes:
+                sender_context += f" Notes: {profile.notes}"
+
+        if self._db:
+            history = await self._db.get_sender_history(sender, limit=5)
+            if history:
+                interaction_history = "\n".join(
+                    f"- {r.email_subject}: {r.classified_intent}"
+                    for r in history[:3]
+                )
+
+        # Consult for tone advice
+        tone_guidance = await self._consult_tone(sender, subject, body, sender_context)
+
         safe_sender = wrap_external_content(sender, "email_sender")
         safe_subject = wrap_external_content(subject, "email_subject")
         safe_body = wrap_external_content(body[:3000], "email_body")
 
-        messages = reply_prompt(
-            sender=safe_sender,
-            subject=safe_subject,
-            body=safe_body,
-            sender_context="No previous interactions",
-            interaction_history="First contact",
-            principal_name=self._principal_name,
-        )
+        if tone_guidance:
+            messages = reply_prompt_with_research(
+                sender=safe_sender,
+                subject=safe_subject,
+                body=safe_body,
+                sender_context=sender_context,
+                interaction_history=interaction_history,
+                principal_name=self._principal_name,
+                research_context=tone_guidance,
+            )
+        else:
+            messages = reply_prompt(
+                sender=safe_sender,
+                subject=safe_subject,
+                body=safe_body,
+                sender_context=sender_context,
+                interaction_history=interaction_history,
+                principal_name=self._principal_name,
+            )
 
         try:
             result = await self._ctx.llm_pipeline.chat(
@@ -178,16 +217,28 @@ class ReplyGenerator:
                 logger.warning(
                     "EmailAgent: draft reply blocked or empty for email from %s", sender,
                 )
-                return
+                return None
 
-            draft_text = f"\u270f\ufe0f *Suggested reply:*\n\n{result.content.strip()}"
-            await notifier.send_notification(draft_text)
+            draft_body = result.content.strip()
+            reply_subject = subject if subject.startswith("Re:") else f"Re: {subject}"
+            draft_text = (
+                f"\u270f\ufe0f *Draft reply to {sender}:*\n"
+                f"{reply_subject}\n\n"
+                f"{draft_body}\n\n"
+                f'_Reply "skicka" to send this reply._'
+            )
+            tg_message_id = await notifier.send_notification_tracked(draft_text)
+
+            if tg_message_id:
+                return (tg_message_id, draft_body)
+            return None
 
         except Exception as e:
             logger.warning(
                 "EmailAgent: draft reply notification failed for email from %s: %s",
                 sender, e,
             )
+            return None
 
     async def _consult_tone(
         self,

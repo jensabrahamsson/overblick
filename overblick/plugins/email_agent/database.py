@@ -117,6 +117,16 @@ MIGRATIONS = [
         """,
         down_sql="DROP TABLE IF EXISTS sender_reputation;",
     ),
+    Migration(
+        version=7,
+        name="draft_reply_tracking",
+        up_sql="""
+            ALTER TABLE notification_tracking ADD COLUMN is_draft_reply BOOLEAN DEFAULT FALSE;
+            ALTER TABLE notification_tracking ADD COLUMN draft_reply_body TEXT DEFAULT '';
+            ALTER TABLE notification_tracking ADD COLUMN original_email_thread_id TEXT DEFAULT '';
+        """,
+        down_sql="",
+    ),
 ]
 
 
@@ -342,12 +352,27 @@ class EmailAgentDB:
         )
         return row_id or 0
 
+    async def track_draft_notification(
+        self, email_record_id: int, tg_message_id: int, tg_chat_id: str,
+        draft_reply_body: str, original_thread_id: str = "",
+    ) -> int:
+        """Track a draft reply notification linked to an email record."""
+        row_id = await self._db.execute_returning_id(
+            "INSERT INTO notification_tracking "
+            "(email_record_id, tg_message_id, tg_chat_id, notification_text, "
+            "is_draft_reply, draft_reply_body, original_email_thread_id) "
+            "VALUES (?, ?, ?, ?, TRUE, ?, ?)",
+            (email_record_id, tg_message_id, tg_chat_id, "",
+             draft_reply_body, original_thread_id),
+        )
+        return row_id or 0
+
     async def get_notification_by_tg_id(
         self, tg_message_id: int,
     ) -> Optional[dict]:
         """Look up a tracked notification by Telegram message ID."""
         row = await self._db.fetch_one(
-            "SELECT nt.*, er.email_from, er.email_subject "
+            "SELECT nt.*, er.email_from, er.email_subject, er.gmail_message_id "
             "FROM notification_tracking nt "
             "JOIN email_records er ON nt.email_record_id = er.id "
             "WHERE nt.tg_message_id = ?",

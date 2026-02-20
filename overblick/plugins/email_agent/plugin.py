@@ -624,7 +624,18 @@ class EmailAgentPlugin(PluginBase):
                 )
                 if success and self._show_draft_replies:
                     notifier = self.ctx.get_capability("telegram_notifier")
-                    await self._reply_gen.send_draft_notification(email, notifier)
+                    draft_result = await self._reply_gen.send_draft_notification(
+                        email, notifier,
+                    )
+                    if draft_result and email_record_id and self._db:
+                        tg_id, draft_body = draft_result
+                        await self._db.track_draft_notification(
+                            email_record_id=email_record_id,
+                            tg_message_id=tg_id,
+                            tg_chat_id=notifier.chat_id,
+                            draft_reply_body=draft_body,
+                            original_thread_id=email.get("thread_id", ""),
+                        )
                 if success:
                     self._state.notifications_sent += 1
                 return "notification_sent" if success else "notification_failed"
@@ -838,6 +849,11 @@ class EmailAgentPlugin(PluginBase):
             if not tracking:
                 continue
 
+            # Check if this is an approval of a draft reply
+            if tracking.get("is_draft_reply") and self._is_send_approval(update.text):
+                await self._send_approved_draft(tracking, notifier)
+                continue
+
             sentiment, learning_text, should_ack = await self._classify_feedback(
                 feedback_text=update.text,
                 original_notification=tracking.get("notification_text", ""),
@@ -952,6 +968,60 @@ class EmailAgentPlugin(PluginBase):
         learning = data.get("learning", "")
         should_ack = data.get("should_acknowledge", False)
         return sentiment, learning, should_ack
+
+    # -- Draft approval --
+
+    _APPROVAL_WORDS = frozenset({
+        "skicka", "send", "ja", "yes", "ok", "approve", "godkänn", "\U0001f44d",
+    })
+
+    def _is_send_approval(self, text: str) -> bool:
+        """Check if text is an approval to send a draft reply."""
+        return text.strip().lower() in self._APPROVAL_WORDS
+
+    async def _send_approved_draft(self, tracking: dict, notifier: Any) -> None:
+        """Send a previously approved draft reply as a real email."""
+        draft_body = tracking.get("draft_reply_body", "")
+        if not draft_body:
+            await notifier.send_notification("Could not send — draft text not found.")
+            return
+
+        email_from = tracking.get("email_from", "")
+        email_subject = tracking.get("email_subject", "")
+        thread_id = tracking.get("original_email_thread_id", "")
+        message_id = tracking.get("gmail_message_id", "")
+
+        if not self._is_allowed_sender(email_from):
+            await notifier.send_notification(
+                f"Cannot send — {email_from} is not in the allowed senders list.",
+            )
+            return
+
+        gmail_cap = self.ctx.get_capability("gmail")
+        if not gmail_cap:
+            await notifier.send_notification("Gmail not available — could not send reply.")
+            return
+
+        reply_subject = (
+            email_subject if email_subject.startswith("Re:") else f"Re: {email_subject}"
+        )
+        success = await gmail_cap.send_reply(
+            thread_id=thread_id,
+            message_id=message_id,
+            to=email_from,
+            subject=reply_subject,
+            body=draft_body,
+        )
+
+        if success:
+            self._state.emails_replied += 1
+            await notifier.send_notification(f"Reply sent to {email_from}")
+            if self._db and tracking.get("email_record_id"):
+                await self._db.update_action_taken(
+                    tracking["email_record_id"], "draft_approved_sent",
+                )
+        else:
+            await notifier.send_notification(f"Failed to send reply to {email_from}")
 
     def _is_allowed_sender(self, sender: str) -> bool:
         """Check if sender is allowed based on filter mode."""
