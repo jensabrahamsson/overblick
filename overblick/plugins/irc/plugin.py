@@ -20,6 +20,7 @@ Scheduling:
 import asyncio
 import json
 import logging
+import random
 import time
 import uuid
 from datetime import datetime
@@ -407,8 +408,8 @@ class IRCPlugin(PluginBase):
         if not others:
             return participants[0]
 
-        # Simple round-robin
-        return others[self._current_conversation.turn_count % len(others)]
+        # Random selection from others (excluding last speaker)
+        return random.choice(others)
 
     async def _generate_turn(self, speaker_name: str) -> str | None:
         """Generate a conversation turn for the given identity."""
