@@ -17,7 +17,7 @@ def classification_prompt(
     subject: str,
     body: str,
     principal_name: str = "",
-    allowed_senders: str = "",
+    reply_policy: str = "",
     sender_reputation: str = "",
     email_signals: str = "",
 ) -> list[dict[str, str]]:
@@ -49,7 +49,7 @@ def classification_prompt(
         f"{reputation_section}"
         f"{signals_section}\n"
         f"Principal: {principal_name}\n"
-        f"Allowed reply addresses: {allowed_senders}\n\n"
+        f"Reply policy: {reply_policy}\n\n"
         "Actions (ONLY these four values are valid):\n"
         "- IGNORE: Not relevant to the principal. This includes:\n"
         "  * Newsletters and marketing emails (Manning, Substack, Medium, etc.)\n"
@@ -68,7 +68,7 @@ def classification_prompt(
         "personal messages, appointment confirmations, urgent account issues, "
         "messages from real people who expect a response.\n"
         "- REPLY: Needs a response — draft a reply as Stål, digital assistant. "
-        "Only if the sender is in the allowed reply list.\n"
+        "Only if the reply policy above permits replying to this sender.\n"
         "- ASK_BOSS: Uncertain — ask the supervisor for guidance\n\n"
         "CRITICAL GUIDELINES:\n"
         "1. When in doubt between IGNORE and NOTIFY, ALWAYS prefer IGNORE.\n"

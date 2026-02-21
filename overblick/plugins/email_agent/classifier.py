@@ -58,6 +58,8 @@ class EmailClassifier:
         db: Optional["EmailAgentDB"],
         principal_name: str,
         allowed_senders: set[str],
+        filter_mode: str = "opt_in",
+        blocked_senders: set[str] | None = None,
     ) -> None:
         self._ctx = ctx
         self._state = state
@@ -65,6 +67,22 @@ class EmailClassifier:
         self._db = db
         self._principal_name = principal_name
         self._allowed_senders = allowed_senders
+        self._filter_mode = filter_mode
+        self._blocked_senders = blocked_senders or set()
+
+    def _build_reply_policy(self) -> str:
+        """Build a reply policy string based on filter mode."""
+        if self._filter_mode == "opt_in":
+            if self._allowed_senders:
+                return f"Allowed reply addresses: {', '.join(sorted(self._allowed_senders))}"
+            return "No senders are allowed for replies (empty allow-list)"
+        # opt_out mode
+        if self._blocked_senders:
+            return (
+                "Can reply to any sender except: "
+                f"{', '.join(sorted(self._blocked_senders))}"
+            )
+        return "Can reply to any sender"
 
     async def classify(
         self,
@@ -94,6 +112,9 @@ class EmailClassifier:
                     for r in history
                 )
 
+        # Build reply policy string based on filter mode
+        reply_policy = self._build_reply_policy()
+
         messages = classification_prompt(
             goals=goals_text,
             learnings=learnings_text,
@@ -102,7 +123,7 @@ class EmailClassifier:
             subject=subject,
             body=body,
             principal_name=self._principal_name,
-            allowed_senders=", ".join(self._allowed_senders),
+            reply_policy=reply_policy,
             sender_reputation=sender_reputation,
             email_signals=email_signals,
         )

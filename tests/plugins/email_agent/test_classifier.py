@@ -27,7 +27,10 @@ from overblick.plugins.email_agent.models import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def make_classifier(ctx=None, db=None, principal_name="Test User", allowed_senders=None):
+def make_classifier(
+    ctx=None, db=None, principal_name="Test User", allowed_senders=None,
+    filter_mode="opt_in", blocked_senders=None,
+):
     """Create an EmailClassifier with minimal config for unit tests."""
     if ctx is None:
         ctx = MagicMock()
@@ -39,6 +42,8 @@ def make_classifier(ctx=None, db=None, principal_name="Test User", allowed_sende
         db=db,
         principal_name=principal_name,
         allowed_senders=allowed_senders or set(),
+        filter_mode=filter_mode,
+        blocked_senders=blocked_senders,
     )
 
 
@@ -264,6 +269,52 @@ class TestBuildEmailSignals:
             "List-Id": "mylist.example.com",
         })
         assert signals.count("\n") >= 2
+
+
+# ---------------------------------------------------------------------------
+# _build_reply_policy — dynamic prompt context
+# ---------------------------------------------------------------------------
+
+class TestBuildReplyPolicy:
+    """Tests for EmailClassifier._build_reply_policy()."""
+
+    def test_opt_in_with_allowed_senders(self):
+        """opt_in mode lists allowed addresses."""
+        c = make_classifier(allowed_senders={"alice@example.com", "bob@example.com"})
+        policy = c._build_reply_policy()
+        assert "Allowed reply addresses:" in policy
+        assert "alice@example.com" in policy
+        assert "bob@example.com" in policy
+
+    def test_opt_in_empty_allowed_list(self):
+        """opt_in mode with empty allow-list blocks all replies."""
+        c = make_classifier(allowed_senders=set())
+        policy = c._build_reply_policy()
+        assert "No senders are allowed" in policy
+
+    def test_opt_out_empty_blocked_list(self):
+        """opt_out mode with empty blocked list allows replying to anyone."""
+        c = make_classifier(filter_mode="opt_out")
+        policy = c._build_reply_policy()
+        assert policy == "Can reply to any sender"
+
+    def test_opt_out_with_blocked_senders(self):
+        """opt_out mode lists blocked senders."""
+        c = make_classifier(
+            filter_mode="opt_out",
+            blocked_senders={"spam@bad.com"},
+        )
+        policy = c._build_reply_policy()
+        assert "Can reply to any sender except:" in policy
+        assert "spam@bad.com" in policy
+
+    def test_opt_out_policy_in_classification_prompt(self):
+        """Verify opt_out policy appears in the actual classification prompt."""
+        c = make_classifier(filter_mode="opt_out")
+        policy = c._build_reply_policy()
+        # The prompt should say "Can reply to any sender", not "Allowed reply addresses:"
+        assert "Can reply to any sender" in policy
+        assert "Allowed reply addresses:" not in policy
 
 
 # ---------------------------------------------------------------------------

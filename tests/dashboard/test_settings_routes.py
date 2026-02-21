@@ -131,27 +131,17 @@ class TestSettingsStep3:
 
     @pytest.mark.asyncio
     async def test_step3_backends_post_redirects(self, client, session_cookie):
-        """Test new backends-format POST."""
+        """Test Ollama provider POST with UI field names."""
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
             "/settings/step/3",
             headers={"X-CSRF-Token": csrf_token},
             data={
+                "llm_provider": "ollama",
+                "ollama_host": "127.0.0.1",
+                "ollama_port": "11434",
+                "model": "qwen3:8b",
                 "gateway_url": "http://127.0.0.1:8200",
-                "local_enabled": "on",
-                "local_type": "ollama",
-                "local_host": "127.0.0.1",
-                "local_port": "11434",
-                "local_model": "qwen3:8b",
-                "cloud_enabled": "off",
-                "cloud_type": "ollama",
-                "cloud_host": "",
-                "cloud_port": "11434",
-                "cloud_model": "qwen3:8b",
-                "openai_enabled": "off",
-                "openai_api_url": "https://api.openai.com/v1",
-                "openai_model": "gpt-4o",
-                "default_backend": "local",
                 "default_temperature": "0.7",
                 "default_max_tokens": "2000",
             },
@@ -163,27 +153,17 @@ class TestSettingsStep3:
 
     @pytest.mark.asyncio
     async def test_step3_cloud_backend_post(self, client, session_cookie):
-        """Test enabling cloud backend."""
+        """Test gateway provider POST."""
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
             "/settings/step/3",
             headers={"X-CSRF-Token": csrf_token},
             data={
+                "llm_provider": "gateway",
+                "ollama_host": "127.0.0.1",
+                "ollama_port": "11434",
+                "model": "qwen3:8b",
                 "gateway_url": "http://127.0.0.1:8200",
-                "local_enabled": "on",
-                "local_type": "ollama",
-                "local_host": "127.0.0.1",
-                "local_port": "11434",
-                "local_model": "qwen3:8b",
-                "cloud_enabled": "on",
-                "cloud_type": "ollama",
-                "cloud_host": "gpu.example.com",
-                "cloud_port": "11434",
-                "cloud_model": "qwen3:14b",
-                "openai_enabled": "off",
-                "openai_api_url": "https://api.openai.com/v1",
-                "openai_model": "gpt-4o",
-                "default_backend": "local",
                 "default_temperature": "0.8",
                 "default_max_tokens": "4000",
             },
@@ -194,19 +174,16 @@ class TestSettingsStep3:
         assert "/settings/step/4" in resp.headers["location"]
 
     @pytest.mark.asyncio
-    async def test_step3_invalid_backend_shows_error(self, client, session_cookie):
+    async def test_step3_invalid_port_shows_error(self, client, session_cookie):
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
             "/settings/step/3",
             headers={"X-CSRF-Token": csrf_token},
             data={
-                "gateway_url": "http://127.0.0.1:8200",
-                "local_enabled": "on",
-                "local_type": "ollama",
-                "local_host": "127.0.0.1",
-                "local_port": "11434",
-                "local_model": "qwen3:8b",
-                "default_backend": "nonexistent",
+                "llm_provider": "ollama",
+                "ollama_host": "127.0.0.1",
+                "ollama_port": "not_a_number",
+                "model": "qwen3:8b",
                 "default_temperature": "0.7",
                 "default_max_tokens": "2000",
             },

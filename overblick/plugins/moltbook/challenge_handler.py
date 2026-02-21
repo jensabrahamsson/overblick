@@ -5,10 +5,19 @@ Intercepts challenge responses, solves them via LLM, and submits
 answers within the time limit. Integrates with ResponseRouter for
 transparent challenge detection in both 2xx and 4xx responses.
 
+Community findings (issue #134):
+- Challenge data nested at data.comment.verification (not top-level)
+- Field names: challenge_text, verification_code
+- API returns "success": true even during pending verification
+- Obfuscation: case-mixing (tWeNtY) + letter-doubling (tWwEeNnTtYy)
+- Word-form numbers (twenty three → 23)
+- 5-minute time limit
+
 See: https://github.com/moltbook/api/issues/134
 """
 
 import logging
+import re
 import time
 from typing import Optional
 
@@ -16,14 +25,15 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
-CHALLENGE_SOLVER_SYSTEM = """You are a verification challenge solver. You will receive a question that may contain:
-- Intentionally misspelled or obfuscated English words
+CHALLENGE_SOLVER_SYSTEM = """You are a verification challenge solver. The question has already been \
+deobfuscated (letter-doubling and case-mixing removed). You may receive:
 - Arithmetic operations (addition, subtraction, multiplication, exponents)
+- Word-form numbers (e.g. "twenty three" means 23)
 - Mathematical operations (vector addition, matrix operations, dot products)
 - Logic puzzles or simple reasoning questions
 
 Rules:
-1. First, decode any obfuscated spelling to understand the actual question
+1. Parse word-form numbers into digits (e.g. "twenty three" = 23)
 2. Perform the required calculation precisely
 3. Return ONLY the final answer — no explanation, no working, no extra text
 4. If the answer is a number, return just the number
@@ -32,14 +42,109 @@ Rules:
 7. Be concise and exact — the answer will be compared programmatically"""
 
 
+# ── Deobfuscation utilities ──────────────────────────────────────────────────
+# Moltbook challenges use two obfuscation techniques (per community reports):
+#   1. Case-mixing: random upper/lower casing  →  tWeNtY → twenty
+#   2. Letter-doubling: each char repeated with case swap → tWwEeNnTtYy → twenty
+# We strip doubling first, then normalize case, before sending to the LLM.
+
+_LETTER_DOUBLE_RE = re.compile(r"[a-zA-Z]")
+
+
+def _strip_letter_doubling(word: str) -> str:
+    """Remove letter-doubling obfuscation from a single word.
+
+    Greedy scan: whenever two adjacent characters are the same letter
+    (case-insensitive), keep the first and skip the second.
+
+    Example: tWwEeNnTtYy → tWENTY (doubles at positions 1-2, 3-4, etc.)
+    Example: tTwWeEnNtTyY → twenty (doubles at positions 0-1, 2-3, etc.)
+
+    Only returns the cleaned result if it removed a significant portion
+    of the word (>25% shorter), to avoid false positives on normal words
+    with natural letter repetition (e.g. "llama", "hello").
+    """
+    if len(word) < 4:
+        return word
+
+    result = []
+    i = 0
+    while i < len(word):
+        result.append(word[i])
+        if (
+            i + 1 < len(word)
+            and word[i].isalpha()
+            and word[i + 1].isalpha()
+            and word[i].lower() == word[i + 1].lower()
+        ):
+            i += 2  # Skip the doubled char
+        else:
+            i += 1
+
+    cleaned = "".join(result)
+    # Only apply if we removed a significant number of chars (>25%)
+    if len(cleaned) <= len(word) * 0.75:
+        return cleaned
+    return word
+
+
+def deobfuscate_challenge(text: str) -> str:
+    """Remove case-mixing and letter-doubling from challenge text.
+
+    Processes each word independently:
+    1. Strip letter-doubling (tWwEeNnTtYy → tWENTY)
+    2. Normalize to lowercase (tWENTY → twenty)
+
+    Non-alphabetic tokens (numbers, punctuation, operators) are preserved as-is.
+    """
+    tokens = text.split()
+    result = []
+    for token in tokens:
+        # Preserve non-alpha tokens (numbers, operators, punctuation)
+        if not any(c.isalpha() for c in token):
+            result.append(token)
+            continue
+
+        # Split trailing punctuation from word
+        word = token
+        trailing = ""
+        while word and not word[-1].isalpha():
+            trailing = word[-1] + trailing
+            word = word[:-1]
+        leading = ""
+        while word and not word[0].isalpha():
+            leading += word[0]
+            word = word[1:]
+
+        if word:
+            cleaned = _strip_letter_doubling(word)
+            result.append(f"{leading}{cleaned.lower()}{trailing}")
+        else:
+            result.append(token)
+
+    return " ".join(result)
+
+
 class PerContentChallengeHandler:
     """Handles per-content verification challenges from Moltbook API."""
 
     CHALLENGE_FIELDS = ("challenge", "nonce", "verification", "solve", "question")
     QUESTION_FIELDS = ("question", "challenge_text", "prompt", "challenge", "task")
-    NONCE_FIELDS = ("nonce", "challenge_nonce", "token", "challenge_id")
+    NONCE_FIELDS = ("nonce", "challenge_nonce", "token", "challenge_id", "verification_code")
     ENDPOINT_FIELDS = ("respond_url", "answer_url", "callback", "endpoint", "submit_url", "verification_url")
     TIME_LIMIT_FIELDS = ("time_limit", "timeout", "expires_in", "ttl", "deadline_seconds")
+
+    # Nesting paths where challenge data may be located (issue #134 community findings).
+    # Each path is a tuple of dict keys to traverse from the top-level response.
+    NESTING_PATHS = (
+        ("challenge",),
+        ("verification",),
+        ("captcha",),
+        ("comment", "verification"),
+        ("post", "verification"),
+        ("data", "verification"),
+        ("data", "challenge"),
+    )
 
     def __init__(
         self,
@@ -62,39 +167,55 @@ class PerContentChallengeHandler:
         }
 
     def detect(self, response_data: dict, http_status: int) -> bool:
-        """Check if a response contains a per-content challenge."""
+        """Check if a response contains a per-content challenge.
+
+        Searches both top-level keys and nested paths (e.g. data.comment.verification)
+        since the API may embed challenges at various depths.
+        """
         if not isinstance(response_data, dict):
             return False
 
-        keys_lower = {k.lower() for k in response_data.keys()}
+        # Check top-level fields
+        if self._check_challenge_fields(response_data):
+            return True
 
+        resp_type = str(response_data.get("type", "")).lower()
+        if resp_type in ("challenge", "verification", "captcha"):
+            return True
+
+        # Check all known nesting paths
+        for path in self.NESTING_PATHS:
+            nested = self._traverse_path(response_data, path)
+            if nested is not None and self._check_challenge_fields(nested):
+                return True
+
+        return False
+
+    def _check_challenge_fields(self, data: dict) -> bool:
+        """Check if a dict contains challenge indicator fields."""
+        if not isinstance(data, dict):
+            return False
+        keys_lower = {k.lower() for k in data.keys()}
         has_nonce = any(nf in keys_lower for nf in self.NONCE_FIELDS)
         has_question = any(qf in keys_lower for qf in self.QUESTION_FIELDS)
         has_endpoint = any(ef in keys_lower for ef in self.ENDPOINT_FIELDS)
-
-        resp_type = str(response_data.get("type", "")).lower()
-        is_typed_challenge = resp_type in ("challenge", "verification", "captcha")
-
         if has_nonce and has_question:
-            return True
-        if is_typed_challenge:
             return True
         if has_question and has_endpoint:
             return True
         if has_nonce and has_endpoint:
             return True
-
-        # Check nested challenge objects
-        for key in ("challenge", "verification", "captcha"):
-            nested = response_data.get(key)
-            if isinstance(nested, dict):
-                nested_keys = {k.lower() for k in nested.keys()}
-                if any(qf in nested_keys for qf in self.QUESTION_FIELDS):
-                    return True
-                if any(nf in nested_keys for nf in self.NONCE_FIELDS):
-                    return True
-
         return False
+
+    @staticmethod
+    def _traverse_path(data: dict, path: tuple[str, ...]) -> Optional[dict]:
+        """Traverse a nested dict path, returning the final dict or None."""
+        current = data
+        for key in path:
+            if not isinstance(current, dict):
+                return None
+            current = current.get(key)
+        return current if isinstance(current, dict) else None
 
     async def solve(self, challenge_data: dict) -> Optional[dict]:
         """Solve a challenge and submit the answer."""
@@ -116,10 +237,18 @@ class PerContentChallengeHandler:
             self._stats["challenges_failed"] += 1
             return None
 
+        # Deobfuscate before sending to LLM
+        clean_question = deobfuscate_challenge(question)
+        if clean_question != question:
+            logger.info(
+                "CHALLENGE: Deobfuscated: '%s' -> '%s'",
+                question[:100], clean_question[:100],
+            )
+
         # Solve via LLM
         messages = [
             {"role": "system", "content": CHALLENGE_SOLVER_SYSTEM},
-            {"role": "user", "content": question},
+            {"role": "user", "content": clean_question},
         ]
 
         llm_timeout = min(self._timeout, (time_limit - 10) if time_limit else self._timeout)
@@ -159,15 +288,17 @@ class PerContentChallengeHandler:
         return submit_result
 
     def _extract_field(self, data: dict, field_names: tuple) -> Optional[str]:
-        """Extract a field value trying multiple possible names."""
+        """Extract a field value trying multiple possible names and nesting paths."""
+        # Check top-level
         for name in field_names:
             for key, value in data.items():
                 if key.lower() == name and value is not None:
                     return str(value)
 
-        for nest_key in ("challenge", "verification", "captcha"):
-            nested = data.get(nest_key)
-            if isinstance(nested, dict):
+        # Check all nesting paths
+        for path in self.NESTING_PATHS:
+            nested = self._traverse_path(data, path)
+            if nested is not None:
                 for name in field_names:
                     for key, value in nested.items():
                         if key.lower() == name and value is not None:

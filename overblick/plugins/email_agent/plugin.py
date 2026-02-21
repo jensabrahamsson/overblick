@@ -255,6 +255,8 @@ class EmailAgentPlugin(PluginBase):
             db=self._db,
             principal_name=self._principal_name,
             allowed_senders=self._allowed_senders,
+            filter_mode=self._filter_mode,
+            blocked_senders=self._blocked_senders,
         )
         self._reply_gen = ReplyGenerator(
             ctx=self.ctx,

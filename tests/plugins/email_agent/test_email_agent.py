@@ -562,7 +562,7 @@ class TestPromptTemplates:
             subject="Test",
             body="Hello world",
             principal_name="Test Principal",
-            allowed_senders="test@example.com",
+            reply_policy="Allowed reply addresses: test@example.com",
         )
         assert len(messages) == 2
         assert messages[0]["role"] == "system"
@@ -1794,7 +1794,7 @@ class TestEnhancedPrompts:
             subject="Test",
             body="Hello world",
             principal_name="Test Principal",
-            allowed_senders="test@example.com",
+            reply_policy="Allowed reply addresses: test@example.com",
             sender_reputation="Sender: 10 emails, 80% ignored",
             email_signals="- Has List-Unsubscribe header (likely newsletter)",
         )

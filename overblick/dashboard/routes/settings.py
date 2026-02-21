@@ -322,28 +322,39 @@ async def step3_post(request: Request):
     state = _get_state(request.app)
 
     try:
+        # Map UI field names (from step3_llm.html template) to LLMData format
+        provider = form.get("llm_provider", "ollama")
+        host = form.get("ollama_host", "127.0.0.1")
+        port_str = form.get("ollama_port", "11434")
+        model = form.get("model", "qwen3:8b")
+        gateway_url = form.get("gateway_url", "http://127.0.0.1:8200")
+
+        is_local = provider in ("ollama", "lmstudio")
+        is_gateway = provider == "gateway"
+        is_openai = provider == "openai"
+
         data = LLMData(
-            gateway_url=form.get("gateway_url", "http://127.0.0.1:8200"),
+            gateway_url=gateway_url,
             local=BackendConfig(
-                enabled=form.get("local_enabled", "off") == "on",
-                backend_type=form.get("local_type", "ollama"),
-                host=form.get("local_host", "127.0.0.1"),
-                port=int(form.get("local_port", "11434")),
-                model=form.get("local_model", "qwen3:8b"),
+                enabled=is_local or is_gateway,
+                backend_type=provider if is_local else "ollama",
+                host=host,
+                port=int(port_str),
+                model=model,
             ),
             cloud=BackendConfig(
-                enabled=form.get("cloud_enabled", "off") == "on",
-                backend_type=form.get("cloud_type", "ollama"),
-                host=form.get("cloud_host", ""),
-                port=int(form.get("cloud_port", "11434")),
-                model=form.get("cloud_model", "qwen3:8b"),
+                enabled=False,
+                backend_type="ollama",
+                host="",
+                port=11434,
+                model="qwen3:8b",
             ),
             openai=OpenAIConfig(
-                enabled=form.get("openai_enabled", "off") == "on",
-                api_url=form.get("openai_api_url", "https://api.openai.com/v1"),
-                model=form.get("openai_model", "gpt-4o"),
+                enabled=is_openai,
+                api_url=form.get("cloud_api_url", "https://api.openai.com/v1"),
+                model=form.get("cloud_model", "gpt-4o"),
             ),
-            default_backend=form.get("default_backend", "local"),
+            default_backend="openai" if is_openai else "local",
             default_temperature=float(form.get("default_temperature", "0.7")),
             default_max_tokens=int(form.get("default_max_tokens", "2000")),
         )
@@ -624,6 +635,63 @@ async def test_gateway(request: Request):
     except Exception as e:
         return HTMLResponse(
             f'<span class="badge badge-red">Not reachable</span>'
+            f'<span class="test-detail">{e}</span>'
+        )
+
+
+@router.post("/test/gmail", response_class=HTMLResponse)
+async def test_gmail(request: Request):
+    """Test Gmail IMAP connection."""
+    form = await request.form()
+    address = form.get("gmail_address", "")
+    password = form.get("gmail_app_password", "")
+    if not address or not password:
+        return HTMLResponse('<span class="badge badge-amber">Enter credentials first</span>')
+    try:
+        import imaplib
+        imap = imaplib.IMAP4_SSL("imap.gmail.com")
+        imap.login(address, password)
+        imap.logout()
+        return HTMLResponse('<span class="badge badge-green">Connected</span>')
+    except Exception as e:
+        msg = str(e)
+        if "AUTHENTICATIONFAILED" in msg:
+            msg = "Authentication failed. Check your App Password."
+        return HTMLResponse(
+            f'<span class="badge badge-red">Failed</span>'
+            f'<span class="test-detail">{msg}</span>'
+        )
+
+
+@router.post("/test/telegram", response_class=HTMLResponse)
+async def test_telegram(request: Request):
+    """Test Telegram bot connection."""
+    form = await request.form()
+    token = form.get("telegram_bot_token", "")
+    chat_id = form.get("telegram_chat_id", "")
+    if not token:
+        return HTMLResponse('<span class="badge badge-amber">Enter bot token first</span>')
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
+            resp.raise_for_status()
+            bot_data = resp.json()
+            bot_name = bot_data.get("result", {}).get("username", "unknown")
+            msg = f"Connected as @{bot_name}"
+            if chat_id:
+                send_resp = await client.post(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    json={"chat_id": chat_id, "text": "Överblick setup test message"},
+                )
+                if send_resp.is_success:
+                    msg += " — test message sent!"
+                else:
+                    msg += " — bot OK but could not send to chat ID"
+            return HTMLResponse(f'<span class="badge badge-green">{msg}</span>')
+    except Exception as e:
+        return HTMLResponse(
+            f'<span class="badge badge-red">Failed</span>'
             f'<span class="test-detail">{e}</span>'
         )
 

@@ -27,6 +27,7 @@ from overblick.core.plugin_base import PluginBase, PluginContext
 
 from .client import MoltbookClient, MoltbookError, RateLimitError, SuspensionError
 from .challenge_handler import PerContentChallengeHandler
+from .response_router import ResponseRouter
 from .challenge_solver import MoltCaptchaSolver, is_challenge_text
 from .decision_engine import DecisionEngine
 from .response_gen import ResponseGenerator
@@ -90,13 +91,15 @@ class MoltbookPlugin(PluginBase):
         # Load prompts module
         prompts = self._load_prompts(identity.name)
 
-        # Create challenge handler
+        # Create challenge handler and LLM-based response router
+        response_router = None
         if self.ctx.llm_client:
             self._challenge_handler = PerContentChallengeHandler(
                 llm_client=self.ctx.llm_client,
                 api_key=api_key,
                 base_url="https://www.moltbook.com/api/v1",
             )
+            response_router = ResponseRouter(llm_client=self.ctx.llm_client)
 
         # Create Moltbook client
         self._client = MoltbookClient(
@@ -106,7 +109,7 @@ class MoltbookPlugin(PluginBase):
             requests_per_minute=identity.schedule.get("requests_per_minute", 100)
                 if hasattr(identity.schedule, "get") else 100,
             challenge_handler=self._challenge_handler,
-            response_router=self.ctx.response_router if hasattr(self.ctx, "response_router") else None,
+            response_router=response_router,
         )
 
         # Load identity-specific interests
