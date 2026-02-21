@@ -111,20 +111,87 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
             # Old format: flat provider-based
             state_update["llm"] = _migrate_old_llm_config(llm)
 
-    # Check which secrets exist (set _has_* flags for secrets only, not principal)
+    # Check which secrets exist across ALL identities and read non-sensitive values
     if base_dir:
-        # Check secrets for any identity that has a secrets file
         secrets_dir = base_dir / "config" / "secrets"
         if secrets_dir.exists():
+            sensitive_keys = ("gmail_app_password", "telegram_bot_token",
+                              "deepseek_api_key", "moltbook_api_key")
+            readable_keys = ("gmail_address", "telegram_chat_id")
+            try:
+                from overblick.core.security.secrets_manager import SecretsManager
+                sm = SecretsManager(secrets_dir)
+            except Exception:
+                sm = None
+
             for sf in secrets_dir.iterdir():
-                if sf.suffix == ".yaml" and sf.stem != "__pycache__":
+                if sf.suffix == ".yaml" and not sf.stem.startswith("."):
                     identity = sf.stem
-                    # Only check actual secrets — principal_name/email are in global config
-                    for key in ("gmail_app_password", "telegram_bot_token", "telegram_chat_id",
-                                "deepseek_api_key"):
-                        if _check_secret_exists(base_dir, identity, key):
+                    for key in sensitive_keys:
+                        if f"_has_{key}" not in state_update and _check_secret_exists(base_dir, identity, key):
                             state_update[f"_has_{key}"] = True
-                    break  # Only need to check one identity
+                    # Decrypt non-sensitive values for pre-fill
+                    if sm:
+                        for key in readable_keys:
+                            if key not in state_update and _check_secret_exists(base_dir, identity, key):
+                                try:
+                                    state_update[key] = sm.get(identity, key) or ""
+                                except Exception:
+                                    pass
+
+    # Detect active plugins from identity YAML files
+    active_plugins: set[str] = set()
+    if base_dir:
+        identities_dir = base_dir / "overblick" / "identities"
+        if identities_dir.exists():
+            for pdir in identities_dir.iterdir():
+                if not pdir.is_dir():
+                    continue
+                for fname in ("personality.yaml", "identity.yaml"):
+                    fp = pdir / fname
+                    if not fp.exists():
+                        continue
+                    try:
+                        with open(fp) as f:
+                            data = yaml.safe_load(f) or {}
+                        active_plugins.update(data.get("plugins", []))
+                    except Exception:
+                        pass
+
+    # Auto-enable communication toggles and pre-fill non-sensitive values
+    comm: dict[str, Any] = {}
+    if state_update.get("_has_gmail_app_password"):
+        comm["gmail_enabled"] = True
+    if state_update.get("gmail_address"):
+        comm["gmail_address"] = state_update["gmail_address"]
+    if state_update.get("_has_telegram_bot_token"):
+        comm["telegram_enabled"] = True
+    if state_update.get("telegram_chat_id"):
+        comm["telegram_chat_id"] = state_update["telegram_chat_id"]
+    if comm:
+        state_update["communication"] = comm
+
+    # Pre-select use cases based on detected secrets and active plugins
+    detected_use_cases: list[str] = []
+    # Secret-based detection
+    if state_update.get("_has_moltbook_api_key") or "moltbook" in active_plugins:
+        detected_use_cases.append("social_media")
+    if state_update.get("_has_gmail_app_password") or "email_agent" in active_plugins:
+        detected_use_cases.append("email")
+    if state_update.get("_has_telegram_bot_token") or "telegram" in active_plugins:
+        detected_use_cases.append("notifications")
+    if "ai_digest" in active_plugins:
+        detected_use_cases.append("research")
+    if "github" in active_plugins:
+        detected_use_cases.append("github_monitor")
+    if "discord" in active_plugins:
+        detected_use_cases.append("discord_chat")
+    if "matrix" in active_plugins:
+        detected_use_cases.append("matrix_chat")
+    if "webhook" in active_plugins:
+        detected_use_cases.append("webhooks")
+    if detected_use_cases:
+        state_update["selected_use_cases"] = detected_use_cases
 
     return state_update
 

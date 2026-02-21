@@ -28,14 +28,7 @@
                     </div>
                 </div>
 
-                {% if uc.compatible | length == 1 %}
-                <input type="hidden" name="{{ uc.id }}_personality" value="{{ uc.compatible[0].name }}">
-                <div class="auto-assigned">
-                    <span class="badge badge-green">Auto-assigned</span>
-                    <strong>{{ uc.compatible[0].display_name }}</strong>
-                    <span class="assignment-role">— {{ uc.compatible[0].role }}</span>
-                </div>
-                {% elif uc.compatible | length > 1 %}
+                {% if uc.compatible | length >= 1 %}
                 <div class="carousel-instance"
                      data-input-name="{{ uc.id }}_personality"
                      data-instance-id="{{ uc.id }}"
@@ -110,5 +103,5 @@
     </div>
 </div>
 
-<script src="/static/js/character-select.js"></script>
+<script src="/setup-static/js/character-select.js"></script>
 {% endblock %}

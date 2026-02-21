@@ -176,8 +176,8 @@ class TestAssignmentStep:
         # Should show character carousel for social media (multiple options)
         assert "carousel-instance" in resp.text or "carousel-track" in resp.text
 
-    async def test_step6_auto_assigns_single_personality(self, client: AsyncClient):
-        """Email should auto-assign Stal (only compatible personality)."""
+    async def test_step6_shows_carousel_with_recommended(self, client: AsyncClient):
+        """Email should show carousel with Stal as recommended/preselected."""
         await client.post(
             "/step/5",
             data={"selected_use_cases": ["email"]},
@@ -185,7 +185,8 @@ class TestAssignmentStep:
         )
         resp = await client.get("/step/6")
         assert resp.status_code == 200
-        assert "Auto-assigned" in resp.text
+        assert "carousel-instance" in resp.text
+        assert 'data-recommended="stal"' in resp.text
 
     async def test_step6_post_redirects(self, client: AsyncClient):
         """Submitting step 6 should redirect to review."""

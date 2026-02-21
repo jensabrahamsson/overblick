@@ -115,6 +115,48 @@ USE_CASES: list[dict[str, Any]] = [
         "compatible_personalities": ["anomal"],
         "recommended": "anomal",
     },
+    {
+        "id": "github_monitor",
+        "name": "GitHub Monitor",
+        "description": "Watch repos for issues and PRs, analyze code, and respond contextually",
+        "icon": "\U0001F4BB",
+        "plugins": ["github"],
+        "compatible_personalities": [
+            "anomal", "blixt", "stal",
+        ],
+        "recommended": "blixt",
+    },
+    {
+        "id": "discord_chat",
+        "name": "Discord Chat",
+        "description": "Personality-driven chat bot for Discord servers and channels",
+        "icon": "\U0001F3AE",
+        "plugins": ["discord"],
+        "compatible_personalities": [
+            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt",
+        ],
+        "recommended": "cherry",
+    },
+    {
+        "id": "matrix_chat",
+        "name": "Matrix Chat",
+        "description": "Decentralized chat with E2E encryption via the Matrix protocol",
+        "icon": "\U0001F510",
+        "plugins": ["matrix"],
+        "compatible_personalities": [
+            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt",
+        ],
+        "recommended": "anomal",
+    },
+    {
+        "id": "webhooks",
+        "name": "Webhooks",
+        "description": "Receive and process webhooks from external services",
+        "icon": "\U0001F517",
+        "plugins": ["webhook"],
+        "compatible_personalities": ["stal", "anomal", "blixt"],
+        "recommended": "stal",
+    },
 ]
 
 # Lookup: use_case_id -> use_case dict
@@ -228,10 +270,16 @@ def _build_assignment_data(
         if not uc:
             continue
 
+        # All personalities are selectable — recommended first, then rest
+        recommended_name = uc["recommended"]
         compatible = []
-        for p_name in uc["compatible_personalities"]:
-            if p_name in char_by_name:
-                compatible.append(char_by_name[p_name])
+        # Add recommended personality first
+        if recommended_name in char_by_name:
+            compatible.append(char_by_name[recommended_name])
+        # Add all other personalities
+        for char in all_characters:
+            if char["name"] != recommended_name:
+                compatible.append(char)
 
         # Get previously saved assignment for this use case
         prev = assignments.get(uc_id, {})
