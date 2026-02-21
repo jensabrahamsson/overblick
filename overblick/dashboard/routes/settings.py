@@ -96,8 +96,8 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
     principal = cfg.get("principal", {})
     if principal:
         state_update["principal"] = {
-            "principal_name": "",  # secrets — can't pre-fill
-            "principal_email": "",
+            "principal_name": principal.get("name", ""),
+            "principal_email": principal.get("email", ""),
             "timezone": principal.get("timezone", "Europe/Stockholm"),
             "language_preference": principal.get("language", "en"),
         }
@@ -111,7 +111,7 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
             # Old format: flat provider-based
             state_update["llm"] = _migrate_old_llm_config(llm)
 
-    # Check which secrets exist (set _has_* flags)
+    # Check which secrets exist (set _has_* flags for secrets only, not principal)
     if base_dir:
         # Check secrets for any identity that has a secrets file
         secrets_dir = base_dir / "config" / "secrets"
@@ -119,8 +119,8 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
             for sf in secrets_dir.iterdir():
                 if sf.suffix == ".yaml" and sf.stem != "__pycache__":
                     identity = sf.stem
-                    for key in ("principal_name", "principal_email", "gmail_app_password",
-                                "telegram_bot_token", "telegram_chat_id",
+                    # Only check actual secrets — principal_name/email are in global config
+                    for key in ("gmail_app_password", "telegram_bot_token", "telegram_chat_id",
                                 "deepseek_api_key"):
                         if _check_secret_exists(base_dir, identity, key):
                             state_update[f"_has_{key}"] = True
@@ -254,11 +254,10 @@ async def step1_get(request: Request):
     state = _get_state(request.app)
     state["current_step"] = 1
 
-    # Pre-populate from existing config on first visit
+    # Pre-populate from existing config (always load to refresh from disk)
     existing_cfg = _load_existing_config(base_dir)
-    if not state.get("_pre_populated") and existing_cfg:
+    if existing_cfg:
         state.update(_config_to_wizard_state(existing_cfg, base_dir))
-        state["_pre_populated"] = True
 
     return _render("step1_welcome.html", request)
 
@@ -272,8 +271,18 @@ async def step1_post(request: Request):
 
 @router.get("/step/2", response_class=HTMLResponse)
 async def step2_get(request: Request):
+    base_dir = _get_base_dir(request)
     state = _get_state(request.app)
     state["current_step"] = 2
+
+    # If step2 data missing, try to load from existing config
+    if not state.get("principal"):
+        existing_cfg = _load_existing_config(base_dir)
+        if existing_cfg:
+            prefill = _config_to_wizard_state(existing_cfg, base_dir)
+            if "principal" in prefill:
+                state["principal"] = prefill["principal"]
+
     return _render("step2_principal.html", request)
 
 
@@ -324,8 +333,18 @@ async def step2_post(
 
 @router.get("/step/3", response_class=HTMLResponse)
 async def step3_get(request: Request):
+    base_dir = _get_base_dir(request)
     state = _get_state(request.app)
     state["current_step"] = 3
+
+    # If step3 data missing, try to load from existing config
+    if not state.get("llm"):
+        existing_cfg = _load_existing_config(base_dir)
+        if existing_cfg:
+            prefill = _config_to_wizard_state(existing_cfg, base_dir)
+            if "llm" in prefill:
+                state["llm"] = prefill["llm"]
+
     return _render("step3_llm.html", request)
 
 
@@ -407,8 +426,16 @@ async def step3_post(request: Request):
 
 @router.get("/step/4", response_class=HTMLResponse)
 async def step4_get(request: Request):
+    base_dir = _get_base_dir(request)
     state = _get_state(request.app)
     state["current_step"] = 4
+
+    # If step4 data missing, try to load from existing config
+    if not state.get("communication"):
+        existing_cfg = _load_existing_config(base_dir)
+        if existing_cfg and "communication" in existing_cfg:
+            state["communication"] = existing_cfg["communication"]
+
     return _render("step4_communication.html", request)
 
 

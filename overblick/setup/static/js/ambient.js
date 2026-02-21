@@ -25,8 +25,8 @@
 
     var STORAGE_KEY = 'overblick_setup_volume';
     var FADE_DURATION = 1500; // ms
-    var CHORD_DURATION = 18000; // ms — slow dreamy changes
-    var CROSSFADE_TIME = 6.0; // seconds overlap between chords
+    var CHORD_DURATION = 4000; // ms — Klaus Wunderlich energetic pace (4-second chord changes)
+    var CROSSFADE_TIME = 1.5; // seconds overlap between chords
 
     var audioCtx = null;
     var masterGain = null;
@@ -90,8 +90,44 @@
             audioEl.style.display = 'none';
         }
 
-        // Autostart: begin playing on first user interaction (click anywhere)
-        document.addEventListener('click', autoStart, { once: true });
+        // Autostart with browser autoplay policy handling:
+        // - Try to start immediately (works in Firefox/Safari)
+        // - Chrome blocks autoplay; resume on first user interaction
+        // - Visual indicator shows music is ready to play
+        function attemptAutoStart() {
+            try {
+                createAudioContext();
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    // Autoplay blocked; will resume on click/touch
+                    var btn = document.getElementById('music-toggle');
+                    if (btn) btn.style.animation = 'pulse 2s infinite';
+                    return false;
+                }
+                // Autoplay succeeded — start music
+                hasAutostarted = true;
+                isPlaying = true;
+                var vol = parseFloat(localStorage.getItem(STORAGE_KEY) || '0.3');
+                masterGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.8);
+                updateButton();
+                startChordCycle();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Try immediate start (works in permissive browsers)
+        if (!attemptAutoStart()) {
+            // Chrome/strict mode: wait for user interaction
+            var resumeHandler = function() {
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                autoStart();
+            };
+            document.addEventListener('click', resumeHandler, { once: true });
+            document.addEventListener('touchstart', resumeHandler, { once: true });
+        }
     }
 
     function autoStart() {
@@ -326,32 +362,45 @@
 
     function togglePlay() {
         if (isPlaying) {
-            // Fade out
+            // Fade out and stop
             if (masterGain && audioCtx) {
                 masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
                 setTimeout(function () {
                     stopChordCycle();
                     activeVoices.forEach(function (voices) {
-                        voices.forEach(function (v) { v.release(0.2); });
+                        voices.forEach(function (v) {
+                            try { v.release(0.2); } catch (e) {}
+                        });
                     });
                     activeVoices = [];
                     isPlaying = false;
+                    hasAutostarted = false; // Allow re-autostart
                     updateButton();
                 }, FADE_DURATION);
+            } else {
+                // Fallback if gain not ready
+                isPlaying = false;
+                updateButton();
             }
         } else {
+            // Start music
             createAudioContext();
 
-            if (audioCtx.state === 'suspended') {
+            if (audioCtx && audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
 
-            var vol = parseFloat(localStorage.getItem(STORAGE_KEY) || '0.3');
-            masterGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.8);
+            if (audioCtx && masterGain) {
+                var vol = parseFloat(localStorage.getItem(STORAGE_KEY) || '0.3');
+                masterGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.8);
 
-            isPlaying = true;
-            updateButton();
-            startChordCycle();
+                isPlaying = true;
+                // Remove pulse animation if it exists
+                var btn = document.getElementById('music-toggle');
+                if (btn) btn.style.animation = '';
+                updateButton();
+                startChordCycle();
+            }
         }
     }
 

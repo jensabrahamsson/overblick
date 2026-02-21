@@ -18,6 +18,8 @@
     <div class="card" style="max-width: 640px;">
         <form method="post" action="/settings/step/4" hx-boost="true">
             {% set comm = state.communication or {} %}
+            {% set has_gmail = state.get('_has_gmail_app_password') %}
+            {% set has_tg_token = state.get('_has_telegram_bot_token') %}
 
             <!-- Gmail Section -->
             <div class="toggle-section">
@@ -42,8 +44,8 @@
                             Generate at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Google App Passwords</a> (requires 2FA)
                         </span>
                         <input type="password" class="form-input" id="gmail_app_password" name="gmail_app_password"
-                               value="{{ comm.get('gmail_app_password', '') }}"
-                               placeholder="{% if state.get('_has_gmail_app_password') %}(unchanged){% else %}xxxx xxxx xxxx xxxx{% endif %}"
+                               value="{% if has_gmail %}{% else %}{{ comm.get('gmail_app_password', '') }}{% endif %}"
+                               placeholder="{% if has_gmail %}(existing password — leave blank to keep){% else %}xxxx xxxx xxxx xxxx{% endif %}"
                                aria-describedby="gmail_app_hint">
                     </div>
                     <div class="form-group">
@@ -76,8 +78,8 @@
                             Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> on Telegram
                         </span>
                         <input type="password" class="form-input" id="telegram_bot_token" name="telegram_bot_token"
-                               value="{{ comm.get('telegram_bot_token', '') }}"
-                               placeholder="{% if state.get('_has_telegram_bot_token') %}(unchanged){% else %}123456:ABC-DEF...{% endif %}"
+                               value="{% if has_tg_token %}{% else %}{{ comm.get('telegram_bot_token', '') }}{% endif %}"
+                               placeholder="{% if has_tg_token %}(existing token — leave blank to keep){% else %}123456:ABC-DEF...{% endif %}"
                                aria-describedby="tg_token_hint">
                     </div>
                     <div class="form-group">
