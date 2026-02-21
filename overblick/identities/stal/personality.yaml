@@ -568,27 +568,27 @@ operational:
   plugins:
     - "email_agent"
 
-# Sender filtering — opt-in or opt-out mode
-email_agent:
-  max_email_age_hours: 5               # Skip emails older than 5 hours (prevents stale processing)
-  dry_run: false                       # Send actual replies
-  show_draft_replies: true             # Send draft reply to Telegram after each NOTIFY (trust-building)
-  filter_mode: "opt_out"              # "opt_in" or "opt_out"
-  allowed_senders: []                  # Unused in opt_out mode
-  blocked_senders: []                  # Used when filter_mode = opt_out
+  # Email agent plugin configuration (must be under operational for raw_config)
+  email_agent:
+    max_email_age_hours: 5               # Skip emails older than 5 hours (prevents stale processing)
+    dry_run: false                       # Send actual replies
+    show_draft_replies: true             # Send draft reply to Telegram after each NOTIFY (trust-building)
+    filter_mode: "opt_out"              # "opt_in" or "opt_out"
+    allowed_senders: []                  # Unused in opt_out mode
+    blocked_senders: []                  # Used when filter_mode = opt_out
 
-  # Learned reputation thresholds (auto-ignore is learned, not hardcoded)
-  reputation:
-    sender_ignore_rate: 0.9            # Auto-ignore sender if >=90% ignored
-    sender_min_interactions: 5         # ...and at least 5 previous emails
-    domain_ignore_rate: 0.9            # Strong IGNORE hint for domain if >=90%
-    domain_min_interactions: 10        # ...and at least 10 emails from domain
+    # Learned reputation thresholds (auto-ignore is learned, not hardcoded)
+    reputation:
+      sender_ignore_rate: 0.9            # Auto-ignore sender if >=90% ignored
+      sender_min_interactions: 5         # ...and at least 5 previous emails
+      domain_ignore_rate: 0.9            # Strong IGNORE hint for domain if >=90%
+      domain_min_interactions: 10        # ...and at least 10 emails from domain
 
-  # Cross-identity consultation (triggered on moderate-confidence NOTIFY)
-  consultation:
-    confidence_low: 0.5                # Only consult when confidence is between
-    confidence_high: 0.8               # these bounds (moderate uncertainty)
-    identities: "all"                  # Auto-discover all identities with interest_keywords
+    # Cross-identity consultation (triggered on moderate-confidence NOTIFY)
+    consultation:
+      confidence_low: 0.5                # Only consult when confidence is between
+      confidence_high: 0.8               # these bounds (moderate uncertainty)
+      identities: "all"                  # Auto-discover all identities with interest_keywords
 
 ################################################################################
 # END OF PERSONALITY CONFIGURATION

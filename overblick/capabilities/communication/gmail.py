@@ -40,6 +40,7 @@ GMAIL_IMAP_HOST = "imap.gmail.com"
 GMAIL_IMAP_PORT = 993
 GMAIL_SMTP_HOST = "smtp.gmail.com"
 GMAIL_SMTP_PORT = 587
+IMAP_TIMEOUT = 30  # seconds — prevents indefinite hangs on unresponsive servers
 
 
 class GmailMessage(BaseModel):
@@ -155,7 +156,9 @@ class GmailCapability:
         """Fetch unread messages via IMAP (blocking, run in thread pool)."""
         results = []
 
-        with imaplib.IMAP4_SSL(GMAIL_IMAP_HOST, GMAIL_IMAP_PORT) as imap:
+        with imaplib.IMAP4_SSL(
+            GMAIL_IMAP_HOST, GMAIL_IMAP_PORT, timeout=IMAP_TIMEOUT,
+        ) as imap:
             imap.login(self._email, self._password)
             imap.select("INBOX")
 
@@ -359,7 +362,9 @@ class GmailCapability:
 
     def _imap_mark_read(self, uid: bytes) -> None:
         """Set \\Seen flag on a message via IMAP (blocking, run in thread pool)."""
-        with imaplib.IMAP4_SSL(GMAIL_IMAP_HOST, GMAIL_IMAP_PORT) as imap:
+        with imaplib.IMAP4_SSL(
+            GMAIL_IMAP_HOST, GMAIL_IMAP_PORT, timeout=IMAP_TIMEOUT,
+        ) as imap:
             imap.login(self._email, self._password)
             imap.select("INBOX")
             imap.uid("store", uid, "+FLAGS", "\\Seen")

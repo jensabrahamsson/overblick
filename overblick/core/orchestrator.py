@@ -234,10 +234,12 @@ class Orchestrator:
                 interval = self._identity.schedule.feed_poll_minutes * 60
 
                 async def _guarded_tick(p=plugin):
+                    logger.debug("Guarded tick starting for '%s'", p.name)
                     if await self._is_plugin_stopped(p.name):
                         logger.debug("Agent '%s' stopped via control file, skipping tick", p.name)
                         return
                     await p.tick()
+                    logger.debug("Guarded tick completed for '%s'", p.name)
 
                 self._scheduler.add(
                     f"tick_{plugin.name}",

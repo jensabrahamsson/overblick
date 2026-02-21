@@ -292,9 +292,11 @@ class EmailAgentPlugin(PluginBase):
             return
 
         self._state.last_check = now
+        logger.info("EmailAgent: tick started")
 
         try:
             emails = await self._fetch_unread()
+            logger.info("EmailAgent: tick fetched %d unread email(s)", len(emails))
             for email in emails:
                 await self._process_email(email)
             await self._check_tg_feedback()

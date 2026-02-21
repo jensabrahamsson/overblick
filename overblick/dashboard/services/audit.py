@@ -48,6 +48,7 @@ class AuditService:
         identity: str = "",
         category: str = "",
         action: str = "",
+        plugin: str = "",
         since_hours: int = 24,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
@@ -85,6 +86,9 @@ class AuditService:
                 if action:
                     conditions.append("action = ?")
                     params.append(action)
+                if plugin:
+                    conditions.append("plugin = ?")
+                    params.append(plugin)
 
                 # SECURITY: All condition strings are hardcoded literals.
                 # User input ONLY goes through the params list (parameterized).

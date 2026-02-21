@@ -360,18 +360,6 @@ def _build_agent_status_rows(
         # Per-plugin control state
         plugin_states = _read_plugin_states(base_dir, ident_name)
 
-        # Get last audit action for this identity
-        last_action = None
-        if audit_svc:
-            recent = audit_svc.query(identity=ident_name, limit=1)
-            if recent:
-                last_action = {
-                    "action": recent[0].get("action", ""),
-                    "category": recent[0].get("category", ""),
-                    "timestamp": recent[0].get("timestamp", 0),
-                    "success": recent[0].get("success", True),
-                }
-
         for plugin in plugins:
             plugin_stopped = plugin_states.get(plugin) == "stopped"
 
@@ -381,6 +369,18 @@ def _build_agent_status_rows(
                 state = "stopped"
             else:
                 state = proc.get("state", "offline") if proc else "offline"
+
+            # Get last audit action for this specific plugin
+            last_action = None
+            if audit_svc:
+                recent = audit_svc.query(identity=ident_name, plugin=plugin, limit=1)
+                if recent:
+                    last_action = {
+                        "action": recent[0].get("action", ""),
+                        "category": recent[0].get("category", ""),
+                        "timestamp": recent[0].get("timestamp", 0),
+                        "success": recent[0].get("success", True),
+                    }
 
             rows.append({
                 "agent_name": _plugin_display_name(plugin),
