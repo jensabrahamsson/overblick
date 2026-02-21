@@ -11,17 +11,6 @@
         {% include "partials/system_health.html" %}
     </section>
 
-    <!-- Moltbook Account Status -->
-    <section class="section">
-        <h2 class="section-title">Moltbook Status</h2>
-        <div id="moltbook-status-container"
-             hx-get="/partials/moltbook-status"
-             hx-trigger="every 30s"
-             hx-swap="innerHTML">
-            {% include "partials/moltbook_status.html" %}
-        </div>
-    </section>
-
     <!-- Agent Status -->
     <section class="section">
         <h2 class="section-title">Agent Status</h2>

@@ -102,13 +102,9 @@ class TestMoltbookStatusPartial:
         assert "Banned" in resp.text
 
     @pytest.mark.asyncio
-    async def test_dashboard_includes_moltbook_status(self, app, client, session_cookie):
-        """Main dashboard page includes the Moltbook status section."""
+    async def test_dashboard_no_longer_includes_moltbook_status(self, app, client, session_cookie):
+        """Moltbook status moved to /moltbook page — dashboard should not show it."""
         cookie_value, _ = session_cookie
-        app.state.system_service.get_moltbook_statuses.return_value = [
-            {"identity": "anomal", "status": "active", "detail": "", "updated_at": ""},
-        ]
         resp = await client.get("/", cookies={SESSION_COOKIE: cookie_value})
         assert resp.status_code == 200
-        assert "Moltbook Status" in resp.text
-        assert "moltbook-status-container" in resp.text
+        assert "Moltbook Status" not in resp.text

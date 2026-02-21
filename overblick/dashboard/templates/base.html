@@ -34,6 +34,7 @@
             {% if skuggspel_enabled() %}<a href="/skuggspel" class="nav-link {% if request.url.path == '/skuggspel' %}active{% endif %}" {% if request.url.path == '/skuggspel' %}aria-current="page"{% endif %}>Skuggspel</a>{% endif %}
             {% if compass_enabled() %}<a href="/compass" class="nav-link {% if request.url.path == '/compass' %}active{% endif %}" {% if request.url.path == '/compass' %}aria-current="page"{% endif %}>Compass</a>{% endif %}
             {% if stage_enabled() %}<a href="/stage" class="nav-link {% if request.url.path == '/stage' %}active{% endif %}" {% if request.url.path == '/stage' %}aria-current="page"{% endif %}>Stage</a>{% endif %}
+            {% if moltbook_enabled() %}<a href="/moltbook" class="nav-link {% if request.url.path == '/moltbook' %}active{% endif %}" {% if request.url.path == '/moltbook' %}aria-current="page"{% endif %}>Moltbook</a>{% endif %}
             <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}" {% if request.url.path == '/audit' %}aria-current="page"{% endif %}>Audit</a>
             <a href="/settings/" class="nav-link {% if request.url.path.startswith('/settings') %}active{% endif %}" {% if request.url.path.startswith('/settings') %}aria-current="page"{% endif %}>⚙ Settings</a>
             <!-- Logout disabled — localhost-only dashboard needs no auth yet -->

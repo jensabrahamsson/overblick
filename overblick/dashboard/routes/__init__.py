@@ -25,6 +25,7 @@ def register_routes(app: FastAPI) -> None:
     from .skuggspel import router as skuggspel_router
     from .compass import router as compass_router
     from .stage import router as stage_router
+    from .moltbook import router as moltbook_router
     from .settings import router as settings_router
 
     app.include_router(auth_router)
@@ -42,5 +43,6 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(skuggspel_router)
     app.include_router(compass_router)
     app.include_router(stage_router)
+    app.include_router(moltbook_router)
     app.include_router(settings_router)
     app.include_router(api_router)

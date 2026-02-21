@@ -49,10 +49,6 @@ async def dashboard_page(request: Request):
     base_dir = _resolve_base_dir(request)
     agent_rows = _build_agent_status_rows(identities, agents, audit_svc, base_dir)
 
-    # Moltbook account statuses
-    system_svc = request.app.state.system_service
-    statuses = system_svc.get_moltbook_statuses()
-
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "csrf_token": request.state.session.get("csrf_token", ""),
@@ -67,7 +63,6 @@ async def dashboard_page(request: Request):
         "total_identities": len(identities),
         "total_agents": len(agents),
         "poll_interval": config.poll_interval,
-        "statuses": statuses,
     })
 
 

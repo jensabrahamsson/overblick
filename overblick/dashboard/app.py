@@ -125,6 +125,7 @@ def _create_templates() -> Jinja2Templates:
     env.globals["skuggspel_enabled"] = lambda: False
     env.globals["compass_enabled"] = lambda: False
     env.globals["stage_enabled"] = lambda: False
+    env.globals["moltbook_enabled"] = lambda: False
     env.globals["settings_enabled"] = lambda: True
 
     # Register filters
@@ -167,6 +168,7 @@ async def lifespan(app: FastAPI):
     from .routes.skuggspel import has_data as _skuggspel_has_data
     from .routes.compass import has_data as _compass_has_data
     from .routes.stage import has_data as _stage_has_data
+    from .routes.moltbook import has_data as _moltbook_has_data
 
     app.state.templates.env.globals["irc_enabled"] = _check_irc_enabled
     app.state.templates.env.globals["kontrast_enabled"] = _kontrast_has_data
@@ -174,6 +176,7 @@ async def lifespan(app: FastAPI):
     app.state.templates.env.globals["skuggspel_enabled"] = _skuggspel_has_data
     app.state.templates.env.globals["compass_enabled"] = _compass_has_data
     app.state.templates.env.globals["stage_enabled"] = _stage_has_data
+    app.state.templates.env.globals["moltbook_enabled"] = _moltbook_has_data
     app.state.templates.env.globals["settings_enabled"] = lambda: True
 
     # First-run detection: redirect to /settings/ if no config exists
