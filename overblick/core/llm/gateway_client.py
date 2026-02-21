@@ -67,12 +67,15 @@ class GatewayClient(LLMClient):
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         priority: str = "",
+        complexity: Optional[str] = None,
     ) -> Optional[dict]:
         """Send chat completion through the gateway with per-request priority."""
         await self._ensure_session()
 
         prio = priority if priority else self.default_priority
         url = f"{self.base_url}/v1/chat/completions?priority={prio}"
+        if complexity:
+            url += f"&complexity={complexity}"
         payload = {
             "model": self.model,
             "messages": messages,

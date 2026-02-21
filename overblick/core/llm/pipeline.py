@@ -127,6 +127,7 @@ class SafeLLMPipeline:
         audit_action: str = "llm_chat",
         audit_details: Optional[dict[str, Any]] = None,
         priority: str = "low",
+        complexity: Optional[str] = None,
     ) -> PipelineResult:
         """
         Send a chat request through the full security pipeline.
@@ -143,6 +144,7 @@ class SafeLLMPipeline:
             audit_action: Action name for audit log
             audit_details: Extra audit details
             priority: Request priority ("high" or "low") for gateway queue ordering
+            complexity: Request complexity ("high" or "low") for backend routing
 
         Returns:
             PipelineResult with safe content or block information
@@ -192,6 +194,7 @@ class SafeLLMPipeline:
                 max_tokens=max_tokens,
                 top_p=top_p,
                 priority=priority,
+                complexity=complexity,
             )
         except Exception as e:
             logger.error("LLM call failed: %s", e, exc_info=True)

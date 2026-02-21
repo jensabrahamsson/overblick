@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from overblick.setup.validators import (
     BackendConfig,
     CommunicationData,
+    DeepseekConfig,
     LLMData,
     OpenAIConfig,
     PrincipalData,
@@ -121,8 +122,23 @@ class TestLLMData:
         assert data.openai.model == "gpt-4o"
         assert data.default_backend == "openai"
 
+    def test_deepseek_backend(self):
+        data = LLMData(
+            deepseek=DeepseekConfig(enabled=True, model="deepseek-chat"),
+            default_backend="deepseek",
+        )
+        assert data.deepseek.enabled
+        assert data.deepseek.model == "deepseek-chat"
+        assert data.deepseek.api_url == "https://api.deepseek.com/v1"
+        assert data.default_backend == "deepseek"
+
+    def test_deepseek_defaults(self):
+        data = LLMData()
+        assert data.deepseek.enabled is False
+        assert data.deepseek.model == "deepseek-chat"
+
     def test_invalid_default_backend(self):
-        with pytest.raises(ValidationError, match="local.*cloud.*openai"):
+        with pytest.raises(ValidationError, match="local.*cloud.*deepseek.*openai"):
             LLMData(default_backend="something_else")
 
     def test_temperature_bounds(self):
@@ -155,6 +171,7 @@ class TestLLMData:
             gateway_url="http://127.0.0.1:8200",
             local=BackendConfig(enabled=True, model="qwen3:8b"),
             cloud=BackendConfig(enabled=True, host="gpu.lan", port=11434, model="qwen3:14b"),
+            deepseek=DeepseekConfig(enabled=True, model="deepseek-chat"),
             openai=OpenAIConfig(enabled=False),
             default_backend="local",
             default_temperature=0.8,
@@ -162,6 +179,7 @@ class TestLLMData:
         )
         assert data.local.enabled
         assert data.cloud.enabled
+        assert data.deepseek.enabled
         assert not data.openai.enabled
         assert data.default_temperature == 0.8
         assert data.default_max_tokens == 4000

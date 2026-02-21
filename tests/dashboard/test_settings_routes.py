@@ -131,17 +131,19 @@ class TestSettingsStep3:
 
     @pytest.mark.asyncio
     async def test_step3_backends_post_redirects(self, client, session_cookie):
-        """Test Ollama provider POST with UI field names."""
+        """Test local backend POST with new form field names."""
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
             "/settings/step/3",
             headers={"X-CSRF-Token": csrf_token},
             data={
-                "llm_provider": "ollama",
-                "ollama_host": "127.0.0.1",
-                "ollama_port": "11434",
-                "model": "qwen3:8b",
+                "local_enabled": "on",
+                "local_type": "ollama",
+                "local_host": "127.0.0.1",
+                "local_port": "11434",
+                "local_model": "qwen3:8b",
                 "gateway_url": "http://127.0.0.1:8200",
+                "default_backend": "local",
                 "default_temperature": "0.7",
                 "default_max_tokens": "2000",
             },
@@ -152,18 +154,23 @@ class TestSettingsStep3:
         assert "/settings/step/4" in resp.headers["location"]
 
     @pytest.mark.asyncio
-    async def test_step3_cloud_backend_post(self, client, session_cookie):
-        """Test gateway provider POST."""
+    async def test_step3_multi_backend_post(self, client, session_cookie):
+        """Test POST with multiple backends enabled."""
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
             "/settings/step/3",
             headers={"X-CSRF-Token": csrf_token},
             data={
-                "llm_provider": "gateway",
-                "ollama_host": "127.0.0.1",
-                "ollama_port": "11434",
-                "model": "qwen3:8b",
+                "local_enabled": "on",
+                "local_type": "ollama",
+                "local_host": "127.0.0.1",
+                "local_port": "11434",
+                "local_model": "qwen3:8b",
+                "deepseek_enabled": "on",
+                "deepseek_model": "deepseek-chat",
+                "deepseek_api_key": "sk-test123",
                 "gateway_url": "http://127.0.0.1:8200",
+                "default_backend": "local",
                 "default_temperature": "0.8",
                 "default_max_tokens": "4000",
             },
@@ -180,10 +187,12 @@ class TestSettingsStep3:
             "/settings/step/3",
             headers={"X-CSRF-Token": csrf_token},
             data={
-                "llm_provider": "ollama",
-                "ollama_host": "127.0.0.1",
-                "ollama_port": "not_a_number",
-                "model": "qwen3:8b",
+                "local_enabled": "on",
+                "local_type": "ollama",
+                "local_host": "127.0.0.1",
+                "local_port": "not_a_number",
+                "local_model": "qwen3:8b",
+                "default_backend": "local",
                 "default_temperature": "0.7",
                 "default_max_tokens": "2000",
             },
@@ -329,6 +338,8 @@ class TestSettingsStep7:
                       "host": "127.0.0.1", "port": 11434, "model": "qwen3:8b"},
             "cloud": {"enabled": False, "backend_type": "ollama",
                       "host": "", "port": 11434, "model": "qwen3:8b"},
+            "deepseek": {"enabled": False, "api_url": "https://api.deepseek.com/v1",
+                         "model": "deepseek-chat"},
             "openai": {"enabled": False, "api_url": "https://api.openai.com/v1",
                        "model": "gpt-4o"},
             "default_backend": "local",
@@ -442,3 +453,30 @@ class TestSettingsTestEndpoints:
         )
         assert resp.status_code == 200
         assert "badge" in resp.text or "span" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_test_deepseek_no_key(self, client, session_cookie):
+        """POST /settings/test/deepseek without key returns amber badge."""
+        cookie_value, csrf_token = session_cookie
+        resp = await client.post(
+            "/settings/test/deepseek",
+            headers={"X-CSRF-Token": csrf_token},
+            data={"deepseek_api_key": ""},
+            cookies={SESSION_COOKIE: cookie_value},
+        )
+        assert resp.status_code == 200
+        assert "Enter API key first" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_test_deepseek_with_bad_key(self, client, session_cookie):
+        """POST /settings/test/deepseek with invalid key returns error badge."""
+        cookie_value, csrf_token = session_cookie
+        resp = await client.post(
+            "/settings/test/deepseek",
+            headers={"X-CSRF-Token": csrf_token},
+            data={"deepseek_api_key": "sk-bad-key-12345"},
+            cookies={SESSION_COOKIE: cookie_value},
+        )
+        assert resp.status_code == 200
+        # Should get some kind of error badge (invalid key or connection error)
+        assert "badge" in resp.text

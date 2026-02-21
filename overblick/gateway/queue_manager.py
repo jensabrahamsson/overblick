@@ -10,7 +10,7 @@ import asyncio
 import logging
 import time
 from collections import deque
-from typing import Optional
+from typing import Any, Optional
 
 from .config import GatewayConfig, get_config
 from .models import ChatRequest, ChatResponse, Priority, QueuedRequest, GatewayStats
@@ -219,8 +219,8 @@ class QueueManager:
             self._is_processing = False
             self._queue.task_done()
 
-    def _get_client_for_request(self, queued: QueuedRequest) -> OllamaClient:
-        """Get the appropriate OllamaClient for a queued request."""
+    def _get_client_for_request(self, queued: QueuedRequest) -> Any:
+        """Get the appropriate backend client for a queued request."""
         if self._registry and queued.backend:
             return self._registry.get_client(queued.backend)
         if self._registry:

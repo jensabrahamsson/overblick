@@ -34,6 +34,7 @@ class LLMClient(ABC):
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         priority: str = "low",
+        complexity: Optional[str] = None,
     ) -> Optional[dict]:
         """
         Send a chat completion request.
@@ -45,6 +46,8 @@ class LLMClient(ABC):
             top_p: Override default top_p
             priority: Request priority ("high" or "low"). Used by GatewayClient
                       for queue ordering. OllamaClient ignores this parameter.
+            complexity: Request complexity ("high" or "low"). Used by GatewayClient
+                        for backend routing. Other clients ignore this parameter.
 
         Returns:
             Dict with 'content' key containing the response, or None on error

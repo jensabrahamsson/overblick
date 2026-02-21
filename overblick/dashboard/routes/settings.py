@@ -32,6 +32,7 @@ from overblick.setup.validators import (
     AgentConfig,
     BackendConfig,
     CommunicationData,
+    DeepseekConfig,
     LLMData,
     OpenAIConfig,
     PrincipalData,
@@ -119,7 +120,8 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
                 if sf.suffix == ".yaml" and sf.stem != "__pycache__":
                     identity = sf.stem
                     for key in ("principal_name", "principal_email", "gmail_app_password",
-                                "telegram_bot_token", "telegram_chat_id"):
+                                "telegram_bot_token", "telegram_chat_id",
+                                "deepseek_api_key"):
                         if _check_secret_exists(base_dir, identity, key):
                             state_update[f"_has_{key}"] = True
                     break  # Only need to check one identity
@@ -132,6 +134,7 @@ def _parse_new_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
     backends = llm.get("backends", {})
     local = backends.get("local", {})
     cloud = backends.get("cloud", {})
+    deepseek = backends.get("deepseek", {})
     openai = backends.get("openai", {})
 
     return {
@@ -149,6 +152,11 @@ def _parse_new_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
             "host": cloud.get("host", ""),
             "port": cloud.get("port", 11434),
             "model": cloud.get("model", "qwen3:8b"),
+        },
+        "deepseek": {
+            "enabled": deepseek.get("enabled", False),
+            "api_url": deepseek.get("api_url", "https://api.deepseek.com/v1"),
+            "model": deepseek.get("model", "deepseek-chat"),
         },
         "openai": {
             "enabled": openai.get("enabled", False),
@@ -183,6 +191,11 @@ def _migrate_old_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
             "host": "",
             "port": 11434,
             "model": "qwen3:8b",
+        },
+        "deepseek": {
+            "enabled": False,
+            "api_url": "https://api.deepseek.com/v1",
+            "model": "deepseek-chat",
         },
         "openai": {
             "enabled": provider in ("cloud", "openai"),
@@ -322,43 +335,69 @@ async def step3_post(request: Request):
     state = _get_state(request.app)
 
     try:
-        # Map UI field names (from step3_llm.html template) to LLMData format
-        provider = form.get("llm_provider", "ollama")
-        host = form.get("ollama_host", "127.0.0.1")
-        port_str = form.get("ollama_port", "11434")
-        model = form.get("model", "qwen3:8b")
         gateway_url = form.get("gateway_url", "http://127.0.0.1:8200")
 
-        is_local = provider in ("ollama", "lmstudio")
-        is_gateway = provider == "gateway"
-        is_openai = provider == "openai"
+        # Local backend
+        local_enabled = form.get("local_enabled", "off") == "on"
+        local_type = form.get("local_type", "ollama")
+        local_host = form.get("local_host", "127.0.0.1")
+        local_port = form.get("local_port", "11434")
+        local_model = form.get("local_model", "qwen3:8b")
+
+        # Cloud remote backend
+        cloud_enabled = form.get("cloud_enabled", "off") == "on"
+        cloud_type = form.get("cloud_type", "ollama")
+        cloud_host = form.get("cloud_host", "")
+        cloud_port = form.get("cloud_port", "11434")
+        cloud_model = form.get("cloud_model", "qwen3:8b")
+
+        # Deepseek backend
+        deepseek_enabled = form.get("deepseek_enabled", "off") == "on"
+        deepseek_model = form.get("deepseek_model", "deepseek-chat")
+        deepseek_api_key = form.get("deepseek_api_key", "")
+
+        # OpenAI backend (coming soon — always disabled)
+        openai_enabled = False
+        openai_api_url = form.get("openai_api_url", "https://api.openai.com/v1")
+        openai_model = form.get("openai_model", "gpt-4o")
+
+        default_backend = form.get("default_backend", "local")
 
         data = LLMData(
             gateway_url=gateway_url,
             local=BackendConfig(
-                enabled=is_local or is_gateway,
-                backend_type=provider if is_local else "ollama",
-                host=host,
-                port=int(port_str),
-                model=model,
+                enabled=local_enabled,
+                backend_type=local_type,
+                host=local_host,
+                port=int(local_port),
+                model=local_model,
             ),
             cloud=BackendConfig(
-                enabled=False,
-                backend_type="ollama",
-                host="",
-                port=11434,
-                model="qwen3:8b",
+                enabled=cloud_enabled,
+                backend_type=cloud_type,
+                host=cloud_host,
+                port=int(cloud_port),
+                model=cloud_model,
+            ),
+            deepseek=DeepseekConfig(
+                enabled=deepseek_enabled,
+                model=deepseek_model,
             ),
             openai=OpenAIConfig(
-                enabled=is_openai,
-                api_url=form.get("cloud_api_url", "https://api.openai.com/v1"),
-                model=form.get("cloud_model", "gpt-4o"),
+                enabled=openai_enabled,
+                api_url=openai_api_url,
+                model=openai_model,
             ),
-            default_backend="openai" if is_openai else "local",
+            default_backend=default_backend,
             default_temperature=float(form.get("default_temperature", "0.7")),
             default_max_tokens=int(form.get("default_max_tokens", "2000")),
         )
         state["llm"] = data.model_dump()
+
+        # Store deepseek API key for provisioner (secret, not in config)
+        if deepseek_api_key:
+            state["_deepseek_api_key"] = deepseek_api_key
+
         return RedirectResponse("/settings/step/4", status_code=303)
     except Exception as e:
         return _render("step3_llm.html", request, error=_friendly_error(e))
@@ -692,6 +731,43 @@ async def test_telegram(request: Request):
     except Exception as e:
         return HTMLResponse(
             f'<span class="badge badge-red">Failed</span>'
+            f'<span class="test-detail">{e}</span>'
+        )
+
+
+@router.post("/test/deepseek", response_class=HTMLResponse)
+async def test_deepseek(request: Request):
+    """Test Deepseek API connection by listing available models."""
+    form = await request.form()
+    api_key = form.get("deepseek_api_key", "")
+    if not api_key:
+        return HTMLResponse('<span class="badge badge-amber">Enter API key first</span>')
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://api.deepseek.com/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                models = [m.get("id", "?") for m in data.get("data", [])]
+                model_list = ", ".join(models[:5]) if models else "API reachable"
+                return HTMLResponse(
+                    f'<span class="badge badge-green">Connected</span>'
+                    f'<span class="test-detail">{model_list}</span>'
+                )
+            elif resp.status_code == 401:
+                return HTMLResponse(
+                    '<span class="badge badge-red">Invalid API key</span>'
+                )
+            else:
+                return HTMLResponse(
+                    f'<span class="badge badge-red">HTTP {resp.status_code}</span>'
+                )
+    except Exception as e:
+        return HTMLResponse(
+            f'<span class="badge badge-red">Not reachable</span>'
             f'<span class="test-detail">{e}</span>'
         )
 

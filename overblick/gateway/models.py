@@ -8,7 +8,7 @@ for the priority-based request queuing system.
 from asyncio import Future
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -19,6 +19,17 @@ class Priority(IntEnum):
     """Request priority levels. Lower number = higher priority."""
     HIGH = 1   # Interactive requests (identity agents responding to users)
     LOW = 5    # Background tasks (scheduled ticks, housekeeping)
+
+
+class Complexity(str, Enum):
+    """Request complexity levels for backend routing.
+
+    Complexity is orthogonal to priority:
+    - priority = how urgent (queue ordering)
+    - complexity = how capable the backend needs to be (backend selection)
+    """
+    LOW = "low"    # Simple tasks — local inference is fine
+    HIGH = "high"  # Complex tasks — prefer cloud/deepseek backends
 
 
 class ChatMessage(BaseModel):
@@ -103,6 +114,7 @@ class QueuedRequest:
     request: ChatRequest = field(compare=False, default=None)
     future: Future = field(compare=False, default=None, repr=False)
     backend: Optional[str] = field(compare=False, default=None)
+    complexity: Optional[str] = field(compare=False, default=None)
 
 
 class GatewayStats(BaseModel):

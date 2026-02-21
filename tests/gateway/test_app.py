@@ -165,3 +165,31 @@ class TestFastAPIApp:
         assert response.status_code == 200
         call_args = mock_queue_manager.submit.call_args
         assert call_args[0][1] == Priority.LOW
+
+    def test_chat_completion_with_complexity(self, client, mock_queue_manager):
+        """Complexity parameter is accepted and processed."""
+        payload = {
+            "model": "qwen3:8b",
+            "messages": [{"role": "user", "content": "Complex task"}],
+        }
+
+        response = client.post(
+            "/v1/chat/completions?priority=low&complexity=high",
+            json=payload,
+        )
+
+        assert response.status_code == 200
+
+    def test_chat_completion_without_complexity(self, client, mock_queue_manager):
+        """Requests without complexity still work (backward compat)."""
+        payload = {
+            "model": "qwen3:8b",
+            "messages": [{"role": "user", "content": "Simple task"}],
+        }
+
+        response = client.post(
+            "/v1/chat/completions?priority=low",
+            json=payload,
+        )
+
+        assert response.status_code == 200

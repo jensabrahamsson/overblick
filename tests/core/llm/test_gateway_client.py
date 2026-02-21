@@ -324,6 +324,34 @@ class TestGatewayClientChat:
         url = session.post.call_args[0][0]
         assert url == "http://myhost:8200/v1/chat/completions?priority=high"
 
+    async def test_chat_url_with_complexity(self):
+        """chat() appends complexity param to URL when specified."""
+        session = _make_mock_session()
+        client = _make_client(session)
+
+        await client.chat(
+            messages=[{"role": "user", "content": "Complex task"}],
+            priority="low",
+            complexity="high",
+        )
+
+        url = session.post.call_args[0][0]
+        assert "priority=low" in url
+        assert "complexity=high" in url
+
+    async def test_chat_url_without_complexity(self):
+        """chat() omits complexity param when None."""
+        session = _make_mock_session()
+        client = _make_client(session)
+
+        await client.chat(
+            messages=[{"role": "user", "content": "Simple task"}],
+            priority="low",
+        )
+
+        url = session.post.call_args[0][0]
+        assert "complexity" not in url
+
 
 # ---------------------------------------------------------------------------
 # Error handling

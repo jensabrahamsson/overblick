@@ -116,6 +116,18 @@ class GatewayConfig(BaseModel):
                     len(backends), config.default_backend,
                 )
 
+        # Inject Deepseek backend from env if not already in YAML
+        deepseek_key = os.getenv("OVERBLICK_DEEPSEEK_API_KEY", "")
+        if deepseek_key and "deepseek" not in config.backends:
+            config.backends["deepseek"] = {
+                "enabled": True,
+                "type": "deepseek",
+                "api_url": "https://api.deepseek.com/v1",
+                "api_key": deepseek_key,
+                "model": "deepseek-chat",
+            }
+            logger.info("Deepseek backend injected from OVERBLICK_DEEPSEEK_API_KEY env var")
+
         return config
 
 

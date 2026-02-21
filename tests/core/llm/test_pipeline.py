@@ -376,3 +376,28 @@ class TestSafeLLMPipeline:
 
         call_kwargs = mock_llm.chat.call_args.kwargs
         assert call_kwargs["priority"] == "low"
+
+    @pytest.mark.asyncio
+    async def test_complexity_passed_to_llm_client(self, mock_llm):
+        """Complexity parameter flows from pipeline.chat() to llm_client.chat()."""
+        pipeline = SafeLLMPipeline(llm_client=mock_llm)
+
+        await pipeline.chat(
+            messages=[{"role": "user", "content": "Complex analysis"}],
+            complexity="high",
+        )
+
+        call_kwargs = mock_llm.chat.call_args.kwargs
+        assert call_kwargs["complexity"] == "high"
+
+    @pytest.mark.asyncio
+    async def test_complexity_defaults_to_none(self, mock_llm):
+        """Complexity defaults to None when not specified."""
+        pipeline = SafeLLMPipeline(llm_client=mock_llm)
+
+        await pipeline.chat(
+            messages=[{"role": "user", "content": "Regular task"}],
+        )
+
+        call_kwargs = mock_llm.chat.call_args.kwargs
+        assert call_kwargs["complexity"] is None

@@ -21,9 +21,11 @@ from fastapi.security import APIKeyHeader
 
 from .backend_registry import BackendRegistry
 from .config import get_config
+from .deepseek_client import DeepseekError, DeepseekConnectionError
 from .models import ChatRequest, ChatResponse, Priority, GatewayStats
 from .queue_manager import QueueManager
 from .ollama_client import OllamaError, OllamaConnectionError
+from .router import RequestRouter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +37,7 @@ logger = logging.getLogger(__name__)
 # Global instances
 _queue_manager: Optional[QueueManager] = None
 _backend_registry: Optional[BackendRegistry] = None
+_router: Optional[RequestRouter] = None
 
 
 def get_queue_manager() -> QueueManager:
@@ -54,7 +57,7 @@ def get_backend_registry() -> BackendRegistry:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown."""
-    global _queue_manager, _backend_registry
+    global _queue_manager, _backend_registry, _router
 
     config = get_config()
     logger.info("Starting LLM Gateway on %s:%d", config.api_host, config.api_port)
@@ -67,6 +70,9 @@ async def lifespan(app: FastAPI):
         ", ".join(_backend_registry.available_backends),
         _backend_registry.default_backend,
     )
+
+    # Initialize request router
+    _router = RequestRouter(_backend_registry)
 
     # Initialize queue manager with default backend client
     default_client = _backend_registry.get_client()
@@ -196,6 +202,7 @@ async def chat_completion(
     request: ChatRequest,
     priority: str = Query(default="low", description="Priority: high or low"),
     backend: Optional[str] = Query(default=None, description="Backend to route to"),
+    complexity: Optional[str] = Query(default=None, description="Complexity: high or low (for backend routing)"),
 ) -> ChatResponse:
     """
     OpenAI-compatible chat completion endpoint with priority queuing.
@@ -204,8 +211,12 @@ async def chat_completion(
     - high: Interactive requests (identity agents responding to users)
     - low: Background tasks (scheduled ticks, housekeeping)
 
+    Complexity levels (for backend routing):
+    - high: Complex tasks — prefer cloud/deepseek backends
+    - low: Simple tasks — local inference is fine
+
     Backend selection:
-    - Defaults to the configured default_backend
+    - Defaults to intelligent routing based on complexity/priority
     - Can be overridden per-request via ?backend=local or ?backend=cloud
     """
     qm = get_queue_manager()
@@ -215,13 +226,30 @@ async def chat_completion(
     except (ValueError, AttributeError):
         prio = Priority.LOW
 
+    # Use router to resolve backend if not explicitly specified
+    resolved_backend = backend
+    if _router and not backend:
+        resolved_backend = _router.resolve_backend(
+            priority=priority.lower() if priority else "low",
+            complexity=complexity,
+            explicit_backend=None,
+        )
+        # Only set if router chose something other than default
+        if resolved_backend == _backend_registry.default_backend:
+            resolved_backend = None  # let queue manager use default
+    elif _router and backend:
+        resolved_backend = _router.resolve_backend(
+            explicit_backend=backend,
+        )
+
     logger.info(
-        "Received chat request: model=%s, messages=%d, priority=%s, backend=%s",
-        request.model, len(request.messages), prio.name, backend or "default",
+        "Received chat request: model=%s, messages=%d, priority=%s, backend=%s, complexity=%s",
+        request.model, len(request.messages), prio.name,
+        resolved_backend or "default", complexity or "none",
     )
 
     try:
-        response = await qm.submit(request, prio, backend=backend)
+        response = await qm.submit(request, prio, backend=resolved_backend)
         return response
 
     except asyncio.QueueFull:
@@ -238,14 +266,14 @@ async def chat_completion(
             detail="Request timed out waiting for LLM response.",
         )
 
-    except OllamaConnectionError as e:
+    except (OllamaConnectionError, DeepseekConnectionError) as e:
         logger.error("Backend connection error: %s", e, exc_info=True)
         raise HTTPException(
             status_code=503,
             detail=f"Cannot connect to backend: {e}",
         )
 
-    except OllamaError as e:
+    except (OllamaError, DeepseekError) as e:
         logger.error("LLM error: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,

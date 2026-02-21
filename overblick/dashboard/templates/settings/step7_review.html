@@ -42,18 +42,41 @@
         </div>
 
         <!-- LLM -->
+        {% set local = llm.get('local', {}) %}
+        {% set cloud_cfg = llm.get('cloud', {}) %}
+        {% set deepseek = llm.get('deepseek', {}) %}
         <div class="review-section">
             <div class="review-section-title">
                 AI Engine
                 <a href="/settings/step/3" class="review-edit">edit</a>
             </div>
             <div class="review-item">
-                <span class="review-label">Provider</span>
-                <span class="review-value">{{ llm.get('llm_provider', 'ollama') | title }}</span>
+                <span class="review-label">Gateway</span>
+                <span class="review-value mono">{{ llm.get('gateway_url', 'http://127.0.0.1:8200') }}</span>
             </div>
             <div class="review-item">
-                <span class="review-label">Model</span>
-                <span class="review-value mono">{{ llm.get('model', 'qwen3:8b') }}</span>
+                <span class="review-label">Backends</span>
+                <span class="review-value">
+                    {% if local.get('enabled') %}
+                    <span class="badge badge-green">Local</span>
+                    <span class="mono" style="font-size: 0.85rem;">{{ local.get('model', 'qwen3:8b') }}</span>
+                    {% endif %}
+                    {% if cloud_cfg.get('enabled') %}
+                    <span class="badge badge-green" style="margin-left: 4px;">Cloud</span>
+                    <span class="mono" style="font-size: 0.85rem;">{{ cloud_cfg.get('model', 'qwen3:8b') }}</span>
+                    {% endif %}
+                    {% if deepseek.get('enabled') %}
+                    <span class="badge badge-green" style="margin-left: 4px;">Deepseek</span>
+                    <span class="mono" style="font-size: 0.85rem;">{{ deepseek.get('model', 'deepseek-chat') }}</span>
+                    {% endif %}
+                    {% if not local.get('enabled') and not cloud_cfg.get('enabled') and not deepseek.get('enabled') %}
+                    <span class="badge badge-amber">None enabled</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="review-item">
+                <span class="review-label">Default</span>
+                <span class="review-value">{{ llm.get('default_backend', 'local') | title }}</span>
             </div>
             <div class="review-item">
                 <span class="review-label">Temperature</span>

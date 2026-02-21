@@ -73,6 +73,12 @@ def provision(base_dir: Path, state: dict[str, Any]) -> dict[str, Any]:
             elif not state.get("_has_gmail_app_password"):
                 pass
 
+        # Deepseek API key
+        llm_state = state.get("llm", {})
+        deepseek_state = llm_state.get("deepseek", {})
+        if deepseek_state.get("enabled") and state.get("_deepseek_api_key"):
+            sm.set(char_name, "deepseek_api_key", state["_deepseek_api_key"])
+
         # Telegram secrets
         if comm.get("telegram_enabled") and comm.get("telegram_bot_token"):
             sm.set(char_name, "telegram_bot_token", comm["telegram_bot_token"])
@@ -148,6 +154,7 @@ def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
     """Build LLM config from new backends-format wizard state."""
     local = llm.get("local", {})
     cloud = llm.get("cloud", {})
+    deepseek = llm.get("deepseek", {})
     openai = llm.get("openai", {})
 
     config: dict[str, Any] = {
@@ -169,6 +176,12 @@ def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
                 "host": cloud.get("host", ""),
                 "port": cloud.get("port", 11434),
                 "model": cloud.get("model", "qwen3:8b"),
+            },
+            "deepseek": {
+                "enabled": deepseek.get("enabled", False),
+                "type": "deepseek",
+                "api_url": deepseek.get("api_url", "https://api.deepseek.com/v1"),
+                "model": deepseek.get("model", "deepseek-chat"),
             },
             "openai": {
                 "enabled": openai.get("enabled", False),
@@ -203,6 +216,12 @@ def _build_llm_config_legacy(llm: dict[str, Any]) -> dict[str, Any]:
                 "host": "",
                 "port": 11434,
                 "model": "qwen3:8b",
+            },
+            "deepseek": {
+                "enabled": False,
+                "type": "deepseek",
+                "api_url": "https://api.deepseek.com/v1",
+                "model": "deepseek-chat",
             },
             "openai": {
                 "enabled": False,

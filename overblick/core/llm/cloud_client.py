@@ -63,6 +63,7 @@ class CloudLLMClient(LLMClient):
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         priority: str = "low",
+        complexity: Optional[str] = None,
     ) -> Optional[dict]:
         """Send a chat completion request to the cloud provider.
 

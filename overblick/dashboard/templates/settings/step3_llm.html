@@ -6,8 +6,8 @@
     <div class="detail-header">
         <h1 class="detail-name">Step 3 — AI Engine</h1>
         <p class="detail-description">
-            Choose how your agents access their language model. Local models run on your machine.
-            Gateway enables priority queuing for multiple agents.
+            Configure your LLM backends. Enable one or more inference targets — the gateway
+            routes requests based on priority and complexity.
         </p>
     </div>
 
@@ -18,115 +18,195 @@
     <div class="card" style="max-width: 720px;">
         <form method="post" action="/settings/step/3" hx-boost="true">
             {% set llm = state.llm or {} %}
-            {% set provider = llm.get('llm_provider', 'ollama') %}
+            {% set local = llm.get('local', {}) %}
+            {% set cloud = llm.get('cloud', {}) %}
+            {% set deepseek = llm.get('deepseek', {}) %}
+            {% set openai = llm.get('openai', {}) %}
 
-            <!-- Provider selection grouped by category -->
+            <!-- Gateway (always visible — infrastructure) -->
             <div class="form-group">
-                <label class="form-label">Provider</label>
-
-                <p class="form-hint" style="margin-bottom: var(--space-sm);">── Local ──────────────────────────────────────</p>
-                <div class="radio-cards">
-                    <label class="radio-card">
-                        <input type="radio" name="llm_provider" value="ollama"
-                               {{ 'checked' if provider == 'ollama' else '' }}
-                               onchange="switchProvider('ollama')">
-                        <div class="radio-card-title">Ollama</div>
-                        <div class="radio-card-desc">Direct local connection. Default port 11434.</div>
-                    </label>
-                    <label class="radio-card">
-                        <input type="radio" name="llm_provider" value="lmstudio"
-                               {{ 'checked' if provider == 'lmstudio' else '' }}
-                               onchange="switchProvider('lmstudio')">
-                        <div class="radio-card-title">LM Studio</div>
-                        <div class="radio-card-desc">OpenAI-compatible local server. Default port 1234.</div>
-                    </label>
-                </div>
-
-                <p class="form-hint" style="margin: var(--space-md) 0 var(--space-sm);">── Gateway ─────────────────────────────────────</p>
-                <div class="radio-cards">
-                    <label class="radio-card">
-                        <input type="radio" name="llm_provider" value="gateway"
-                               {{ 'checked' if provider == 'gateway' else '' }}
-                               onchange="switchProvider('gateway')">
-                        <div class="radio-card-title">Överblick Gateway</div>
-                        <div class="radio-card-desc">Priority queue for multiple agents. Better for production.</div>
-                    </label>
-                </div>
-
-                <p class="form-hint" style="margin: var(--space-md) 0 var(--space-sm);">── Cloud ─────────────────────────────────────────</p>
-                <div class="radio-cards">
-                    <label class="radio-card" style="opacity: 0.5; cursor: not-allowed;">
-                        <input type="radio" name="llm_provider" value="openai"
-                               {{ 'checked' if provider == 'openai' else '' }}
-                               onchange="switchProvider('openai')" disabled>
-                        <div class="radio-card-title">OpenAI <span class="badge badge-amber" style="font-size: 0.7rem;">Coming soon</span></div>
-                        <div class="radio-card-desc">GPT-4o and other OpenAI models via API key.</div>
-                    </label>
+                <p class="form-hint" style="margin-bottom: var(--space-sm);">── Gateway ─────────────────────────────────────</p>
+                <div style="display: flex; align-items: center; gap: var(--space-md);">
+                    <div style="flex: 1;">
+                        <label class="form-label" for="gateway_url">Gateway URL</label>
+                        <input type="text" class="form-input" id="gateway_url" name="gateway_url"
+                               value="{{ llm.get('gateway_url', 'http://127.0.0.1:8200') }}">
+                    </div>
+                    <div style="padding-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary btn-sm"
+                                hx-post="/settings/test/gateway"
+                                hx-include="#gateway_url"
+                                hx-target="#gateway-status">
+                            Test
+                        </button>
+                        <span id="gateway-status" class="test-result"></span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Ollama / LM Studio host+port config -->
-            <div id="ollama-config" style="display: {{ 'block' if provider in ('ollama', 'lmstudio') else 'none' }};">
-                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-md);">
-                    <div class="form-group">
-                        <label class="form-label" for="ollama_host">Host</label>
-                        <input type="text" class="form-input" id="ollama_host" name="ollama_host"
-                               value="{{ llm.get('ollama_host', '127.0.0.1') }}">
+            <!-- Backends -->
+            <p class="form-hint" style="margin: var(--space-lg) 0 var(--space-sm);">── Backends ─────────────────────────────────────</p>
+
+            <!-- Local Inference -->
+            <div class="form-group" style="padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--space-md);">
+                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                    <input type="checkbox" name="local_enabled" value="on"
+                           {{ 'checked' if local.get('enabled', true) else '' }}
+                           onchange="toggleSection('local-config', this.checked)">
+                    <strong>Local Inference</strong>
+                    <span class="form-hint" style="margin: 0;">(Ollama / LM Studio)</span>
+                </label>
+
+                <div id="local-config" style="display: {{ 'block' if local.get('enabled', true) else 'none' }}; margin-top: var(--space-md);">
+                    <div style="display: grid; grid-template-columns: 1fr 2fr 1fr 2fr; gap: var(--space-sm); align-items: end;">
+                        <div>
+                            <label class="form-label">Type</label>
+                            <select class="form-select" name="local_type" id="local_type"
+                                    onchange="updateLocalPort(this.value)">
+                                <option value="ollama" {{ 'selected' if local.get('backend_type', 'ollama') == 'ollama' else '' }}>Ollama</option>
+                                <option value="lmstudio" {{ 'selected' if local.get('backend_type') == 'lmstudio' else '' }}>LM Studio</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">Host</label>
+                            <input type="text" class="form-input" name="local_host" id="local_host"
+                                   value="{{ local.get('host', '127.0.0.1') }}">
+                        </div>
+                        <div>
+                            <label class="form-label">Port</label>
+                            <input type="number" class="form-input" name="local_port" id="local_port"
+                                   value="{{ local.get('port', 11434) }}">
+                        </div>
+                        <div>
+                            <label class="form-label">Model</label>
+                            <input type="text" class="form-input" name="local_model"
+                                   value="{{ local.get('model', 'qwen3:8b') }}" list="local-model-suggestions">
+                            <datalist id="local-model-suggestions">
+                                <option value="qwen3:8b">
+                                <option value="qwen3:14b">
+                                <option value="llama3:8b">
+                                <option value="mistral:7b">
+                                <option value="gemma2:9b">
+                            </datalist>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="ollama_port">Port</label>
-                        <input type="number" class="form-input" id="ollama_port" name="ollama_port"
-                               value="{{ llm.get('ollama_port', 11434) }}">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <div style="display: flex; align-items: center; gap: var(--space-md);">
+                    <div style="margin-top: var(--space-sm);">
                         <button type="button" class="btn btn-secondary btn-sm"
                                 hx-post="/settings/test/ollama"
-                                hx-include="#ollama_host, #ollama_port"
-                                hx-target="#ollama-status">
+                                hx-include="#local_host, #local_port"
+                                hx-target="#local-status">
                             Test Connection
                         </button>
-                        <span id="ollama-status" class="test-result"></span>
+                        <span id="local-status" class="test-result"></span>
                     </div>
                 </div>
             </div>
 
-            <!-- Gateway config -->
-            <div id="gateway-config" style="display: {{ 'block' if provider == 'gateway' else 'none' }};">
-                <div class="form-group">
-                    <label class="form-label" for="gateway_url">Gateway URL</label>
-                    <input type="text" class="form-input" id="gateway_url" name="gateway_url"
-                           value="{{ llm.get('gateway_url', 'http://127.0.0.1:8200') }}">
+            <!-- Cloud Remote -->
+            <div class="form-group" style="padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--space-md);">
+                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                    <input type="checkbox" name="cloud_enabled" value="on"
+                           {{ 'checked' if cloud.get('enabled', false) else '' }}
+                           onchange="toggleSection('cloud-config', this.checked)">
+                    <strong>Cloud Remote</strong>
+                    <span class="form-hint" style="margin: 0;">(Ollama / LM Studio on remote server)</span>
+                </label>
+
+                <div id="cloud-config" style="display: {{ 'block' if cloud.get('enabled', false) else 'none' }}; margin-top: var(--space-md);">
+                    <div style="display: grid; grid-template-columns: 1fr 2fr 1fr 2fr; gap: var(--space-sm); align-items: end;">
+                        <div>
+                            <label class="form-label">Type</label>
+                            <select class="form-select" name="cloud_type">
+                                <option value="ollama" {{ 'selected' if cloud.get('backend_type', 'ollama') == 'ollama' else '' }}>Ollama</option>
+                                <option value="lmstudio" {{ 'selected' if cloud.get('backend_type') == 'lmstudio' else '' }}>LM Studio</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">Host</label>
+                            <input type="text" class="form-input" name="cloud_host" id="cloud_host"
+                                   value="{{ cloud.get('host', '') }}" placeholder="gpu.example.com">
+                        </div>
+                        <div>
+                            <label class="form-label">Port</label>
+                            <input type="number" class="form-input" name="cloud_port" id="cloud_port"
+                                   value="{{ cloud.get('port', 11434) }}">
+                        </div>
+                        <div>
+                            <label class="form-label">Model</label>
+                            <input type="text" class="form-input" name="cloud_model"
+                                   value="{{ cloud.get('model', 'qwen3:8b') }}">
+                        </div>
+                    </div>
+                    <div style="margin-top: var(--space-sm);">
+                        <button type="button" class="btn btn-secondary btn-sm"
+                                hx-post="/settings/test/ollama"
+                                hx-include="#cloud_host, #cloud_port"
+                                hx-target="#cloud-status">
+                            Test Connection
+                        </button>
+                        <span id="cloud-status" class="test-result"></span>
+                    </div>
                 </div>
             </div>
 
-            <!-- OpenAI placeholder config (disabled) -->
-            <div id="openai-config" style="display: {{ 'block' if provider == 'openai' else 'none' }};">
-                <div class="form-group">
-                    <label class="form-label" for="cloud_model">Model</label>
-                    <input type="text" class="form-input" id="cloud_model" name="cloud_model"
-                           value="{{ llm.get('cloud_model', '') }}"
-                           placeholder="gpt-4o" disabled>
-                    <span class="form-hint">OpenAI integration is coming soon.</span>
+            <!-- Deepseek -->
+            <div class="form-group" style="padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--space-md);">
+                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                    <input type="checkbox" name="deepseek_enabled" value="on"
+                           {{ 'checked' if deepseek.get('enabled', false) else '' }}
+                           onchange="toggleSection('deepseek-config', this.checked)">
+                    <strong>Deepseek</strong>
+                    <span class="form-hint" style="margin: 0;">(Cloud API — deepseek-chat)</span>
+                </label>
+
+                <div id="deepseek-config" style="display: {{ 'block' if deepseek.get('enabled', false) else 'none' }}; margin-top: var(--space-md);">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-sm); align-items: end;">
+                        <div>
+                            <label class="form-label">API Key</label>
+                            <input type="password" class="form-input" name="deepseek_api_key" id="deepseek_api_key"
+                                   placeholder="{{ '••••••••' if state.get('_has_deepseek_api_key') else 'sk-...' }}"
+                                   autocomplete="off">
+                        </div>
+                        <div>
+                            <label class="form-label">Model</label>
+                            <input type="text" class="form-input" name="deepseek_model"
+                                   value="{{ deepseek.get('model', 'deepseek-chat') }}">
+                        </div>
+                    </div>
+                    <div style="margin-top: var(--space-sm);">
+                        <button type="button" class="btn btn-secondary btn-sm"
+                                hx-post="/settings/test/deepseek"
+                                hx-include="#deepseek_api_key"
+                                hx-target="#deepseek-status">
+                            Test Connection
+                        </button>
+                        <span id="deepseek-status" class="test-result"></span>
+                    </div>
                 </div>
-                <input type="hidden" name="cloud_api_url" value="{{ llm.get('cloud_api_url', 'https://api.openai.com/v1') }}">
             </div>
 
-            <!-- Common LLM settings -->
+            <!-- OpenAI (Coming soon) -->
+            <div class="form-group" style="padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--space-md); opacity: 0.5;">
+                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: not-allowed;">
+                    <input type="checkbox" disabled>
+                    <strong>OpenAI</strong>
+                    <span class="badge badge-amber" style="font-size: 0.7rem;">Coming soon</span>
+                </label>
+                <input type="hidden" name="openai_api_url" value="{{ openai.get('api_url', 'https://api.openai.com/v1') }}">
+                <input type="hidden" name="openai_model" value="{{ openai.get('model', 'gpt-4o') }}">
+            </div>
+
+            <!-- Common Settings -->
+            <p class="form-hint" style="margin: var(--space-lg) 0 var(--space-sm);">── Common Settings ──────────────────────────────</p>
+
             <div class="form-group">
-                <label class="form-label" for="model">Model name</label>
-                <span class="form-hint" id="model_hint">The LLM model to use (e.g. qwen3:8b)</span>
-                <input type="text" class="form-input" id="model" name="model"
-                       value="{{ llm.get('model', 'qwen3:8b') }}" list="model-suggestions"
-                       aria-describedby="model_hint">
-                <datalist id="model-suggestions">
-                    <option value="qwen3:8b">
-                    <option value="qwen3:14b">
-                    <option value="llama3:8b">
-                    <option value="mistral:7b">
-                    <option value="gemma2:9b">
-                </datalist>
+                <label class="form-label" for="default_backend">Default Backend</label>
+                <select class="form-select" name="default_backend" id="default_backend">
+                    <option value="local" {{ 'selected' if llm.get('default_backend', 'local') == 'local' else '' }}>Local</option>
+                    <option value="cloud" {{ 'selected' if llm.get('default_backend') == 'cloud' else '' }}>Cloud Remote</option>
+                    <option value="deepseek" {{ 'selected' if llm.get('default_backend') == 'deepseek' else '' }}>Deepseek</option>
+                </select>
+                <span class="form-hint">Used when no routing rule applies. Complexity-based routing may override this.</span>
             </div>
 
             <div class="form-group">
@@ -157,22 +237,17 @@
 </div>
 
 <script>
-function switchProvider(provider) {
-    document.getElementById('ollama-config').style.display =
-        (provider === 'ollama' || provider === 'lmstudio') ? 'block' : 'none';
-    document.getElementById('gateway-config').style.display =
-        provider === 'gateway' ? 'block' : 'none';
-    document.getElementById('openai-config').style.display =
-        provider === 'openai' ? 'block' : 'none';
+function toggleSection(sectionId, show) {
+    document.getElementById(sectionId).style.display = show ? 'block' : 'none';
+}
 
-    // Update default port when switching between Ollama and LM Studio
-    const portInput = document.getElementById('ollama_port');
-    if (portInput) {
-        if (provider === 'lmstudio' && portInput.value === '11434') {
-            portInput.value = '1234';
-        } else if (provider === 'ollama' && portInput.value === '1234') {
-            portInput.value = '11434';
-        }
+function updateLocalPort(type) {
+    var portInput = document.getElementById('local_port');
+    if (!portInput) return;
+    if (type === 'lmstudio' && portInput.value === '11434') {
+        portInput.value = '1234';
+    } else if (type === 'ollama' && portInput.value === '1234') {
+        portInput.value = '11434';
     }
 }
 </script>
