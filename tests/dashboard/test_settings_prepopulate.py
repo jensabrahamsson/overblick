@@ -82,12 +82,14 @@ class TestConfigToWizardState:
         state = _config_to_wizard_state({})
         assert state == {}
 
-    def test_principal_secrets_not_prefilled(self):
-        """Principal name and email are secrets — should NOT be pre-filled from YAML."""
-        cfg = {"principal": {"timezone": "UTC", "language": "sv"}}
+    def test_principal_prefilled_from_global_config(self):
+        """Principal name and email are global config — should be pre-filled."""
+        cfg = {"principal": {"name": "Test User", "email": "test@example.com", "timezone": "UTC", "language": "sv"}}
         state = _config_to_wizard_state(cfg)
-        assert state["principal"]["principal_name"] == ""
-        assert state["principal"]["principal_email"] == ""
+        assert state["principal"]["principal_name"] == "Test User"
+        assert state["principal"]["principal_email"] == "test@example.com"
+        assert state["principal"]["timezone"] == "UTC"
+        assert state["principal"]["language_preference"] == "sv"
 
 
 class TestLoadExistingConfig:
@@ -173,7 +175,7 @@ class TestPrePopulationInWizard:
                     "openai": {"enabled": False},
                 },
             },
-            "principal": {"timezone": "America/New_York", "language": "en"},
+            "principal": {"name": "Test User", "email": "test@test.com", "timezone": "America/New_York", "language": "en"},
         }))
         app.state.config.base_dir = str(tmp_path)
 
@@ -190,20 +192,21 @@ class TestPrePopulationInWizard:
         # Check the wizard state was pre-populated
         from overblick.setup.wizard import _get_state
         state = _get_state(app)
-        assert state.get("_pre_populated") is True
         llm = state.get("llm", {})
         assert llm.get("local", {}).get("backend_type") == "lmstudio"
         principal = state.get("principal", {})
         assert principal.get("timezone") == "America/New_York"
+        assert principal.get("principal_name") == "Test User"
+        assert principal.get("principal_email") == "test@test.com"
 
     @pytest.mark.asyncio
-    async def test_pre_population_only_happens_once(self, client, session_cookie, app, tmp_path):
-        """Pre-population should not overwrite user changes on subsequent visits."""
+    async def test_step1_always_refreshes_from_disk(self, client, session_cookie, app, tmp_path):
+        """Step 1 always reloads from disk config to ensure fresh values."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "overblick.yaml").write_text(yaml.dump({
             "llm": {"provider": "ollama", "model": "qwen3:8b"},
-            "principal": {"timezone": "Europe/Stockholm"},
+            "principal": {"name": "Original", "timezone": "Europe/Stockholm"},
         }))
         app.state.config.base_dir = str(tmp_path)
 
@@ -215,13 +218,18 @@ class TestPrePopulationInWizard:
         # Visit step 1 — triggers pre-population
         await client.get("/settings/step/1", cookies={SESSION_COOKIE: cookie_value})
 
-        # Manually update the wizard state (simulating user input)
         from overblick.setup.wizard import _get_state
         state = _get_state(app)
-        state["llm"]["model"] = "user-chosen-model"
+        assert state["principal"]["principal_name"] == "Original"
 
-        # Visit step 1 again — should NOT reset the user's changes
+        # Update config on disk
+        (config_dir / "overblick.yaml").write_text(yaml.dump({
+            "llm": {"provider": "ollama", "model": "qwen3:8b"},
+            "principal": {"name": "Updated", "timezone": "Europe/Stockholm"},
+        }))
+
+        # Visit step 1 again — should pick up the updated config
         await client.get("/settings/step/1", cookies={SESSION_COOKIE: cookie_value})
 
         state_after = _get_state(app)
-        assert state_after["llm"]["model"] == "user-chosen-model"
+        assert state_after["principal"]["principal_name"] == "Updated"
