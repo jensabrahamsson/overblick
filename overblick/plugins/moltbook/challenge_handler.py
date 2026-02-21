@@ -129,8 +129,8 @@ class PerContentChallengeHandler:
     """Handles per-content verification challenges from Moltbook API."""
 
     CHALLENGE_FIELDS = ("challenge", "nonce", "verification", "solve", "question")
-    QUESTION_FIELDS = ("question", "challenge_text", "prompt", "challenge", "task")
-    NONCE_FIELDS = ("nonce", "challenge_nonce", "token", "challenge_id", "verification_code")
+    QUESTION_FIELDS = ("question", "challenge_text", "prompt", "challenge", "task", "instructions")
+    NONCE_FIELDS = ("nonce", "challenge_nonce", "token", "challenge_id", "verification_code", "code")
     ENDPOINT_FIELDS = ("respond_url", "answer_url", "callback", "endpoint", "submit_url", "verification_url")
     TIME_LIMIT_FIELDS = ("time_limit", "timeout", "expires_in", "ttl", "deadline_seconds")
 
@@ -174,6 +174,10 @@ class PerContentChallengeHandler:
         """
         if not isinstance(response_data, dict):
             return False
+
+        # Explicit flag from the API spec (top-level indicator)
+        if response_data.get("verification_required"):
+            return True
 
         # Check top-level fields
         if self._check_challenge_fields(response_data):

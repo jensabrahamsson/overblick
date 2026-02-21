@@ -80,7 +80,7 @@ class TestCreateLinkPost:
         result = await client.create_link_post("Cool link", "https://example.com", "tech")
         client._request.assert_called_once_with(
             "POST", "/posts",
-            json={"title": "Cool link", "url": "https://example.com", "submolt": "tech"},
+            json={"title": "Cool link", "url": "https://example.com", "submolt_name": "tech"},
         )
         assert isinstance(result, Post)
         assert result.id == "post-link-1"

@@ -95,6 +95,28 @@ class TestChallengeDetection:
         data = {"question": "What is 2+2?", "verification_code": "abc123"}
         assert self.handler.detect(data, 200)
 
+    def test_detect_official_api_format(self):
+        """Official API spec format with verification_required + code field."""
+        data = {
+            "verification_required": True,
+            "verification": {
+                "code": "moltbook_verify_abc123",
+                "challenge": "If you have 15 apples and give away 7, how many remain?",
+                "instructions": "Respond with ONLY the number",
+            },
+        }
+        assert self.handler.detect(data, 200)
+
+    def test_detect_verification_required_flag(self):
+        """Top-level verification_required=True is enough to detect."""
+        data = {"verification_required": True, "other": "stuff"}
+        assert self.handler.detect(data, 200)
+
+    def test_detect_code_as_nonce(self):
+        """Plain 'code' field recognized as nonce."""
+        data = {"challenge": "What is 2+2?", "code": "moltbook_verify_xyz"}
+        assert self.handler.detect(data, 200)
+
     def test_silent_success_with_nested_challenge_detected(self):
         """API returns success: true but has nested challenge — must detect."""
         data = {
@@ -212,6 +234,22 @@ class TestChallengeSolving:
         assert nonce == "nonce_abc"
         endpoint = handler._extract_field(data, handler.ENDPOINT_FIELDS)
         assert endpoint == "/verify"
+
+    async def test_extract_field_official_api_format(self):
+        """Extract fields from the official API challenge format."""
+        handler = PerContentChallengeHandler(llm_client=AsyncMock())
+        data = {
+            "verification_required": True,
+            "verification": {
+                "code": "moltbook_verify_abc",
+                "challenge": "How many remain from 15 - 7?",
+                "instructions": "Respond with ONLY the number",
+            },
+        }
+        question = handler._extract_field(data, handler.QUESTION_FIELDS)
+        assert question == "How many remain from 15 - 7?"
+        nonce = handler._extract_field(data, handler.NONCE_FIELDS)
+        assert nonce == "moltbook_verify_abc"
 
 
 class TestDeobfuscation:

@@ -203,7 +203,7 @@ class MoltbookClient:
                     url,
                     json=json,
                     params=params,
-                    timeout=aiohttp.ClientTimeout(total=45),
+                    timeout=aiohttp.ClientTimeout(total=90),
                 ) as response:
                     # Forensic logging for all error responses
                     if response.status >= 400:
@@ -471,7 +471,7 @@ class MoltbookClient:
     # ── Post Operations ───────────────────────────────────────────────────
 
     async def create_post(
-        self, title: str, content: str, submolt: str = "ai", tags: list[str] = None,
+        self, title: str, content: str, submolt: str = "ai",
     ) -> Post:
         """Create a new post."""
         if not await self._rate_limiter.acquire_post():
@@ -480,7 +480,7 @@ class MoltbookClient:
 
         data = await self._request(
             "POST", "/posts",
-            json={"title": title, "content": content, "submolt": submolt, "tags": tags or []},
+            json={"title": title, "content": content, "submolt_name": submolt},
         )
         post_data = data.get("post", data)
         logger.info("Post created in m/%s: %s", submolt, title[:50])
@@ -617,7 +617,7 @@ class MoltbookClient:
 
         data = await self._request(
             "POST", "/posts",
-            json={"title": title, "url": url, "submolt": submolt},
+            json={"title": title, "url": url, "submolt_name": submolt},
         )
         post_data = data.get("post", data)
         logger.info("Link post created in m/%s: %s", submolt, title[:50])
