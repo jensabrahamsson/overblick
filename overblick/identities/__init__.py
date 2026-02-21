@@ -65,7 +65,12 @@ _ALIASES: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 class LLMSettings(BaseModel):
-    """LLM configuration."""
+    """LLM configuration.
+
+    All agents connect via the LLM Gateway, which routes to configured
+    backends (local Ollama, cloud Ollama, OpenAI). The 'provider' field
+    is kept for backward compatibility but defaults to 'gateway'.
+    """
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     model: str = "qwen3:8b"
@@ -74,27 +79,31 @@ class LLMSettings(BaseModel):
     max_tokens: int = 2000
     timeout_seconds: int = 180
 
-    # Provider: "ollama" (default), "gateway", or "cloud"
-    provider: str = "ollama"
+    # Gateway URL — all agents route through this
     gateway_url: str = "http://127.0.0.1:8200"
 
-    # Cloud LLM settings (used when provider="cloud")
-    cloud_api_url: str = ""           # e.g. "https://api.openai.com/v1"
-    cloud_model: str = ""             # e.g. "gpt-4o", "claude-sonnet-4-5-20250929"
-    cloud_secret_key: str = "cloud_api_key"  # Secret key name in SecretsManager
+    # Legacy provider field — kept for backward compatibility with existing
+    # YAML configs. Always treated as "gateway" by the orchestrator.
+    provider: str = "gateway"
+
+    # Cloud LLM settings (kept for backward compat with existing configs)
+    cloud_api_url: str = ""
+    cloud_model: str = ""
+    cloud_secret_key: str = "cloud_api_key"
 
     # DEPRECATED — kept for backward compatibility with existing YAML configs.
-    # Migrated to provider="gateway" by the model validator below.
     use_gateway: bool = False
 
     @model_validator(mode="before")
     @classmethod
-    def _migrate_use_gateway(cls, data):
-        """Migrate legacy use_gateway=True to provider='gateway'."""
+    def _normalize_provider(cls, data):
+        """Normalize all provider values to 'gateway' (backward compat)."""
         if isinstance(data, dict):
-            # Only migrate if provider is not explicitly set
+            # Legacy: use_gateway=True -> provider="gateway"
             if data.get("use_gateway") and not data.get("provider"):
                 data["provider"] = "gateway"
+            # All providers now route through gateway
+            data["provider"] = "gateway"
         return data
 
 

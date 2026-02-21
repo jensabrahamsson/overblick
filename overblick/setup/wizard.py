@@ -41,6 +41,26 @@ logger = logging.getLogger(__name__)
 
 _PKG_DIR = Path(__file__).parent
 
+# Canonical display names for plugins (avoids "Email Agent agent" and "Ai Digest agent")
+PLUGIN_DISPLAY_NAMES: dict[str, str] = {
+    "moltbook": "Moltbook",
+    "email_agent": "Email Agent",
+    "telegram": "Telegram",
+    "ai_digest": "AI Digest",
+    "host_health": "Host Health",
+    "kontrast": "Kontrast",
+    "spegel": "Spegel",
+    "skuggspel": "Skuggspel",
+    "compass": "Compass",
+    "stage": "Stage",
+    "irc": "IRC",
+}
+
+
+def plugin_name(p: str) -> str:
+    """Get display name for a plugin, with fallback to title-cased."""
+    return PLUGIN_DISPLAY_NAMES.get(p, p.replace("_", " ").title())
+
 # Default wizard state
 _DEFAULT_STATE: dict[str, Any] = {
     "current_step": 1,
@@ -121,6 +141,7 @@ def _create_templates() -> Environment:
         loader=FileSystemLoader(str(_PKG_DIR / "templates")),
         autoescape=True,
     )
+    env.globals["plugin_name"] = plugin_name
     return env
 
 

@@ -2,12 +2,18 @@
 Configuration for the LLM Gateway.
 
 Settings can be overridden via environment variables with OVERBLICK_GW_ prefix.
+Also reads from config/overblick.yaml if present (backends section).
 """
 
+import logging
 import os
-from typing import Optional
+from pathlib import Path
+from typing import Any, Optional
 
+import yaml
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 def _get_env(key: str, default: str) -> str:
@@ -28,7 +34,7 @@ def _get_env_float(key: str, default: float) -> float:
 class GatewayConfig(BaseModel):
     """Gateway configuration with environment variable overrides."""
 
-    # Ollama connection
+    # Ollama connection (legacy single-backend, used as fallback)
     ollama_host: str = "127.0.0.1"
     ollama_port: int = 11434
 
@@ -52,6 +58,10 @@ class GatewayConfig(BaseModel):
     # Logging
     log_level: str = "INFO"
 
+    # Multi-backend configuration
+    default_backend: str = "local"
+    backends: dict[str, dict[str, Any]] = {}
+
     @property
     def ollama_base_url(self) -> str:
         """Get the full Ollama base URL."""
@@ -69,8 +79,8 @@ class GatewayConfig(BaseModel):
 
     @classmethod
     def from_env(cls) -> "GatewayConfig":
-        """Create config from environment variables (OVERBLICK_GW_ prefix)."""
-        return cls(
+        """Create config from environment variables and optional YAML config."""
+        config = cls(
             ollama_host=_get_env("OLLAMA_HOST", "127.0.0.1"),
             ollama_port=_get_env_int("OLLAMA_PORT", 11434),
             default_model=_get_env("DEFAULT_MODEL", "qwen3:8b"),
@@ -82,6 +92,53 @@ class GatewayConfig(BaseModel):
             api_port=_get_env_int("API_PORT", 8200),
             log_level=_get_env("LOG_LEVEL", "INFO"),
         )
+
+        # Try to load backends from overblick.yaml
+        yaml_config = _load_yaml_config()
+        if yaml_config:
+            llm = yaml_config.get("llm", {})
+            backends = llm.get("backends", {})
+            if backends:
+                config.backends = backends
+                config.default_backend = llm.get("default_backend", "local")
+                config.default_model = llm.get(
+                    "model",
+                    backends.get("local", {}).get("model", config.default_model),
+                )
+                # Update ollama host/port from local backend for backward compat
+                local = backends.get("local", {})
+                if local.get("enabled"):
+                    config.ollama_host = local.get("host", config.ollama_host)
+                    config.ollama_port = local.get("port", config.ollama_port)
+
+                logger.info(
+                    "Loaded %d backend(s) from overblick.yaml (default: %s)",
+                    len(backends), config.default_backend,
+                )
+
+        return config
+
+
+def _load_yaml_config() -> dict[str, Any]:
+    """Load overblick.yaml if it exists (searches common locations)."""
+    # Search paths in priority order
+    search_paths = [
+        Path(os.getenv("OVERBLICK_CONFIG", "")) / "config" / "overblick.yaml",
+        Path.cwd() / "config" / "overblick.yaml",
+        Path(__file__).parent.parent.parent / "config" / "overblick.yaml",
+    ]
+
+    for path in search_paths:
+        if path.exists():
+            try:
+                with open(path) as f:
+                    data = yaml.safe_load(f) or {}
+                logger.debug("Loaded config from %s", path)
+                return data
+            except Exception as e:
+                logger.warning("Failed to load %s: %s", path, e)
+
+    return {}
 
 
 # Singleton config instance

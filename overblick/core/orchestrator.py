@@ -246,6 +246,26 @@ class Orchestrator:
                     run_immediately=True,
                 )
 
+                # Schedule heartbeat if plugin supports it (e.g. MoltbookPlugin)
+                if callable(getattr(plugin, "post_heartbeat", None)):
+                    heartbeat_interval = self._identity.schedule.heartbeat_hours * 3600
+
+                    async def _guarded_heartbeat(p=plugin):
+                        if await self._is_plugin_stopped(p.name):
+                            return
+                        await p.post_heartbeat()
+
+                    self._scheduler.add(
+                        f"heartbeat_{plugin.name}",
+                        _guarded_heartbeat,
+                        interval_seconds=heartbeat_interval,
+                        run_immediately=False,
+                    )
+                    logger.info(
+                        "Heartbeat scheduled for '%s' every %dh",
+                        plugin.name, self._identity.schedule.heartbeat_hours,
+                    )
+
             # Run scheduler and shutdown event concurrently — first to complete wins
             scheduler_task = asyncio.create_task(self._scheduler.start())
             shutdown_task = asyncio.create_task(self._shutdown_event.wait())
@@ -409,74 +429,36 @@ class Orchestrator:
         logger.info("Orchestrator created %d shared capabilities", len(self._capabilities))
 
     async def _create_llm_client(self) -> object:
-        """Create the appropriate LLM client based on identity config.
+        """Create LLM client — all agents route through the LLM Gateway.
 
-        Routes to one of three backends based on llm.provider:
-        - "ollama": Direct local Ollama connection
-        - "gateway": LLM Gateway with priority queue
-        - "cloud": Cloud LLM provider (stub — not yet implemented)
+        The gateway handles backend routing (local Ollama, cloud Ollama, OpenAI)
+        based on its own configuration. Agents only need to know the gateway URL.
         """
+        from overblick.core.llm.gateway_client import GatewayClient
+
         llm_cfg = self._identity.llm
+        gateway_url = llm_cfg.gateway_url or "http://127.0.0.1:8200"
 
-        match llm_cfg.provider:
-            case "ollama":
-                from overblick.core.llm.ollama_client import OllamaClient
+        client = GatewayClient(
+            base_url=gateway_url,
+            model=llm_cfg.model,
+            default_priority="low",
+            max_tokens=llm_cfg.max_tokens,
+            temperature=llm_cfg.temperature,
+            top_p=llm_cfg.top_p,
+            timeout_seconds=llm_cfg.timeout_seconds,
+        )
 
-                client = OllamaClient(
-                    model=llm_cfg.model,
-                    temperature=llm_cfg.temperature,
-                    top_p=llm_cfg.top_p,
-                    max_tokens=llm_cfg.max_tokens,
-                    timeout_seconds=llm_cfg.timeout_seconds,
-                )
-
-            case "gateway":
-                from overblick.core.llm.gateway_client import GatewayClient
-
-                client = GatewayClient(
-                    base_url=llm_cfg.gateway_url,
-                    model=llm_cfg.model,
-                    default_priority="low",
-                    max_tokens=llm_cfg.max_tokens,
-                    temperature=llm_cfg.temperature,
-                    top_p=llm_cfg.top_p,
-                    timeout_seconds=llm_cfg.timeout_seconds,
-                )
-                logger.info("Using LLM Gateway at %s (priority queue enabled)", llm_cfg.gateway_url)
-
-            case "cloud":
-                from overblick.core.llm.cloud_client import CloudLLMClient
-
-                # Load API key from secrets manager
-                api_key = ""
-                if self._secrets:
-                    api_key = self._secrets.get(
-                        self._identity_name, llm_cfg.cloud_secret_key
-                    ) or ""
-
-                client = CloudLLMClient(
-                    api_url=llm_cfg.cloud_api_url,
-                    model=llm_cfg.cloud_model or llm_cfg.model,
-                    api_key=api_key,
-                    temperature=llm_cfg.temperature,
-                    max_tokens=llm_cfg.max_tokens,
-                    top_p=llm_cfg.top_p,
-                    timeout_seconds=llm_cfg.timeout_seconds,
-                )
-                logger.info(
-                    "Using Cloud LLM provider at %s (model: %s)",
-                    llm_cfg.cloud_api_url,
-                    llm_cfg.cloud_model or llm_cfg.model,
-                )
-
-            case _:
-                raise ValueError(f"Unknown LLM provider: {llm_cfg.provider}")
-
-        # Health check
         if await client.health_check():
-            logger.info("LLM client ready: %s", llm_cfg.model)
+            logger.info(
+                "Connected to LLM Gateway at %s (model: %s)",
+                gateway_url, llm_cfg.model,
+            )
         else:
-            logger.warning("LLM health check failed — agent may have limited functionality")
+            logger.warning(
+                "LLM Gateway not reachable at %s — agent may have limited functionality",
+                gateway_url,
+            )
 
         return client
 

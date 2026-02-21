@@ -19,11 +19,17 @@ pip install -e ".[dev]"
 pip install -r requirements.txt        # core only
 pip install -r requirements-dev.txt    # core + test/dev tools
 
-# Run tests (1700+ unit + scenario tests, no LLM/browser required)
+# Run tests (2340+ unit + scenario tests, no LLM/browser required)
 pytest tests/ -v -m "not llm and not e2e"
 
 # Run LLM personality tests (requires Ollama with qwen3:8b)
 pytest tests/ -v -m llm --timeout=300
+
+# Start the dashboard — first run auto-opens setup wizard
+python -m overblick dashboard
+
+# (Optional) LAN access — accessible from other devices on your network
+python -m overblick dashboard --host 0.0.0.0
 
 # Run a specific identity
 python -m overblick run anomal
@@ -201,6 +207,33 @@ await supervisor.run()     # Block until shutdown
 - Permission request handling (auto-approve in stage 1)
 - Trend analysis across audit history
 
+## LLM Backends
+
+Överblick supports four LLM provider modes:
+
+| Provider | Value | Client | Default endpoint |
+|----------|-------|--------|-----------------|
+| **Ollama** | `ollama` | OllamaClient | `localhost:11434` |
+| **LM Studio** | `lmstudio` | OllamaClient | `localhost:1234` |
+| **Överblick Gateway** | `gateway` | GatewayClient | `localhost:8200` |
+| **OpenAI** *(coming soon)* | `openai` | CloudLLMClient | `api.openai.com/v1` |
+
+**LM Studio** exposes an OpenAI-compatible `/v1/chat/completions` API — Överblick reuses `OllamaClient` for it with a different default port. No additional dependencies needed.
+
+**Överblick Gateway** (`python -m overblick.gateway`) adds a priority queue for multi-agent setups. Agents running through the gateway get `low` priority by default; captcha-solving and time-sensitive tasks use `high` priority.
+
+Configure via the dashboard settings wizard (`/settings/`) or directly in `config/overblick.yaml`:
+
+```yaml
+llm:
+  provider: ollama      # or lmstudio, gateway, openai
+  host: 127.0.0.1
+  port: 11434
+  model: qwen3:8b
+  temperature: 0.7
+  max_tokens: 2000
+```
+
 ## Security Architecture
 
 **6-layer defense:**
@@ -257,7 +290,7 @@ Both backends share the same migration system and API.
 ## Testing
 
 ```bash
-# All unit + scenario tests (1700+)
+# All unit + scenario tests (2340+)
 pytest tests/ -v -m "not e2e"
 
 # LLM personality tests (requires Ollama + qwen3:8b)
@@ -333,9 +366,9 @@ overblick/
     prisma/                 # Digital artist
     rost/                   # Jaded ex-trader
     stal/                   # Email secretary
-  dashboard/                # FastAPI + Jinja2 + htmx web dashboard
+  dashboard/                # FastAPI + Jinja2 + htmx web dashboard (settings wizard at /settings/)
   gateway/                  # LLM Gateway service (port 8200)
-  setup/                    # Onboarding wizard (7-step setup)
+  setup/                    # Setup validators + provisioner (used by dashboard /settings/)
   supervisor/
     supervisor.py           # Multi-process manager (Boss Agent)
     ipc.py                  # IPC layer (Unix sockets + HMAC)
@@ -343,7 +376,7 @@ overblick/
     audit.py                # Agent audit system
 config/
   overblick.yaml            # Global framework config
-tests/                      # 1700+ unit + scenario + LLM tests
+tests/                      # 2340+ unit + scenario + LLM tests
 ```
 
 ## Configuration

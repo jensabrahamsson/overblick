@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Settings Saved — Överblick{% endblock %}
+
+{% block content %}
+<div class="detail" style="max-width: 640px; margin: 0 auto; text-align: center;">
+    <div style="padding: var(--space-2xl) 0;">
+        <div class="checkmark-circle" aria-hidden="true" style="margin: 0 auto var(--space-lg);">
+            <svg class="checkmark-svg" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle class="checkmark-ring" cx="26" cy="26" r="24" stroke="var(--green)" stroke-width="3" />
+                <path class="checkmark-check" d="M14 27l8 8 16-16" stroke="var(--green)" stroke-width="3.5"
+                      stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </div>
+
+        <h1 class="detail-name">Settings saved!</h1>
+        <p class="detail-description" style="margin-top: var(--space-md);">
+            {% if state.selected_characters %}
+            {{ state.selected_characters | length }} agent{{ 's' if state.selected_characters | length != 1 }}
+            configured and ready to deploy.
+            {% else %}
+            Your Överblick configuration has been written.
+            {% endif %}
+        </p>
+
+        {% if state.selected_characters %}
+        <div class="tag-list" style="justify-content: center; margin: var(--space-lg) 0;">
+            {% for name in state.selected_characters %}
+            <span class="tag tag-plugin">{{ name }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if state.created_files %}
+        <details style="text-align: left; margin: var(--space-lg) 0;">
+            <summary style="cursor: pointer; color: var(--text-secondary); font-size: 0.9rem;">
+                Files written ({{ state.created_files | length }})
+            </summary>
+            <div style="margin-top: var(--space-sm);">
+                {% for f in state.created_files %}
+                <div class="mono" style="font-size: 0.8rem; color: var(--text-secondary); padding: 2px 0;">{{ f }}</div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+
+        <div class="btn-group" style="justify-content: center; margin-top: var(--space-xl);">
+            <a href="/" class="btn btn-primary btn-large">Return to Dashboard</a>
+            <a href="/settings/step/1" class="btn btn-ghost">Reconfigure</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

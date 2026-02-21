@@ -67,8 +67,10 @@ class TestProvisioner:
 
         with open(config_path) as f:
             config = yaml.safe_load(f)
-        assert config["llm"]["provider"] == "ollama"
-        assert config["llm"]["model"] == "qwen3:8b"
+        # New backends format: local backend with ollama type
+        assert config["llm"]["backends"]["local"]["type"] == "ollama"
+        assert config["llm"]["backends"]["local"]["model"] == "qwen3:8b"
+        assert config["llm"]["default_backend"] == "local"
         assert "config/overblick.yaml" in result["created_files"]
 
     def test_creates_data_directories(self, tmp_path: Path, wizard_state: dict):
@@ -115,16 +117,16 @@ class TestProvisioner:
         config_path = tmp_path / "config" / "overblick.yaml"
         with open(config_path) as f:
             config = yaml.safe_load(f)
-        assert config["llm"]["provider"] == "ollama"
+        assert config["llm"]["backends"]["local"]["type"] == "ollama"
 
-    def test_gateway_provider(self, tmp_path: Path, wizard_state: dict):
-        wizard_state["llm"]["llm_provider"] = "gateway"
+    def test_gateway_url_in_config(self, tmp_path: Path, wizard_state: dict):
+        """Gateway URL is always included in the output config."""
         provision(tmp_path, wizard_state)
         config_path = tmp_path / "config" / "overblick.yaml"
         with open(config_path) as f:
             config = yaml.safe_load(f)
-        assert config["llm"]["provider"] == "gateway"
         assert "gateway_url" in config["llm"]
+        assert config["llm"]["gateway_url"] == "http://127.0.0.1:8200"
 
     def test_no_gmail_secrets_when_disabled(self, tmp_path: Path, wizard_state: dict):
         wizard_state["communication"]["gmail_enabled"] = False

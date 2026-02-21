@@ -114,10 +114,18 @@ def _create_templates() -> Jinja2Templates:
         autoescape=True,
     )
     # Register global template functions
+    from overblick.setup.wizard import plugin_name
+    env.globals["plugin_name"] = plugin_name
     env.globals["_format_uptime"] = _format_uptime
     env.globals["_is_operational_cap"] = _is_operational_cap
-    # Default irc_enabled — overridden in lifespan once services are initialized
+    # Default nav globals — overridden in lifespan once services are initialized
     env.globals["irc_enabled"] = lambda: False
+    env.globals["kontrast_enabled"] = lambda: False
+    env.globals["spegel_enabled"] = lambda: False
+    env.globals["skuggspel_enabled"] = lambda: False
+    env.globals["compass_enabled"] = lambda: False
+    env.globals["stage_enabled"] = lambda: False
+    env.globals["settings_enabled"] = lambda: True
 
     # Register filters
     env.filters["epoch_to_datetime"] = _format_epoch
@@ -154,7 +162,29 @@ async def lifespan(app: FastAPI):
         irc_svc = getattr(app.state, "irc_service", None)
         return irc_svc.has_data() if irc_svc else False
 
+    from .routes.kontrast import has_data as _kontrast_has_data
+    from .routes.spegel import has_data as _spegel_has_data
+    from .routes.skuggspel import has_data as _skuggspel_has_data
+    from .routes.compass import has_data as _compass_has_data
+    from .routes.stage import has_data as _stage_has_data
+
     app.state.templates.env.globals["irc_enabled"] = _check_irc_enabled
+    app.state.templates.env.globals["kontrast_enabled"] = _kontrast_has_data
+    app.state.templates.env.globals["spegel_enabled"] = _spegel_has_data
+    app.state.templates.env.globals["skuggspel_enabled"] = _skuggspel_has_data
+    app.state.templates.env.globals["compass_enabled"] = _compass_has_data
+    app.state.templates.env.globals["stage_enabled"] = _stage_has_data
+    app.state.templates.env.globals["settings_enabled"] = lambda: True
+
+    # First-run detection: redirect to /settings/ if no config exists
+    if config.test_mode:
+        app.state.setup_needed = False
+    else:
+        cfg_file = _PKG_DIR.parent.parent / "config" / "overblick.yaml"
+        # Also check base_dir from config if set
+        if config.base_dir:
+            cfg_file = Path(config.base_dir) / "config" / "overblick.yaml"
+        app.state.setup_needed = not cfg_file.exists()
 
     yield
 
@@ -199,6 +229,11 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
     static_dir = _PKG_DIR / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    # Mount setup static files (CSS, JS, images from the original onboarding wizard)
+    setup_static = _PKG_DIR.parent / "setup" / "static"
+    if setup_static.exists():
+        app.mount("/setup-static", StaticFiles(directory=str(setup_static)), name="setup-static")
 
     # Register routes
     from .routes import register_routes

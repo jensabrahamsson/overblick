@@ -23,6 +23,10 @@ router = APIRouter()
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_page(request: Request):
     """Render the main dashboard page."""
+    # First-run: redirect to settings wizard if no config exists
+    if getattr(request.app.state, "setup_needed", False):
+        return RedirectResponse("/settings/", status_code=302)
+
     templates = request.app.state.templates
     config = request.app.state.config
 

@@ -55,24 +55,33 @@ def provision(base_dir: Path, state: dict[str, Any]) -> dict[str, Any]:
     selected = state.get("selected_characters", [])
 
     for char_name in selected:
-        # Principal name is a secret for every agent
+        # Principal name — only write if provided (preserve existing when _has_* flag set)
         if principal.get("principal_name"):
             sm.set(char_name, "principal_name", principal["principal_name"])
+        elif not state.get("_has_principal_name"):
+            pass  # No new value and no existing — skip
 
         if principal.get("principal_email"):
             sm.set(char_name, "principal_email", principal["principal_email"])
 
-        # Gmail secrets
+        # Gmail secrets — respect _has_* flags for unchanged secrets
         if comm.get("gmail_enabled") and comm.get("gmail_address"):
             sm.set(char_name, "gmail_address", comm["gmail_address"])
             if comm.get("gmail_app_password"):
                 sm.set(char_name, "gmail_app_password", comm["gmail_app_password"])
+            # If no new password but existing one exists, keep it
+            elif not state.get("_has_gmail_app_password"):
+                pass
 
         # Telegram secrets
         if comm.get("telegram_enabled") and comm.get("telegram_bot_token"):
             sm.set(char_name, "telegram_bot_token", comm["telegram_bot_token"])
             if comm.get("telegram_chat_id"):
                 sm.set(char_name, "telegram_chat_id", comm["telegram_chat_id"])
+        elif comm.get("telegram_enabled") and not comm.get("telegram_bot_token"):
+            # If enabled but no new token and existing one exists, keep it
+            if not state.get("_has_telegram_bot_token"):
+                pass
 
         created_files.append(f"config/secrets/{char_name}.yaml")
 
@@ -119,36 +128,98 @@ def _build_global_config(state: dict[str, Any]) -> dict[str, Any]:
             "timezone": principal.get("timezone", "Europe/Stockholm"),
             "language": principal.get("language_preference", "en"),
         },
-        "llm": {},
+        "llm": _build_llm_config(llm),
     }
 
+    return config
+
+
+def _build_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
+    """Build LLM config section in new backends format."""
+    # Check if this is already new-format data (has 'local' or 'gateway_url' at top level)
+    if "local" in llm or ("gateway_url" in llm and "llm_provider" not in llm):
+        return _build_llm_config_new_format(llm)
+
+    # Legacy format: flat provider-based
+    return _build_llm_config_legacy(llm)
+
+
+def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
+    """Build LLM config from new backends-format wizard state."""
+    local = llm.get("local", {})
+    cloud = llm.get("cloud", {})
+    openai = llm.get("openai", {})
+
+    config: dict[str, Any] = {
+        "gateway_url": llm.get("gateway_url", "http://127.0.0.1:8200"),
+        "default_backend": llm.get("default_backend", "local"),
+        "temperature": llm.get("default_temperature", 0.7),
+        "max_tokens": llm.get("default_max_tokens", 2000),
+        "backends": {
+            "local": {
+                "enabled": local.get("enabled", True),
+                "type": local.get("backend_type", "ollama"),
+                "host": local.get("host", "127.0.0.1"),
+                "port": local.get("port", 11434),
+                "model": local.get("model", "qwen3:8b"),
+            },
+            "cloud": {
+                "enabled": cloud.get("enabled", False),
+                "type": cloud.get("backend_type", "ollama"),
+                "host": cloud.get("host", ""),
+                "port": cloud.get("port", 11434),
+                "model": cloud.get("model", "qwen3:8b"),
+            },
+            "openai": {
+                "enabled": openai.get("enabled", False),
+                "api_url": openai.get("api_url", "https://api.openai.com/v1"),
+                "model": openai.get("model", "gpt-4o"),
+            },
+        },
+    }
+    return config
+
+
+def _build_llm_config_legacy(llm: dict[str, Any]) -> dict[str, Any]:
+    """Build LLM config from legacy flat-format wizard state (backward compat)."""
     provider = llm.get("llm_provider", "ollama")
 
-    if provider == "ollama":
-        config["llm"] = {
-            "provider": "ollama",
-            "host": llm.get("ollama_host", "127.0.0.1"),
-            "port": llm.get("ollama_port", 11434),
-            "model": llm.get("model", "qwen3:8b"),
-            "temperature": llm.get("default_temperature", 0.7),
-            "max_tokens": llm.get("default_max_tokens", 2000),
-        }
-    elif provider == "cloud":
-        config["llm"] = {
-            "provider": "cloud",
-            "cloud_api_url": llm.get("cloud_api_url", ""),
-            "cloud_model": llm.get("cloud_model", ""),
-            "model": llm.get("model", "qwen3:8b"),
-            "temperature": llm.get("default_temperature", 0.7),
-            "max_tokens": llm.get("default_max_tokens", 2000),
-        }
-    else:
-        config["llm"] = {
-            "provider": "gateway",
-            "gateway_url": llm.get("gateway_url", "http://127.0.0.1:8200"),
-            "model": llm.get("model", "qwen3:8b"),
-            "temperature": llm.get("default_temperature", 0.7),
-            "max_tokens": llm.get("default_max_tokens", 2000),
+    config: dict[str, Any] = {
+        "gateway_url": llm.get("gateway_url", "http://127.0.0.1:8200"),
+        "default_backend": "local",
+        "temperature": llm.get("default_temperature", 0.7),
+        "max_tokens": llm.get("default_max_tokens", 2000),
+        "backends": {
+            "local": {
+                "enabled": True,
+                "type": provider if provider in ("ollama", "lmstudio") else "ollama",
+                "host": llm.get("ollama_host", "127.0.0.1"),
+                "port": llm.get("ollama_port", 11434),
+                "model": llm.get("model", "qwen3:8b"),
+            },
+            "cloud": {
+                "enabled": False,
+                "type": "ollama",
+                "host": "",
+                "port": 11434,
+                "model": "qwen3:8b",
+            },
+            "openai": {
+                "enabled": False,
+                "api_url": "https://api.openai.com/v1",
+                "model": "gpt-4o",
+            },
+        },
+    }
+
+    # If provider was gateway, keep default_backend as local (gateway routes to it)
+    # If provider was cloud/openai, set openai as the enabled backend
+    if provider in ("cloud", "openai"):
+        config["default_backend"] = "openai"
+        config["backends"]["openai"] = {
+            "enabled": True,
+            "api_url": llm.get("cloud_api_url", "https://api.openai.com/v1"),
+            "model": llm.get("cloud_model", "gpt-4o"),
         }
 
     return config

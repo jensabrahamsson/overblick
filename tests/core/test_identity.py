@@ -14,21 +14,22 @@ class TestLLMSettings:
         assert s.model == "qwen3:8b"
         assert s.temperature == 0.7
         assert s.max_tokens == 2000
-        assert s.provider == "ollama"
+        assert s.provider == "gateway"  # all providers normalize to gateway
 
     def test_frozen(self):
         s = LLMSettings()
         with pytest.raises(ValidationError):
             s.model = "other"
 
-    def test_provider_cloud(self):
+    def test_provider_cloud_normalizes_to_gateway(self):
+        """Cloud provider is normalized to gateway (all providers route through gateway)."""
         s = LLMSettings(
             provider="cloud",
             cloud_api_url="https://api.openai.com/v1",
             cloud_model="gpt-4o",
             cloud_secret_key="my_api_key",
         )
-        assert s.provider == "cloud"
+        assert s.provider == "gateway"  # normalized
         assert s.cloud_api_url == "https://api.openai.com/v1"
         assert s.cloud_model == "gpt-4o"
         assert s.cloud_secret_key == "my_api_key"
@@ -44,14 +45,14 @@ class TestLLMSettings:
         assert s.provider == "gateway"
 
     def test_backward_compat_use_gateway_false(self):
-        """use_gateway=False should leave provider as default 'ollama'."""
+        """use_gateway=False still normalizes to gateway (all providers are gateway now)."""
         s = LLMSettings.model_validate({"use_gateway": False})
-        assert s.provider == "ollama"
+        assert s.provider == "gateway"
 
-    def test_explicit_provider_overrides_use_gateway(self):
-        """Explicit provider takes precedence over use_gateway."""
+    def test_explicit_provider_normalizes_to_gateway(self):
+        """All provider values normalize to 'gateway' regardless of input."""
         s = LLMSettings.model_validate({"use_gateway": True, "provider": "ollama"})
-        assert s.provider == "ollama"
+        assert s.provider == "gateway"
 
 
 class TestQuietHoursSettings:
@@ -87,7 +88,7 @@ class TestLoadIdentity:
         assert identity.display_name == "Anomal"
         assert identity.llm.temperature == 0.7
         assert identity.llm.max_tokens == 2000
-        assert identity.quiet_hours.start_hour == 21
+        assert identity.quiet_hours.start_hour == 23
         assert "dream_system" in identity.enabled_modules
         assert len(identity.interest_keywords) > 0
         assert len(identity.personality) > 0

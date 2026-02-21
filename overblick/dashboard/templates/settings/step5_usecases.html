@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Use Cases — Settings{% endblock %}
+
+{% block content %}
+<div class="detail">
+    <div class="detail-header">
+        <h1 class="detail-name">Step 5 — Use Cases</h1>
+        <p class="detail-description">
+            Select the capabilities you need. In the next step, you'll assign a personality to each one.
+        </p>
+    </div>
+
+    {% if error %}
+    <div class="flash flash-error" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <div class="card">
+        <form method="post" action="/settings/step/5" hx-boost="true">
+
+            <div class="use-case-grid">
+                {% for uc in use_cases %}
+                <label class="use-case-card" for="uc-{{ uc.id }}">
+                    <input type="checkbox" id="uc-{{ uc.id }}"
+                           name="selected_use_cases" value="{{ uc.id }}"
+                           {{ 'checked' if uc.id in state.selected_use_cases }}>
+                    <div class="use-case-card-inner">
+                        <div class="use-case-icon" aria-hidden="true">{{ uc.icon }}</div>
+                        <div class="use-case-name">{{ uc.name }}</div>
+                        <div class="use-case-desc">{{ uc.description }}</div>
+                        <div class="use-case-plugins">
+                            {% for plugin in uc.plugins %}
+                            <span class="badge badge-purple">{{ plugin_name(plugin) }}</span>
+                            {% endfor %}
+                        </div>
+                        {% if uc.id == 'email' and not gmail_enabled %}
+                        <div class="use-case-warning" role="note">
+                            Gmail not configured — <a href="/settings/step/4">set up in step 4</a>
+                        </div>
+                        {% endif %}
+                        {% if uc.id == 'notifications' and not telegram_enabled %}
+                        <div class="use-case-warning" role="note">
+                            Telegram not configured — <a href="/settings/step/4">set up in step 4</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+
+            <div class="selection-counter" id="selection-counter" aria-live="polite">
+                <strong id="selection-count">0</strong>
+                <span id="selection-label">use cases selected</span>
+            </div>
+
+            <div class="btn-group mt-3">
+                <a href="/settings/step/4" class="btn btn-ghost">Back</a>
+                <button type="submit" class="btn btn-primary">Next: Assign Agents</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    var checkboxes = document.querySelectorAll('.use-case-card input[type="checkbox"]');
+    var countEl = document.getElementById('selection-count');
+    var labelEl = document.getElementById('selection-label');
+    function updateCounter() {
+        var count = 0;
+        checkboxes.forEach(function(cb) { if (cb.checked) count++; });
+        if (countEl) countEl.textContent = count;
+        if (labelEl) labelEl.textContent = 'use case' + (count !== 1 ? 's' : '') + ' selected';
+    }
+    checkboxes.forEach(function(cb) { cb.addEventListener('change', updateCounter); });
+    updateCounter();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Settings{% endblock %} — Överblick</title>
+    <link rel="icon" type="image/svg+xml" href="/setup-static/img/overblick-logo.svg">
+    <link rel="stylesheet" href="/setup-static/css/setup.css">
+    <script src="/setup-static/js/htmx.min.js"></script>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'>
+    <div class="setup-container">
+        <!-- Exit to dashboard link -->
+        <a href="/" class="dashboard-exit-link" style="position:absolute;top:1rem;right:1.5rem;color:var(--text-dim,#888);font-size:0.85rem;text-decoration:none;opacity:0.7;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+            &larr; Dashboard
+        </a>
+
+        <!-- Progress bar -->
+        {% if state.current_step >= 1 and state.current_step <= 8 %}
+        <nav class="progress-bar" role="progressbar"
+             aria-valuenow="{{ state.current_step }}" aria-valuemin="1" aria-valuemax="8"
+             aria-label="Setup progress: step {{ state.current_step }} of 8"
+             style="--progress-pct: {{ ((state.current_step - 1) / 7 * 100) | round }}%">
+            {% set step_names = {1: 'Welcome', 2: 'Identity', 3: 'AI Engine', 4: 'Channels', 5: 'Use Cases', 6: 'Assign', 7: 'Review', 8: 'Complete'} %}
+            {% for step in range(1, 9) %}
+            <div class="progress-step {% if step == state.current_step %}active{% elif step < state.current_step %}completed{% endif %}"
+                 aria-label="Step {{ step }}: {{ step_names[step] }}{% if step == state.current_step %} (current){% elif step < state.current_step %} (completed){% endif %}"
+                 aria-current="{{ 'step' if step == state.current_step else 'false' }}"
+                 title="{{ step_names[step] }}">
+                {% if step < state.current_step %}&#10003;{% else %}{{ step }}{% endif %}
+            </div>
+            {% endfor %}
+        </nav>
+        {% endif %}
+
+        <!-- Flash messages -->
+        {% if error %}
+        <div class="flash-error" role="alert">{{ error }}</div>
+        {% endif %}
+
+        <!-- Main content -->
+        <div class="step-content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Audio element (hidden) -->
+    <audio id="ambient-audio" loop preload="none">
+        <source src="/setup-static/audio/ambient-loop.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Music controls pill -->
+    <div class="music-pill">
+        <button id="music-toggle" class="music-btn" type="button" aria-label="Play music">&#9654;</button>
+        <input id="music-volume" class="music-volume" type="range" min="0" max="100" value="30" aria-label="Volume">
+    </div>
+
+    <script src="/setup-static/js/ambient.js"></script>
+    {% block scripts %}{% endblock %}
+
+    <!-- Focus management: move focus to main heading on page load -->
+    <script>
+    (function() {
+        var heading = document.querySelector('.step-heading, .setup-title, .success-title');
+        if (heading) {
+            heading.setAttribute('tabindex', '-1');
+            heading.focus({preventScroll: true});
+        }
+    })();
+    </script>
+
+    <!-- Form state persistence via sessionStorage (save-and-resume) -->
+    <script>
+    (function() {
+        var STORE_KEY = 'overblick_settings_form';
+        var form = document.querySelector('form[method="post"]');
+        if (!form) return;
+
+        var stepMatch = window.location.pathname.match(/\/step\/(\d+)/);
+        if (!stepMatch) return;
+        var stepKey = STORE_KEY + '_step' + stepMatch[1];
+
+        // Restore saved values (only if server didn't provide them via form_data)
+        try {
+            var saved = JSON.parse(sessionStorage.getItem(stepKey) || '{}');
+            Object.keys(saved).forEach(function(name) {
+                var els = form.querySelectorAll('[name="' + name + '"]');
+                els.forEach(function(el) {
+                    if (el.type === 'checkbox' || el.type === 'radio') {
+                        if (el.value === saved[name] || (el.type === 'checkbox' && saved[name] === 'on')) {
+                            el.checked = true;
+                        }
+                    } else if (!el.value && saved[name]) {
+                        el.value = saved[name];
+                    }
+                });
+            });
+        } catch (e) { /* ignore parse errors */ }
+
+        // Save on input changes
+        function saveState() {
+            var data = {};
+            var formData = new FormData(form);
+            formData.forEach(function(value, key) {
+                data[key] = value;
+            });
+            try {
+                sessionStorage.setItem(stepKey, JSON.stringify(data));
+            } catch (e) { /* storage full — ignore */ }
+        }
+
+        form.addEventListener('input', saveState);
+        form.addEventListener('change', saveState);
+
+        // On final step submission, clear all wizard state
+        form.addEventListener('submit', function() {
+            var isLastStep = window.location.pathname.indexOf('/step/7') !== -1;
+            if (isLastStep) {
+                try {
+                    Object.keys(sessionStorage).forEach(function(key) {
+                        if (key.indexOf(STORE_KEY) === 0) sessionStorage.removeItem(key);
+                    });
+                } catch (e) {}
+            }
+        });
+    })();
+    </script>
+</body>
+</html>

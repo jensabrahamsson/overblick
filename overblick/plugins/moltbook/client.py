@@ -327,8 +327,12 @@ class MoltbookClient:
                         await asyncio.sleep(retry_after)
                         continue
 
+                    # Permanent client error — endpoint does not exist
+                    if response.status == 404:
+                        raise MoltbookError(f"API 404: {raw_body}")
+
                     # Transient errors
-                    if response.status in (404, 500, 502, 503, 504):
+                    if response.status in (500, 502, 503, 504):
                         if attempt < retry_count - 1:
                             backoff = 2 ** attempt
                             logger.warning(

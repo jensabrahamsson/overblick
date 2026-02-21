@@ -49,6 +49,21 @@ async def agent_detail(request: Request, name: str):
     supervisor_status = await supervisor_svc.get_status()
     is_running = agent_status.get("state") == "running"
 
+    # Build plugin quick-links for plugins that have dedicated dashboard pages
+    _PLUGIN_PAGES = {
+        "irc": ("/irc", "IRC"),
+        "kontrast": ("/kontrast", "Kontrast"),
+        "spegel": ("/spegel", "Spegel"),
+        "skuggspel": ("/skuggspel", "Skuggspel"),
+        "compass": ("/compass", "Compass"),
+        "stage": ("/stage", "Stage"),
+    }
+    plugin_links = [
+        {"url": _PLUGIN_PAGES[p][0], "label": _PLUGIN_PAGES[p][1]}
+        for p in identity.get("plugins", [])
+        if p in _PLUGIN_PAGES
+    ]
+
     return templates.TemplateResponse("agent_detail.html", {
         "request": request,
         "csrf_token": request.state.session.get("csrf_token", ""),
@@ -61,4 +76,5 @@ async def agent_detail(request: Request, name: str):
         "can_start": not is_running,
         "can_stop": is_running,
         "poll_interval": request.app.state.config.poll_interval,
+        "plugin_links": plugin_links,
     })

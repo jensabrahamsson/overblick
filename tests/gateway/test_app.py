@@ -13,6 +13,20 @@ class TestFastAPIApp:
     """Tests for FastAPI endpoints."""
 
     @pytest.fixture
+    def mock_backend_registry(self):
+        registry = MagicMock()
+        registry.available_backends = ["local"]
+        registry.default_backend = "local"
+        registry.health_check_all = AsyncMock(return_value={"local": True})
+        registry.get_client = MagicMock()
+        registry.get_model = MagicMock(return_value="qwen3:8b")
+        mock_client = AsyncMock()
+        mock_client.health_check = AsyncMock(return_value=True)
+        mock_client.list_models = AsyncMock(return_value=["qwen3:8b"])
+        registry.get_client.return_value = mock_client
+        return registry
+
+    @pytest.fixture
     def mock_queue_manager(self):
         qm = MagicMock()
         qm.is_running = True
@@ -36,31 +50,33 @@ class TestFastAPIApp:
         return qm
 
     @pytest.fixture
-    def client(self, mock_queue_manager):
-        with patch("overblick.gateway.app._queue_manager", mock_queue_manager):
-            with patch("overblick.gateway.app.get_queue_manager", return_value=mock_queue_manager):
-                from overblick.gateway.app import app
-                with TestClient(app, raise_server_exceptions=False) as client:
-                    yield client
+    def client(self, mock_queue_manager, mock_backend_registry):
+        with patch("overblick.gateway.app._queue_manager", mock_queue_manager), \
+             patch("overblick.gateway.app._backend_registry", mock_backend_registry), \
+             patch("overblick.gateway.app.get_queue_manager", return_value=mock_queue_manager), \
+             patch("overblick.gateway.app.get_backend_registry", return_value=mock_backend_registry):
+            from overblick.gateway.app import app
+            with TestClient(app, raise_server_exceptions=False) as client:
+                yield client
 
-    def test_health_check(self, client, mock_queue_manager):
+    def test_health_check(self, client, mock_queue_manager, mock_backend_registry):
         response = client.get("/health")
 
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
         assert data["gateway"] == "running"
-        assert data["ollama"] == "connected"
+        assert data["backends"]["local"] == "connected"
 
-    def test_health_check_degraded(self, client, mock_queue_manager):
-        mock_queue_manager.client.health_check = AsyncMock(return_value=False)
+    def test_health_check_degraded(self, client, mock_queue_manager, mock_backend_registry):
+        mock_backend_registry.health_check_all = AsyncMock(return_value={"local": False})
 
         response = client.get("/health")
 
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "degraded"
-        assert data["ollama"] == "disconnected"
+        assert data["backends"]["local"] == "disconnected"
 
     def test_get_stats(self, client, mock_queue_manager):
         response = client.get("/stats")

@@ -500,3 +500,255 @@ class TestSubmolts:
         result = await client.subscribe_submolt("ai")
         assert result is True
         assert "agent-1:ai" in server.state.subscriptions
+
+    async def test_unsubscribe_submolt(self, server_and_client):
+        server, client = server_and_client
+        await client.subscribe_submolt("crypto")
+        assert "agent-1:crypto" in server.state.subscriptions
+        result = await client.unsubscribe_submolt("crypto")
+        assert result is True
+        assert "agent-1:crypto" not in server.state.subscriptions
+
+
+# ---------------------------------------------------------------------------
+# TestDownvoteAPI
+# ---------------------------------------------------------------------------
+
+class TestDownvoteAPI:
+    async def test_downvote_post(self, server_and_client):
+        server, client = server_and_client
+        post = await client.create_post(title="Downvotable", content="Content")
+        result = await client.downvote_post(post.id)
+        assert result is True
+        assert server.state.posts[post.id]["downvotes"] == 1
+
+    async def test_downvote_then_upvote(self, server_and_client):
+        server, client = server_and_client
+        post = await client.create_post(title="Both Votes", content="Content")
+        await client.downvote_post(post.id)
+        await client.upvote_post(post.id)
+        assert server.state.posts[post.id]["downvotes"] == 1
+        assert server.state.posts[post.id]["upvotes"] == 1
+
+
+# ---------------------------------------------------------------------------
+# TestAgentProfileAPI
+# ---------------------------------------------------------------------------
+
+class TestAgentProfileAPI:
+    async def test_get_agent_profile_by_name(self, server_and_client):
+        _, client = server_and_client
+        agent = await client.get_agent_profile("test-agent")
+        assert isinstance(agent, Agent)
+        assert agent.name == "test-agent"
+        assert agent.id == "agent-1"
+
+    async def test_get_agent_profile_not_found(self, server_and_client):
+        _, client = server_and_client
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            with pytest.raises(MoltbookError):
+                await client.get_agent_profile("nonexistent-agent-xyz")
+
+    async def test_identity_token(self, server_and_client):
+        _, client = server_and_client
+        result = await client.generate_identity_token()
+        assert result is not None
+
+
+# ---------------------------------------------------------------------------
+# TestSearchExtended
+# ---------------------------------------------------------------------------
+
+class TestSearchExtended:
+    async def test_search_by_content(self, server_and_client):
+        _, client = server_and_client
+        await client.create_post(title="Boring Title", content="The xylophone plays beautifully")
+        result = await client.search("xylophone")
+        assert isinstance(result, SearchResult)
+        assert len(result.posts) >= 1
+
+    async def test_search_no_results(self, server_and_client):
+        _, client = server_and_client
+        result = await client.search("zzzznonexistenttermmmmm")
+        assert isinstance(result, SearchResult)
+        assert len(result.posts) == 0
+        assert result.total_count == 0
+
+    async def test_search_case_insensitive(self, server_and_client):
+        _, client = server_and_client
+        await client.create_post(title="UPPERCASE TITLE", content="Content")
+        result = await client.search("uppercase")
+        assert len(result.posts) >= 1
+
+
+# ---------------------------------------------------------------------------
+# TestFeedExtended
+# ---------------------------------------------------------------------------
+
+class TestFeedExtended:
+    async def test_empty_feed(self, server_and_client):
+        _, client = server_and_client
+        feed = await client.get_feed()
+        assert isinstance(feed, list)
+        assert len(feed) == 0
+
+    async def test_feed_ordering(self, server_and_client):
+        server, client = server_and_client
+        for i in range(3):
+            pid = str(400 + i)
+            server.state.posts[pid] = {
+                "id": pid, "agent_id": "agent-1", "agent_name": "test-agent",
+                "title": f"Post {i}", "content": f"Content {i}", "submolt": "ai",
+                "upvotes": 0, "downvotes": 0, "comment_count": 0, "tags": [],
+            }
+            server.state.comments[pid] = []
+        feed = await client.get_feed()
+        assert len(feed) == 3
+        # Newest first (highest ID)
+        ids = [item.post.id for item in feed]
+        assert ids == ["402", "401", "400"]
+
+
+# ---------------------------------------------------------------------------
+# TestSubmoltFiltering
+# ---------------------------------------------------------------------------
+
+class TestSubmoltFiltering:
+    async def test_list_posts_by_submolt(self, server_and_client):
+        server, client = server_and_client
+        server.state.posts["500"] = {
+            "id": "500", "agent_id": "agent-1", "agent_name": "test-agent",
+            "title": "AI Post", "content": "AI content", "submolt": "ai",
+            "upvotes": 0, "downvotes": 0, "comment_count": 0, "tags": [],
+        }
+        server.state.posts["501"] = {
+            "id": "501", "agent_id": "agent-1", "agent_name": "test-agent",
+            "title": "Crypto Post", "content": "Crypto content", "submolt": "crypto",
+            "upvotes": 0, "downvotes": 0, "comment_count": 0, "tags": [],
+        }
+        server.state.comments["500"] = []
+        server.state.comments["501"] = []
+
+        # All posts returned when no submolt filter
+        all_posts = await client.get_posts(limit=10)
+        assert len(all_posts) == 2
+
+
+# ---------------------------------------------------------------------------
+# TestDMActivity
+# ---------------------------------------------------------------------------
+
+class TestDMActivity:
+    async def test_dm_activity_count(self, server_and_client):
+        server, client = server_and_client
+        # Pre-populate pending DM requests
+        server.state.dm_requests = [
+            {"id": "r1", "sender_id": "a1", "sender_name": "Bot1",
+             "message": "Hi", "status": "pending"},
+            {"id": "r2", "sender_id": "a2", "sender_name": "Bot2",
+             "message": "Hello", "status": "pending"},
+            {"id": "r3", "sender_id": "a3", "sender_name": "Bot3",
+             "message": "Hey", "status": "approved"},
+        ]
+        activity = await client.check_dm_activity()
+        assert activity["unread_count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# TestScenarioSwitching
+# ---------------------------------------------------------------------------
+
+class TestScenarioSwitching:
+    """Test switching between server scenarios mid-test."""
+
+    async def test_suspend_then_resume(self, server_and_client):
+        """Server suspension followed by recovery."""
+        server, client = server_and_client
+
+        # Normal operation
+        agent = await client.get_self()
+        assert agent.name == "test-agent"
+
+        # Suspend
+        server.state.suspended = True
+        with pytest.raises(SuspensionError):
+            await client.get_self()
+
+        # Resume
+        server.state.suspended = False
+        agent = await client.get_self()
+        assert agent.name == "test-agent"
+
+    async def test_rate_limit_then_clear(self, server_and_client):
+        """Rate limit then clear allows normal operation."""
+        server, client = server_and_client
+
+        server.state.rate_limited = True
+        with pytest.raises(MoltbookError):
+            await client.get_self()
+
+        server.state.rate_limited = False
+        agent = await client.get_self()
+        assert agent.name == "test-agent"
+
+    async def test_challenge_only_affects_next_post(self, server_and_client):
+        """Challenge flag is consumed by first POST, not subsequent ones."""
+        server, client = server_and_client
+        server.state.challenge_on_next_post = True
+
+        # First post triggers challenge
+        post1 = await client.create_post(title="First", content="Content")
+        # Challenge consumed — flag should be False
+        assert server.state.challenge_on_next_post is False
+
+        # Second post is normal
+        post2 = await client.create_post(title="Second", content="Content")
+        assert post2.title == "Second"
+
+
+# ---------------------------------------------------------------------------
+# TestDMFullFlow
+# ---------------------------------------------------------------------------
+
+class TestDMFullFlow:
+    """Test the complete DM lifecycle via real HTTP."""
+
+    async def test_full_dm_lifecycle(self, server_and_client):
+        """Request → Approve → List conversations → Send message → List messages."""
+        server, client = server_and_client
+
+        # Send request
+        req = await client.send_dm_request("agent-99", "Can we talk?")
+        assert "request_id" in req
+
+        # List pending requests
+        requests = await client.list_dm_requests()
+        assert len(requests) == 1
+        assert requests[0].message == "Can we talk?"
+
+        # Approve request — creates conversation
+        approved = await client.approve_dm_request(req["request_id"])
+        assert approved is True
+        assert len(server.state.conversations) == 1
+
+        # List conversations
+        conversations = await client.list_conversations()
+        assert len(conversations) == 1
+        conv_id = conversations[0].id
+
+        # Send message
+        msg = await client.send_dm(conv_id, "Hey, thanks for accepting!")
+        assert isinstance(msg, Message)
+        assert msg.content == "Hey, thanks for accepting!"
+
+        # Verify message stored in conversation
+        conv_state = server.state.conversations[conv_id]
+        assert len(conv_state["messages"]) == 1
+        assert conv_state["last_message"] == "Hey, thanks for accepting!"
+
+    async def test_send_dm_to_nonexistent_conversation(self, server_and_client):
+        """Sending a DM to a nonexistent conversation returns 404."""
+        _, client = server_and_client
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            with pytest.raises(MoltbookError):
+                await client.send_dm("nonexistent-conv", "Hello?")

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Identity Assignment — Settings{% endblock %}
+
+{% block content %}
+<div class="detail">
+    <div class="detail-header">
+        <h1 class="detail-name">Step 6 — Identity Assignment</h1>
+        <p class="detail-description">
+            Each use case needs a personality — the voice and style it uses. Go with the recommended
+            choice or pick any compatible identity.
+        </p>
+    </div>
+
+    {% if error %}
+    <div class="flash flash-error" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <div class="card">
+        <form method="post" action="/settings/step/6" hx-boost="true">
+
+            {% for uc in assignment_data %}
+            <div class="assignment-section">
+                <div class="assignment-header">
+                    <div class="assignment-header-icon" aria-hidden="true">{{ uc.icon }}</div>
+                    <div class="assignment-header-text">
+                        <div class="assignment-header-name">{{ uc.name }} Agent</div>
+                        <div class="assignment-header-desc">{{ uc.description }}</div>
+                    </div>
+                </div>
+
+                {% if uc.compatible | length == 1 %}
+                <input type="hidden" name="{{ uc.id }}_personality" value="{{ uc.compatible[0].name }}">
+                <div class="auto-assigned">
+                    <span class="badge badge-green">Auto-assigned</span>
+                    <strong>{{ uc.compatible[0].display_name }}</strong>
+                    <span class="assignment-role">— {{ uc.compatible[0].role }}</span>
+                </div>
+                {% elif uc.compatible | length > 1 %}
+                <div class="carousel-instance"
+                     data-input-name="{{ uc.id }}_personality"
+                     data-instance-id="{{ uc.id }}"
+                     data-preselected="{{ uc.assigned_personality }}"
+                     data-recommended="{{ uc.recommended }}">
+                    <script type="application/json" class="carousel-data">
+                    {{ uc.compatible | tojson }}
+                    </script>
+                    <div class="carousel-container">
+                        <button type="button" class="carousel-nav carousel-nav-prev"
+                                aria-label="Previous personality">&lsaquo;</button>
+                        <div class="carousel-track"></div>
+                        <button type="button" class="carousel-nav carousel-nav-next"
+                                aria-label="Next personality">&rsaquo;</button>
+                    </div>
+                    <input type="hidden" class="carousel-value"
+                           name="{{ uc.id }}_personality" value="{{ uc.assigned_personality }}">
+                </div>
+                {% endif %}
+
+                <details class="assignment-config">
+                    <summary class="assignment-config-summary">Advanced settings</summary>
+                    <div class="assignment-config-body">
+                        <div class="form-group">
+                            <label class="form-label">
+                                Temperature:
+                                <span id="{{ uc.id }}-temp-val">
+                                    {{ uc.temperature if uc.temperature is not none else (state.llm or {}).get('default_temperature', 0.7) }}
+                                </span>
+                            </label>
+                            <input type="range" class="form-range"
+                                   name="{{ uc.id }}_temperature"
+                                   min="0" max="2" step="0.1"
+                                   value="{{ uc.temperature if uc.temperature is not none else (state.llm or {}).get('default_temperature', 0.7) }}"
+                                   oninput="document.getElementById('{{ uc.id }}-temp-val').textContent = this.value">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="{{ uc.id }}_max_tokens">Max Tokens</label>
+                            <input type="number" class="form-input"
+                                   name="{{ uc.id }}_max_tokens" id="{{ uc.id }}_max_tokens"
+                                   value="{{ uc.max_tokens if uc.max_tokens is not none else (state.llm or {}).get('default_max_tokens', 2000) }}"
+                                   min="100" max="32000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="{{ uc.id }}_heartbeat_hours">
+                                Heartbeat Interval (hours)
+                            </label>
+                            <span class="form-hint">How often the agent wakes up to check for work</span>
+                            <input type="number" class="form-input"
+                                   name="{{ uc.id }}_heartbeat_hours" id="{{ uc.id }}_heartbeat_hours"
+                                   value="{{ uc.heartbeat_hours if uc.heartbeat_hours is not none else 4 }}"
+                                   min="1" max="24">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                                <input type="checkbox" name="{{ uc.id }}_quiet_hours" value="on"
+                                       {{ 'checked' if uc.quiet_hours }}>
+                                <span class="form-label" style="margin-bottom: 0;">Enable quiet hours</span>
+                            </label>
+                            <span class="form-hint">Agent sleeps during nighttime hours</span>
+                        </div>
+                    </div>
+                </details>
+            </div>
+            {% endfor %}
+
+            <div class="btn-group mt-3">
+                <a href="/settings/step/5" class="btn btn-ghost">Back</a>
+                <button type="submit" class="btn btn-primary">Next: Review</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="/static/js/character-select.js"></script>
+{% endblock %}

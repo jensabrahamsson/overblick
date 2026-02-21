@@ -29,6 +29,19 @@ async def spegel_page(request: Request):
     })
 
 
+def has_data() -> bool:
+    """Return True if any Spegel state files exist in data directories."""
+    from pathlib import Path
+    data_root = Path("data")
+    if not data_root.exists():
+        return False
+    return any(
+        (identity_dir / "spegel_state.json").exists()
+        for identity_dir in data_root.iterdir()
+        if identity_dir.is_dir()
+    )
+
+
 def _load_pairs(request: Request) -> list:
     """Load Spegel pairs from data directories."""
     import json

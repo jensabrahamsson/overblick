@@ -20,6 +20,10 @@ def main() -> None:
     )
     parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
+    parser.add_argument(
+        "--test", action="store_true",
+        help="Test mode: disable auth, deterministic secret key, skip first-run redirect",
+    )
 
     args = parser.parse_args()
 
@@ -37,6 +41,12 @@ def main() -> None:
     from .config import get_config
     config = get_config()
     config.port = args.port
+
+    if args.test:
+        config.test_mode = True
+        config.password = ""
+        config.secret_key = "test-mode-deterministic-key-do-not-use-in-production"
+        print("TEST MODE ACTIVE")
 
     from .app import create_app
     app = create_app(config)

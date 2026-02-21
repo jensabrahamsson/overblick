@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="detail">
+    <div class="detail-header">
+        <div class="detail-title-row">
+            <h1 class="detail-name">
+                {% if pre_populated %}
+                Reconfigure Överblick
+                {% else %}
+                Set Up Överblick
+                {% endif %}
+            </h1>
+            {% if pre_populated %}
+            <span class="badge badge-amber">Reconfiguring existing setup</span>
+            {% else %}
+            <span class="badge badge-green">First-time setup</span>
+            {% endif %}
+        </div>
+        <p class="detail-description">
+            {% if pre_populated %}
+            Your existing configuration will be pre-filled. Review each step and save to apply changes.
+            {% else %}
+            This wizard will guide you through setting up your Överblick installation.
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="card" style="max-width: 640px;">
+        <h3 class="card-title">What we'll configure</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Step 2</span>
+                <span class="info-value">Principal — your name, email and timezone</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Step 3</span>
+                <span class="info-value">AI Engine — Ollama, LM Studio, Gateway or OpenAI</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Step 4</span>
+                <span class="info-value">Communication — Gmail and Telegram</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Step 5</span>
+                <span class="info-value">Use cases — what your agents should do</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Step 6</span>
+                <span class="info-value">Identity assignment — who handles what</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Step 7</span>
+                <span class="info-value">Review &amp; save</span>
+            </div>
+        </div>
+
+        <form method="post" action="/settings/step/1" hx-boost="true" style="margin-top: var(--space-lg);">
+            <button type="submit" class="btn btn-primary btn-large">
+                {% if pre_populated %}Continue to Reconfigure{% else %}Start Setup{% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

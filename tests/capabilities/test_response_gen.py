@@ -310,13 +310,58 @@ class TestResponseGenerator:
     async def test_custom_temperature(self):
         pipeline = make_pipeline("Response")
         gen = ResponseGenerator(llm_pipeline=pipeline, system_prompt="Test", temperature=0.5)
-        
+
         await gen.generate_comment(
             post_title="Test",
             post_content="Content",
             agent_name="Bot",
             prompt_template="{title}",
         )
-        
+
         call_args = pipeline.chat.call_args[1]
         assert call_args["temperature"] == 0.5
+
+    @pytest.mark.asyncio
+    async def test_generate_comment_identity_prompt_aliases(self):
+        """Identity prompts use {post_content}/{author} instead of {content}/{agent_name}."""
+        pipeline = make_pipeline("Thoughtful response")
+        gen = ResponseGenerator(llm_pipeline=pipeline, system_prompt="Test")
+
+        # Template using identity-style placeholders (like Anomal/Cherry prompts)
+        result = await gen.generate_comment(
+            post_title="AI Ethics",
+            post_content="We should regulate AI",
+            agent_name="PhilosopherBot",
+            prompt_template="POST by {author}:\n{post_content}\nCategory: {category}\nComments: {existing_comments}",
+        )
+
+        assert result == "Thoughtful response"
+        call_args = pipeline.chat.call_args[1]
+        user_message = call_args["messages"][1]["content"]
+        # {author} should resolve to the wrapped agent_name
+        assert "<<<EXTERNAL_AGENT_NAME_START>>>" in user_message
+        # {post_content} should resolve to the wrapped post content
+        assert "<<<EXTERNAL_POST_CONTENT_START>>>" in user_message
+
+    @pytest.mark.asyncio
+    async def test_generate_comment_extra_format_vars(self):
+        """Extra format vars are passed through to template formatting."""
+        pipeline = make_pipeline("Response")
+        gen = ResponseGenerator(llm_pipeline=pipeline, system_prompt="Test")
+
+        result = await gen.generate_comment(
+            post_title="Test",
+            post_content="Content",
+            agent_name="Bot",
+            prompt_template="{title}\nInstruction: {opening_instruction}\nCategory: {category}",
+            extra_format_vars={
+                "opening_instruction": "START DIRECTLY",
+                "category": "philosophy",
+            },
+        )
+
+        assert result == "Response"
+        call_args = pipeline.chat.call_args[1]
+        user_message = call_args["messages"][1]["content"]
+        assert "START DIRECTLY" in user_message
+        assert "philosophy" in user_message

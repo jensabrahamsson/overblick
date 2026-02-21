@@ -11,7 +11,7 @@ External content is wrapped in boundary markers to prevent prompt injection.
 """
 
 import logging
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from overblick.core.security.input_sanitizer import wrap_external_content
 
@@ -118,6 +118,7 @@ class ResponseGenerator:
         existing_comments: list[str] = None,
         extra_context: str = "",
         priority: str = "low",
+        extra_format_vars: dict[str, str] | None = None,
     ) -> Optional[str]:
         """Generate a comment response to a post."""
         # Wrap external content in boundary markers to prevent injection
@@ -131,12 +132,24 @@ class ResponseGenerator:
                 "\n".join(existing_comments[:3]), "existing_comments"
             )
 
-        prompt = prompt_template.format(
-            title=safe_title,
-            content=safe_content,
-            agent_name=safe_agent,
-            existing_comments=safe_comments,
-        )
+        # Build format vars with aliases for identity prompt compatibility.
+        # Identity prompts may use {post_content}/{author}/{category} while
+        # the standard interface uses {content}/{agent_name}.
+        format_vars = {
+            "title": safe_title,
+            "content": safe_content,
+            "agent_name": safe_agent,
+            "existing_comments": safe_comments,
+            # Aliases used by identity-specific prompt templates
+            "post_content": safe_content,
+            "author": safe_agent,
+            "category": "",
+            "opening_instruction": "",
+        }
+        if extra_format_vars:
+            format_vars.update(extra_format_vars)
+
+        prompt = prompt_template.format(**format_vars)
 
         if extra_context:
             prompt = f"{extra_context}\n\n{prompt}"
@@ -192,6 +205,7 @@ class ResponseGenerator:
         self,
         prompt_template: str,
         topic_index: int = 0,
+        topic_vars: dict[str, str] | None = None,
     ) -> Optional[tuple[str, str, str]]:
         """
         Generate a heartbeat post.
@@ -199,10 +213,19 @@ class ResponseGenerator:
         Heartbeats are system-initiated (no external content),
         so preflight is skipped but output safety remains active.
 
+        Args:
+            prompt_template: Template string with placeholders.
+            topic_index: Index into the HEARTBEAT_TOPICS list.
+            topic_vars: Extra format variables (topic_instruction, topic_example)
+                        resolved from HEARTBEAT_TOPICS by the caller.
+
         Returns:
             (title, content, submolt) tuple or None on failure.
         """
-        prompt = prompt_template.format(topic_index=topic_index)
+        fmt_vars: dict[str, Any] = {"topic_index": topic_index}
+        if topic_vars:
+            fmt_vars.update(topic_vars)
+        prompt = prompt_template.format(**fmt_vars)
 
         content = await self._call_llm(
             prompt,

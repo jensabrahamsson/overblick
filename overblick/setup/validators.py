@@ -34,25 +34,48 @@ class PrincipalData(BaseModel):
         return v
 
 
-class LLMData(BaseModel):
-    """Step 3: LLM configuration."""
-    llm_provider: str = "ollama"
-    ollama_host: str = "127.0.0.1"
-    ollama_port: int = 11434
+class BackendConfig(BaseModel):
+    """Configuration for a single LLM backend (local or cloud inference)."""
+    enabled: bool = False
+    backend_type: str = "ollama"  # "ollama" | "lmstudio"
+    host: str = "127.0.0.1"
+    port: int = 11434
     model: str = "qwen3:8b"
+
+    @field_validator("backend_type")
+    @classmethod
+    def valid_type(cls, v: str) -> str:
+        if v not in ("ollama", "lmstudio"):
+            raise ValueError("Backend type must be 'ollama' or 'lmstudio'")
+        return v
+
+
+class OpenAIConfig(BaseModel):
+    """Configuration for OpenAI backend (coming soon)."""
+    enabled: bool = False
+    api_url: str = "https://api.openai.com/v1"
+    model: str = "gpt-4o"
+
+
+class LLMData(BaseModel):
+    """Step 3: LLM configuration with gateway-as-router architecture.
+
+    Gateway is always-on infrastructure. Backends (local, cloud, openai)
+    are the actual inference targets that the gateway routes to.
+    """
     gateway_url: str = "http://127.0.0.1:8200"
+    local: BackendConfig = BackendConfig(enabled=True)
+    cloud: BackendConfig = BackendConfig(enabled=False, host="", port=11434)
+    openai: OpenAIConfig = OpenAIConfig(enabled=False)
+    default_backend: str = "local"
     default_temperature: float = 0.7
     default_max_tokens: int = 2000
 
-    # Cloud LLM fields
-    cloud_api_url: str = ""
-    cloud_model: str = ""
-
-    @field_validator("llm_provider")
+    @field_validator("default_backend")
     @classmethod
-    def valid_provider(cls, v: str) -> str:
-        if v not in ("ollama", "gateway", "cloud"):
-            raise ValueError("Provider must be 'ollama', 'gateway', or 'cloud'")
+    def valid_default(cls, v: str) -> str:
+        if v not in ("local", "cloud", "openai"):
+            raise ValueError("Default backend must be 'local', 'cloud', or 'openai'")
         return v
 
     @field_validator("default_temperature")

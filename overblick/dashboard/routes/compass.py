@@ -31,6 +31,19 @@ async def compass_page(request: Request):
     })
 
 
+def has_data() -> bool:
+    """Return True if any Compass state files exist in data directories."""
+    from pathlib import Path
+    data_root = Path("data")
+    if not data_root.exists():
+        return False
+    return any(
+        (identity_dir / "compass_state.json").exists()
+        for identity_dir in data_root.iterdir()
+        if identity_dir.is_dir()
+    )
+
+
 def _load_compass_data(request: Request) -> tuple:
     """Load Compass data from data directories."""
     import json

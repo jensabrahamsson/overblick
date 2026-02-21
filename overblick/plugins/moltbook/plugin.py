@@ -73,6 +73,7 @@ class MoltbookPlugin(PluginBase):
         self._comments_this_cycle = 0
         self._max_comments_per_cycle = 2
         self._suspended_until: Optional[datetime] = None
+        self._dms_supported: bool = True  # Set to False on first 404 from DM endpoints
 
     async def setup(self) -> None:
         """Initialize all Moltbook components using self.ctx."""
@@ -282,7 +283,10 @@ class MoltbookPlugin(PluginBase):
     async def _engage_with_post(self, post, decision) -> None:
         """Generate and post a comment on a post."""
         prompts = self._load_prompts(self.ctx.identity.name)
-        comment_prompt = getattr(prompts, "COMMENT_PROMPT", "Respond to this post:\nTitle: {title}\n{content}")
+        comment_prompt = getattr(
+            prompts, "COMMENT_PROMPT",
+            getattr(prompts, "RESPONSE_PROMPT", "Respond to this post:\nTitle: {title}\n{content}"),
+        )
 
         existing = [c.content for c in (post.comments or [])[:3]]
 
@@ -299,6 +303,13 @@ class MoltbookPlugin(PluginBase):
             prompt_template=comment_prompt,
             existing_comments=existing,
             extra_context=extra_context,
+            extra_format_vars={
+                "category": getattr(post, "submolt", "general"),
+                "opening_instruction": (
+                    "START DIRECTLY with your actual point. "
+                    "No opening phrase needed."
+                ),
+            },
         )
 
         if not response:
@@ -410,6 +421,9 @@ class MoltbookPlugin(PluginBase):
         1. Approve any pending DM requests.
         2. For each conversation with unread messages, generate and send a reply.
         """
+        if not self._dms_supported:
+            return
+
         prompts = self._load_prompts(self.ctx.identity.name)
         dm_prompt = getattr(prompts, "DM_PROMPT", "Reply to this DM from {sender}:\n{message}\n\nReply:")
 
@@ -453,7 +467,13 @@ class MoltbookPlugin(PluginBase):
         except SuspensionError:
             raise  # Let tick() handle the 24h backoff
         except MoltbookError as e:
-            logger.warning("DM handling error: %s", e)
+            if "API 404" in str(e):
+                self._dms_supported = False
+                logger.warning(
+                    "DM endpoint not available on this server (404) — disabling DM handling"
+                )
+            else:
+                logger.warning("DM handling error: %s", e)
 
     async def _handle_moltcaptcha(self, post_id: str, source) -> None:
         """Solve and reply to a MoltCaptcha challenge.
@@ -497,7 +517,10 @@ class MoltbookPlugin(PluginBase):
                 return False
 
             prompts = self._load_prompts(self.ctx.identity.name)
-            reply_prompt = getattr(prompts, "REPLY_PROMPT", "Reply to: {comment}\nOn post: {title}")
+            reply_prompt = getattr(
+                prompts, "REPLY_PROMPT",
+                getattr(prompts, "REPLY_TO_COMMENT_PROMPT", "Reply to: {comment}\nOn post: {title}"),
+            )
 
             response = await self._response_gen.generate_reply(
                 original_post_title=post.title,
@@ -522,11 +545,23 @@ class MoltbookPlugin(PluginBase):
 
         prompts = self._load_prompts(self.ctx.identity.name)
         heartbeat_prompt = getattr(prompts, "HEARTBEAT_PROMPT", "Write a short post about topic {topic_index}.")
+        heartbeat_topics = getattr(prompts, "HEARTBEAT_TOPICS", [])
 
         topic_index = self._heartbeat.get_next_topic_index()
+
+        # Resolve topic instruction and example from the topics list
+        topic_vars: dict[str, str] = {}
+        if heartbeat_topics and 0 <= topic_index < len(heartbeat_topics):
+            topic = heartbeat_topics[topic_index]
+            topic_vars = {
+                "topic_instruction": topic.get("instruction", ""),
+                "topic_example": topic.get("example", ""),
+            }
+
         result = await self._response_gen.generate_heartbeat(
             prompt_template=heartbeat_prompt,
             topic_index=topic_index,
+            topic_vars=topic_vars,
         )
 
         if not result:

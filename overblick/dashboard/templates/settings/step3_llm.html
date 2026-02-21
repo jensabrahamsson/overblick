@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}AI Engine — Settings{% endblock %}
+
+{% block content %}
+<div class="detail">
+    <div class="detail-header">
+        <h1 class="detail-name">Step 3 — AI Engine</h1>
+        <p class="detail-description">
+            Choose how your agents access their language model. Local models run on your machine.
+            Gateway enables priority queuing for multiple agents.
+        </p>
+    </div>
+
+    {% if error %}
+    <div class="flash flash-error" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <div class="card" style="max-width: 720px;">
+        <form method="post" action="/settings/step/3" hx-boost="true">
+            {% set llm = state.llm or {} %}
+            {% set provider = llm.get('llm_provider', 'ollama') %}
+
+            <!-- Provider selection grouped by category -->
+            <div class="form-group">
+                <label class="form-label">Provider</label>
+
+                <p class="form-hint" style="margin-bottom: var(--space-sm);">── Local ──────────────────────────────────────</p>
+                <div class="radio-cards">
+                    <label class="radio-card">
+                        <input type="radio" name="llm_provider" value="ollama"
+                               {{ 'checked' if provider == 'ollama' else '' }}
+                               onchange="switchProvider('ollama')">
+                        <div class="radio-card-title">Ollama</div>
+                        <div class="radio-card-desc">Direct local connection. Default port 11434.</div>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="llm_provider" value="lmstudio"
+                               {{ 'checked' if provider == 'lmstudio' else '' }}
+                               onchange="switchProvider('lmstudio')">
+                        <div class="radio-card-title">LM Studio</div>
+                        <div class="radio-card-desc">OpenAI-compatible local server. Default port 1234.</div>
+                    </label>
+                </div>
+
+                <p class="form-hint" style="margin: var(--space-md) 0 var(--space-sm);">── Gateway ─────────────────────────────────────</p>
+                <div class="radio-cards">
+                    <label class="radio-card">
+                        <input type="radio" name="llm_provider" value="gateway"
+                               {{ 'checked' if provider == 'gateway' else '' }}
+                               onchange="switchProvider('gateway')">
+                        <div class="radio-card-title">Överblick Gateway</div>
+                        <div class="radio-card-desc">Priority queue for multiple agents. Better for production.</div>
+                    </label>
+                </div>
+
+                <p class="form-hint" style="margin: var(--space-md) 0 var(--space-sm);">── Cloud ─────────────────────────────────────────</p>
+                <div class="radio-cards">
+                    <label class="radio-card" style="opacity: 0.5; cursor: not-allowed;">
+                        <input type="radio" name="llm_provider" value="openai"
+                               {{ 'checked' if provider == 'openai' else '' }}
+                               onchange="switchProvider('openai')" disabled>
+                        <div class="radio-card-title">OpenAI <span class="badge badge-amber" style="font-size: 0.7rem;">Coming soon</span></div>
+                        <div class="radio-card-desc">GPT-4o and other OpenAI models via API key.</div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Ollama / LM Studio host+port config -->
+            <div id="ollama-config" style="display: {{ 'block' if provider in ('ollama', 'lmstudio') else 'none' }};">
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-md);">
+                    <div class="form-group">
+                        <label class="form-label" for="ollama_host">Host</label>
+                        <input type="text" class="form-input" id="ollama_host" name="ollama_host"
+                               value="{{ llm.get('ollama_host', '127.0.0.1') }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ollama_port">Port</label>
+                        <input type="number" class="form-input" id="ollama_port" name="ollama_port"
+                               value="{{ llm.get('ollama_port', 11434) }}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div style="display: flex; align-items: center; gap: var(--space-md);">
+                        <button type="button" class="btn btn-secondary btn-sm"
+                                hx-post="/settings/test/ollama"
+                                hx-include="#ollama_host, #ollama_port"
+                                hx-target="#ollama-status">
+                            Test Connection
+                        </button>
+                        <span id="ollama-status" class="test-result"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gateway config -->
+            <div id="gateway-config" style="display: {{ 'block' if provider == 'gateway' else 'none' }};">
+                <div class="form-group">
+                    <label class="form-label" for="gateway_url">Gateway URL</label>
+                    <input type="text" class="form-input" id="gateway_url" name="gateway_url"
+                           value="{{ llm.get('gateway_url', 'http://127.0.0.1:8200') }}">
+                </div>
+            </div>
+
+            <!-- OpenAI placeholder config (disabled) -->
+            <div id="openai-config" style="display: {{ 'block' if provider == 'openai' else 'none' }};">
+                <div class="form-group">
+                    <label class="form-label" for="cloud_model">Model</label>
+                    <input type="text" class="form-input" id="cloud_model" name="cloud_model"
+                           value="{{ llm.get('cloud_model', '') }}"
+                           placeholder="gpt-4o" disabled>
+                    <span class="form-hint">OpenAI integration is coming soon.</span>
+                </div>
+                <input type="hidden" name="cloud_api_url" value="{{ llm.get('cloud_api_url', 'https://api.openai.com/v1') }}">
+            </div>
+
+            <!-- Common LLM settings -->
+            <div class="form-group">
+                <label class="form-label" for="model">Model name</label>
+                <span class="form-hint" id="model_hint">The LLM model to use (e.g. qwen3:8b)</span>
+                <input type="text" class="form-input" id="model" name="model"
+                       value="{{ llm.get('model', 'qwen3:8b') }}" list="model-suggestions"
+                       aria-describedby="model_hint">
+                <datalist id="model-suggestions">
+                    <option value="qwen3:8b">
+                    <option value="qwen3:14b">
+                    <option value="llama3:8b">
+                    <option value="mistral:7b">
+                    <option value="gemma2:9b">
+                </datalist>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    Temperature: <span id="temp-value">{{ llm.get('default_temperature', 0.7) }}</span>
+                </label>
+                <span class="form-hint" id="temp_hint">Lower = more focused, Higher = more creative (0.0–2.0)</span>
+                <input type="range" class="form-range" id="default_temperature" name="default_temperature"
+                       min="0" max="2" step="0.1" value="{{ llm.get('default_temperature', 0.7) }}"
+                       oninput="document.getElementById('temp-value').textContent = this.value"
+                       aria-describedby="temp_hint">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="default_max_tokens">Max tokens</label>
+                <span class="form-hint" id="max_tokens_hint">Maximum response length (100–32000)</span>
+                <input type="number" class="form-input" id="default_max_tokens" name="default_max_tokens"
+                       value="{{ llm.get('default_max_tokens', 2000) }}" min="100" max="32000"
+                       aria-describedby="max_tokens_hint">
+            </div>
+
+            <div class="btn-group">
+                <a href="/settings/step/2" class="btn btn-ghost">Back</a>
+                <button type="submit" class="btn btn-primary">Next: Communication</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function switchProvider(provider) {
+    document.getElementById('ollama-config').style.display =
+        (provider === 'ollama' || provider === 'lmstudio') ? 'block' : 'none';
+    document.getElementById('gateway-config').style.display =
+        provider === 'gateway' ? 'block' : 'none';
+    document.getElementById('openai-config').style.display =
+        provider === 'openai' ? 'block' : 'none';
+
+    // Update default port when switching between Ollama and LM Studio
+    const portInput = document.getElementById('ollama_port');
+    if (portInput) {
+        if (provider === 'lmstudio' && portInput.value === '11434') {
+            portInput.value = '1234';
+        } else if (provider === 'ollama' && portInput.value === '1234') {
+            portInput.value = '11434';
+        }
+    }
+}
+</script>
+{% endblock %}

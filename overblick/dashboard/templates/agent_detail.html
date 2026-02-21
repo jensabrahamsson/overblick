@@ -110,6 +110,13 @@
                 <span class="text-muted">No plugins configured</span>
                 {% endif %}
             </div>
+            {% if plugin_links %}
+            <div class="btn-group mt-2">
+                {% for link in plugin_links %}
+                <a href="{{ link.url }}" class="btn btn-ghost btn-sm">View {{ link.label }} data →</a>
+                {% endfor %}
+            </div>
+            {% endif %}
 
             <h3 class="card-title mt-3">Capabilities</h3>
             <div class="tag-list">

@@ -6,10 +6,12 @@ import pytest
 from pydantic import ValidationError
 
 from overblick.setup.validators import (
-    UseCaseSelection,
+    BackendConfig,
     CommunicationData,
     LLMData,
+    OpenAIConfig,
     PrincipalData,
+    UseCaseSelection,
 )
 
 
@@ -52,31 +54,76 @@ class TestPrincipalData:
         assert data.language_preference == "en"
 
 
+class TestBackendConfig:
+    """Tests for individual backend configuration."""
+
+    def test_default_backend(self):
+        bc = BackendConfig()
+        assert not bc.enabled
+        assert bc.backend_type == "ollama"
+        assert bc.host == "127.0.0.1"
+        assert bc.port == 11434
+        assert bc.model == "qwen3:8b"
+
+    def test_enabled_backend(self):
+        bc = BackendConfig(enabled=True, backend_type="lmstudio", port=1234)
+        assert bc.enabled
+        assert bc.backend_type == "lmstudio"
+        assert bc.port == 1234
+
+    def test_invalid_type(self):
+        with pytest.raises(ValidationError, match="ollama"):
+            BackendConfig(backend_type="invalid")
+
+
 class TestLLMData:
-    """Tests for Step 3 validation."""
+    """Tests for Step 3 validation (new backends structure)."""
 
-    def test_valid_ollama(self):
-        data = LLMData(llm_provider="ollama", model="qwen3:8b")
-        assert data.llm_provider == "ollama"
-        assert data.ollama_port == 11434
-
-    def test_valid_gateway(self):
-        data = LLMData(llm_provider="gateway")
+    def test_defaults(self):
+        data = LLMData()
         assert data.gateway_url == "http://127.0.0.1:8200"
+        assert data.local.enabled is True
+        assert data.cloud.enabled is False
+        assert data.openai.enabled is False
+        assert data.default_backend == "local"
+        assert data.default_temperature == 0.7
+        assert data.default_max_tokens == 2000
 
-    def test_valid_cloud(self):
+    def test_local_ollama(self):
         data = LLMData(
-            llm_provider="cloud",
-            cloud_api_url="https://api.openai.com/v1",
-            cloud_model="gpt-4o",
+            local=BackendConfig(enabled=True, backend_type="ollama", model="qwen3:8b"),
         )
-        assert data.llm_provider == "cloud"
-        assert data.cloud_api_url == "https://api.openai.com/v1"
-        assert data.cloud_model == "gpt-4o"
+        assert data.local.enabled
+        assert data.local.backend_type == "ollama"
+        assert data.local.port == 11434
 
-    def test_invalid_provider(self):
-        with pytest.raises(ValidationError, match="ollama.*gateway.*cloud"):
-            LLMData(llm_provider="something_else")
+    def test_local_lmstudio(self):
+        data = LLMData(
+            local=BackendConfig(enabled=True, backend_type="lmstudio", port=1234),
+        )
+        assert data.local.backend_type == "lmstudio"
+        assert data.local.port == 1234
+
+    def test_cloud_backend(self):
+        data = LLMData(
+            cloud=BackendConfig(enabled=True, host="gpu.example.com", model="qwen3:14b"),
+        )
+        assert data.cloud.enabled
+        assert data.cloud.host == "gpu.example.com"
+        assert data.cloud.model == "qwen3:14b"
+
+    def test_openai_backend(self):
+        data = LLMData(
+            openai=OpenAIConfig(enabled=True, model="gpt-4o"),
+            default_backend="openai",
+        )
+        assert data.openai.enabled
+        assert data.openai.model == "gpt-4o"
+        assert data.default_backend == "openai"
+
+    def test_invalid_default_backend(self):
+        with pytest.raises(ValidationError, match="local.*cloud.*openai"):
+            LLMData(default_backend="something_else")
 
     def test_temperature_bounds(self):
         data = LLMData(default_temperature=0.0)
@@ -97,6 +144,27 @@ class TestLLMData:
 
         with pytest.raises(ValidationError, match="Max tokens"):
             LLMData(default_max_tokens=50000)
+
+    def test_gateway_url_custom(self):
+        data = LLMData(gateway_url="http://10.0.0.5:8200")
+        assert data.gateway_url == "http://10.0.0.5:8200"
+
+    def test_full_config(self):
+        """Test a fully configured multi-backend setup."""
+        data = LLMData(
+            gateway_url="http://127.0.0.1:8200",
+            local=BackendConfig(enabled=True, model="qwen3:8b"),
+            cloud=BackendConfig(enabled=True, host="gpu.lan", port=11434, model="qwen3:14b"),
+            openai=OpenAIConfig(enabled=False),
+            default_backend="local",
+            default_temperature=0.8,
+            default_max_tokens=4000,
+        )
+        assert data.local.enabled
+        assert data.cloud.enabled
+        assert not data.openai.enabled
+        assert data.default_temperature == 0.8
+        assert data.default_max_tokens == 4000
 
 
 class TestCommunicationData:

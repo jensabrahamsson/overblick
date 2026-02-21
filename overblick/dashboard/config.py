@@ -48,6 +48,9 @@ class DashboardConfig(BaseModel):
     # Polling interval for htmx (seconds)
     poll_interval: int = 5
 
+    # Test mode — disables auth, uses deterministic secret key
+    test_mode: bool = False
+
     # Paths (set at runtime from base_dir)
     base_dir: str = ""
 

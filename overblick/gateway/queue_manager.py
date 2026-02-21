@@ -3,7 +3,7 @@ Priority queue manager for LLM requests.
 
 Implements a priority queue where HIGH priority requests (interactive identity
 agents) are processed before LOW priority requests (background tasks).
-A single worker serializes GPU access.
+A single worker serializes GPU access. Supports multi-backend routing.
 """
 
 import asyncio
@@ -27,6 +27,7 @@ class QueueManager:
     - Priority-based ordering (HIGH=1, LOW=5)
     - FIFO within same priority level
     - Single worker to protect GPU
+    - Multi-backend routing via BackendRegistry
     - Metrics and statistics tracking
     """
 
@@ -34,10 +35,12 @@ class QueueManager:
         self,
         config: Optional[GatewayConfig] = None,
         client: Optional[OllamaClient] = None,
+        registry: Optional["BackendRegistry"] = None,
     ):
         """Initialize the queue manager."""
         self.config = config or get_config()
         self.client = client or OllamaClient(self.config)
+        self._registry = registry
 
         self._queue: asyncio.PriorityQueue[QueuedRequest] = asyncio.PriorityQueue(
             maxsize=self.config.max_queue_size
@@ -90,6 +93,7 @@ class QueueManager:
         self,
         request: ChatRequest,
         priority: Priority = Priority.LOW,
+        backend: Optional[str] = None,
     ) -> ChatResponse:
         """
         Submit a request to the queue and wait for completion.
@@ -97,6 +101,7 @@ class QueueManager:
         Args:
             request: The chat request
             priority: Request priority (HIGH or LOW)
+            backend: Target backend name (None = default)
 
         Returns:
             The chat response
@@ -105,9 +110,15 @@ class QueueManager:
             asyncio.QueueFull: If queue is at capacity
             asyncio.TimeoutError: If request times out
             OllamaError: If LLM request fails
+            ValueError: If specified backend doesn't exist
         """
         if not self._running:
             raise RuntimeError("Queue manager not running")
+
+        # Validate backend name early
+        if backend and self._registry:
+            # This will raise ValueError if backend doesn't exist
+            self._registry.get_client(backend)
 
         loop = asyncio.get_running_loop()
         future: asyncio.Future[ChatResponse] = loop.create_future()
@@ -117,9 +128,11 @@ class QueueManager:
             timestamp=time.time(),
             request=request,
             future=future,
+            backend=backend,
         )
 
-        logger.debug("Submitting request %s with priority %s", queued.request_id, priority.name)
+        logger.debug("Submitting request %s with priority %s (backend=%s)",
+                      queued.request_id, priority.name, backend or "default")
 
         try:
             self._queue.put_nowait(queued)
@@ -178,12 +191,16 @@ class QueueManager:
                     logger.info("Skipping cancelled request %s after queue wait", queued.request_id)
                     return
 
+                # Select the right backend client
+                client = self._get_client_for_request(queued)
+
                 logger.info(
-                    "Processing request %s (priority=%s, model=%s)",
+                    "Processing request %s (priority=%s, model=%s, backend=%s)",
                     queued.request_id, queued.priority.name, queued.request.model,
+                    queued.backend or "default",
                 )
 
-                response = await self.client.chat_completion(queued.request)
+                response = await client.chat_completion(queued.request)
 
                 if not queued.future.done():
                     queued.future.set_result(response)
@@ -201,6 +218,14 @@ class QueueManager:
         finally:
             self._is_processing = False
             self._queue.task_done()
+
+    def _get_client_for_request(self, queued: QueuedRequest) -> OllamaClient:
+        """Get the appropriate OllamaClient for a queued request."""
+        if self._registry and queued.backend:
+            return self._registry.get_client(queued.backend)
+        if self._registry:
+            return self._registry.get_client()  # default backend
+        return self.client  # legacy single client
 
     def _update_stats(self, priority: Priority, elapsed_ms: float) -> None:
         """Update statistics after processing a request."""

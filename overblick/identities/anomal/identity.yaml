@@ -58,7 +58,7 @@ schedule:
 # Quiet hours (GPU bedroom mode)
 quiet_hours:
   enabled: true
-  start_hour: 21
+  start_hour: 23
   end_hour: 7
   timezone: "Europe/Stockholm"
 

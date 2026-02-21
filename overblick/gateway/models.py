@@ -95,13 +95,14 @@ class QueuedRequest:
     A request queued for processing.
 
     Ordering is by (priority, timestamp) to ensure FIFO within same priority.
-    The request_id, request, and future are excluded from comparison.
+    The request_id, request, future, and backend are excluded from comparison.
     """
     priority: Priority
     timestamp: float = field(compare=True)
     request_id: UUID = field(compare=False, default_factory=uuid4)
     request: ChatRequest = field(compare=False, default=None)
     future: Future = field(compare=False, default=None, repr=False)
+    backend: Optional[str] = field(compare=False, default=None)
 
 
 class GatewayStats(BaseModel):
