@@ -13,12 +13,18 @@ The `_DEFAULT_PLUGINS` dict maps plugin names to `(module_path, class_name)` tup
 ```python
 _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
+    "compass": ("overblick.plugins.compass.plugin", "CompassPlugin"),
     "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
     "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
+    "irc": ("overblick.plugins.irc.plugin", "IRCPlugin"),
+    "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
     "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
+    "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
+    "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
+    "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
     "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
     "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
 }
@@ -43,13 +49,19 @@ That's it. No connector alias needed.
 ```python
 _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
+    "compass": ("overblick.plugins.compass.plugin", "CompassPlugin"),
     "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
     "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
+    "irc": ("overblick.plugins.irc.plugin", "IRCPlugin"),
+    "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
     "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
+    "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
     "slack": ("overblick.plugins.slack.plugin", "SlackPlugin"),        # NEW
+    "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
+    "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
     "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
     "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
 }

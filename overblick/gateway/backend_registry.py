@@ -182,13 +182,24 @@ class BackendRegistry:
         return list(self._clients.keys())
 
     async def health_check_all(self) -> dict[str, bool]:
-        """Check health of all registered backends."""
+        """Check health of all registered backends.
+
+        Each backend is checked independently — one failure doesn't
+        prevent checking the rest.
+        """
         results = {}
         for name, client in self._clients.items():
-            results[name] = await client.health_check()
+            try:
+                results[name] = await client.health_check()
+            except Exception as e:
+                logger.warning("Health check failed for backend '%s': %s", name, e)
+                results[name] = False
         return results
 
     async def close_all(self) -> None:
-        """Close all client connections."""
-        for client in self._clients.values():
-            await client.close()
+        """Close all client connections (one failure won't prevent closing the rest)."""
+        for name, client in self._clients.items():
+            try:
+                await client.close()
+            except Exception as e:
+                logger.warning("Failed to close backend '%s': %s", name, e)

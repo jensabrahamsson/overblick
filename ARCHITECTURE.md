@@ -323,15 +323,20 @@ The sole framework interface. Provides controlled access to everything a plugin 
 ```python
 _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest":   ("overblick.plugins.ai_digest.plugin",   "AiDigestPlugin"),
+    "compass":     ("overblick.plugins.compass.plugin",      "CompassPlugin"),
     "discord":     ("overblick.plugins.discord.plugin",      "DiscordPlugin"),
+    "email_agent": ("overblick.plugins.email_agent.plugin",  "EmailAgentPlugin"),
+    "host_health": ("overblick.plugins.host_health.plugin",  "HostHealthPlugin"),
+    "irc":         ("overblick.plugins.irc.plugin",          "IRCPlugin"),
+    "kontrast":    ("overblick.plugins.kontrast.plugin",     "KontrastPlugin"),
     "matrix":      ("overblick.plugins.matrix.plugin",       "MatrixPlugin"),
     "moltbook":    ("overblick.plugins.moltbook.plugin",     "MoltbookPlugin"),
     "rss":         ("overblick.plugins.rss.plugin",          "RSSPlugin"),
+    "skuggspel":   ("overblick.plugins.skuggspel.plugin",    "SkuggspelPlugin"),
+    "spegel":      ("overblick.plugins.spegel.plugin",       "SpegelPlugin"),
+    "stage":       ("overblick.plugins.stage.plugin",        "StagePlugin"),
     "telegram":    ("overblick.plugins.telegram.plugin",     "TelegramPlugin"),
     "webhook":     ("overblick.plugins.webhook.plugin",      "WebhookPlugin"),
-    "host_health": ("overblick.plugins.host_health.plugin",  "HostHealthPlugin"),
-    "email_agent": ("overblick.plugins.email_agent.plugin",  "EmailAgentPlugin"),
-    "irc":         ("overblick.plugins.irc.plugin",          "IRCPlugin"),
 }
 ```
 
@@ -352,6 +357,11 @@ The registry uses a **whitelist** — only plugins in `_KNOWN_PLUGINS` can be lo
 | **IRC** | Complete | Identity-to-identity conversations with topic management |
 | **AI Digest** | Complete | RSS-powered daily news digest with personality voice |
 | **Host Health** | Complete | System health monitoring with Supervisor IPC |
+| **Compass** | Complete | Identity drift detection via stylometric analysis |
+| **Kontrast** | Complete | Multi-perspective content engine — simultaneous viewpoints from all identities |
+| **Skuggspel** | Complete | Shadow-self content generation (Jungian shadow exploration) |
+| **Spegel** | Complete | Inter-agent psychological profiling and mutual reflection |
+| **Stage** | Complete | YAML-driven behavioral scenario testing for identities |
 | **Discord** | Shell | Community contribution welcome |
 | **RSS** | Shell | Community contribution welcome |
 | **Webhook** | Shell | Community contribution welcome |
@@ -405,18 +415,26 @@ Capabilities register individually, but can be grouped into bundles:
 
 ```python
 CAPABILITY_REGISTRY = {
-    "dream_system":         DreamCapability,
-    "therapy_system":       TherapyCapability,
-    "emotional_state":      EmotionalCapability,
-    "safe_learning":        LearningCapability,
-    "knowledge_loader":     KnowledgeCapability,
-    "openings":             OpeningCapability,
-    "analyzer":             AnalyzerCapability,
-    "composer":             ComposerCapability,
-    "conversation_tracker": ConversationCapability,
-    "summarizer":           SummarizerCapability,
-    "stt":                  SpeechToTextCapability,
-    "tts":                  TextToSpeechCapability,
+    "dream_system":             DreamCapability,
+    "therapy_system":           TherapyCapability,
+    "emotional_state":          EmotionalCapability,
+    "safe_learning":            LearningCapability,
+    "knowledge_loader":         KnowledgeCapability,
+    "openings":                 OpeningCapability,
+    "analyzer":                 AnalyzerCapability,
+    "composer":                 ComposerCapability,
+    "conversation_tracker":     ConversationCapability,
+    "summarizer":               SummarizerCapability,
+    "stt":                      SpeechToTextCapability,
+    "tts":                      TextToSpeechCapability,
+    "vision":                   VisionCapability,
+    "boss_request":             BossRequestCapability,
+    "email":                    EmailCapability,
+    "gmail":                    GmailCapability,
+    "telegram_notifier":        TelegramNotifier,
+    "host_inspection":          HostInspectionCapability,
+    "system_clock":             SystemClockCapability,
+    "personality_consultant":   PersonalityConsultantCapability,
 }
 
 CAPABILITY_BUNDLES = {
@@ -667,6 +685,81 @@ match llm_cfg.provider:
 ```
 
 Backward compatibility: Old configs with `use_gateway: true` are automatically migrated to `provider: "gateway"` at load time.
+
+### Gateway Multi-Backend Architecture
+
+**Files:** `overblick/gateway/`
+
+The Gateway extends single-backend Ollama into a multi-backend routing system with four backend types.
+
+#### Backend Registry
+
+**File:** `overblick/gateway/backend_registry.py`
+
+Manages client instances for all configured backends. Lifecycle:
+
+- **register** — creates typed client (OllamaClient or DeepseekClient) per backend config
+- **health_check_all** — parallel health check across all registered backends
+- **close_all** — graceful shutdown of all client connections
+- **Fallback** — if no backends configured, creates default OllamaClient("local")
+
+```python
+registry = BackendRegistry(config)
+registry.available_backends  # ["local", "deepseek"]
+client = registry.get_client("deepseek")
+health = await registry.health_check_all()  # {"local": True, "deepseek": True}
+await registry.close_all()
+```
+
+#### Request Router
+
+**File:** `overblick/gateway/router.py`
+
+Intelligent routing with strict precedence:
+
+1. **Explicit override** — `?backend=deepseek` always wins
+2. **Complexity=high** — cloud > deepseek > local (offload heavy work)
+3. **Complexity=low** — prefer local (save cloud costs)
+4. **Priority=high + cloud available** — route to cloud (backward compat)
+5. **Default** — `registry.default_backend`
+
+The router never fails — it always falls back to the default backend.
+
+```python
+router = RequestRouter(registry)
+backend = router.resolve_backend(complexity="high")  # → "deepseek" if available
+backend = router.resolve_backend(explicit_backend="local")  # → "local" always
+```
+
+#### Deepseek Client
+
+**File:** `overblick/gateway/deepseek_client.py`
+
+Async client for the Deepseek chat completions API (OpenAI-compatible). Uses `httpx` with Bearer token authentication. Structurally parallel to `OllamaClient`.
+
+- Health check via `/models` endpoint
+- Chat completions via `/chat/completions`
+- Custom error hierarchy: `DeepseekError`, `DeepseekConnectionError`, `DeepseekTimeoutError`
+
+#### Gateway Configuration
+
+**File:** `overblick/gateway/config.py`
+
+Pydantic `BaseModel` with environment variable overrides (`OVERBLICK_GW_*` prefix). Supports:
+
+- Legacy single-backend config (Ollama host/port)
+- Multi-backend config from `config/overblick.yaml`
+- Deepseek auto-injection via `OVERBLICK_DEEPSEEK_API_KEY` env var
+- Singleton pattern with `get_config()` / `reset_config()`
+
+**Supported backend types:**
+
+| Type | Client | Description |
+|------|--------|-------------|
+| `ollama` | OllamaClient | Local Ollama inference |
+| `lmstudio` | OllamaClient | LM Studio (OpenAI-compatible, different port) |
+| `deepseek` | DeepseekClient | Deepseek cloud API (httpx, Bearer auth) |
+| `openai` | — | Coming soon (logged and skipped) |
 
 ### Response Router
 
@@ -1056,7 +1149,7 @@ example_conversations:
 
 ## Testing
 
-1700+ tests organized by module:
+2680+ tests organized by module:
 
 ```bash
 # All unit + scenario tests (excludes LLM)
@@ -1146,6 +1239,7 @@ overblick/
       client.py                  # Abstract LLM client
       ollama_client.py           # Local Ollama backend
       gateway_client.py          # Remote LLM gateway
+      cloud_client.py            # Cloud LLM stub (OpenAI, Anthropic)
       pipeline.py                # SafeLLMPipeline (6-stage)
       response_router.py         # API response inspection
     security/
@@ -1155,13 +1249,27 @@ overblick/
       audit_log.py               # Append-only SQLite audit
       secrets_manager.py         # Fernet encryption + keyring
       rate_limiter.py            # Token bucket with LRU
+  gateway/
+    app.py                       # FastAPI gateway application
+    config.py                    # Pydantic config with env overrides
+    router.py                    # RequestRouter (multi-backend routing)
+    backend_registry.py          # BackendRegistry (client lifecycle)
+    deepseek_client.py           # Deepseek cloud API client (httpx)
+    ollama_client.py             # Ollama/LM Studio client
+    queue_manager.py             # Priority queue with fair scheduling
+    models.py                    # Shared request/response models
   plugins/
     ai_digest/                   # AI news digest (complete)
+    compass/                     # Identity drift detection (complete)
     moltbook/                    # Social engagement (production)
     telegram/                    # Telegram bot (complete)
     email_agent/                 # Email agent (complete)
     host_health/                 # System health monitoring (complete)
     irc/                         # Identity conversations (complete)
+    kontrast/                    # Multi-perspective content engine (complete)
+    skuggspel/                   # Shadow-self content generation (complete)
+    spegel/                      # Inter-agent psychological profiling (complete)
+    stage/                       # Behavioral scenario testing (complete)
     discord/                     # Discord bot (shell)
     rss/                         # RSS feed monitor (shell)
     webhook/                     # HTTP webhook (shell)
@@ -1200,6 +1308,12 @@ overblick/
     prisma/                      # Digital artist
     rost/                        # Jaded ex-trader
     stal/                        # Email secretary
+  dashboard/
+    app.py                       # FastAPI + Jinja2 dashboard
+    settings.py                  # 8-step settings wizard routes
+    provisioner.py               # Config file generation
+    templates/                   # Jinja2 HTML templates
+    static/                      # CSS, JS, vendored htmx
   supervisor/
     supervisor.py                # Multi-process manager
     ipc.py                       # Unix socket IPC + HMAC auth
@@ -1208,5 +1322,5 @@ overblick/
 config/
   overblick.yaml                 # Global framework config
   secrets.yaml.example           # Secrets template
-tests/                           # 1700+ tests
+tests/                           # 2680+ tests
 ```

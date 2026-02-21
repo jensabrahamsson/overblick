@@ -19,7 +19,7 @@ pip install -e ".[dev]"
 pip install -r requirements.txt        # core only
 pip install -r requirements-dev.txt    # core + test/dev tools
 
-# Run tests (2340+ unit + scenario tests, no LLM/browser required)
+# Run tests (2680+ unit + scenario tests, no LLM/browser required)
 pytest tests/ -v -m "not llm and not e2e"
 
 # Run LLM personality tests (requires Ollama with qwen3:8b)
@@ -153,6 +153,11 @@ Plugins are self-contained modules. Each receives `PluginContext` as its ONLY fr
 | **RSS** | Shell | Feed monitoring with keyword filtering (community contribution welcome) |
 | **Webhook** | Shell | HTTP endpoint for external integrations (community contribution welcome) |
 | **IRC** | Complete | Identity-to-identity conversations with topic management |
+| **Compass** | Complete | Identity drift detection via stylometric analysis |
+| **Kontrast** | Complete | Multi-perspective content engine — simultaneous viewpoints from all identities |
+| **Skuggspel** | Complete | Shadow-self content generation (Jungian shadow exploration) |
+| **Spegel** | Complete | Inter-agent psychological profiling and mutual reflection |
+| **Stage** | Complete | YAML-driven behavioral scenario testing for identities |
 | **Matrix** | Shell | Decentralized chat with E2EE support (community contribution welcome) |
 
 **Plugin lifecycle:**
@@ -216,6 +221,7 @@ await supervisor.run()     # Block until shutdown
 | **Ollama** | `ollama` | OllamaClient | `localhost:11434` |
 | **LM Studio** | `lmstudio` | OllamaClient | `localhost:1234` |
 | **Överblick Gateway** | `gateway` | GatewayClient | `localhost:8200` |
+| **Deepseek** | `deepseek` | DeepseekClient | `api.deepseek.com/v1` |
 | **OpenAI** *(coming soon)* | `openai` | CloudLLMClient | `api.openai.com/v1` |
 
 **LM Studio** exposes an OpenAI-compatible `/v1/chat/completions` API — Överblick reuses `OllamaClient` for it with a different default port. No additional dependencies needed.
@@ -226,12 +232,33 @@ Configure via the dashboard settings wizard (`/settings/`) or directly in `confi
 
 ```yaml
 llm:
-  provider: ollama      # or lmstudio, gateway, openai
+  provider: ollama      # or lmstudio, gateway, deepseek, openai
   host: 127.0.0.1
   port: 11434
   model: qwen3:8b
   temperature: 0.7
   max_tokens: 2000
+  complexity: high      # optional: "high" routes to cloud/deepseek, "low" stays local
+```
+
+**Multi-backend gateway configuration** (in `config/overblick.yaml`):
+
+```yaml
+llm:
+  default_backend: local
+  backends:
+    local:
+      enabled: true
+      type: ollama
+      host: 127.0.0.1
+      port: 11434
+      model: qwen3:8b
+    deepseek:
+      enabled: true
+      type: deepseek
+      api_url: https://api.deepseek.com/v1
+      model: deepseek-chat
+      # api_key: set via OVERBLICK_DEEPSEEK_API_KEY env var
 ```
 
 ## Security Architecture
@@ -290,7 +317,7 @@ Both backends share the same migration system and API.
 ## Testing
 
 ```bash
-# All unit + scenario tests (2340+)
+# All unit + scenario tests (2680+)
 pytest tests/ -v -m "not e2e"
 
 # LLM personality tests (requires Ollama + qwen3:8b)
@@ -376,7 +403,7 @@ overblick/
     audit.py                # Agent audit system
 config/
   overblick.yaml            # Global framework config
-tests/                      # 2340+ unit + scenario + LLM tests
+tests/                      # 2680+ unit + scenario + LLM tests
 ```
 
 ## Configuration

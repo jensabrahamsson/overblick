@@ -96,6 +96,19 @@ psychology:                        # Inner emotional life (optional but recommen
     dreams:
       - "Recurring dream description"
 
+psychological_framework:            # Replaces psychology capability bundle (v1.1+)
+  primary: "jungian"                # Framework: jungian, cbt, humanistic, existential
+  domains:                          # Specific psychological domains
+    - "archetypes"
+    - "shadow_work"
+    - "individuation"
+  dream_interpretation: true/false  # Whether agent interprets dreams
+  self_reflection_style: "string"   # How agent self-reflects (e.g., "structured_analysis")
+  therapeutic_approach: "string"    # e.g., "depth_psychology", "none"
+  key_concepts:                     # Framework-specific psychological insights
+    - "Concept or principle the character embodies"
+    - "Another guiding psychological principle"
+
 ethos:
   core_principles:                 # 3-5 core beliefs
     - name: "Principle name"
@@ -152,16 +165,15 @@ cross_domain_parallels:            # Same as parallel_examples
 
 operational:                       # Operational config (merged from old identity.yaml)
   llm:
-    model: "qwen3:8b"             # Ollama model name
+    model: "qwen3:8b"             # Default model name (can be overridden per-backend)
     temperature: 0.7              # LLM temperature (0.0 - 2.0)
     max_tokens: 2000              # Max response tokens
     timeout_seconds: 180          # LLM call timeout
-    provider: "ollama"            # "ollama" (default), "gateway", or "cloud"
+    provider: "gateway"           # "gateway" (default) — routes through multi-backend gateway
     gateway_url: "http://127.0.0.1:8200"  # Gateway endpoint
-    # Cloud LLM settings (used when provider="cloud")
-    cloud_api_url: ""             # e.g. "https://api.openai.com/v1"
-    cloud_model: ""               # e.g. "gpt-4o", "claude-sonnet-4-5-20250929"
-    cloud_secret_key: "cloud_api_key"  # Secret key name in SecretsManager
+    # Per-agent overrides (optional — global config in overblick.yaml)
+    # The gateway handles backend routing (local/cloud/deepseek) automatically
+    # based on complexity and priority. Per-agent overrides are rarely needed.
   schedule:
     heartbeat_hours: 4            # Hours between heartbeat posts
     feed_poll_minutes: 5          # Minutes between feed checks

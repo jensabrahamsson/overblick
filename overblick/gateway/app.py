@@ -194,7 +194,11 @@ async def list_models(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except OllamaConnectionError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        logger.error("Backend connection error in list_models: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Cannot connect to LLM backend. Check gateway logs for details.",
+        )
 
 
 @app.post("/v1/chat/completions", response_model=ChatResponse, dependencies=[Depends(verify_api_key)])
@@ -270,14 +274,14 @@ async def chat_completion(
         logger.error("Backend connection error: %s", e, exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail=f"Cannot connect to backend: {e}",
+            detail="Cannot connect to LLM backend. Check gateway logs for details.",
         )
 
     except (OllamaError, DeepseekError) as e:
         logger.error("LLM error: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"LLM error: {e}",
+            detail="LLM inference error. Check gateway logs for details.",
         )
 
     except ValueError as e:

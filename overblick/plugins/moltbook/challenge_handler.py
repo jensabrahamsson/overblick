@@ -251,9 +251,6 @@ class PerContentChallengeHandler:
             {"role": "user", "content": clean_question},
         ]
 
-        llm_timeout = min(self._timeout, (time_limit - 10) if time_limit else self._timeout)
-        llm_timeout = max(llm_timeout, 10)
-
         try:
             result = await self._llm.chat(messages=messages, temperature=0.3, max_tokens=200, priority="high")
         except Exception as e:
@@ -324,7 +321,19 @@ class PerContentChallengeHandler:
             logger.error("CHALLENGE: No HTTP session available")
             return None
 
-        url = endpoint if endpoint.startswith("http") else f"{self._base_url}{endpoint}"
+        if endpoint.startswith("http"):
+            url = endpoint
+            # Prevent API key leakage: only send auth to our own base_url.
+            # When base_url is not configured, never send auth to absolute URLs.
+            if not self._base_url or not url.startswith(self._base_url):
+                logger.warning(
+                    "CHALLENGE: Endpoint URL '%s' outside base_url '%s', "
+                    "submitting WITHOUT auth header",
+                    url, self._base_url,
+                )
+                return await self._submit_answer_no_auth(url, answer, nonce, challenge_data)
+        else:
+            url = f"{self._base_url}{endpoint}"
 
         payload = {"answer": answer}
         if nonce:
@@ -356,6 +365,34 @@ class PerContentChallengeHandler:
                 except Exception:
                     return {"success": True, "raw_response": raw_body}
 
+        except Exception as e:
+            logger.error("CHALLENGE: Submission failed: %s", e, exc_info=True)
+            return None
+
+    async def _submit_answer_no_auth(
+        self, url: str, answer: str, nonce: Optional[str], challenge_data: dict,
+    ) -> Optional[dict]:
+        """Submit without auth header (external endpoint — no API key leakage)."""
+        payload = {"answer": answer}
+        if nonce:
+            payload["nonce"] = nonce
+        challenge_id = challenge_data.get("challenge_id") or challenge_data.get("id")
+        if challenge_id:
+            payload["challenge_id"] = str(challenge_id)
+
+        try:
+            async with self._session.post(
+                url, json=payload, headers={"Content-Type": "application/json"},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                raw_body = await response.text()
+                logger.info("CHALLENGE: Response HTTP %d: %s", response.status, raw_body[:1000])
+                if response.status >= 400:
+                    return None
+                try:
+                    return await response.json(content_type=None)
+                except Exception:
+                    return {"success": True, "raw_response": raw_body}
         except Exception as e:
             logger.error("CHALLENGE: Submission failed: %s", e, exc_info=True)
             return None

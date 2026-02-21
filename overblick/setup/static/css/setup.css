@@ -1701,6 +1701,59 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 }
 
 /* ================================================
+   Step 8 — Completion Page
+   ================================================ */
+
+.completion-page {
+    max-width: 640px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.completion-content {
+    padding: var(--space-2xl) 0;
+}
+
+.completion-page .checkmark-circle {
+    margin: 0 auto var(--space-lg);
+}
+
+.completion-subtitle {
+    margin-top: var(--space-md);
+}
+
+.completion-tags {
+    justify-content: center;
+    margin: var(--space-lg) 0;
+}
+
+.completion-files {
+    text-align: left;
+    margin: var(--space-lg) 0;
+}
+
+.completion-files-summary {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.completion-files-list {
+    margin-top: var(--space-sm);
+}
+
+.completion-file-path {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding: 2px 0;
+}
+
+.completion-actions {
+    justify-content: center;
+    margin-top: var(--space-xl);
+}
+
+/* ================================================
    Reduced Motion Preference
    ================================================ */
 

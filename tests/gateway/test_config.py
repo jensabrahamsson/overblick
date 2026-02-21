@@ -1,9 +1,11 @@
 """Tests for LLM Gateway configuration."""
 
 import os
+from unittest.mock import patch
+
 import pytest
 
-from overblick.gateway.config import GatewayConfig, get_config, reset_config
+from overblick.gateway.config import GatewayConfig, get_config, reset_config, _load_yaml_config
 
 
 class TestGatewayConfig:
@@ -30,7 +32,8 @@ class TestGatewayConfig:
         assert config.max_concurrent_requests == 1
         assert config.api_port == 8200
 
-    def test_environment_override_string(self):
+    @patch("overblick.gateway.config._load_yaml_config", return_value={})
+    def test_environment_override_string(self, _mock_yaml):
         os.environ["OVERBLICK_GW_OLLAMA_HOST"] = "192.168.1.100"
         os.environ["OVERBLICK_GW_DEFAULT_MODEL"] = "llama3:8b"
 
@@ -39,7 +42,8 @@ class TestGatewayConfig:
         assert config.ollama_host == "192.168.1.100"
         assert config.default_model == "llama3:8b"
 
-    def test_environment_override_int(self):
+    @patch("overblick.gateway.config._load_yaml_config", return_value={})
+    def test_environment_override_int(self, _mock_yaml):
         os.environ["OVERBLICK_GW_OLLAMA_PORT"] = "11435"
         os.environ["OVERBLICK_GW_API_PORT"] = "8300"
 

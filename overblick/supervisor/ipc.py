@@ -151,6 +151,7 @@ class IPCServer:
     async def start(self) -> None:
         """Start listening for connections."""
         self._socket_dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(str(self._socket_dir), 0o700)  # Owner-only directory access
 
         # Remove stale socket
         if self._socket_path.exists():
@@ -158,12 +159,14 @@ class IPCServer:
 
         # Write auth token to file for child processes (secure: mode 0o600)
         if self._auth_token:
-            self.token_path.write_text(self._auth_token)
-            os.chmod(str(self.token_path), 0o600)
+            fd = os.open(str(self.token_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(self._auth_token)
 
         self._server = await asyncio.start_unix_server(
             self._handle_connection,
             path=str(self._socket_path),
+            limit=_MAX_MESSAGE_SIZE,
         )
 
         # Restrict socket permissions (owner only)
@@ -199,12 +202,8 @@ class IPCServer:
     ) -> None:
         """Handle a single client connection."""
         try:
-            data = await reader.readline()
+            data = await reader.readuntil(b"\n")
             if not data:
-                return
-
-            if len(data) > _MAX_MESSAGE_SIZE:
-                logger.warning("IPC message too large (%d bytes), rejecting", len(data))
                 return
 
             msg = IPCMessage.from_json(data.decode().strip())
@@ -230,6 +229,10 @@ class IPCServer:
             else:
                 logger.warning("No handler for message type: %s", msg.msg_type)
 
+        except asyncio.LimitOverrunError:
+            logger.warning("IPC message exceeds buffer limit, rejecting")
+        except asyncio.IncompleteReadError:
+            logger.debug("IPC client disconnected before sending complete message")
         except json.JSONDecodeError as e:
             logger.warning("Invalid IPC message: %s", e)
         except Exception as e:

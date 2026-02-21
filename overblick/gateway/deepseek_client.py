@@ -197,15 +197,15 @@ class DeepseekClient:
             ) from e
 
         except httpx.HTTPStatusError as e:
+            # Truncate response body to avoid logging sensitive API details
+            error_text = e.response.text[:200] if e.response.text else "empty"
             logger.error(
                 "Deepseek HTTP error: %s - %s",
                 e.response.status_code,
-                e.response.text,
-                exc_info=True,
+                error_text,
             )
             raise DeepseekError(
-                f"Deepseek returned error {e.response.status_code}: "
-                f"{e.response.text}"
+                f"Deepseek returned error {e.response.status_code}"
             ) from e
 
         except Exception as e:

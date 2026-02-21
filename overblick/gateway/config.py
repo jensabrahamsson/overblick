@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +52,8 @@ class GatewayConfig(BaseModel):
     api_host: str = "127.0.0.1"
     api_port: int = 8200
 
-    # Authentication
-    api_key: str = ""
+    # Authentication (excluded from repr to prevent accidental logging)
+    api_key: str = Field(default="", repr=False)
 
     # Logging
     log_level: str = "INFO"

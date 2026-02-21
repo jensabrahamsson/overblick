@@ -727,7 +727,7 @@ It runs on port 8200 and provides fair scheduling when multiple agents compete f
 - **Agent monitoring**: See which personalities are running, their status, and recent activity
 - **Audit trail**: Browse the immutable audit log for all agent actions
 - **Identity browser**: View personality configurations, traits, and voice settings
-- **Onboarding wizard**: 7-step guided setup for new deployments
+- **Onboarding wizard**: 8-step guided setup for new deployments
 
 ### Stack
 
@@ -780,16 +780,45 @@ IPC messages are signed with HMAC to prevent spoofing. An agent can't impersonat
 
 ## The LLM Gateway
 
-The LLM Gateway is an HTTP priority queue server that sits between agents and the LLM (Ollama). When multiple agents compete for GPU time, the Gateway ensures fair scheduling.
+The LLM Gateway is a **multi-backend HTTP routing server** that sits between agents and LLM inference providers. It manages priority queuing, intelligent routing, and backend lifecycle across multiple simultaneous backends.
 
 ### Why a Gateway?
 
-When you run 7 personalities simultaneously, they all want GPU time. Without coordination, one chatty agent can starve the others. The Gateway provides:
+When you run 7+ personalities simultaneously, they all want GPU time. Without coordination, one chatty agent can starve the others. The Gateway provides:
 
-- **Priority queue**: High-priority requests (interactive chat) go before low-priority ones (background analysis)
+- **Priority queue**: High-priority requests (interactive chat, captcha solving) go before low-priority ones (background analysis)
 - **Fair scheduling**: Round-robin between identities to prevent starvation
-- **Request deduplication**: Identical system prompts aren't sent twice
-- **Health monitoring**: Tracks Ollama availability and request latency
+- **Intelligent routing**: RequestRouter selects the best backend per request based on complexity, priority, and availability
+- **Multi-backend support**: Run local Ollama, Deepseek cloud, and LM Studio simultaneously
+- **Health monitoring**: Per-backend health checks and automatic fallback
+- **Environment variable injection**: Set `OVERBLICK_DEEPSEEK_API_KEY` to auto-register a Deepseek backend without touching config files
+
+### Architecture
+
+```
+              Agent Request
+                   │
+                   ▼
+            ┌──────────────┐
+            │ RequestRouter │  Routing precedence:
+            │               │  1. explicit ?backend= override
+            │               │  2. complexity=high → cloud > deepseek > local
+            │               │  3. complexity=low → local
+            │               │  4. priority=high + cloud → cloud
+            │               │  5. default backend
+            └──────┬───────┘
+                   │
+            ┌──────▼───────┐
+            │BackendRegistry│  Manages client instances:
+            │               │  - OllamaClient (local/lmstudio)
+            │               │  - DeepseekClient (cloud API, httpx + Bearer auth)
+            │               │  - OpenAI (coming soon)
+            └──────┬───────┘
+                   │
+         ┌─────────┼─────────┐
+         ▼         ▼         ▼
+      [Ollama]  [Deepseek] [LM Studio]
+```
 
 ### Running
 
@@ -799,21 +828,43 @@ python -m overblick.gateway  # Starts on port 8200
 
 ### Configuration
 
+Configure backends in `config/overblick.yaml`:
+
+```yaml
+llm:
+  default_backend: local
+  backends:
+    local:
+      enabled: true
+      type: ollama
+      host: 127.0.0.1
+      port: 11434
+      model: qwen3:8b
+    deepseek:
+      enabled: true
+      type: deepseek
+      api_url: https://api.deepseek.com/v1
+      model: deepseek-chat
+      # api_key via OVERBLICK_DEEPSEEK_API_KEY env var (recommended)
+```
+
+Or inject a Deepseek backend purely via environment:
+
+```bash
+export OVERBLICK_DEEPSEEK_API_KEY=sk-xxx
+python -m overblick.gateway  # Deepseek auto-registered
+```
+
 Agents configure their LLM provider in identity YAML:
 
 ```yaml
 llm:
-  provider: "ollama"          # or "gateway" or "cloud"
+  provider: "gateway"         # Use the multi-backend gateway
   model: "qwen3:8b"
-  # For gateway:
   gateway_url: "http://127.0.0.1:8200"
-  # For cloud (stub implementation):
-  cloud_api_url: "https://api.openai.com/v1"
-  cloud_model: "gpt-4"
-  cloud_secret_key: "openai_api_key"  # Key name in secrets
 ```
 
-Or use Ollama directly (default) if only running one agent.
+For single-agent setups, use Ollama directly (default) — no gateway needed.
 
 ---
 

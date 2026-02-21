@@ -6,6 +6,8 @@ Idempotent: running twice does not break existing files (it merges/updates).
 """
 
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -274,6 +276,24 @@ def _build_agent_override(cfg: dict[str, Any], state: dict[str, Any]) -> dict[st
 
 
 def _write_yaml(path: Path, data: dict) -> None:
-    """Write YAML file with clean formatting."""
-    with open(path, "w") as f:
-        yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    """Write YAML file atomically (write-to-temp-then-rename).
+
+    If the process crashes mid-write, the original file stays intact.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(
+        dir=str(path.parent), suffix=".tmp", prefix=f".{path.name}."
+    )
+    try:
+        with os.fdopen(fd, "w") as f:
+            yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, str(path))
+    except BaseException:
+        # Clean up temp file on any failure
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
