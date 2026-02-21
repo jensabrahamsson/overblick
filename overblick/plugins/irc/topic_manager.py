@@ -316,9 +316,14 @@ def score_identity_interest(identity: Identity, topic: dict[str, Any]) -> float:
     # Collect identity keywords
     identity_keywords: set[str] = set()
 
-    # From interest_keywords list
+    # From interest_keywords list — add both full phrases and individual words
+    # so that "AI consciousness" matches both "ai consciousness" AND "ai", "consciousness"
     for kw in identity.interest_keywords:
-        identity_keywords.add(kw.lower())
+        lowered = kw.lower()
+        identity_keywords.add(lowered)
+        for word in lowered.split():
+            if len(word) > 1:
+                identity_keywords.add(word)
 
     # From interest area names and topics
     for area_name, area_info in identity.interests.items():
@@ -375,10 +380,13 @@ def select_participants(
     recent_participants: list[str] | None = None,
 ) -> list[Identity]:
     """
-    Select the best participants for a topic based on interest scores.
+    Select participants for a topic using weighted random sampling.
 
-    Identities that did NOT participate recently get a diversity bonus (+0.15)
-    to ensure rotation across conversations.
+    Uses interest scores as probability weights so higher-scoring agents
+    are more likely to be selected, but not guaranteed — ensuring all
+    agents rotate through conversations over time.
+
+    Identities that did NOT participate recently get a diversity bonus (+0.15).
 
     Args:
         identities: All available identities.
@@ -388,7 +396,7 @@ def select_participants(
         recent_participants: Names of identities that participated recently.
 
     Returns:
-        List of selected Identity objects, sorted by interest score (descending).
+        List of selected Identity objects (highest scorer always included).
     """
     ideal = topic.get("ideal_participants", 3)
     target = max(min_participants, min(ideal, max_participants))
@@ -405,19 +413,28 @@ def select_participants(
             score += 0.15
         scored.append((identity, score))
 
+    if not scored:
+        return []
+
     # Sort by score descending
     scored.sort(key=lambda x: x[1], reverse=True)
 
-    # Select top N (no minimum threshold — let everyone have a chance)
-    selected = [identity for identity, score in scored[:target]]
+    # Always include the top scorer (guarantees topical relevance)
+    selected = [scored[0][0]]
+    remaining = scored[1:]
 
-    # Ensure at least min_participants (fill from remaining if needed)
-    if len(selected) < min_participants:
-        remaining = [
-            identity for identity, _ in scored
-            if identity not in selected
-        ]
-        while len(selected) < min_participants and remaining:
-            selected.append(remaining.pop(0))
+    # Fill remaining slots via weighted random sampling
+    # Base weight ensures even zero-score agents have a small chance
+    _BASE_WEIGHT = 0.05
+    while len(selected) < target and remaining:
+        weights = [score + _BASE_WEIGHT for _, score in remaining]
+        total = sum(weights)
+        if total <= 0:
+            # All zero — pick uniformly
+            pick = random.randrange(len(remaining))
+        else:
+            pick = random.choices(range(len(remaining)), weights=weights, k=1)[0]
+        selected.append(remaining[pick][0])
+        remaining.pop(pick)
 
     return selected
