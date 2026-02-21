@@ -30,5 +30,16 @@ logs/
 *.sqlite
 *.pid
 
+# Config backups (may contain secrets)
+config/backup_*/
+
+# E2E screenshots (generated)
+tests/e2e/screenshots/
+
+# External tool artifacts
+opencode*.txt
+opencode*.json
+devstral_*.txt
+
 # IPC sockets
 /tmp/overblick/
