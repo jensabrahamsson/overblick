@@ -145,7 +145,8 @@ class HostHealthPlugin(PluginBase):
             sender=self.ctx.identity_name,
         )
 
-        response = await self.ctx.ipc_client.send(msg, timeout=30.0)
+        # 90s timeout: supervisor LLM generation can take 30-60s under load
+        response = await self.ctx.ipc_client.send(msg, timeout=90.0)
 
         if not response or response.msg_type != "health_response":
             logger.warning("HostHealth: no valid response from supervisor")
@@ -252,7 +253,11 @@ class HostHealthPlugin(PluginBase):
         try:
             result = await self.ctx.llm_pipeline.chat(messages)
             if result and not result.blocked and result.content:
-                return result.content.strip()
+                text = result.content.strip()
+                # Guard against truncated/garbage LLM output
+                if len(text) >= 15:
+                    return text
+                logger.debug("HostHealth: motivation too short (%d chars), using fallback", len(text))
         except Exception as e:
             logger.debug("HostHealth: LLM motivation generation failed: %s", e)
 

@@ -68,7 +68,11 @@ class HealthInquiryHandler:
                 "the intellectual humanist. Be informative but characterful. "
                 "Keep your response concise (2-4 sentences). "
                 "Address the asking agent's motivation if it provides philosophical "
-                "or emotional context for why it is asking."
+                "or emotional context for why it is asking.\n\n"
+                "CRITICAL: Each response MUST be unique. Never reuse the same "
+                "opening phrase or structure as previous responses. Vary your "
+                "vocabulary, sentence structure, and angle of observation. "
+                "If previous context is provided, do NOT echo or paraphrase it."
             )
 
             # Create LLM client and pipeline
@@ -219,13 +223,17 @@ class HealthInquiryHandler:
             user_message += f"Their reason for asking:\n\"{inquiry.motivation}\"\n\n"
 
         if inquiry.previous_context:
-            user_message += f"Previous conversation context:\n{inquiry.previous_context}\n\n"
+            user_message += (
+                f"Previous conversation (DO NOT repeat or paraphrase this):\n"
+                f"{inquiry.previous_context}\n\n"
+            )
 
         user_message += (
             f"Here is the current system health data:\n"
             f"---\n{health_summary}\n---\n\n"
             f"Respond to {inquiry.sender} about the host's health. "
-            f"Be yourself (Anomal) — informative, thoughtful, concise."
+            f"Be yourself (Anomal) — informative, thoughtful, concise. "
+            f"Use a DIFFERENT opening and angle than any previous response."
         )
 
         messages = [
