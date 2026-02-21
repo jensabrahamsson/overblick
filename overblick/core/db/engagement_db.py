@@ -77,10 +77,27 @@ class EngagementDB:
                 expires_at TEXT DEFAULT (datetime(CURRENT_TIMESTAMP, '+2 days'))
             );
 
+            CREATE TABLE IF NOT EXISTS challenges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                challenge_id TEXT,
+                question_raw TEXT,
+                question_clean TEXT,
+                answer TEXT,
+                solver TEXT,
+                correct INTEGER,
+                endpoint TEXT,
+                duration_ms REAL,
+                http_status INTEGER,
+                error TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE INDEX IF NOT EXISTS idx_processed_replies_comment_id
                 ON processed_replies(comment_id);
             CREATE INDEX IF NOT EXISTS idx_reply_queue_expires
                 ON reply_action_queue(expires_at);
+            CREATE INDEX IF NOT EXISTS idx_challenges_created
+                ON challenges(created_at);
         """)
 
         logger.debug("EngagementDB schema initialized for '%s'", self._identity)
@@ -250,3 +267,45 @@ class EngagementDB:
             (limit,),
         )
         return [r["post_id"] for r in rows]
+
+    # ------------------------------------------------------------------
+    # Challenge tracking
+    # ------------------------------------------------------------------
+
+    async def record_challenge(
+        self,
+        challenge_id: str | None,
+        question_raw: str | None,
+        question_clean: str | None,
+        answer: str | None,
+        solver: str | None,
+        correct: bool,
+        endpoint: str | None,
+        duration_ms: float,
+        http_status: int | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Record a challenge attempt for analysis."""
+        ph = self._db.ph
+        await self._db.execute(
+            f"INSERT INTO challenges "
+            f"(challenge_id, question_raw, question_clean, answer, solver, "
+            f"correct, endpoint, duration_ms, http_status, error) "
+            f"VALUES ({ph(1)}, {ph(2)}, {ph(3)}, {ph(4)}, {ph(5)}, "
+            f"{ph(6)}, {ph(7)}, {ph(8)}, {ph(9)}, {ph(10)})",
+            (
+                challenge_id, question_raw, question_clean, answer, solver,
+                1 if correct else 0, endpoint, duration_ms, http_status, error,
+            ),
+        )
+
+    async def get_recent_challenges(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Get recent challenge attempts for analysis."""
+        ph = self._db.ph
+        rows = await self._db.fetch_all(
+            f"SELECT id, challenge_id, question_raw, question_clean, answer, "
+            f"solver, correct, endpoint, duration_ms, http_status, error, created_at "
+            f"FROM challenges ORDER BY created_at DESC LIMIT {ph(1)}",
+            (limit,),
+        )
+        return [dict(r) for r in rows]

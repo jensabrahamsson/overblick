@@ -16,6 +16,7 @@ Community findings (issue #134):
 See: https://github.com/moltbook/api/issues/134
 """
 
+import json as json_module
 import logging
 import re
 import time
@@ -48,21 +49,21 @@ Rules:
 #   2. Letter-doubling: each char repeated with case swap → tWwEeNnTtYy → twenty
 # We strip doubling first, then normalize case, before sending to the LLM.
 
-_LETTER_DOUBLE_RE = re.compile(r"[a-zA-Z]")
-
-
 def _strip_letter_doubling(word: str) -> str:
     """Remove letter-doubling obfuscation from a single word.
 
-    Greedy scan: whenever two adjacent characters are the same letter
-    (case-insensitive), keep the first and skip the second.
+    Greedy scan stripping opposite-case pairs (Ee, Ll, Ss) which are
+    obfuscation doubles. Same-case pairs (ll, ee) are preserved as
+    natural English doubles. After stripping a pair, consumes one
+    trailing same-letter residual (handles odd runs like SsS → S).
 
-    Example: tWwEeNnTtYy → tWENTY (doubles at positions 1-2, 3-4, etc.)
-    Example: tTwWeEnNtTyY → twenty (doubles at positions 0-1, 2-3, etc.)
+    Examples:
+        tWwEeNnTtYy → twenty
+        tThHrReEeE  → threE → three (natural double-e preserved)
+        hello       → hello (natural ll preserved)
+        lOoBbSsStTeR → lOBSteR → lobster
 
-    Only returns the cleaned result if it removed a significant portion
-    of the word (>25% shorter), to avoid false positives on normal words
-    with natural letter repetition (e.g. "llama", "hello").
+    Short words (<4 chars) are returned as-is.
     """
     if len(word) < 4:
         return word
@@ -76,14 +77,21 @@ def _strip_letter_doubling(word: str) -> str:
             and word[i].isalpha()
             and word[i + 1].isalpha()
             and word[i].lower() == word[i + 1].lower()
+            and word[i] != word[i + 1]  # Must be different case
         ):
             i += 2  # Skip the doubled char
+            # Consume one trailing same-letter residual from odd runs (SsS → S)
+            if (
+                i < len(word)
+                and word[i].isalpha()
+                and word[i].lower() == word[i - 2].lower()
+            ):
+                i += 1
         else:
             i += 1
 
     cleaned = "".join(result)
-    # Only apply if we removed a significant number of chars (>25%)
-    if len(cleaned) <= len(word) * 0.75:
+    if len(cleaned) < len(word):
         return cleaned
     return word
 
@@ -92,10 +100,12 @@ def deobfuscate_challenge(text: str) -> str:
     """Remove case-mixing and letter-doubling from challenge text.
 
     Processes each word independently:
-    1. Strip letter-doubling (tWwEeNnTtYy → tWENTY)
-    2. Normalize to lowercase (tWENTY → twenty)
+    1. Extract only alpha characters (strips obfuscation punctuation like . ^ / ~)
+    2. Strip letter-doubling (lOoBbSsStTeR → loBster)
+    3. Normalize to lowercase (loBster → lobster)
 
     Non-alphabetic tokens (numbers, punctuation, operators) are preserved as-is.
+    Trailing punctuation (? ! , .) on tokens is preserved.
     """
     tokens = text.split()
     result = []
@@ -105,24 +115,281 @@ def deobfuscate_challenge(text: str) -> str:
             result.append(token)
             continue
 
-        # Split trailing punctuation from word
-        word = token
+        # Separate trailing punctuation that's semantically meaningful
         trailing = ""
-        while word and not word[-1].isalpha():
-            trailing = word[-1] + trailing
-            word = word[:-1]
-        leading = ""
-        while word and not word[0].isalpha():
-            leading += word[0]
-            word = word[1:]
+        stripped = token
+        while stripped and not stripped[-1].isalpha():
+            trailing = stripped[-1] + trailing
+            stripped = stripped[:-1]
 
-        if word:
-            cleaned = _strip_letter_doubling(word)
-            result.append(f"{leading}{cleaned.lower()}{trailing}")
+        # Extract ONLY alpha characters — discard obfuscation noise
+        # (dots, carets, slashes, tildes, brackets injected between letters)
+        alpha_only = "".join(c for c in stripped if c.isalpha())
+
+        if alpha_only:
+            cleaned = _strip_letter_doubling(alpha_only)
+            result.append(f"{cleaned.lower()}{trailing}")
         else:
             result.append(token)
 
     return " ".join(result)
+
+
+# ── Programmatic arithmetic solver ───────────────────────────────────────────
+# Fast-path solver for arithmetic challenges. Runs before any LLM call.
+# Based on community implementation (moltbook-mcp by p4stoboy).
+# Three strategies: digit expressions, operator split, word numbers.
+# NOTE: No eval() — all arithmetic is done via safe manual parsing.
+
+# Word-form number dictionaries
+_ONES = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+}
+
+_TENS = {
+    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+
+# Words to ignore when parsing word numbers
+_FILLER = frozenset({
+    "what", "is", "whats", "the", "of", "a", "an", "and", "are", "how",
+    "many", "much", "if", "you", "have", "had", "get", "got", "give",
+    "gave", "away", "left", "remain", "remains", "remaining", "result",
+    "answer", "calculate", "solve", "compute", "find", "equal", "equals",
+    "to", "from", "with", "do", "does", "would", "will", "be", "by",
+    "apples", "oranges", "items", "things", "objects", "numbers",
+})
+
+_DIGIT_EXPR_RE = re.compile(r"[\d+\-*/().^ ]+")
+_OP_DETECT = {
+    "mul": re.compile(r"\b(times|multipl\w*|product|multiplied)\b"),
+    "div": re.compile(r"\b(divid\w*|ratio|split)\b"),
+    "sub": re.compile(r"\b(subtract\w*|minus|less|reduce\w*|remain\w*|take\s+away|gave?\s+away)\b"),
+}
+
+
+def _fuzzy_match(word: str, dictionary: dict[str, int]) -> Optional[tuple[str, int]]:
+    """Match a word against a dictionary with tolerance for deobfuscation artifacts.
+
+    Tries exact match first, then prefix match (handles 'thre' for 'three'),
+    then subsequence match for heavily mangled words.
+    """
+    if word in dictionary:
+        return (word, dictionary[word])
+
+    # Prefix match (handles deobfuscation artifacts like thre→three)
+    for key, val in dictionary.items():
+        if len(word) >= 3 and key.startswith(word):
+            return (key, val)
+        if len(key) >= 3 and word.startswith(key):
+            return (key, val)
+
+    # Subsequence match — word chars appear in order within key
+    if len(word) >= 3:
+        for key, val in dictionary.items():
+            if _is_subsequence(word, key) and len(word) >= len(key) * 0.6:
+                return (key, val)
+
+    return None
+
+
+def _is_subsequence(needle: str, haystack: str) -> bool:
+    """Check if needle is a subsequence of haystack."""
+    it = iter(haystack)
+    return all(c in it for c in needle)
+
+
+def _extract_word_numbers(text: str) -> list[int]:
+    """Extract numbers from word-form text.
+
+    Handles: 'twenty three' → [23], 'five plus thirteen' → [5, 13].
+    Tokens not recognized as numbers or filler words are skipped.
+    """
+    tokens = [t for t in text.lower().split() if t not in _FILLER and t.isalpha()]
+    numbers = []
+    i = 0
+
+    while i < len(tokens):
+        # Try tens + ones combo (e.g. "twenty three" → 23)
+        if i + 1 < len(tokens):
+            tens_match = _fuzzy_match(tokens[i], _TENS)
+            if tens_match:
+                ones_match = _fuzzy_match(tokens[i + 1], _ONES)
+                if ones_match and 1 <= ones_match[1] <= 9:
+                    numbers.append(tens_match[1] + ones_match[1])
+                    i += 2
+                    continue
+                # Tens without ones
+                numbers.append(tens_match[1])
+                i += 1
+                continue
+
+        # Try single token
+        tens_match = _fuzzy_match(tokens[i], _TENS)
+        if tens_match:
+            numbers.append(tens_match[1])
+            i += 1
+            continue
+
+        ones_match = _fuzzy_match(tokens[i], _ONES)
+        if ones_match:
+            numbers.append(ones_match[1])
+            i += 1
+            continue
+
+        i += 1
+
+    return numbers
+
+
+def _detect_operation(text: str) -> str:
+    """Detect arithmetic operation from text. Defaults to 'add'."""
+    lower = text.lower()
+    for op, pattern in _OP_DETECT.items():
+        if pattern.search(lower):
+            return op
+    if "plus" in lower or "add" in lower or "sum" in lower:
+        return "add"
+    return "add"
+
+
+def _compute(numbers: list[int | float], op: str) -> Optional[float]:
+    """Compute result from numbers and operation."""
+    if len(numbers) < 2:
+        return None
+    if op == "add":
+        return sum(numbers)
+    if op == "sub":
+        result = numbers[0]
+        for n in numbers[1:]:
+            result -= n
+        return result
+    if op == "mul":
+        result = numbers[0]
+        for n in numbers[1:]:
+            result *= n
+        return result
+    if op == "div":
+        if numbers[1] == 0:
+            return None
+        return numbers[0] / numbers[1]
+    return None
+
+
+def _solve_digit_expression(text: str) -> Optional[str]:
+    """Solve pure digit arithmetic expressions like '32 + 18' or '5 * 3'.
+
+    Uses safe manual parsing — no dynamic code execution.
+    Supports +, -, *, /, ^.
+    """
+    matches = _DIGIT_EXPR_RE.findall(text)
+    if not matches:
+        return None
+
+    # Pick the longest candidate containing an operator
+    candidates = [
+        m.strip() for m in matches
+        if re.search(r"[+\-*/^]", m) and re.search(r"\d", m)
+    ]
+    if not candidates:
+        return None
+
+    expr = max(candidates, key=len)
+    if len(expr) > 200:
+        return None
+
+    expr = expr.replace("^", "**")
+
+    # Try simple binary: a op b
+    m = re.match(r"^\s*(-?\d+(?:\.\d+)?)\s*([+\-*/]|\*\*)\s*(-?\d+(?:\.\d+)?)\s*$", expr)
+    if m:
+        a, op, b = float(m.group(1)), m.group(2), float(m.group(3))
+        try:
+            if op == "+":
+                return f"{a + b:.2f}"
+            if op == "-":
+                return f"{a - b:.2f}"
+            if op == "*":
+                return f"{a * b:.2f}"
+            if op == "/":
+                return f"{a / b:.2f}" if b != 0 else None
+            if op == "**":
+                result = a ** b
+                if abs(result) > 1e15:
+                    return None
+                return f"{result:.2f}"
+        except (OverflowError, ZeroDivisionError):
+            return None
+
+    # Try chained: a op b op c (left-to-right, no precedence)
+    parts = re.findall(r"(-?\d+(?:\.\d+)?|[+\-*/])", expr)
+    if len(parts) >= 3 and len(parts) % 2 == 1:
+        try:
+            result = float(parts[0])
+            for idx in range(1, len(parts), 2):
+                op = parts[idx]
+                operand = float(parts[idx + 1])
+                if op == "+":
+                    result += operand
+                elif op == "-":
+                    result -= operand
+                elif op == "*":
+                    result *= operand
+                elif op == "/":
+                    if operand == 0:
+                        return None
+                    result /= operand
+            if abs(result) > 1e15:
+                return None
+            return f"{result:.2f}"
+        except (ValueError, IndexError, OverflowError):
+            return None
+
+    return None
+
+
+def solve_arithmetic(text: str) -> Optional[str]:
+    """Programmatic arithmetic solver — fast-path before LLM.
+
+    Tries three strategies in order:
+    1. Digit expression (32 + 18 → 50.00)
+    2. Mixed: digit numbers with word operator ('32 plus 18')
+    3. Word numbers with word operator ('twenty plus three')
+
+    Returns formatted answer string or None if not solvable.
+    """
+    # Strategy 1: Pure digit expression
+    result = _solve_digit_expression(text)
+    if result is not None:
+        return result
+
+    # Strategy 2+3: Extract numbers (both digit and word forms)
+    # First, try to find digit numbers in the text
+    digit_numbers = [int(m) for m in re.findall(r"\b(\d+)\b", text)]
+    word_numbers = _extract_word_numbers(text)
+
+    # Use whichever found numbers (prefer digits if both found)
+    numbers = digit_numbers if digit_numbers else word_numbers
+
+    if len(numbers) >= 2:
+        op = _detect_operation(text)
+        computed = _compute(numbers, op)
+        if computed is not None and abs(computed) < 1e15:
+            return f"{computed:.2f}"
+
+    # Hybrid: mix digit and word numbers
+    if digit_numbers and word_numbers and len(digit_numbers) + len(word_numbers) >= 2:
+        all_numbers = digit_numbers + word_numbers
+        op = _detect_operation(text)
+        computed = _compute(all_numbers, op)
+        if computed is not None and abs(computed) < 1e15:
+            return f"{computed:.2f}"
+
+    return None
 
 
 class PerContentChallengeHandler:
@@ -153,12 +420,16 @@ class PerContentChallengeHandler:
         api_key: str = "",
         base_url: str = "",
         timeout: int = 45,
+        audit_log=None,
+        engagement_db=None,
     ):
         self._llm = llm_client
         self._session = http_session
         self._api_key = api_key
         self._base_url = base_url.rstrip("/") if base_url else ""
         self._timeout = timeout
+        self._audit_log = audit_log
+        self._engagement_db = engagement_db
         self._stats = {
             "challenges_detected": 0,
             "challenges_solved": 0,
@@ -221,8 +492,19 @@ class PerContentChallengeHandler:
             current = current.get(key)
         return current if isinstance(current, dict) else None
 
-    async def solve(self, challenge_data: dict) -> Optional[dict]:
-        """Solve a challenge and submit the answer."""
+    async def solve(
+        self,
+        challenge_data: dict,
+        original_endpoint: Optional[str] = None,
+        original_payload: Optional[dict] = None,
+    ) -> Optional[dict]:
+        """Solve a challenge and submit the answer.
+
+        Args:
+            challenge_data: The challenge response from the API.
+            original_endpoint: The endpoint that triggered the challenge (for retry submission).
+            original_payload: The original POST body (for retry submission with verification fields).
+        """
         start_time = time.monotonic()
         self._stats["challenges_detected"] += 1
 
@@ -235,6 +517,14 @@ class PerContentChallengeHandler:
             "PER-CONTENT CHALLENGE: question=%s | nonce=%s | endpoint=%s | time_limit=%s",
             question[:200] if question else None, nonce, endpoint, time_limit,
         )
+
+        # Audit: challenge_received
+        self._audit("challenge_received", {
+            "question_raw": question[:500] if question else None,
+            "nonce": nonce,
+            "has_submit_url": bool(endpoint),
+            "has_original_endpoint": bool(original_endpoint),
+        })
 
         if not question:
             logger.error("CHALLENGE: No question found in data: %s", challenge_data)
@@ -249,44 +539,242 @@ class PerContentChallengeHandler:
                 question[:100], clean_question[:100],
             )
 
-        # Solve via LLM
-        messages = [
-            {"role": "system", "content": CHALLENGE_SOLVER_SYSTEM},
-            {"role": "user", "content": clean_question},
-        ]
+        # Solve: arithmetic fast-path → ultra LLM → local LLM fallback
+        answer = None
+        solver = None
 
-        try:
-            result = await self._llm.chat(messages=messages, temperature=0.3, max_tokens=200, priority="high")
-        except Exception as e:
-            logger.error("CHALLENGE: LLM error: %s", e, exc_info=True)
-            self._stats["challenges_failed"] += 1
-            return None
+        answer = solve_arithmetic(clean_question)
+        if answer:
+            solver = "arithmetic"
 
-        if not result or not result.get("content"):
-            logger.error("CHALLENGE: LLM returned empty response")
-            self._stats["challenges_failed"] += 1
-            return None
+        if not answer:
+            answer = await self._solve_with_llm(clean_question, complexity="ultra")
+            if answer:
+                solver = "cloud_llm"
 
-        answer = result["content"].strip()
+        if not answer:
+            answer = await self._solve_with_llm(clean_question, complexity="low")
+            if answer:
+                solver = "local_llm"
+
         elapsed = time.monotonic() - start_time
-        logger.info("CHALLENGE: LLM answered in %.1fs: '%s' -> '%s'", elapsed, question[:100], answer)
 
-        if not endpoint:
-            logger.warning("CHALLENGE: No endpoint found, cannot submit")
+        if not answer:
+            logger.error("CHALLENGE: All solvers failed for: %s", clean_question[:200])
             self._stats["challenges_failed"] += 1
+            self._audit("challenge_response", {
+                "question_clean": clean_question[:500],
+                "answer": None,
+                "solver": None,
+                "duration_ms": round(elapsed * 1000, 1),
+                "error": "all_solvers_failed",
+            })
             return None
 
-        # Submit answer
-        submit_result = await self._submit_answer(endpoint, answer, nonce, challenge_data)
+        logger.info(
+            "CHALLENGE: %s answered in %.1fs: '%s' -> '%s'",
+            solver, elapsed, clean_question[:100], answer,
+        )
+
+        # Audit: challenge_response
+        self._audit("challenge_response", {
+            "question_clean": clean_question[:500],
+            "answer": answer,
+            "solver": solver,
+            "duration_ms": round(elapsed * 1000, 1),
+        })
+
+        # Submit answer via multi-strategy
+        submit_result = await self._try_submit(
+            answer=answer,
+            nonce=nonce,
+            challenge_data=challenge_data,
+            endpoint=endpoint,
+            original_endpoint=original_endpoint,
+            original_payload=original_payload,
+        )
+
+        total_elapsed = time.monotonic() - start_time
 
         if submit_result is not None:
-            total_elapsed = time.monotonic() - start_time
             logger.info("CHALLENGE: Solved in %.1fs (limit: %ss)", total_elapsed, time_limit)
             self._stats["challenges_solved"] += 1
         else:
             self._stats["challenges_failed"] += 1
 
+        # Record to DB
+        await self._record_challenge(
+            challenge_id=nonce,
+            question_raw=question,
+            question_clean=clean_question,
+            answer=answer,
+            solver=solver,
+            correct=submit_result is not None,
+            endpoint=endpoint or original_endpoint,
+            duration_ms=round(total_elapsed * 1000, 1),
+            http_status=submit_result.get("_http_status") if isinstance(submit_result, dict) else None,
+            error=None if submit_result else "submit_failed",
+        )
+
         return submit_result
+
+    async def _solve_with_llm(self, clean_question: str, complexity: str = "low") -> Optional[str]:
+        """Solve challenge via LLM Gateway with specified complexity routing."""
+        messages = [
+            {"role": "system", "content": CHALLENGE_SOLVER_SYSTEM},
+            {"role": "user", "content": clean_question},
+        ]
+        try:
+            result = await self._llm.chat(
+                messages=messages,
+                temperature=0.0,
+                max_tokens=50,
+                priority="high",
+                complexity=complexity,
+            )
+        except Exception as e:
+            logger.warning("CHALLENGE: LLM (complexity=%s) failed: %s", complexity, e)
+            return None
+
+        if not result or not result.get("content"):
+            return None
+        return result["content"].strip()
+
+    async def _try_submit(
+        self,
+        answer: str,
+        nonce: Optional[str],
+        challenge_data: dict,
+        endpoint: Optional[str],
+        original_endpoint: Optional[str],
+        original_payload: Optional[dict],
+    ) -> Optional[dict]:
+        """Multi-strategy challenge submission.
+
+        Tries strategies in order, returns the first successful result:
+        1. POST /verify — the known standard endpoint (from moltbook-mcp community)
+        2. Explicit endpoint from challenge data (if provided and different)
+        3. Retry original POST with verification fields injected
+
+        Numeric answers are formatted to 2 decimal places per API convention.
+        All attempts are logged for forensic analysis (issue #134, #168).
+        """
+        # Format numeric answers to 2 decimal places (API convention)
+        formatted_answer = self._format_answer(answer)
+        strategies_tried = []
+
+        # Strategy 1: POST /verify — the known standard endpoint
+        if self._base_url and self._session:
+            verify_payload: dict = {"answer": formatted_answer}
+            if nonce:
+                verify_payload["verification_code"] = nonce
+            challenge_id = challenge_data.get("challenge_id") or challenge_data.get("id")
+            if challenge_id:
+                verify_payload["challenge_id"] = str(challenge_id)
+
+            result = await self._post_with_logging(
+                "/verify", verify_payload, "post_verify",
+            )
+            strategies_tried.append(("post_verify", "/verify", result is not None))
+            if result is not None:
+                self._audit("challenge_submitted", {
+                    "nonce": nonce, "answer": formatted_answer, "method": "post_verify", "success": True,
+                })
+                return result
+
+        # Strategy 2: Explicit submit endpoint from challenge data (if different from /verify)
+        if endpoint and endpoint != "/verify":
+            result = await self._submit_answer(endpoint, formatted_answer, nonce, challenge_data)
+            strategies_tried.append(("explicit_endpoint", endpoint, result is not None))
+            if result is not None:
+                self._audit("challenge_submitted", {
+                    "nonce": nonce, "answer": formatted_answer, "method": "explicit_endpoint", "success": True,
+                })
+                return result
+
+        # Strategy 3: Retry original POST with verification fields
+        if original_endpoint and self._session:
+            retry_payload = dict(original_payload) if original_payload else {}
+            retry_payload["verification_answer"] = formatted_answer
+            if nonce:
+                retry_payload["verification_code"] = nonce
+
+            result = await self._post_with_logging(
+                original_endpoint, retry_payload, "retry_original",
+            )
+            strategies_tried.append(("retry_original", original_endpoint, result is not None))
+            if result is not None:
+                self._audit("challenge_submitted", {
+                    "nonce": nonce, "answer": formatted_answer, "method": "retry_original", "success": True,
+                })
+                return result
+
+        # All strategies failed
+        logger.error(
+            "CHALLENGE: All submit strategies failed: %s",
+            [(s[0], s[1], s[2]) for s in strategies_tried],
+        )
+        self._audit("challenge_submitted", {
+            "nonce": nonce,
+            "answer": formatted_answer,
+            "method": "all_failed",
+            "success": False,
+            "strategies_tried": [s[0] for s in strategies_tried],
+        })
+        return None
+
+    @staticmethod
+    def _format_answer(answer: str) -> str:
+        """Format answer for API submission.
+
+        Numeric answers are formatted to 2 decimal places per Moltbook API convention
+        (confirmed by moltbook-mcp community implementation).
+        """
+        try:
+            num = float(answer)
+            if not (num != num):  # not NaN
+                return f"{num:.2f}"
+        except (ValueError, TypeError):
+            pass
+        return answer
+
+    async def _post_with_logging(
+        self, url: str, payload: dict, strategy_name: str,
+    ) -> Optional[dict]:
+        """POST with full forensic logging for submit strategies."""
+        if not self._session:
+            return None
+
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+
+        try:
+            async with self._session.post(
+                url if url.startswith("http") else f"{self._base_url}{url}",
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                raw_body = await response.text()
+                logger.info(
+                    "CHALLENGE SUBMIT [%s]: %s -> HTTP %d | headers=%s | body=%.1000s",
+                    strategy_name, url, response.status,
+                    {k: v for k, v in response.headers.items()
+                     if k.lower().startswith("x-") or "verif" in k.lower()},
+                    raw_body,
+                )
+                if response.status >= 400:
+                    return None
+                try:
+                    result = json_module.loads(raw_body)
+                    result["_http_status"] = response.status
+                    return result
+                except Exception:
+                    return {"success": True, "raw_response": raw_body, "_http_status": response.status}
+        except Exception as e:
+            logger.warning("CHALLENGE SUBMIT [%s] failed: %s", strategy_name, e)
+            return None
 
     def _extract_field(self, data: dict, field_names: tuple) -> Optional[str]:
         """Extract a field value trying multiple possible names and nesting paths."""
@@ -408,3 +896,45 @@ class PerContentChallengeHandler:
     def get_stats(self) -> dict:
         """Get challenge handler statistics."""
         return self._stats.copy()
+
+    # ── Audit & DB helpers ───────────────────────────────────────────────
+
+    def _audit(self, action: str, details: dict) -> None:
+        """Log an audit event if audit_log is available."""
+        if self._audit_log:
+            try:
+                self._audit_log.log(action=action, details=details)
+            except Exception as e:
+                logger.debug("Audit log error: %s", e)
+
+    async def _record_challenge(
+        self,
+        challenge_id: Optional[str],
+        question_raw: Optional[str],
+        question_clean: Optional[str],
+        answer: Optional[str],
+        solver: Optional[str],
+        correct: bool,
+        endpoint: Optional[str],
+        duration_ms: float,
+        http_status: Optional[int],
+        error: Optional[str],
+    ) -> None:
+        """Record challenge attempt to engagement DB if available."""
+        if not self._engagement_db:
+            return
+        try:
+            await self._engagement_db.record_challenge(
+                challenge_id=challenge_id,
+                question_raw=question_raw,
+                question_clean=question_clean,
+                answer=answer,
+                solver=solver,
+                correct=correct,
+                endpoint=endpoint,
+                duration_ms=duration_ms,
+                http_status=http_status,
+                error=error,
+            )
+        except Exception as e:
+            logger.debug("Challenge DB record error: %s", e)

@@ -98,6 +98,8 @@ class MoltbookPlugin(PluginBase):
                 llm_client=self.ctx.llm_client,
                 api_key=api_key,
                 base_url="https://www.moltbook.com/api/v1",
+                audit_log=self.ctx.audit_log,
+                engagement_db=self.ctx.engagement_db,
             )
             response_router = ResponseRouter(llm_client=self.ctx.llm_client)
 
@@ -274,6 +276,14 @@ class MoltbookPlugin(PluginBase):
                     "Account SUSPENDED — no expiry in response, backing off 24h (until %s). Reason: %s",
                     self._suspended_until.isoformat(), e.reason,
                 )
+            self.ctx.audit_log.log(
+                action="suspension_detected",
+                details={
+                    "reason": e.reason,
+                    "suspended_until": e.suspended_until or self._suspended_until.isoformat(),
+                    "identity": self.ctx.identity.name,
+                },
+            )
             self._persist_status()
         except RateLimitError as e:
             logger.warning("Rate limited during tick: %s", e)

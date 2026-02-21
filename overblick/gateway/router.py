@@ -3,7 +3,7 @@ Request router for intelligent multi-backend routing.
 
 Routes requests to the best available backend based on:
 1. Explicit backend override (?backend=)
-2. Complexity level (high → cloud/deepseek, low → local)
+2. Complexity level (ultra → deepseek/cloud, high → cloud/deepseek, low → local)
 3. Priority level (high + cloud available → cloud)
 4. Default backend from configuration
 
@@ -36,7 +36,8 @@ class RequestRouter:
 
         Precedence:
         1. explicit_backend — user override, highest priority
-        2. complexity=high → cloud > deepseek > local
+        2a. complexity=ultra → deepseek > cloud > local
+        2b. complexity=high → cloud > deepseek > local
         3. complexity=low → local
         4. priority=high + cloud available → cloud (backward compat)
         5. Default → registry.default_backend
@@ -66,6 +67,19 @@ class RequestRouter:
             return self._registry.default_backend
 
         # 2. Complexity-based routing
+
+        # 2a. Ultra: prefer deepseek for precision tasks (math, challenges)
+        if complexity == "ultra":
+            for candidate in ("deepseek", "cloud"):
+                if candidate in available:
+                    logger.debug(
+                        "Router: complexity=ultra → '%s'", candidate
+                    )
+                    return candidate
+            logger.debug("Router: complexity=ultra but no deepseek/cloud, using default")
+            return self._registry.default_backend
+
+        # 2b. High: prefer cloud for complex tasks
         if complexity == "high":
             # Prefer cloud > deepseek > local
             for candidate in ("cloud", "deepseek"):

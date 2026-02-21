@@ -206,7 +206,7 @@ async def chat_completion(
     request: ChatRequest,
     priority: str = Query(default="low", description="Priority: high or low"),
     backend: Optional[str] = Query(default=None, description="Backend to route to"),
-    complexity: Optional[str] = Query(default=None, description="Complexity: high or low (for backend routing)"),
+    complexity: Optional[str] = Query(default=None, description="Complexity: ultra, high, or low (for backend routing)"),
 ) -> ChatResponse:
     """
     OpenAI-compatible chat completion endpoint with priority queuing.
@@ -216,6 +216,7 @@ async def chat_completion(
     - low: Background tasks (scheduled ticks, housekeeping)
 
     Complexity levels (for backend routing):
+    - ultra: Highest capability — prefer deepseek for precision tasks (math, challenges)
     - high: Complex tasks — prefer cloud/deepseek backends
     - low: Simple tasks — local inference is fine
 

@@ -61,7 +61,12 @@ class MockChallengeHandler:
             return True
         return False
 
-    async def solve(self, challenge_data: dict) -> dict | None:
+    async def solve(
+        self,
+        challenge_data: dict,
+        original_endpoint: str | None = None,
+        original_payload: dict | None = None,
+    ) -> dict | None:
         self.solve_called = True
         return self._solve_result
 

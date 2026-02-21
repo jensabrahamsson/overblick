@@ -193,3 +193,17 @@ class TestFastAPIApp:
         )
 
         assert response.status_code == 200
+
+    def test_chat_completion_with_ultra_complexity(self, client, mock_queue_manager):
+        """Ultra complexity parameter is accepted and processed."""
+        payload = {
+            "model": "qwen3:8b",
+            "messages": [{"role": "user", "content": "Precision task"}],
+        }
+
+        response = client.post(
+            "/v1/chat/completions?priority=high&complexity=ultra",
+            json=payload,
+        )
+
+        assert response.status_code == 200

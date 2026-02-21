@@ -30,6 +30,7 @@ class Complexity(str, Enum):
     """
     LOW = "low"    # Simple tasks — local inference is fine
     HIGH = "high"  # Complex tasks — prefer cloud/deepseek backends
+    ULTRA = "ultra"  # Highest capability — prefer deepseek for precision tasks
 
 
 class ChatMessage(BaseModel):

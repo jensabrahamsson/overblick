@@ -135,4 +135,30 @@ class TestEdgeCases:
         router = RequestRouter(_make_registry(["deepseek"], default="deepseek"))
         assert router.resolve_backend(complexity="low") == "deepseek"
         assert router.resolve_backend(complexity="high") == "deepseek"
+        assert router.resolve_backend(complexity="ultra") == "deepseek"
         assert router.resolve_backend(priority="high") == "deepseek"
+
+
+class TestUltraComplexityRouting:
+    """Rule 2a: Ultra complexity prefers deepseek over cloud."""
+
+    def test_ultra_prefers_deepseek(self):
+        """With all backends available, ultra routes to deepseek."""
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        assert router.resolve_backend(complexity="ultra") == "deepseek"
+
+    def test_ultra_falls_to_cloud_when_no_deepseek(self):
+        """Without deepseek, ultra falls back to cloud."""
+        router = RequestRouter(_make_registry(["local", "cloud"]))
+        assert router.resolve_backend(complexity="ultra") == "cloud"
+
+    def test_ultra_falls_to_default_when_only_local(self):
+        """Without deepseek or cloud, ultra falls back to default."""
+        router = RequestRouter(_make_registry(["local"], default="local"))
+        assert router.resolve_backend(complexity="ultra") == "local"
+
+    def test_ultra_vs_high_different_preference(self):
+        """Ultra and high have inverted deepseek/cloud preference."""
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        assert router.resolve_backend(complexity="ultra") == "deepseek"
+        assert router.resolve_backend(complexity="high") == "cloud"

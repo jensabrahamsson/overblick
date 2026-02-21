@@ -21,6 +21,7 @@ venv/
 Thumbs.db
 
 # Överblick-specific
+config/overblick.yaml
 config/secrets/
 config/secrets.yaml
 config/permissions.yaml
@@ -40,6 +41,9 @@ tests/e2e/screenshots/
 opencode*.txt
 opencode*.json
 devstral_*.txt
+
+# Live test scripts (may contain API responses)
+scripts/test_*
 
 # IPC sockets
 /tmp/overblick/

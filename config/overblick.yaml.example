@@ -1,0 +1,60 @@
+# Överblick Framework Global Configuration
+# ==========================================
+# Copy this file to overblick.yaml and customize with your values.
+# NEVER commit overblick.yaml to version control!
+
+framework:
+  name: "Överblick"
+  version: "0.1.0"
+  log_level: "INFO"
+
+# Principal — the person all agents act on behalf of (global, shared across all identities)
+principal:
+  name: "Your Name"
+  email: "you@example.com"
+  timezone: "Europe/Stockholm"
+  language: "en"
+
+# LLM configuration — multi-backend routing via gateway
+llm:
+  gateway_url: "http://127.0.0.1:8200"
+  default_backend: "local"
+  temperature: 0.7
+  max_tokens: 2000
+  backends:
+    local:
+      enabled: true
+      type: "ollama"
+      host: "127.0.0.1"
+      port: 11434
+      model: "qwen3:8b"
+    cloud:
+      enabled: false
+      type: "lmstudio"
+      host: "192.168.1.100"
+      port: 1234
+      model: "your-model-name"
+    deepseek:
+      enabled: false
+      type: "deepseek"
+      model: "deepseek-chat"
+      # API key: set OVERBLICK_DEEPSEEK_API_KEY env var or add api_key field
+
+# Moltbook API defaults
+moltbook:
+  base_url: "https://www.moltbook.com/api/v1"
+  requests_per_minute: 100
+  post_interval_minutes: 30
+  comment_interval_seconds: 20
+  max_comments_per_day: 50
+
+# Paths
+paths:
+  data_dir: "data"
+  logs_dir: "logs"
+  secrets_dir: "config/secrets"
+
+# Security
+security:
+  audit_log_enabled: true
+  input_sanitizer_enabled: true

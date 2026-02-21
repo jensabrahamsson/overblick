@@ -237,7 +237,11 @@ class MoltbookClient:
                             error_data = json_module.loads(raw_body)
                             if self._challenge_handler.detect(error_data, response.status):
                                 logger.warning("PER-CONTENT CHALLENGE in HTTP %d!", response.status)
-                                solved = await self._challenge_handler.solve(error_data)
+                                solved = await self._challenge_handler.solve(
+                                    error_data,
+                                    original_endpoint=endpoint,
+                                    original_payload=json,
+                                )
                                 if solved is not None:
                                     return solved
                                 logger.error("Challenge solving FAILED for POST %s", endpoint)
@@ -366,7 +370,11 @@ class MoltbookClient:
                         if verdict and verdict.is_challenge:
                             logger.warning("ResponseRouter detected CHALLENGE in %s %s", method, endpoint)
                             if method == "POST" and self._challenge_handler:
-                                solved = await self._challenge_handler.solve(result)
+                                solved = await self._challenge_handler.solve(
+                                    result,
+                                    original_endpoint=endpoint,
+                                    original_payload=json,
+                                )
                                 if solved is not None:
                                     return solved
                                 raise MoltbookError("Failed to solve verification challenge")
@@ -381,7 +389,11 @@ class MoltbookClient:
                         if self._challenge_handler.detect(result, response.status):
                             logger.warning("Challenge detected in %s %s (HTTP %d)", method, endpoint, response.status)
                             if method == "POST":
-                                solved = await self._challenge_handler.solve(result)
+                                solved = await self._challenge_handler.solve(
+                                    result,
+                                    original_endpoint=endpoint,
+                                    original_payload=json,
+                                )
                                 if solved is not None:
                                     return solved
                                 raise MoltbookError("Failed to solve verification challenge")
