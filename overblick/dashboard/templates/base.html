@@ -36,7 +36,8 @@
             {% if stage_enabled() %}<a href="/stage" class="nav-link {% if request.url.path == '/stage' %}active{% endif %}" {% if request.url.path == '/stage' %}aria-current="page"{% endif %}>Stage</a>{% endif %}
             <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}" {% if request.url.path == '/audit' %}aria-current="page"{% endif %}>Audit</a>
             <a href="/settings/" class="nav-link {% if request.url.path.startswith('/settings') %}active{% endif %}" {% if request.url.path.startswith('/settings') %}aria-current="page"{% endif %}>⚙ Settings</a>
-            <a href="/logout" class="nav-link nav-link-logout">Logout</a>
+            <!-- Logout disabled — localhost-only dashboard needs no auth yet -->
+            <!-- <a href="/logout" class="nav-link nav-link-logout">Logout</a> -->
         </div>
     </nav>
 

@@ -52,15 +52,15 @@ class TestLogout:
         # The important thing is that the response chain started from /logout
         assert response is not None
 
-    def test_logout_link_visible(self, dashboard_server, page):
-        """Logout link should be visible in navigation."""
+    def test_logout_link_hidden(self, dashboard_server, page):
+        """Logout link should be hidden (localhost-only, no auth needed)."""
         page.goto(f"{dashboard_server}/login")
         page.wait_for_load_state("networkidle")
         page.goto(dashboard_server)
         page.wait_for_load_state("networkidle")
 
         logout_link = page.locator("a[href='/logout']")
-        assert logout_link.count() >= 1
+        assert logout_link.count() == 0
 
 
 class TestNavigation:
