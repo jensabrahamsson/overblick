@@ -5,7 +5,10 @@ from unittest.mock import AsyncMock, MagicMock
 from overblick.plugins.moltbook.challenge_handler import (
     PerContentChallengeHandler,
     deobfuscate_challenge,
+    solve_arithmetic,
     _strip_letter_doubling,
+    _extract_word_numbers,
+    _fuzzy_match,
 )
 
 
@@ -318,10 +321,10 @@ class TestComplexityRouting:
         # Second call: low
         assert llm.chat.call_args_list[1].kwargs["complexity"] == "low"
 
-    async def test_arithmetic_bypasses_llm(self):
-        """Arithmetic questions are solved without any LLM call."""
+    async def test_arithmetic_fallback_when_llm_fails(self):
+        """Arithmetic solver is used as fallback when all LLMs fail."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "should not be used"})
+        llm.chat = AsyncMock(return_value=None)  # Both LLM attempts fail
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
@@ -336,11 +339,13 @@ class TestComplexityRouting:
         })
 
         assert result is not None
-        # LLM should NOT be called — arithmetic solver handles it
-        llm.chat.assert_not_called()
+        # LLM should be called first (ultra then low), both failed
+        assert llm.chat.call_count == 2
+        # Arithmetic fallback handles it — verify answer was submitted
+        assert handler.get_stats()["challenges_solved"] == 1
 
     async def test_llm_params_deterministic(self):
-        """LLM calls use deterministic parameters: temperature=0.0, max_tokens=50, priority=high."""
+        """LLM calls use deterministic parameters: temperature=0.0, max_tokens=512, priority=high."""
         llm = AsyncMock()
         llm.chat = AsyncMock(return_value={"content": "answer"})
         session = _make_mock_session()
@@ -358,7 +363,7 @@ class TestComplexityRouting:
 
         call_kwargs = llm.chat.call_args_list[0].kwargs
         assert call_kwargs["temperature"] == 0.0
-        assert call_kwargs["max_tokens"] == 50
+        assert call_kwargs["max_tokens"] == 512
         assert call_kwargs["priority"] == "high"
 
 
@@ -517,8 +522,8 @@ class TestAuditEvents:
         ]
         assert len(response_calls) == 1
         details = response_calls[0].kwargs["details"]
-        assert details["answer"] == "50.00"
-        assert details["solver"] == "arithmetic"
+        assert details["answer"] == "50"
+        assert details["solver"] == "cloud_llm"
         assert details["duration_ms"] > 0
 
     async def test_challenge_submitted_audit(self):
@@ -576,8 +581,8 @@ class TestDBRecording:
         engagement_db.record_challenge.assert_called_once()
         call_kwargs = engagement_db.record_challenge.call_args.kwargs
         assert call_kwargs["challenge_id"] == "nonce_1"
-        assert call_kwargs["answer"] == "50.00"
-        assert call_kwargs["solver"] == "arithmetic"
+        assert call_kwargs["answer"] == "50"
+        assert call_kwargs["solver"] == "cloud_llm"
         assert call_kwargs["correct"] is True
         assert call_kwargs["duration_ms"] > 0
 
@@ -709,3 +714,186 @@ class TestDeobfuscation:
         assert "is" in result
         assert "32" in result
         assert "18" in result
+
+
+# ── Real challenge regression tests (from Cherry logs 2026-02-22) ──────────
+
+
+class TestRealChallengeDeobfuscation:
+    """Deobfuscation tests using exact challenge text from production logs."""
+
+    def test_clean_addition_34_plus_22(self):
+        """Challenge that succeeded: 'thirty four + twenty two' (07:13 UTC)."""
+        raw = (
+            "A] DoMiNaNt LoOoBbSsT- ErRr ]ClAw FoRcE Is ThIrTy FoOuR "
+            "NoOoToOnS, Um~ AnD A ChAlLeNnGgEr HaS TwEnTy TwOo NoOtToOnS, "
+            "WhAt Is ThEiR CoMbInEd FoRcE?"
+        )
+        clean = deobfuscate_challenge(raw)
+        assert "thirty" in clean
+        assert "four" in clean
+        assert "twenty" in clean
+        assert "two" in clean
+
+    def test_clean_addition_35_plus_12(self):
+        """Challenge that succeeded: letter-doubled 'thirty five + twelve' (11:58 UTC)."""
+        raw = (
+            "A] lOo.oBbSsStTeErR ] lAaRrGgEe- clL]aWw ^ eXxEeRrTtSs ] "
+            "tHhIiRrTtYy fIiVvEe ] nEeWwOoTtOoNnS ~ wHhIiLlEe ] tHhEe ] "
+            "sMmAaLlLlEeRr- clL]aWw ^ eXxEeRrTtSs ] tWwEeLlVvEe < nEeWwOoTtOoNnS"
+        )
+        clean = deobfuscate_challenge(raw)
+        assert "thirty" in clean
+        assert "five" in clean
+        assert "twelve" in clean
+
+    def test_split_word_twenty_five(self):
+        """Challenge that failed: 'T w/eN tY- fIvE' splits 'twenty five'."""
+        raw = (
+            "ThIs] LoOooBssst-Er S^wImS[ iN aC-iDd WaTeR, ShAkInG aNtEnNaS "
+            "aNd MuLtInG; ItS VeLoOociTy Is T w/eN tY- fIvE mE^tErS PeR "
+            "sEcOnD, BuT dUrInG a DoMiNaNcE fIgHt It LoOsEs SeVeN oF iTs "
+            "SpEeD, So wHaT Is T"
+        )
+        clean = deobfuscate_challenge(raw)
+        # "loses" must survive deobfuscation (subtraction keyword)
+        assert "loses" in clean or "lose" in clean
+        assert "seven" in clean
+
+    def test_subtraction_slows_by(self):
+        """Challenge that failed: 'slows by seven' not detected as subtraction."""
+        raw = (
+            "A] Lo.BsT-ErRr S^wImS[ aT tWeNtY tHrEe ~ mEtErS / pEr \\ "
+            "sEcOnD, Um- SlOwS | bY sEvEn ] wHaTs {tHe} nEw - vElAwCiTeE SpEeD?"
+        )
+        clean = deobfuscate_challenge(raw)
+        assert "twenty" in clean
+        assert "seven" in clean
+        assert "slows" in clean or "slow" in clean
+
+
+class TestRealChallengeArithmetic:
+    """Arithmetic solver tests using real challenge text.
+
+    After the LLM-first reorder, these test the arithmetic fallback path.
+    Correct answers should still work; broken ones should return None
+    (deferring to LLM).
+    """
+
+    def test_clean_34_plus_22(self):
+        """Clean word numbers: thirty four + twenty two = 56."""
+        clean = deobfuscate_challenge(
+            "A] DoMiNaNt LoOoBbSsT- ErRr ]ClAw FoRcE Is ThIrTy FoOuR "
+            "NoOoToOnS, Um~ AnD A ChAlLeNnGgEr HaS TwEnTy TwOo NoOtToOnS, "
+            "WhAt Is ThEiR CoMbInEd FoRcE?"
+        )
+        result = solve_arithmetic(clean)
+        assert result == "56.00"
+
+    def test_clean_35_plus_12(self):
+        """Letter-doubled: thirty five + twelve = 47."""
+        clean = deobfuscate_challenge(
+            "A] lOo.oBbSsStTeErR ] lAaRrGgEe- clL]aWw ^ eXxEeRrTtSs ] "
+            "tHhIiRrTtYy fIiVvEe ] nEeWwOoTtOoNnS ~ wHhIiLlEe ] tHhEe ] "
+            "sMmAaLlLlEeRr- clL]aWw ^ eXxEeRrTtSs ] tWwEeLlVvEe < nEeWwOoTtOoNnS"
+        )
+        result = solve_arithmetic(clean)
+        assert result == "47.00"
+
+    def test_slows_by_detected_as_subtraction(self):
+        """'slows by seven' must trigger subtraction, not addition."""
+        clean = deobfuscate_challenge(
+            "A] Lo.BsT-ErRr S^wImS[ aT tWeNtY tHrEe ~ mEtErS / pEr \\ "
+            "sEcOnD, Um- SlOwS | bY sEvEn ] wHaTs {tHe} nEw - vElAwCiTeE SpEeD?"
+        )
+        result = solve_arithmetic(clean)
+        # "twenty thre" → 23, "seven" → 7, "slows" → subtraction → 16
+        assert result == "16.00"
+
+    def test_25_plus_7_total_force(self):
+        """'twenty five + seven' with 'total force' = addition."""
+        clean = deobfuscate_challenge(
+            "A] LoB- bS tEr Um] ExErTs^ TwEnTy FiVe NoOoToNs ~, Um ]AnD "
+            "ThE/ OtHeR ClA- w ExErTs SeVeN NoOtOnS <>, WhAt] Is ToTaL FoRcE?"
+        )
+        result = solve_arithmetic(clean)
+        assert result == "32.00"
+
+    def test_split_twenty_five_returns_none(self):
+        """Split 'T w/eN tY- fIvE' can't be parsed — must return None for LLM."""
+        clean = deobfuscate_challenge(
+            "ThIs] LoOooBssst-Er S^wImS[ iN aC-iDd WaTeR, ShAkInG aNtEnNaS "
+            "aNd MuLtInG; ItS VeLoOociTy Is T w/eN tY- fIvE mE^tErS PeR "
+            "sEcOnD, BuT dUrInG a DoMiNaNcE fIgHt It LoOsEs SeVeN oF iTs "
+            "SpEeD, So wHaT Is T"
+        )
+        result = solve_arithmetic(clean)
+        # Split word → incomplete extraction → should NOT produce a wrong answer.
+        # Acceptable outcomes: None (defers to LLM) or "18.00" (correct)
+        assert result is None or result == "18.00"
+
+    def test_split_thirty_five_returns_none(self):
+        """Split 'tHiR tY fIvE' can't be parsed — must return None for LLM."""
+        clean = deobfuscate_challenge(
+            "A] lO b-.StEr ClAw] FoR cE Is^ tHiR tY] fIvE nEu-TonS um~ "
+            "aNd| AfTeR- a DoMinAnCe] PiNcH gAiNs^ tWeLvE nEu>ToNs, "
+            "wHaT Is< tHe ToTaL- FoRcE?"
+        )
+        result = solve_arithmetic(clean)
+        # Split word → incomplete extraction → should NOT produce a wrong answer.
+        assert result is None or result == "47.00"
+
+
+class TestFuzzyMatchStrictness:
+    """Ensure fuzzy matching doesn't produce false positives."""
+
+    def test_thir_does_not_match_thirteen(self):
+        """'thir' (fragment of 'thirty') must NOT match 'thirteen'."""
+        from overblick.plugins.moltbook.challenge_handler import _ONES
+        result = _fuzzy_match("thir", _ONES)
+        assert result is None
+
+    def test_ty_does_not_match_twenty(self):
+        """'ty' (fragment of 'twenty') must NOT match any number."""
+        from overblick.plugins.moltbook.challenge_handler import _TENS, _ONES
+        assert _fuzzy_match("ty", _TENS) is None
+        assert _fuzzy_match("ty", _ONES) is None
+
+    def test_wen_does_not_match(self):
+        """'wen' (fragment of 'twenty') must NOT match any number."""
+        from overblick.plugins.moltbook.challenge_handler import _TENS, _ONES
+        assert _fuzzy_match("wen", _TENS) is None
+        assert _fuzzy_match("wen", _ONES) is None
+
+    def test_thre_matches_three(self):
+        """'thre' (deobfuscation artifact) SHOULD match 'three'."""
+        from overblick.plugins.moltbook.challenge_handler import _ONES
+        result = _fuzzy_match("thre", _ONES)
+        assert result is not None
+        assert result[1] == 3
+
+    def test_exact_matches_preserved(self):
+        """Exact word matches must always work."""
+        from overblick.plugins.moltbook.challenge_handler import _TENS, _ONES
+        assert _fuzzy_match("twenty", _TENS) == ("twenty", 20)
+        assert _fuzzy_match("seven", _ONES) == ("seven", 7)
+        assert _fuzzy_match("thirteen", _ONES) == ("thirteen", 13)
+
+
+class TestSubtractionDetection:
+    """Ensure subtraction keywords from real challenges are detected."""
+
+    def test_slows_triggers_subtraction(self):
+        """'slows by seven' must detect subtraction."""
+        result = solve_arithmetic("speed is twenty three and slows by seven")
+        assert result == "16.00"
+
+    def test_loses_triggers_subtraction(self):
+        """'loses seven' must detect subtraction."""
+        result = solve_arithmetic("velocity is twenty five and loses seven")
+        assert result == "18.00"
+
+    def test_drops_triggers_subtraction(self):
+        """'drops by five' must detect subtraction."""
+        result = solve_arithmetic("force is thirty and drops by five")
+        assert result == "25.00"

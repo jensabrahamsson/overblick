@@ -168,31 +168,28 @@ _DIGIT_EXPR_RE = re.compile(r"[\d+\-*/().^ ]+")
 _OP_DETECT = {
     "mul": re.compile(r"\b(times|multipl\w*|product|multiplied)\b"),
     "div": re.compile(r"\b(divid\w*|ratio|split)\b"),
-    "sub": re.compile(r"\b(subtract\w*|minus|less|reduce\w*|remain\w*|take\s+away|gave?\s+away)\b"),
+    "sub": re.compile(r"\b(subtract\w*|minus|less|reduce\w*|remain\w*|take\s+away|gave?\s+away|slow\w*|los[ei]\w*|drop\w*|decreas\w*|fell|lower\w*|dip\w*)\b"),
 }
 
 
 def _fuzzy_match(word: str, dictionary: dict[str, int]) -> Optional[tuple[str, int]]:
     """Match a word against a dictionary with tolerance for deobfuscation artifacts.
 
-    Tries exact match first, then prefix match (handles 'thre' for 'three'),
-    then subsequence match for heavily mangled words.
+    Conservative matching to avoid false positives from obfuscation fragments:
+    - Exact match always accepted
+    - Prefix match only if word covers >= 80% of the key (e.g. 'thre'→'three')
+    - Subsequence matching disabled (too many false positives with short fragments)
     """
     if word in dictionary:
         return (word, dictionary[word])
 
-    # Prefix match (handles deobfuscation artifacts like thre→three)
+    # Strict prefix match — word must cover most of the key to avoid
+    # false positives like "thir" → "thirteen" (4/8 = 50%, rejected)
     for key, val in dictionary.items():
-        if len(word) >= 3 and key.startswith(word):
+        if len(word) >= 4 and key.startswith(word) and len(word) >= len(key) * 0.8:
             return (key, val)
-        if len(key) >= 3 and word.startswith(key):
+        if len(key) >= 4 and word.startswith(key) and len(key) >= len(word) * 0.8:
             return (key, val)
-
-    # Subsequence match — word chars appear in order within key
-    if len(word) >= 3:
-        for key, val in dictionary.items():
-            if _is_subsequence(word, key) and len(word) >= len(key) * 0.6:
-                return (key, val)
 
     return None
 
@@ -375,6 +372,12 @@ def solve_arithmetic(text: str) -> Optional[str]:
     # Use whichever found numbers (prefer digits if both found)
     numbers = digit_numbers if digit_numbers else word_numbers
 
+    # Confidence guard: if using word numbers and ALL are < 20 in a long text,
+    # we likely missed a tens-word due to obfuscation (e.g. "t wen ty" → lost "twenty",
+    # only found "five"). Bail out and let the LLM handle it.
+    if not digit_numbers and numbers and len(text) > 60 and all(n < 20 for n in numbers):
+        return None
+
     if len(numbers) >= 2:
         op = _detect_operation(text)
         computed = _compute(numbers, op)
@@ -539,23 +542,26 @@ class PerContentChallengeHandler:
                 question[:100], clean_question[:100],
             )
 
-        # Solve: arithmetic fast-path → ultra LLM → local LLM fallback
+        # Solve: cloud LLM (Devstral) → local LLM → arithmetic fallback
+        # LLM-first because obfuscated word problems defeat the arithmetic
+        # parser (split words like "t wen ty" produce wrong answers).
+        # Arithmetic is kept as last-resort backup if both LLMs are down.
         answer = None
         solver = None
 
-        answer = solve_arithmetic(clean_question)
+        answer = await self._solve_with_llm(clean_question, complexity="ultra")
         if answer:
-            solver = "arithmetic"
-
-        if not answer:
-            answer = await self._solve_with_llm(clean_question, complexity="ultra")
-            if answer:
-                solver = "cloud_llm"
+            solver = "cloud_llm"
 
         if not answer:
             answer = await self._solve_with_llm(clean_question, complexity="low")
             if answer:
                 solver = "local_llm"
+
+        if not answer:
+            answer = solve_arithmetic(clean_question)
+            if answer:
+                solver = "arithmetic"
 
         elapsed = time.monotonic() - start_time
 
@@ -628,7 +634,7 @@ class PerContentChallengeHandler:
             result = await self._llm.chat(
                 messages=messages,
                 temperature=0.0,
-                max_tokens=50,
+                max_tokens=512,
                 priority="high",
                 complexity=complexity,
             )
