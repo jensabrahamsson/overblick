@@ -493,6 +493,7 @@ def build_system_prompt(
     identity: "Identity",
     platform: str = "Moltbook",
     model_slug: str = "",
+    secrets_getter: Optional[callable] = None,
 ) -> str:
     """
     Build a generic system prompt from identity data.
@@ -688,11 +689,22 @@ def build_system_prompt(
 
     prompt = "\n".join(parts)
 
-    # Fail-closed: detect unresolved {placeholder} tokens that would leak
-    # internal variable names into the LLM prompt.
+    # Resolve {placeholder} tokens from secrets (e.g. {principal_name})
     unresolved = _UNRESOLVED_PLACEHOLDER_RE.findall(prompt)
-    if unresolved:
-        unique = sorted(set(unresolved))
+    if unresolved and secrets_getter:
+        for placeholder in set(unresolved):
+            try:
+                value = secrets_getter(placeholder)
+                if value:
+                    prompt = prompt.replace(f"{{{placeholder}}}", value)
+            except (KeyError, TypeError):
+                pass  # Secret not available — will be caught below
+
+    # Fail-closed: detect still-unresolved {placeholder} tokens that would
+    # leak internal variable names into the LLM prompt.
+    still_unresolved = _UNRESOLVED_PLACEHOLDER_RE.findall(prompt)
+    if still_unresolved:
+        unique = sorted(set(still_unresolved))
         logger.warning(
             "Unresolved placeholders in system prompt for %s: %s",
             identity.name, unique,

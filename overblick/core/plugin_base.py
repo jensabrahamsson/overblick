@@ -142,7 +142,12 @@ class PluginContext(BaseModel):
             System prompt string
         """
         from overblick.identities import build_system_prompt
-        return build_system_prompt(identity, platform=platform, model_slug=model_slug)
+        return build_system_prompt(
+            identity,
+            platform=platform,
+            model_slug=model_slug,
+            secrets_getter=getattr(self, "_secrets_getter", None),
+        )
 
     def model_post_init(self, __context) -> None:
         # Ensure directories exist

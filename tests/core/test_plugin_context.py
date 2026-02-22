@@ -79,7 +79,8 @@ class TestPluginContextIdentity:
             mock_build.return_value = "You are Cherry."
             result = ctx.build_system_prompt(mock_identity, platform="Telegram")
             mock_build.assert_called_once_with(
-                mock_identity, platform="Telegram", model_slug=""
+                mock_identity, platform="Telegram", model_slug="",
+                secrets_getter=None,
             )
             assert result == "You are Cherry."
 

@@ -60,9 +60,19 @@ class EmailCapability:
     async def setup(self) -> None:
         """Load SMTP configuration from secrets."""
         try:
+            port_str = self.ctx.get_secret("smtp_port")
+            if not port_str:
+                raise ValueError("SMTP secret 'smtp_port' is missing or empty")
+            try:
+                port = int(port_str)
+            except (ValueError, TypeError) as e:
+                raise ValueError(
+                    f"SMTP secret 'smtp_port' must be an integer, got: {port_str!r}"
+                ) from e
+
             self._smtp_config = {
                 "server": self.ctx.get_secret("smtp_server"),
-                "port": int(self.ctx.get_secret("smtp_port")),
+                "port": port,
                 "login": self.ctx.get_secret("smtp_login"),
                 "password": self.ctx.get_secret("smtp_password"),
                 "from_email": self.ctx.get_secret("smtp_from_email"),

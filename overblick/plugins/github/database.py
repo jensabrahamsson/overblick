@@ -1,20 +1,26 @@
 """
-Database layer for the GitHub monitoring plugin.
+Database layer for the GitHub agent plugin.
 
 Wraps DatabaseBackend with GitHub-specific tables for event
-deduplication, comment tracking, and file tree/content caching.
+deduplication, comment tracking, file tree/content caching,
+and agentic state (goals, actions, learnings, tick logs).
 Uses the framework's migration system for schema management.
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from overblick.core.database.base import DatabaseBackend, Migration, MigrationManager
 from overblick.plugins.github.models import (
+    ActionOutcome,
+    AgentGoal,
+    AgentLearning,
     CachedFile,
     CommentRecord,
     EventRecord,
     FileTreeEntry,
+    GoalStatus,
+    TickLog,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,6 +102,117 @@ MIGRATIONS = [
             );
         """,
         down_sql="DROP TABLE IF EXISTS repo_tree_meta;",
+    ),
+    # ── Agentic migrations (v6-v11) ──────────────────────────────────────
+    Migration(
+        version=6,
+        name="agent_goals",
+        up_sql="""
+            CREATE TABLE IF NOT EXISTS agent_goals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT DEFAULT '',
+                priority INTEGER DEFAULT 50,
+                status TEXT DEFAULT 'active',
+                progress REAL DEFAULT 0.0,
+                metadata TEXT DEFAULT '{}',
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
+        """,
+        down_sql="DROP TABLE IF EXISTS agent_goals;",
+    ),
+    Migration(
+        version=7,
+        name="action_log",
+        up_sql="""
+            CREATE TABLE IF NOT EXISTS action_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tick_number INTEGER DEFAULT 0,
+                action_type TEXT NOT NULL,
+                target TEXT DEFAULT '',
+                target_number INTEGER DEFAULT 0,
+                repo TEXT DEFAULT '',
+                priority INTEGER DEFAULT 0,
+                reasoning TEXT DEFAULT '',
+                success INTEGER DEFAULT 0,
+                result TEXT DEFAULT '',
+                error TEXT DEFAULT '',
+                duration_ms REAL DEFAULT 0.0,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+        """,
+        down_sql="DROP TABLE IF EXISTS action_log;",
+    ),
+    Migration(
+        version=8,
+        name="agent_learnings",
+        up_sql="""
+            CREATE TABLE IF NOT EXISTS agent_learnings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category TEXT DEFAULT '',
+                insight TEXT NOT NULL,
+                confidence REAL DEFAULT 0.5,
+                source_tick INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+        """,
+        down_sql="DROP TABLE IF EXISTS agent_learnings;",
+    ),
+    Migration(
+        version=9,
+        name="tick_log",
+        up_sql="""
+            CREATE TABLE IF NOT EXISTS tick_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tick_number INTEGER NOT NULL,
+                started_at TEXT DEFAULT '',
+                completed_at TEXT DEFAULT '',
+                observations_count INTEGER DEFAULT 0,
+                actions_planned INTEGER DEFAULT 0,
+                actions_executed INTEGER DEFAULT 0,
+                actions_succeeded INTEGER DEFAULT 0,
+                reasoning_summary TEXT DEFAULT '',
+                duration_ms REAL DEFAULT 0.0
+            );
+        """,
+        down_sql="DROP TABLE IF EXISTS tick_log;",
+    ),
+    Migration(
+        version=10,
+        name="pr_tracking",
+        up_sql="""
+            CREATE TABLE IF NOT EXISTS pr_tracking (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo TEXT NOT NULL,
+                pr_number INTEGER NOT NULL,
+                title TEXT DEFAULT '',
+                author TEXT DEFAULT '',
+                is_dependabot INTEGER DEFAULT 0,
+                version_bump TEXT DEFAULT '',
+                ci_status TEXT DEFAULT 'unknown',
+                merged INTEGER DEFAULT 0,
+                auto_merged INTEGER DEFAULT 0,
+                first_seen TEXT DEFAULT (datetime('now')),
+                last_checked TEXT DEFAULT (datetime('now')),
+                UNIQUE(repo, pr_number)
+            );
+        """,
+        down_sql="DROP TABLE IF EXISTS pr_tracking;",
+    ),
+    Migration(
+        version=11,
+        name="repo_summaries",
+        up_sql="""
+            CREATE TABLE IF NOT EXISTS repo_summaries (
+                repo TEXT PRIMARY KEY,
+                summary TEXT DEFAULT '',
+                file_count INTEGER DEFAULT 0,
+                primary_language TEXT DEFAULT '',
+                last_generated TEXT DEFAULT (datetime('now'))
+            );
+        """,
+        down_sql="DROP TABLE IF EXISTS repo_summaries;",
     ),
 ]
 
@@ -271,6 +388,211 @@ class GitHubDB:
             (repo, path),
         )
         return row["sha"] if row else None
+
+    # ── Agent goals ────────────────────────────────────────────────────────
+
+    async def get_goals(self, status: str = "active") -> list[AgentGoal]:
+        """Get all goals with the given status."""
+        rows = await self._db.fetch_all(
+            "SELECT * FROM agent_goals WHERE status = ? ORDER BY priority DESC",
+            (status,),
+        )
+        return [
+            AgentGoal(
+                id=r["id"],
+                name=r["name"],
+                description=r["description"],
+                priority=r["priority"],
+                status=GoalStatus(r["status"]),
+                progress=r["progress"],
+                created_at=r["created_at"],
+                updated_at=r["updated_at"],
+            )
+            for r in rows
+        ]
+
+    async def upsert_goal(self, goal: AgentGoal) -> int:
+        """Insert or update a goal by name."""
+        row_id = await self._db.execute_returning_id(
+            "INSERT INTO agent_goals (name, description, priority, status, progress, metadata) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(name) DO UPDATE SET "
+            "description = ?, priority = ?, status = ?, progress = ?, "
+            "metadata = ?, updated_at = datetime('now')",
+            (
+                goal.name, goal.description, goal.priority,
+                goal.status.value, goal.progress, "{}",
+                goal.description, goal.priority, goal.status.value,
+                goal.progress, "{}",
+            ),
+        )
+        return row_id or 0
+
+    async def get_goal_by_name(self, name: str) -> Optional[AgentGoal]:
+        """Get a single goal by name."""
+        row = await self._db.fetch_one(
+            "SELECT * FROM agent_goals WHERE name = ?", (name,),
+        )
+        if not row:
+            return None
+        return AgentGoal(
+            id=row["id"],
+            name=row["name"],
+            description=row["description"],
+            priority=row["priority"],
+            status=GoalStatus(row["status"]),
+            progress=row["progress"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+
+    # ── Action log ────────────────────────────────────────────────────────
+
+    async def log_action(self, tick_number: int, outcome: ActionOutcome) -> int:
+        """Record an executed action."""
+        row_id = await self._db.execute_returning_id(
+            "INSERT INTO action_log "
+            "(tick_number, action_type, target, target_number, repo, "
+            "priority, reasoning, success, result, error, duration_ms) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                tick_number,
+                outcome.action.action_type.value,
+                outcome.action.target,
+                outcome.action.target_number,
+                outcome.action.repo,
+                outcome.action.priority,
+                outcome.action.reasoning,
+                1 if outcome.success else 0,
+                outcome.result,
+                outcome.error,
+                outcome.duration_ms,
+            ),
+        )
+        return row_id or 0
+
+    async def get_recent_actions(self, limit: int = 20) -> list[dict]:
+        """Get recent action log entries."""
+        return await self._db.fetch_all(
+            "SELECT * FROM action_log ORDER BY id DESC LIMIT ?",
+            (limit,),
+        )
+
+    # ── Learnings ─────────────────────────────────────────────────────────
+
+    async def add_learning(self, learning: AgentLearning) -> int:
+        """Record a new learning."""
+        row_id = await self._db.execute_returning_id(
+            "INSERT INTO agent_learnings (category, insight, confidence, source_tick) "
+            "VALUES (?, ?, ?, ?)",
+            (learning.category, learning.insight, learning.confidence, learning.source_tick),
+        )
+        return row_id or 0
+
+    async def get_learnings(self, limit: int = 20) -> list[AgentLearning]:
+        """Get recent learnings."""
+        rows = await self._db.fetch_all(
+            "SELECT * FROM agent_learnings ORDER BY id DESC LIMIT ?",
+            (limit,),
+        )
+        return [
+            AgentLearning(
+                id=r["id"],
+                category=r["category"],
+                insight=r["insight"],
+                confidence=r["confidence"],
+                source_tick=r["source_tick"],
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+
+    # ── Tick log ──────────────────────────────────────────────────────────
+
+    async def log_tick(self, tick: TickLog) -> int:
+        """Record a tick cycle."""
+        row_id = await self._db.execute_returning_id(
+            "INSERT INTO tick_log "
+            "(tick_number, started_at, completed_at, observations_count, "
+            "actions_planned, actions_executed, actions_succeeded, "
+            "reasoning_summary, duration_ms) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                tick.tick_number, tick.started_at, tick.completed_at,
+                tick.observations_count, tick.actions_planned,
+                tick.actions_executed, tick.actions_succeeded,
+                tick.reasoning_summary, tick.duration_ms,
+            ),
+        )
+        return row_id or 0
+
+    async def get_tick_count(self) -> int:
+        """Get the total number of recorded ticks."""
+        count = await self._db.fetch_scalar(
+            "SELECT COUNT(*) FROM tick_log",
+        )
+        return count or 0
+
+    # ── PR tracking ───────────────────────────────────────────────────────
+
+    async def upsert_pr_tracking(
+        self, repo: str, pr_number: int, **kwargs: Any,
+    ) -> None:
+        """Insert or update PR tracking record."""
+        title = kwargs.get("title", "")
+        author = kwargs.get("author", "")
+        is_dependabot = 1 if kwargs.get("is_dependabot", False) else 0
+        version_bump = kwargs.get("version_bump", "")
+        ci_status = kwargs.get("ci_status", "unknown")
+        merged = 1 if kwargs.get("merged", False) else 0
+        auto_merged = 1 if kwargs.get("auto_merged", False) else 0
+
+        await self._db.execute(
+            "INSERT INTO pr_tracking "
+            "(repo, pr_number, title, author, is_dependabot, version_bump, "
+            "ci_status, merged, auto_merged) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(repo, pr_number) DO UPDATE SET "
+            "ci_status = ?, merged = ?, auto_merged = ?, last_checked = datetime('now')",
+            (
+                repo, pr_number, title, author, is_dependabot,
+                version_bump, ci_status, merged, auto_merged,
+                ci_status, merged, auto_merged,
+            ),
+        )
+
+    async def was_pr_auto_merged(self, repo: str, pr_number: int) -> bool:
+        """Check if a PR was already auto-merged by us."""
+        count = await self._db.fetch_scalar(
+            "SELECT COUNT(*) FROM pr_tracking "
+            "WHERE repo = ? AND pr_number = ? AND auto_merged = 1",
+            (repo, pr_number),
+        )
+        return (count or 0) > 0
+
+    # ── Repo summaries ────────────────────────────────────────────────────
+
+    async def get_repo_summary(self, repo: str) -> Optional[dict]:
+        """Get cached repo summary."""
+        row = await self._db.fetch_one(
+            "SELECT * FROM repo_summaries WHERE repo = ?", (repo,),
+        )
+        return dict(row) if row else None
+
+    async def upsert_repo_summary(
+        self, repo: str, summary: str, file_count: int = 0,
+        primary_language: str = "",
+    ) -> None:
+        """Insert or update repo summary."""
+        await self._db.execute(
+            "INSERT INTO repo_summaries (repo, summary, file_count, primary_language) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(repo) DO UPDATE SET "
+            "summary = ?, file_count = ?, primary_language = ?, "
+            "last_generated = datetime('now')",
+            (repo, summary, file_count, primary_language,
+             summary, file_count, primary_language),
+        )
 
     # ── Stats ─────────────────────────────────────────────────────────────
 

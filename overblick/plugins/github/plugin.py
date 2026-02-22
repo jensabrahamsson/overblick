@@ -1,50 +1,43 @@
 """
-GitHub monitoring plugin — watches issues on public repos.
+GitHub agent plugin — agentic repository caretaker.
 
-Evaluates events via heuristic scoring, optionally builds code context,
-and generates identity-voiced responses via the SafeLLMPipeline.
-Notifications go through TelegramNotifier.
+Replaces the old reactive bot pattern with an agentic loop:
+OBSERVE world state -> THINK about goals -> PLAN actions -> ACT -> REFLECT
 
-Tick cycle:
-1. Poll configured repos for new issues/comments (since last check)
-2. Filter already-seen events (DB dedup)
-3. Score events via DecisionEngine
-4. For RESPOND events: build code context, generate response, post comment
-5. For NOTIFY events: send Telegram notification
-6. Record all events in DB
+The agent keeps repos healthy by:
+- Auto-merging safe Dependabot PRs (patch/minor with passing CI)
+- Responding to issues with identity-voiced, code-aware answers
+- Notifying the owner about failing CI, stale PRs, and major bumps
+- Learning from outcomes to improve over time
 """
 
-import hashlib
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Optional
 
 from overblick.core.plugin_base import PluginBase, PluginContext
-from overblick.plugins.github.client import GitHubAPIClient, GitHubAPIError
+from overblick.plugins.github.action_executor import ActionExecutor
+from overblick.plugins.github.agent_loop import AgentLoop
+from overblick.plugins.github.client import GitHubAPIClient
 from overblick.plugins.github.code_context import CodeContextBuilder
 from overblick.plugins.github.database import GitHubDB
-from overblick.plugins.github.decision_engine import GitHubDecisionEngine
-from overblick.plugins.github.models import (
-    CommentRecord,
-    EventAction,
-    EventRecord,
-    EventType,
-    GitHubEvent,
-    PluginState,
-)
+from overblick.plugins.github.dependabot_handler import DependabotHandler
+from overblick.plugins.github.goal_system import GoalTracker
+from overblick.plugins.github.issue_responder import IssueResponder
+from overblick.plugins.github.models import PluginState
+from overblick.plugins.github.observation import ObservationCollector
+from overblick.plugins.github.planner import ActionPlanner
 from overblick.plugins.github.response_gen import ResponseGenerator
 
 logger = logging.getLogger(__name__)
 
 
-class GitHubPlugin(PluginBase):
+class GitHubAgentPlugin(PluginBase):
     """
-    GitHub issue monitoring plugin.
+    Agentic GitHub plugin — keeps repositories healthy.
 
-    Watches configured public repos for issues and comments,
-    scores events, and responds when appropriate using identity-voiced
-    LLM responses with code context.
+    Uses the OBSERVE/THINK/PLAN/ACT/REFLECT loop to autonomously
+    manage PRs, issues, and CI status across configured repos.
     """
 
     name = "github"
@@ -53,59 +46,58 @@ class GitHubPlugin(PluginBase):
         super().__init__(ctx)
         self._db: Optional[GitHubDB] = None
         self._client: Optional[GitHubAPIClient] = None
-        self._decision_engine: Optional[GitHubDecisionEngine] = None
-        self._code_context: Optional[CodeContextBuilder] = None
-        self._response_gen: Optional[ResponseGenerator] = None
+        self._agent_loop: Optional[AgentLoop] = None
         self._state = PluginState()
-        self._system_prompt: str = ""
+        self._check_interval: int = 600  # 10 minutes default
         self._repos: list[str] = []
-        self._default_branch: str = "main"
-        self._check_interval: int = 300
-        self._max_responses_per_tick: int = 2
-        self._dry_run: bool = False
-        self._bot_username: str = ""
-        self._last_check_iso: str = ""
+        self._dry_run: bool = True
 
     async def setup(self) -> None:
-        """Initialize the GitHub plugin: database, client, engines."""
+        """Initialize all components and wire the agentic loop."""
         identity = self.ctx.identity
         if not identity:
-            raise RuntimeError("GitHubPlugin requires an identity")
+            raise RuntimeError("GitHubAgentPlugin requires an identity")
 
-        # Load config from identity
+        # Load config from identity YAML
         raw_config = identity.raw_config
         gh_config = raw_config.get("github", {})
 
         self._repos = gh_config.get("repos", [])
         if not self._repos:
-            raise RuntimeError("GitHubPlugin: no repos configured")
+            raise RuntimeError("GitHubAgentPlugin: no repos configured")
 
-        self._bot_username = gh_config.get("bot_username", "")
-        self._default_branch = gh_config.get("default_branch", "main")
-        self._max_responses_per_tick = gh_config.get("max_responses_per_tick", 2)
-        self._dry_run = gh_config.get("dry_run", False)
+        self._dry_run = gh_config.get("dry_run", True)
+        bot_username = gh_config.get("bot_username", "")
+        default_branch = gh_config.get("default_branch", "main")
+        max_actions_per_tick = gh_config.get("max_actions_per_tick", 5)
+        tick_interval_minutes = gh_config.get("tick_interval_minutes", 10)
+        self._check_interval = tick_interval_minutes * 60
 
-        # Thresholds
-        respond_threshold = gh_config.get("respond_threshold", 50)
-        notify_threshold = gh_config.get("notify_threshold", 25)
-        max_issue_age_hours = gh_config.get("max_issue_age_hours", 168)
+        # Dependabot config
+        dep_config = gh_config.get("dependabot", {})
+        auto_merge_patch = dep_config.get("auto_merge_patch", True)
+        auto_merge_minor = dep_config.get("auto_merge_minor", True)
+        auto_merge_major = dep_config.get("auto_merge_major", False)
+        require_ci_pass = dep_config.get("require_ci_pass", True)
 
-        # Triggers
-        triggers = gh_config.get("triggers", {})
-        respond_labels = triggers.get("respond_to_labels", ["question", "help wanted"])
+        # Issue config
+        issue_config = gh_config.get("issues", {})
+        respond_to_labels = issue_config.get(
+            "respond_to_labels", ["question", "help wanted", "bug"],
+        )
+        max_response_age_hours = issue_config.get("max_response_age_hours", 168)
 
         # Code context config
         cc_config = gh_config.get("code_context", {})
 
-        # Check interval from schedule
-        self._check_interval = identity.schedule.feed_poll_minutes * 60
-
-        # Load GitHub token from secrets
+        # Load GitHub token
         token = self.ctx.get_secret("github_token") or ""
         if not token:
-            logger.warning("GitHubPlugin: no github_token secret — running in read-only mode")
+            logger.warning("GitHubAgentPlugin: no github_token secret — read-only mode")
 
-        # Initialize database
+        # ── Initialize infrastructure ────────────────────────────────────
+
+        # Database
         db_path = self.ctx.data_dir / "github.db"
         from overblick.core.database.base import DatabaseConfig
         from overblick.core.database.sqlite_backend import SQLiteBackend
@@ -115,323 +107,160 @@ class GitHubPlugin(PluginBase):
         self._db = GitHubDB(backend)
         await self._db.setup()
 
-        # Initialize API client
+        # API client
         self._client = GitHubAPIClient(token=token)
 
-        # Extract interest keywords from identity
-        interest_keywords = list(identity.interest_keywords) if identity.interest_keywords else []
+        # System prompt
+        system_prompt = self._build_system_prompt()
 
-        # Initialize decision engine
-        self._decision_engine = GitHubDecisionEngine(
-            bot_username=self._bot_username,
-            respond_threshold=respond_threshold,
-            notify_threshold=notify_threshold,
-            interest_keywords=interest_keywords,
-            respond_labels=respond_labels,
-            priority_repos=self._repos,
-            max_issue_age_hours=max_issue_age_hours,
-        )
-
-        # Initialize code context builder
-        self._code_context = CodeContextBuilder(
+        # Code context builder
+        code_context = CodeContextBuilder(
             client=self._client,
             db=self._db,
             llm_pipeline=self.ctx.llm_pipeline,
-            max_files=cc_config.get("max_files_per_question", 8),
-            max_file_size=cc_config.get("max_file_size_bytes", 50000),
-            tree_refresh_minutes=gh_config.get("tree_refresh_minutes", 60),
-            include_patterns=cc_config.get("include_patterns"),
-            exclude_patterns=cc_config.get("exclude_patterns"),
+            max_files=cc_config.get("max_files_per_question", 12),
+            max_file_size=cc_config.get("max_file_size_bytes", 100000),
+            max_context_chars=cc_config.get("max_context_chars", 100000),
+            tree_refresh_minutes=cc_config.get("tree_refresh_minutes", 30),
         )
 
-        # Build system prompt
-        self._system_prompt = self._build_system_prompt()
-
-        # Initialize response generator
-        self._response_gen = ResponseGenerator(
+        # Response generator (reused from existing code)
+        response_gen = ResponseGenerator(
             llm_pipeline=self.ctx.llm_pipeline,
-            code_context_builder=self._code_context,
-            system_prompt=self._system_prompt,
+            code_context_builder=code_context,
+            system_prompt=system_prompt,
         )
 
-        # Load stats from DB
+        # ── Initialize agentic components ────────────────────────────────
+
+        # Observer
+        observer = ObservationCollector(
+            client=self._client,
+            db=self._db,
+            bot_username=bot_username,
+        )
+
+        # Goal tracker
+        goal_tracker = GoalTracker(db=self._db)
+
+        # Planner
+        planner = ActionPlanner(
+            llm_pipeline=self.ctx.llm_pipeline,
+            system_prompt=system_prompt,
+        )
+
+        # Dependabot handler
+        dependabot = DependabotHandler(
+            client=self._client,
+            db=self._db,
+            llm_pipeline=self.ctx.llm_pipeline,
+            system_prompt=system_prompt,
+            auto_merge_patch=auto_merge_patch,
+            auto_merge_minor=auto_merge_minor,
+            auto_merge_major=auto_merge_major,
+            require_ci_pass=require_ci_pass,
+            dry_run=self._dry_run,
+        )
+
+        # Issue responder
+        issue_responder = IssueResponder(
+            client=self._client,
+            db=self._db,
+            response_gen=response_gen,
+            llm_pipeline=self.ctx.llm_pipeline,
+            dry_run=self._dry_run,
+            respond_to_labels=respond_to_labels,
+            max_response_age_hours=max_response_age_hours,
+        )
+
+        # Executor
+        executor = ActionExecutor(
+            client=self._client,
+            db=self._db,
+            dependabot_handler=dependabot,
+            issue_responder=issue_responder,
+            notify_fn=self._notify_principal,
+            max_actions_per_tick=max_actions_per_tick,
+            dry_run=self._dry_run,
+            default_branch=default_branch,
+        )
+
+        # ── Wire the agent loop ──────────────────────────────────────────
+
+        self._agent_loop = AgentLoop(
+            observer=observer,
+            goal_tracker=goal_tracker,
+            planner=planner,
+            executor=executor,
+            db=self._db,
+            llm_pipeline=self.ctx.llm_pipeline,
+            system_prompt=system_prompt,
+            repos=self._repos,
+            max_actions_per_tick=max_actions_per_tick,
+        )
+        await self._agent_loop.setup()
+
+        # Load stats
         stats = await self._db.get_stats()
         self._state.events_processed = stats.get("events_processed", 0)
         self._state.comments_posted = stats.get("comments_posted", 0)
         self._state.repos_monitored = len(self._repos)
 
-        if self._dry_run:
-            logger.info("GitHubPlugin running in DRY RUN mode — no comments will be posted")
-
+        mode = "DRY RUN" if self._dry_run else "LIVE"
         logger.info(
-            "GitHubPlugin setup for '%s' (repos: %s, dry_run: %s)",
-            self.ctx.identity_name,
+            "GitHubAgentPlugin [%s] setup for '%s' (repos: %s, %d goals)",
+            mode, self.ctx.identity_name,
             ", ".join(self._repos),
-            self._dry_run,
+            len(goal_tracker.active_goals),
         )
 
     async def tick(self) -> None:
         """
-        Main tick: poll repos and process events.
+        Run the agentic loop.
 
-        Guards: interval, quiet hours, LLM pipeline availability.
+        Guards: interval check, quiet hours, LLM pipeline availability.
         """
         now = time.time()
 
+        # Interval guard
         if self._state.last_check and (now - self._state.last_check < self._check_interval):
             return
 
+        # Quiet hours guard
         if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
             return
 
+        # LLM pipeline guard
         if not self.ctx.llm_pipeline:
-            logger.debug("GitHub: no LLM pipeline available")
+            logger.debug("GitHub agent: no LLM pipeline available")
             return
 
         self._state.last_check = now
-        logger.info("GitHub: tick started for %d repo(s)", len(self._repos))
 
-        responses_this_tick = 0
-
-        for repo in self._repos:
-            try:
-                events = await self._poll_events(repo)
-                for event in events:
-                    if responses_this_tick >= self._max_responses_per_tick:
-                        logger.info("GitHub: max responses per tick reached (%d)", self._max_responses_per_tick)
-                        break
-
-                    action_taken = await self._process_event(event)
-                    if action_taken == "responded":
-                        responses_this_tick += 1
-
-            except GitHubAPIError as e:
-                logger.error("GitHub: error polling %s: %s", repo, e)
-                self._state.current_health = "degraded"
-            except Exception as e:
-                logger.error("GitHub: unexpected error for %s: %s", repo, e, exc_info=True)
-                self._state.current_health = "degraded"
+        # Run the agentic loop
+        if self._agent_loop:
+            tick_log = await self._agent_loop.tick()
+            if tick_log:
+                self._state.events_processed += tick_log.observations_count
+                self._state.comments_posted += tick_log.actions_succeeded
 
         # Update rate limit info
         if self._client:
             self._state.rate_limit_remaining = self._client.rate_limit_remaining
 
-    async def _poll_events(self, repo: str) -> list[GitHubEvent]:
-        """Fetch new issues and comments for a repo since last check."""
-        events: list[GitHubEvent] = []
-
-        try:
-            issues = await self._client.list_issues(
-                repo, since=self._last_check_iso, state="open",
-            )
-        except Exception as e:
-            logger.warning("GitHub: failed to list issues for %s: %s", repo, e)
-            return events
-
-        for issue in issues:
-            # Skip pull requests (GitHub API returns PRs as issues)
-            is_pr = "pull_request" in issue
-
-            issue_number = issue.get("number", 0)
-            event_id = f"{repo}/issues/{issue_number}"
-
-            # Check if already seen
-            if await self._db.has_event(event_id):
-                continue
-
-            labels = [l.get("name", "") for l in issue.get("labels", [])]
-            author = issue.get("user", {}).get("login", "")
-
-            events.append(GitHubEvent(
-                event_id=event_id,
-                event_type=EventType.ISSUE_OPENED,
-                repo=repo,
-                issue_number=issue_number,
-                issue_title=issue.get("title", ""),
-                body=issue.get("body", "") or "",
-                author=author,
-                labels=labels,
-                created_at=issue.get("created_at", ""),
-                is_pull_request=is_pr,
-            ))
-
-            # Also check for new comments on this issue
-            try:
-                comments = await self._client.list_issue_comments(
-                    repo, issue_number, since=self._last_check_iso,
-                )
-                for comment in comments:
-                    comment_id = comment.get("id", 0)
-                    comment_event_id = f"{repo}/comments/{comment_id}"
-
-                    if await self._db.has_event(comment_event_id):
-                        continue
-
-                    comment_author = comment.get("user", {}).get("login", "")
-                    comment_body = comment.get("body", "") or ""
-
-                    # Check for @mentions in comments
-                    events.append(GitHubEvent(
-                        event_id=comment_event_id,
-                        event_type=EventType.ISSUE_COMMENT,
-                        repo=repo,
-                        issue_number=issue_number,
-                        issue_title=issue.get("title", ""),
-                        body=comment_body,
-                        author=comment_author,
-                        labels=labels,
-                        created_at=comment.get("created_at", ""),
-                        is_pull_request=is_pr,
-                    ))
-            except Exception as e:
-                logger.debug("GitHub: failed to fetch comments for %s#%d: %s", repo, issue_number, e)
-
-        # Update last check timestamp
-        self._last_check_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        return events
-
-    async def _process_event(self, event: GitHubEvent) -> str:
-        """
-        Process a single GitHub event through the decision pipeline.
-
-        Returns:
-            Description of action taken
-        """
-        already_responded = await self._db.has_responded_to_issue(
-            event.repo, event.issue_number,
-        )
-
-        decision = self._decision_engine.evaluate(event, already_responded=already_responded)
-
-        # Record the event regardless of action
-        await self._db.record_event(EventRecord(
-            event_id=event.event_id,
-            event_type=event.event_type.value,
-            repo=event.repo,
-            issue_number=event.issue_number,
-            author=event.author,
-            score=decision.score,
-            action_taken=decision.action.value,
-        ))
-        self._state.events_processed += 1
-
-        if decision.action == EventAction.RESPOND:
-            return await self._handle_respond(event)
-        elif decision.action == EventAction.NOTIFY:
-            return await self._handle_notify(event, decision)
-        else:
-            logger.debug(
-                "GitHub: skipping %s#%d (score=%d)",
-                event.repo, event.issue_number, decision.score,
-            )
-            return "skipped"
-
-    async def _handle_respond(self, event: GitHubEvent) -> str:
-        """Generate and post a response to a GitHub issue."""
-        if self._dry_run:
-            logger.info(
-                "GitHub DRY RUN: would respond to %s#%d — %s",
-                event.repo, event.issue_number, event.issue_title,
-            )
-            await self._notify_principal(
-                f"[DRY RUN] Would respond to {event.repo}#{event.issue_number}: {event.issue_title}"
-            )
-            return "dry_run"
-
-        # Fetch existing comments for context
-        existing_comments = []
-        try:
-            existing_comments = await self._client.list_issue_comments(
-                event.repo, event.issue_number,
-            )
-        except Exception as e:
-            logger.debug("GitHub: failed to fetch comments for context: %s", e)
-
-        # Generate response
-        response_text = await self._response_gen.generate(
-            event=event,
-            existing_comments=existing_comments,
-            branch=self._default_branch,
-        )
-
-        if not response_text:
-            logger.warning("GitHub: response generation failed for %s#%d", event.repo, event.issue_number)
-            return "generation_failed"
-
-        # Post comment
-        try:
-            result = await self._client.create_comment(
-                event.repo, event.issue_number, response_text,
-            )
-            comment_id = result.get("id", 0)
-
-            # Record in DB
-            content_hash = hashlib.sha256(response_text.encode()).hexdigest()[:16]
-            await self._db.record_comment(CommentRecord(
-                github_comment_id=comment_id,
-                repo=event.repo,
-                issue_number=event.issue_number,
-                content_hash=content_hash,
-            ))
-            self._state.comments_posted += 1
-
-            # Notify principal
-            await self._notify_principal(
-                f"Responded to {event.repo}#{event.issue_number}: {event.issue_title}"
-            )
-
-            # Emit event
-            if self.ctx.event_bus:
-                self.ctx.event_bus.emit("github.issue_responded", {
-                    "repo": event.repo,
-                    "issue_number": event.issue_number,
-                    "comment_id": comment_id,
-                })
-
-            # Audit
-            if self.ctx.audit_log:
-                self.ctx.audit_log.log("github_comment_posted", {
-                    "repo": event.repo,
-                    "issue_number": event.issue_number,
-                    "comment_id": comment_id,
-                    "content_hash": content_hash,
-                })
-
-            logger.info("GitHub: posted comment on %s#%d", event.repo, event.issue_number)
-            return "responded"
-
-        except GitHubAPIError as e:
-            logger.error("GitHub: failed to post comment on %s#%d: %s", event.repo, event.issue_number, e)
-            return "post_failed"
-
-    async def _handle_notify(self, event: GitHubEvent, decision: Any) -> str:
-        """Send a Telegram notification about a GitHub event."""
-        notification = (
-            f"*GitHub: {event.repo}#{event.issue_number}*\n"
-            f"_{event.issue_title}_\n\n"
-            f"By @{event.author} | Score: {decision.score}\n"
-            f"{event.body[:300]}"
-        )
-
-        success = await self._notify_principal(notification)
-        if success:
-            self._state.notifications_sent += 1
-            return "notified"
-        return "notification_failed"
-
     async def _notify_principal(self, message: str) -> bool:
         """Send a notification via TelegramNotifier capability."""
         notifier = self.ctx.get_capability("telegram_notifier")
         if not notifier:
-            logger.debug("GitHub: telegram_notifier capability not available")
+            logger.debug("GitHub agent: telegram_notifier capability not available")
             return False
 
         try:
             await notifier.send_notification(message)
+            self._state.notifications_sent += 1
             return True
         except Exception as e:
-            logger.warning("GitHub: notification failed: %s", e)
+            logger.warning("GitHub agent: notification failed: %s", e)
             return False
 
     def _build_system_prompt(self) -> str:
@@ -441,8 +270,9 @@ class GitHubPlugin(PluginBase):
             return self.ctx.build_system_prompt(identity, platform="GitHub")
         except FileNotFoundError:
             return (
-                "You are a helpful GitHub assistant. Provide technically accurate, "
-                "concise responses to issues and questions. Reference code where relevant."
+                "You are a helpful GitHub repository caretaker. "
+                "Keep the repo healthy by reviewing PRs, responding to issues, "
+                "and notifying the owner of important events."
             )
 
     def get_status(self) -> dict:
@@ -465,4 +295,4 @@ class GitHubPlugin(PluginBase):
             await self._client.close()
         if self._db:
             await self._db.close()
-        logger.info("GitHubPlugin teardown complete")
+        logger.info("GitHubAgentPlugin teardown complete")

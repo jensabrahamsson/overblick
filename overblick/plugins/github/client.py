@@ -232,6 +232,128 @@ class GitHubAPIClient:
             "GET", f"/repos/{repo}/contents/{path}", params=params,
         )
 
+    # ── Pull Requests ────────────────────────────────────────────────────
+
+    async def list_pulls(
+        self,
+        repo: str,
+        state: str = "open",
+        per_page: int = 30,
+    ) -> list[dict]:
+        """
+        List pull requests for a repository.
+
+        Args:
+            repo: "owner/repo" format
+            state: "open", "closed", or "all"
+            per_page: Results per page (max 100)
+        """
+        return await self._request(
+            "GET", f"/repos/{repo}/pulls",
+            params={"state": state, "per_page": min(per_page, 100)},
+        )
+
+    async def get_pull(self, repo: str, pull_number: int) -> dict:
+        """Get a single pull request with merge status details."""
+        return await self._request(
+            "GET", f"/repos/{repo}/pulls/{pull_number}",
+        )
+
+    async def get_pull_diff(self, repo: str, pull_number: int) -> str:
+        """Get the diff of a pull request as plain text."""
+        await self._ensure_session()
+        url = f"{self._base_url}/repos/{repo}/pulls/{pull_number}"
+        headers = {"Accept": "application/vnd.github.diff"}
+        if self._token:
+            headers["Authorization"] = f"Bearer {self._token}"
+
+        async with self._session.get(
+            url, headers=headers,
+            timeout=aiohttp.ClientTimeout(total=30),
+        ) as response:
+            self._update_rate_limit(response.headers)
+            if response.status == 200:
+                return await response.text()
+            raise GitHubAPIError(f"Failed to get PR diff: {response.status}")
+
+    async def merge_pull(
+        self,
+        repo: str,
+        pull_number: int,
+        merge_method: str = "squash",
+        commit_title: str = "",
+    ) -> dict:
+        """
+        Merge a pull request.
+
+        Args:
+            repo: "owner/repo" format
+            pull_number: PR number
+            merge_method: "merge", "squash", or "rebase"
+            commit_title: Custom merge commit title (optional)
+        """
+        body: dict[str, Any] = {"merge_method": merge_method}
+        if commit_title:
+            body["commit_title"] = commit_title
+        return await self._request(
+            "PUT", f"/repos/{repo}/pulls/{pull_number}/merge",
+            json=body,
+        )
+
+    async def create_pull_review(
+        self,
+        repo: str,
+        pull_number: int,
+        event: str = "APPROVE",
+        body: str = "",
+    ) -> dict:
+        """
+        Create a review on a pull request.
+
+        Args:
+            repo: "owner/repo" format
+            pull_number: PR number
+            event: "APPROVE", "REQUEST_CHANGES", or "COMMENT"
+            body: Review comment body
+        """
+        payload: dict[str, str] = {"event": event}
+        if body:
+            payload["body"] = body
+        return await self._request(
+            "POST", f"/repos/{repo}/pulls/{pull_number}/reviews",
+            json=payload,
+        )
+
+    async def list_pull_reviews(
+        self, repo: str, pull_number: int,
+    ) -> list[dict]:
+        """List reviews on a pull request."""
+        return await self._request(
+            "GET", f"/repos/{repo}/pulls/{pull_number}/reviews",
+        )
+
+    # ── CI / Check Runs ──────────────────────────────────────────────────
+
+    async def get_check_runs(self, repo: str, ref: str) -> dict:
+        """
+        Get check runs for a git reference (SHA, branch, tag).
+
+        Returns the raw API response with check_runs array.
+        """
+        return await self._request(
+            "GET", f"/repos/{repo}/commits/{ref}/check-runs",
+        )
+
+    async def get_combined_status(self, repo: str, ref: str) -> dict:
+        """
+        Get the combined commit status for a reference.
+
+        Returns state: "success", "failure", "pending", or "error".
+        """
+        return await self._request(
+            "GET", f"/repos/{repo}/commits/{ref}/status",
+        )
+
     # ── Rate Limit ────────────────────────────────────────────────────────
 
     async def get_rate_limit(self) -> dict:

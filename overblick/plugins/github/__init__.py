@@ -1,5 +1,8 @@
-"""GitHub monitoring plugin — watches issues on public repos."""
+"""GitHub agent plugin — agentic repository caretaker."""
 
-from overblick.plugins.github.plugin import GitHubPlugin
+from overblick.plugins.github.plugin import GitHubAgentPlugin
 
-__all__ = ["GitHubPlugin"]
+# Backward-compatible alias
+GitHubPlugin = GitHubAgentPlugin
+
+__all__ = ["GitHubAgentPlugin", "GitHubPlugin"]

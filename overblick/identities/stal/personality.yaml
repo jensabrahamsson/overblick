@@ -567,6 +567,7 @@ operational:
 
   plugins:
     - "email_agent"
+    - "github"
 
   # Email agent plugin configuration (must be under operational for raw_config)
   email_agent:
@@ -589,6 +590,28 @@ operational:
       confidence_low: 0.5                # Only consult when confidence is between
       confidence_high: 0.8               # these bounds (moderate uncertainty)
       identities: "all"                  # Auto-discover all identities with interest_keywords
+
+  # GitHub agent plugin configuration
+  github:
+    repos: ["jensabrahamsson/overblick"]
+    bot_username: "jensabrahamsson"
+    default_branch: "main"
+    max_actions_per_tick: 5
+    tick_interval_minutes: 10
+    dry_run: true    # Start in dry-run mode, enable after validation
+    dependabot:
+      auto_merge_patch: true
+      auto_merge_minor: true
+      auto_merge_major: false
+      require_ci_pass: true
+    issues:
+      respond_to_labels: ["question", "help wanted", "bug"]
+      max_response_age_hours: 168
+    code_context:
+      max_files_per_question: 12
+      max_file_size_bytes: 100000
+      max_context_chars: 100000
+      tree_refresh_minutes: 30
 
 ################################################################################
 # END OF PERSONALITY CONFIGURATION

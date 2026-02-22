@@ -53,6 +53,9 @@ class CapabilityContext(BaseModel):
     quiet_hours_checker: Any = None
     identity: Any = None
 
+    # IPC client for supervisor communication (optional)
+    ipc_client: Any = None
+
     # Safe LLM pipeline (set by plugin or orchestrator)
     llm_pipeline: Any = None
 
@@ -88,6 +91,7 @@ class CapabilityContext(BaseModel):
             audit_log=ctx.audit_log,
             quiet_hours_checker=ctx.quiet_hours_checker,
             identity=ctx.identity,
+            ipc_client=getattr(ctx, "ipc_client", None),
             llm_pipeline=getattr(ctx, "llm_pipeline", None),
             config=config or {},
         )

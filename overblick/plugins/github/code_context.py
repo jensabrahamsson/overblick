@@ -299,6 +299,78 @@ class CodeContextBuilder:
             total_size=total_size,
         )
 
+    async def build_repo_summary(self, repo: str, branch: str = "main") -> str:
+        """
+        Build a high-level summary of a repository's structure.
+
+        Uses the file tree to create an overview of the project:
+        directories, primary language, key files, and structure.
+        Caches the result in the database.
+        """
+        # Check cache first
+        cached = await self._db.get_repo_summary(repo)
+        if cached and cached.get("summary"):
+            return cached["summary"]
+
+        # Refresh tree if needed
+        await self.refresh_tree(repo, branch)
+
+        paths = await self._db.get_tree_paths(repo)
+        if not paths:
+            return ""
+
+        # Build summary from file tree analysis
+        summary_parts = [f"Repository: {repo}"]
+        summary_parts.append(f"Total files: {len(paths)}")
+
+        # Detect primary language by extension
+        ext_counts: dict[str, int] = {}
+        dir_set: set[str] = set()
+        for path in paths:
+            parts = path.rsplit(".", 1)
+            if len(parts) == 2:
+                ext_counts[parts[1]] = ext_counts.get(parts[1], 0) + 1
+            # Track top-level directories
+            if "/" in path:
+                dir_set.add(path.split("/")[0])
+
+        if ext_counts:
+            top_exts = sorted(ext_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+            primary_lang = top_exts[0][0] if top_exts else ""
+            summary_parts.append(
+                "File types: " + ", ".join(f".{ext} ({count})" for ext, count in top_exts)
+            )
+        else:
+            primary_lang = ""
+
+        if dir_set:
+            summary_parts.append(f"Top-level dirs: {', '.join(sorted(dir_set)[:15])}")
+
+        # Key files
+        key_files = [p for p in paths if p in (
+            "README.md", "pyproject.toml", "package.json", "Cargo.toml",
+            "setup.py", "Makefile", "Dockerfile", "docker-compose.yml",
+            ".github/workflows/ci.yml", ".github/workflows/test.yml",
+        )]
+        if key_files:
+            summary_parts.append(f"Key files: {', '.join(key_files)}")
+
+        summary = "\n".join(summary_parts)
+
+        # Cache it
+        await self._db.upsert_repo_summary(
+            repo, summary,
+            file_count=len(paths),
+            primary_language=primary_lang,
+        )
+
+        return summary
+
+    async def get_cached_summary(self, repo: str) -> str:
+        """Get the cached repo summary without regenerating."""
+        cached = await self._db.get_repo_summary(repo)
+        return cached.get("summary", "") if cached else ""
+
     @staticmethod
     def format_context(context: CodeContext) -> str:
         """Format code context as a string for LLM consumption."""
