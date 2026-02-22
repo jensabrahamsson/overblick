@@ -18,7 +18,7 @@ Conditional capabilities (enabled via identity.enabled_modules):
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -197,8 +197,8 @@ class MoltbookPlugin(PluginBase):
         self._comments_this_cycle = 0
 
         # Check suspension backoff — skip all activity for 24h after suspension
-        if self._suspended_until and datetime.utcnow() < self._suspended_until:
-            remaining = (self._suspended_until - datetime.utcnow()).total_seconds() / 3600
+        if self._suspended_until and datetime.now(timezone.utc).replace(tzinfo=None) < self._suspended_until:
+            remaining = (self._suspended_until - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds() / 3600
             logger.debug("Suspended backoff active (%.1fh remaining), skipping tick", remaining)
             return
 
@@ -271,7 +271,7 @@ class MoltbookPlugin(PluginBase):
                     e.suspended_until, e.reason,
                 )
             else:
-                self._suspended_until = datetime.utcnow() + timedelta(hours=24)
+                self._suspended_until = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=24)
                 logger.error(
                     "Account SUSPENDED — no expiry in response, backing off 24h (until %s). Reason: %s",
                     self._suspended_until.isoformat(), e.reason,

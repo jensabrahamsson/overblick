@@ -14,7 +14,12 @@ Covers all end-to-end flows that were missing from existing tests:
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+
+def _utcnow() -> datetime:
+    """Return current UTC time as naive datetime (for comparison with plugin state)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -389,7 +394,7 @@ class TestSuspensionBackoff:
         await plugin.tick()
 
         assert plugin._suspended_until is not None
-        assert plugin._suspended_until > datetime.utcnow()
+        assert plugin._suspended_until > _utcnow()
 
     @pytest.mark.asyncio
     async def test_suspended_backoff_skips_activity(self, setup_anomal_plugin):
@@ -397,7 +402,7 @@ class TestSuspensionBackoff:
         plugin, ctx, client = setup_anomal_plugin
 
         # Set active backoff
-        plugin._suspended_until = datetime.utcnow() + timedelta(hours=12)
+        plugin._suspended_until = _utcnow() + timedelta(hours=12)
 
         await plugin.tick()
 
@@ -410,7 +415,7 @@ class TestSuspensionBackoff:
         plugin, ctx, client = setup_anomal_plugin
 
         # Set expired backoff
-        plugin._suspended_until = datetime.utcnow() - timedelta(hours=1)
+        plugin._suspended_until = _utcnow() - timedelta(hours=1)
         client.get_posts = AsyncMock(return_value=[])
 
         await plugin.tick()
@@ -446,7 +451,7 @@ class TestSuspensionBackoff:
         err = SuspensionError("Banned for spam", reason="spam")
 
         client.get_posts = AsyncMock(side_effect=err)
-        before = datetime.utcnow()
+        before = _utcnow()
 
         await plugin.tick()
 

@@ -3,6 +3,7 @@ Agent detail routes.
 """
 
 import logging
+import re
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -11,10 +12,17 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+_SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+
 
 @router.get("/agent/{name}", response_class=HTMLResponse)
 async def agent_detail(request: Request, name: str):
     """Render agent detail page."""
+    # Validate name to prevent path traversal (e.g. ../../../etc/passwd)
+    if not _SAFE_NAME_RE.match(name):
+        logger.warning("Rejected agent detail request with invalid name: %r", name)
+        return RedirectResponse("/?error=Invalid+agent+name", status_code=302)
+
     templates = request.app.state.templates
 
     identity_svc = request.app.state.identity_service

@@ -452,6 +452,7 @@ class EmailAgentPlugin(PluginBase):
             return
 
         # 4. Wrap external content and classify via LLM with context
+        safe_sender = wrap_external_content(sender, "email_sender")
         safe_subject = wrap_external_content(subject, "email_subject")
         safe_body = wrap_external_content(body[:3000], "email_body")
 
@@ -459,7 +460,7 @@ class EmailAgentPlugin(PluginBase):
         email_signals = self._classifier.build_email_signals(headers)
 
         classification = await self._classifier.classify(
-            sender, safe_subject, safe_body,
+            safe_sender, safe_subject, safe_body,
             sender_reputation=reputation_context,
             email_signals=email_signals,
         )

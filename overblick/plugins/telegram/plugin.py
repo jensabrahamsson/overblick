@@ -126,6 +126,7 @@ class TelegramPlugin(PluginBase):
         self._polling_task: Optional[asyncio.Task] = None
         self._running = False
         self._last_update_id = 0
+        self._session: Optional[Any] = None  # aiohttp.ClientSession — created in setup()
 
         # Conversation tracking
         self._conversations: dict[int, ConversationContext] = {}
@@ -135,6 +136,8 @@ class TelegramPlugin(PluginBase):
         self._allowed_chat_ids: set[int] = set()  # Empty = all allowed
         self._system_prompt: str = ""
         self._max_response_length: int = 4000  # Telegram message limit
+        self._max_per_minute: int = 10
+        self._max_per_hour: int = 60
 
         # Stats
         self._messages_received = 0
@@ -166,6 +169,10 @@ class TelegramPlugin(PluginBase):
         tg_config = raw_config.get("telegram", {})
         self._max_per_minute = tg_config.get("rate_limit_per_minute", 10)
         self._max_per_hour = tg_config.get("rate_limit_per_hour", 60)
+
+        # Create persistent HTTP session (reused across all API calls)
+        import aiohttp
+        self._session = aiohttp.ClientSession()
 
         self.ctx.audit_log.log(
             action="plugin_setup",
@@ -199,6 +206,9 @@ class TelegramPlugin(PluginBase):
         """Poll Telegram Bot API for new updates."""
         import aiohttp
 
+        if not self._session:
+            return []
+
         url = f"https://api.telegram.org/bot{self._bot_token}/getUpdates"
         params = {
             "offset": self._last_update_id + 1,
@@ -206,12 +216,11 @@ class TelegramPlugin(PluginBase):
             "allowed_updates": ["message"],
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                if resp.status != 200:
-                    logger.warning("Telegram API returned %d", resp.status)
-                    return []
-                data = await resp.json()
+        async with self._session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+            if resp.status != 200:
+                logger.warning("Telegram API returned %d", resp.status)
+                return []
+            data = await resp.json()
 
         if not data.get("ok"):
             logger.warning("Telegram API error: %s", data.get("description", "unknown"))
@@ -365,6 +374,9 @@ class TelegramPlugin(PluginBase):
         """Send a message via Telegram Bot API."""
         import aiohttp
 
+        if not self._session:
+            return False
+
         url = f"https://api.telegram.org/bot{self._bot_token}/sendMessage"
         payload: dict[str, Any] = {
             "chat_id": chat_id,
@@ -375,20 +387,19 @@ class TelegramPlugin(PluginBase):
             payload["reply_to_message_id"] = reply_to
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status == 200:
-                        self._messages_sent += 1
-                        return True
-                    else:
-                        # Try without Markdown if it fails (Markdown can be finicky)
-                        payload.pop("parse_mode", None)
-                        async with session.post(url, json=payload) as retry_resp:
-                            if retry_resp.status == 200:
-                                self._messages_sent += 1
-                                return True
-                            logger.warning("Telegram send failed: %d", retry_resp.status)
-                            return False
+            async with self._session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    self._messages_sent += 1
+                    return True
+                else:
+                    # Try without Markdown if it fails (Markdown can be finicky)
+                    payload.pop("parse_mode", None)
+                    async with self._session.post(url, json=payload) as retry_resp:
+                        if retry_resp.status == 200:
+                            self._messages_sent += 1
+                            return True
+                        logger.warning("Telegram send failed: %d", retry_resp.status)
+                        return False
         except Exception as e:
             logger.error("Telegram send error: %s", e, exc_info=True)
             self._errors += 1
@@ -444,4 +455,7 @@ class TelegramPlugin(PluginBase):
         if self._polling_task and not self._polling_task.done():
             self._polling_task.cancel()
         self._conversations.clear()
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
         logger.info("TelegramPlugin teardown complete")
