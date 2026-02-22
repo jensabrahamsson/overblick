@@ -240,6 +240,8 @@ class EngagementDB:
     # ------------------------------------------------------------------
 
     async def track_my_post(self, post_id: str, title: str) -> None:
+        if not post_id:
+            return
         ph = self._db.ph
         await self._db.execute(
             f"INSERT OR IGNORE INTO my_posts (post_id, title) VALUES ({ph(1)}, {ph(2)})",
@@ -263,7 +265,7 @@ class EngagementDB:
     async def get_my_post_ids(self, limit: int = 10) -> list[str]:
         ph = self._db.ph
         rows = await self._db.fetch_all(
-            f"SELECT post_id FROM my_posts ORDER BY created_at DESC LIMIT {ph(1)}",
+            f"SELECT post_id FROM my_posts WHERE post_id != '' ORDER BY created_at DESC LIMIT {ph(1)}",
             (limit,),
         )
         return [r["post_id"] for r in rows]

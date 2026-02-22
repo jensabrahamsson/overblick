@@ -4,6 +4,7 @@
 #   ./overblick_manager.sh {start|stop|restart|status|logs} {anomal|cherry|all}
 #   ./overblick_manager.sh supervisor-start "anomal cherry natt"
 #   ./overblick_manager.sh supervisor-stop
+#   ./overblick_manager.sh supervisor-restart "anomal cherry natt"
 #   ./overblick_manager.sh supervisor-status
 #   ./overblick_manager.sh supervisor-logs
 
@@ -28,9 +29,29 @@ usage() {
     echo "  $0 {start|stop|restart|status|logs} {anomal|cherry|all}"
     echo "  $0 supervisor-start \"anomal cherry natt\""
     echo "  $0 supervisor-stop"
+    echo "  $0 supervisor-restart \"anomal cherry natt\""
     echo "  $0 supervisor-status"
     echo "  $0 supervisor-logs"
     exit 1
+}
+
+# Kill ALL running supervisor processes (by process name), not just the one in PID file.
+# This is the key guard against duplicate supervisors.
+kill_all_supervisors() {
+    local pids
+    pids=$(pgrep -f "overblick supervisor" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        echo "[supervisor] Killing stray supervisor processes: $pids"
+        # shellcheck disable=SC2086
+        kill $pids 2>/dev/null || true
+        sleep 2
+        pids=$(pgrep -f "overblick supervisor" 2>/dev/null || true)
+        if [ -n "$pids" ]; then
+            # shellcheck disable=SC2086
+            kill -9 $pids 2>/dev/null || true
+        fi
+    fi
+    rm -f "$SUPERVISOR_PID_FILE"
 }
 
 get_pid_file() {
@@ -124,9 +145,19 @@ SUPERVISOR_LOG_FILE="$LOG_DIR/supervisor/overblick.log"
 start_supervisor() {
     local identities="$1"
 
+    # Check PID file first
     if [ -f "$SUPERVISOR_PID_FILE" ] && kill -0 "$(cat "$SUPERVISOR_PID_FILE")" 2>/dev/null; then
         echo "[supervisor] Already running (PID $(cat "$SUPERVISOR_PID_FILE"))"
         return 0
+    fi
+
+    # Also check for any stray supervisor processes not tracked by PID file
+    local stray
+    stray=$(pgrep -f "overblick supervisor" 2>/dev/null || true)
+    if [ -n "$stray" ]; then
+        echo "[supervisor] ERROR: Stray supervisor process(es) detected: $stray"
+        echo "[supervisor] Run 'supervisor-stop' first, or use 'supervisor-restart'."
+        exit 1
     fi
 
     mkdir -p "$(dirname "$SUPERVISOR_PID_FILE")" "$(dirname "$SUPERVISOR_LOG_FILE")"
@@ -140,38 +171,65 @@ start_supervisor() {
 }
 
 stop_supervisor() {
-    if [ ! -f "$SUPERVISOR_PID_FILE" ]; then
-        echo "[supervisor] Not running (no PID file)"
+    # Kill everything — both via PID file and via pgrep (catches strays)
+    local found=0
+
+    if [ -f "$SUPERVISOR_PID_FILE" ]; then
+        local pid
+        pid=$(cat "$SUPERVISOR_PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "[supervisor] Stopping PID file process ($pid)..."
+            found=1
+        else
+            echo "[supervisor] PID file is stale, cleaning up"
+        fi
+    fi
+
+    local stray
+    stray=$(pgrep -f "overblick supervisor" 2>/dev/null || true)
+    if [ -n "$stray" ]; then
+        echo "[supervisor] Stopping all supervisor processes: $stray"
+        found=1
+    fi
+
+    if [ "$found" -eq 0 ]; then
+        echo "[supervisor] Not running"
+        rm -f "$SUPERVISOR_PID_FILE"
         return 0
     fi
 
-    local pid=$(cat "$SUPERVISOR_PID_FILE")
-    if kill -0 "$pid" 2>/dev/null; then
-        echo "[supervisor] Stopping (PID $pid)..."
-        kill "$pid"
-        for i in $(seq 1 15); do
-            if ! kill -0 "$pid" 2>/dev/null; then
-                break
-            fi
-            sleep 1
-        done
-        if kill -0 "$pid" 2>/dev/null; then
-            echo "[supervisor] Force killing..."
-            kill -9 "$pid" 2>/dev/null || true
-        fi
-        echo "[supervisor] Stopped"
-    else
-        echo "[supervisor] Not running (stale PID file)"
+    kill_all_supervisors
+
+    # Verify
+    if pgrep -f "overblick supervisor" > /dev/null 2>&1; then
+        echo "[supervisor] ERROR: Could not stop all supervisor processes"
+        exit 1
     fi
-    rm -f "$SUPERVISOR_PID_FILE"
+    echo "[supervisor] Stopped"
 }
 
 status_supervisor() {
-    if [ -f "$SUPERVISOR_PID_FILE" ] && kill -0 "$(cat "$SUPERVISOR_PID_FILE")" 2>/dev/null; then
-        echo "[supervisor] RUNNING (PID $(cat "$SUPERVISOR_PID_FILE"))"
-    else
+    local pids
+    pids=$(pgrep -f "overblick supervisor" 2>/dev/null || true)
+    local pid_file_pid=""
+    [ -f "$SUPERVISOR_PID_FILE" ] && pid_file_pid=$(cat "$SUPERVISOR_PID_FILE")
+
+    if [ -z "$pids" ]; then
         echo "[supervisor] STOPPED"
-        [ -f "$SUPERVISOR_PID_FILE" ] && rm -f "$SUPERVISOR_PID_FILE"
+        rm -f "$SUPERVISOR_PID_FILE"
+        return 0
+    fi
+
+    local count
+    count=$(echo "$pids" | wc -w | tr -d ' ')
+    if [ "$count" -gt 1 ]; then
+        echo "[supervisor] WARNING: $count instances running (PIDs: $pids) — run supervisor-stop then supervisor-start"
+    else
+        echo "[supervisor] RUNNING (PID $pids)"
+    fi
+
+    if [ -n "$pid_file_pid" ] && ! echo "$pids" | grep -qw "$pid_file_pid"; then
+        echo "[supervisor] WARNING: PID file ($pid_file_pid) does not match running process(es)"
     fi
 }
 
@@ -200,6 +258,14 @@ case "$ACTION" in
         ;;
     supervisor-stop)
         stop_supervisor
+        exit 0
+        ;;
+    supervisor-restart)
+        [ $# -lt 2 ] && { echo "ERROR: supervisor-restart requires identities"; usage; }
+        echo "[supervisor] Restarting..."
+        stop_supervisor
+        sleep 1
+        start_supervisor "$2"
         exit 0
         ;;
     supervisor-status)
