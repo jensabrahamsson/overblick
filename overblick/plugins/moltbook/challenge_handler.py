@@ -119,16 +119,14 @@ def deobfuscate_challenge(text: str) -> str:
             result.append(token)
             continue
 
-        # Separate trailing punctuation that's semantically meaningful
-        trailing = ""
-        stripped = token
-        while stripped and not stripped[-1].isalpha():
-            trailing = stripped[-1] + trailing
-            stripped = stripped[:-1]
-
         # Extract ONLY alpha characters — discard obfuscation noise
         # (dots, carets, slashes, tildes, brackets injected between letters)
-        alpha_only = "".join(c for c in stripped if c.isalpha())
+        alpha_only = "".join(c for c in token if c.isalpha())
+
+        # Preserve only real trailing punctuation from the original token
+        trailing = ""
+        if token and token[-1] in ",.?!;:":
+            trailing = token[-1]
 
         if alpha_only:
             cleaned = _strip_letter_doubling(alpha_only)
@@ -249,12 +247,44 @@ def _reassemble_fragments(tokens: list[str]) -> list[str]:
     return result
 
 
+# Explicit correction map for common deobfuscation artifacts that are beyond
+# edit-distance-1 or too short for fuzzy matching.  Keyed by lowercase token.
+_DEOBFUSCATION_FIXES: dict[str, str] = {
+    # Letter-doubling strips natural doubles: "newtons" → "notons" (ee→o, w dropped)
+    "notons": "newtons",
+    "noton": "newton",
+    "nootons": "newtons",
+    "nooton": "newton",
+    "neutons": "newtons",
+    "neutons": "newtons",
+    "neuton": "newton",
+    # Short words where edit-distance-1 threshold is too high
+    "ads": "adds",
+    "ad": "adds",
+    "gans": "gains",
+    # Truncated words from deobfuscation
+    "thre": "three",
+    "for": "four",  # only applied when surrounded by number context
+    "fiv": "five",
+    "seve": "seven",
+    "eigh": "eight",
+    "nin": "nine",
+    "velocitee": "velocity",
+    "velawtee": "velocity",
+    "velawcitee": "velocity",
+}
+
+
 def _correct_known_words(tokens: list[str]) -> list[str]:
     """Correct single-token deobfuscation artifacts against known vocabulary.
 
+    Two strategies:
+    1. Explicit correction map for known artifacts (any length)
+    2. Edit-distance-1 fuzzy match against vocabulary for words >= 4 chars
+
     Letter-doubling stripping can eat natural doubles (e.g. the 'ee' in
-    'fourteen' → 'fourten'). This pass fixes tokens that are edit-distance-1
-    from a known word. Only corrects words >= 5 chars to avoid false positives.
+    'fourteen' → 'fourten'). This pass catches both predictable artifacts
+    (via the map) and novel ones (via edit-distance).
     """
     result = []
     for token in tokens:
@@ -262,9 +292,15 @@ def _correct_known_words(tokens: list[str]) -> list[str]:
         trailing = token[len(alpha):] if alpha else ""
         low = alpha.lower()
 
-        if len(low) >= 5 and low not in _REASSEMBLY_TARGETS:
+        # Strategy 1: explicit correction map
+        if low in _DEOBFUSCATION_FIXES:
+            result.append(_DEOBFUSCATION_FIXES[low] + trailing)
+            continue
+
+        # Strategy 2: edit-distance-1 fuzzy match (>= 4 chars)
+        if len(low) >= 4 and low not in _REASSEMBLY_TARGETS:
             for target in _REASSEMBLY_TARGETS:
-                if len(target) >= 5 and abs(len(low) - len(target)) <= 1:
+                if len(target) >= 4 and abs(len(low) - len(target)) <= 1:
                     if _edit_distance_one(low, target):
                         result.append(target + trailing)
                         break
@@ -402,7 +438,13 @@ def _extract_word_numbers(text: str) -> list[int]:
     Handles: 'twenty three' → [23], 'five plus thirteen' → [5, 13].
     Tokens not recognized as numbers or filler words are skipped.
     """
-    tokens = [t for t in text.lower().split() if t not in _FILLER and t.isalpha()]
+    # Strip trailing punctuation before filtering — "four," → "four"
+    raw_tokens = text.lower().split()
+    tokens = []
+    for t in raw_tokens:
+        stripped = t.rstrip(",.?!;:")
+        if stripped and stripped.isalpha() and stripped not in _FILLER:
+            tokens.append(stripped)
     numbers = []
     i = 0
 

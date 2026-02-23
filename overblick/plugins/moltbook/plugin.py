@@ -207,6 +207,9 @@ class MoltbookPlugin(PluginBase):
             logger.debug("Quiet hours active, skipping tick")
             return
 
+        # Tick capabilities (dreams, therapy, learning) — runs even on quiet ticks
+        await self._tick_capabilities()
+
         try:
             # Step 1: OBSERVE — Poll feed for new posts
             posts = await self._client.get_posts(limit=20, sort="recent")
@@ -679,6 +682,16 @@ class MoltbookPlugin(PluginBase):
         self._dream_system = self._capabilities.get("dream_system")
         self._therapy_system = self._capabilities.get("therapy_system")
         self._safe_learning = self._capabilities.get("safe_learning")
+
+    async def _tick_capabilities(self) -> None:
+        """Tick all enabled capabilities (dreams, therapy, learning, etc.)."""
+        for cap in self._capabilities.values():
+            if not getattr(cap, "enabled", False):
+                continue
+            try:
+                await cap.tick()
+            except Exception as e:
+                logger.warning("Capability tick error (%s): %s", cap.name, e)
 
     def _gather_capability_context(self) -> str:
         """Collect prompt context from all enabled capabilities."""

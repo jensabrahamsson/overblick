@@ -131,6 +131,65 @@ async def test_quiet_hours_prevent_tick(setup_anomal_plugin):
 
 
 # ---------------------------------------------------------------------------
+# 4b. Capability ticking — dreams, therapy, learning
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_tick_calls_capability_ticks(setup_anomal_plugin):
+    """Plugin tick() calls tick() on all enabled capabilities."""
+    plugin, ctx, client = setup_anomal_plugin
+
+    # Replace capabilities with mocks to track tick calls
+    mock_cap = AsyncMock()
+    mock_cap.enabled = True
+    mock_cap.name = "test_cap"
+    plugin._capabilities = {"test_cap": mock_cap}
+
+    # No posts to process
+    client.get_posts = AsyncMock(return_value=[])
+
+    await plugin.tick()
+
+    mock_cap.tick.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_tick_skips_disabled_capabilities(setup_anomal_plugin):
+    """Plugin tick() skips capabilities with enabled=False."""
+    plugin, ctx, client = setup_anomal_plugin
+
+    mock_cap = AsyncMock()
+    mock_cap.enabled = False
+    mock_cap.name = "disabled_cap"
+    plugin._capabilities = {"disabled_cap": mock_cap}
+
+    client.get_posts = AsyncMock(return_value=[])
+
+    await plugin.tick()
+
+    mock_cap.tick.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_tick_capability_error_does_not_crash(setup_anomal_plugin):
+    """A failing capability tick() should not crash the plugin tick."""
+    plugin, ctx, client = setup_anomal_plugin
+
+    mock_cap = AsyncMock()
+    mock_cap.enabled = True
+    mock_cap.name = "broken_cap"
+    mock_cap.tick.side_effect = RuntimeError("capability exploded")
+    plugin._capabilities = {"broken_cap": mock_cap}
+
+    client.get_posts = AsyncMock(return_value=[])
+
+    # Should not raise
+    await plugin.tick()
+
+    mock_cap.tick.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
 # 5. Challenge during comment (MoltbookError)
 # ---------------------------------------------------------------------------
 
