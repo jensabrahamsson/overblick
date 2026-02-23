@@ -1,8 +1,11 @@
 """
 GitHub agent plugin — agentic repository caretaker.
 
-Replaces the old reactive bot pattern with an agentic loop:
-OBSERVE world state -> THINK about goals -> PLAN actions -> ACT -> REFLECT
+Inherits AgenticPluginBase to get the OBSERVE/THINK/PLAN/ACT/REFLECT
+loop for free. Implements domain-specific methods:
+- create_observer() — GitHub API observation
+- get_action_handlers() — PR merge, approve, review, issue response, notify
+- get_planning_prompt_config() — GitHub-specific prompt configuration
 
 The agent keeps repos healthy by:
 - Auto-merging safe Dependabot PRs (patch/minor with passing CI)
@@ -13,26 +16,74 @@ The agent keeps repos healthy by:
 
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
 
-from overblick.core.plugin_base import PluginBase, PluginContext
-from overblick.plugins.github.action_executor import ActionExecutor
-from overblick.plugins.github.agent_loop import AgentLoop
+from overblick.core.agentic.models import AgentGoal
+from overblick.core.agentic.plugin_base import AgenticPluginBase
+from overblick.core.agentic.protocols import ActionHandler, Observer, PlanningPromptConfig
+from overblick.core.plugin_base import PluginContext
+from overblick.plugins.github.action_executor import build_github_handlers
 from overblick.plugins.github.client import GitHubAPIClient
 from overblick.plugins.github.code_context import CodeContextBuilder
 from overblick.plugins.github.database import GitHubDB
 from overblick.plugins.github.dependabot_handler import DependabotHandler
-from overblick.plugins.github.goal_system import GoalTracker
 from overblick.plugins.github.issue_responder import IssueResponder
-from overblick.plugins.github.models import PluginState
+from overblick.plugins.github.models import ActionType, PluginState
 from overblick.plugins.github.observation import ObservationCollector
-from overblick.plugins.github.planner import ActionPlanner
 from overblick.plugins.github.response_gen import ResponseGenerator
 
 logger = logging.getLogger(__name__)
 
+# Default goals for the GitHub agent
+_DEFAULT_GOALS = [
+    AgentGoal(
+        name="communicate_with_owner",
+        description=(
+            "Keep the repository owner informed of significant events "
+            "via Telegram. Notify about failing CI, stale PRs, and "
+            "important issues. Never spam — only meaningful updates."
+        ),
+        priority=90,
+    ),
+    AgentGoal(
+        name="merge_safe_dependabot",
+        description=(
+            "Auto-merge Dependabot PRs that are patch or minor version "
+            "bumps with all CI checks passing and mergeable status. "
+            "Major bumps require owner approval."
+        ),
+        priority=80,
+    ),
+    AgentGoal(
+        name="respond_issues_24h",
+        description=(
+            "Respond to issues labeled 'question', 'help wanted', or "
+            "'bug' within 24 hours. Provide technically accurate, "
+            "identity-voiced responses with code context where relevant."
+        ),
+        priority=70,
+    ),
+    AgentGoal(
+        name="no_stale_prs",
+        description=(
+            "No open PRs should go unreviewed for more than 48 hours. "
+            "If a PR is stale, notify the owner."
+        ),
+        priority=60,
+    ),
+    AgentGoal(
+        name="maintain_codebase_understanding",
+        description=(
+            "Keep the file tree cache fresh and maintain an up-to-date "
+            "understanding of the repository structure. Refresh the "
+            "tree periodically and generate repo summaries."
+        ),
+        priority=40,
+    ),
+]
 
-class GitHubAgentPlugin(PluginBase):
+
+class GitHubAgentPlugin(AgenticPluginBase):
     """
     Agentic GitHub plugin — keeps repositories healthy.
 
@@ -46,7 +97,8 @@ class GitHubAgentPlugin(PluginBase):
         super().__init__(ctx)
         self._db: Optional[GitHubDB] = None
         self._client: Optional[GitHubAPIClient] = None
-        self._agent_loop: Optional[AgentLoop] = None
+        self._observer: Optional[ObservationCollector] = None
+        self._handlers: dict[str, ActionHandler] = {}
         self._state = PluginState()
         self._check_interval: int = 600  # 10 minutes default
         self._repos: list[str] = []
@@ -107,11 +159,14 @@ class GitHubAgentPlugin(PluginBase):
         self._db = GitHubDB(backend)
         await self._db.setup()
 
+        # Store agentic DB reference for the base class
+        self._agentic_db = self._db.agentic
+
         # API client
         self._client = GitHubAPIClient(token=token)
 
         # System prompt
-        system_prompt = self._build_system_prompt()
+        system_prompt = self.get_system_prompt()
 
         # Code context builder
         code_context = CodeContextBuilder(
@@ -124,29 +179,20 @@ class GitHubAgentPlugin(PluginBase):
             tree_refresh_minutes=cc_config.get("tree_refresh_minutes", 30),
         )
 
-        # Response generator (reused from existing code)
+        # Response generator
         response_gen = ResponseGenerator(
             llm_pipeline=self.ctx.llm_pipeline,
             code_context_builder=code_context,
             system_prompt=system_prompt,
         )
 
-        # ── Initialize agentic components ────────────────────────────────
+        # ── Initialize domain-specific components ────────────────────────
 
         # Observer
-        observer = ObservationCollector(
+        self._observer = ObservationCollector(
             client=self._client,
             db=self._db,
             bot_username=bot_username,
-        )
-
-        # Goal tracker
-        goal_tracker = GoalTracker(db=self._db)
-
-        # Planner
-        planner = ActionPlanner(
-            llm_pipeline=self.ctx.llm_pipeline,
-            system_prompt=system_prompt,
         )
 
         # Dependabot handler
@@ -173,32 +219,21 @@ class GitHubAgentPlugin(PluginBase):
             max_response_age_hours=max_response_age_hours,
         )
 
-        # Executor
-        executor = ActionExecutor(
+        # Build handlers for core executor
+        self._handlers = build_github_handlers(
             client=self._client,
-            db=self._db,
-            dependabot_handler=dependabot,
+            dependabot=dependabot,
             issue_responder=issue_responder,
             notify_fn=self._notify_principal,
-            max_actions_per_tick=max_actions_per_tick,
             dry_run=self._dry_run,
             default_branch=default_branch,
         )
 
-        # ── Wire the agent loop ──────────────────────────────────────────
-
-        self._agent_loop = AgentLoop(
-            observer=observer,
-            goal_tracker=goal_tracker,
-            planner=planner,
-            executor=executor,
-            db=self._db,
-            llm_pipeline=self.ctx.llm_pipeline,
-            system_prompt=system_prompt,
-            repos=self._repos,
+        # ── Wire the agentic loop (provided by AgenticPluginBase) ────────
+        await self.setup_agentic_loop(
             max_actions_per_tick=max_actions_per_tick,
+            audit_action_prefix="github_agent",
         )
-        await self._agent_loop.setup()
 
         # Load stats
         stats = await self._db.get_stats()
@@ -211,7 +246,7 @@ class GitHubAgentPlugin(PluginBase):
             "GitHubAgentPlugin [%s] setup for '%s' (repos: %s, %d goals)",
             mode, self.ctx.identity_name,
             ", ".join(self._repos),
-            len(goal_tracker.active_goals),
+            len(self.goal_tracker.active_goals) if self.goal_tracker else 0,
         )
 
     async def tick(self) -> None:
@@ -237,16 +272,68 @@ class GitHubAgentPlugin(PluginBase):
 
         self._state.last_check = now
 
-        # Run the agentic loop
-        if self._agent_loop:
-            tick_log = await self._agent_loop.tick()
-            if tick_log:
-                self._state.events_processed += tick_log.observations_count
-                self._state.comments_posted += tick_log.actions_succeeded
+        # Run the agentic loop (provided by AgenticPluginBase)
+        tick_log = await self.agentic_tick()
+        if tick_log:
+            self._state.events_processed += tick_log.observations_count
+            self._state.comments_posted += tick_log.actions_succeeded
 
         # Update rate limit info
         if self._client:
             self._state.rate_limit_remaining = self._client.rate_limit_remaining
+
+    # ── AgenticPluginBase abstract methods ────────────────────────────────
+
+    async def create_observer(self) -> Observer:
+        """Create the GitHub-specific multi-repo observer wrapper."""
+        return _MultiRepoObserver(self._observer, self._repos)
+
+    def get_action_handlers(self) -> dict[str, ActionHandler]:
+        """Return GitHub action handlers."""
+        return self._handlers
+
+    def get_planning_prompt_config(self) -> PlanningPromptConfig:
+        """Return GitHub-specific planning prompt configuration."""
+        action_types = "|".join(a.value for a in ActionType)
+        return PlanningPromptConfig(
+            agent_role=(
+                "You are a GitHub repository caretaker. Your job is to keep the repo healthy.\n"
+                "You observe the current state of the repository, consider your goals, and plan actions."
+            ),
+            available_actions=(
+                "- merge_pr: Merge a pull request (only safe Dependabot PRs with passing CI)\n"
+                "- approve_pr: Approve a pull request\n"
+                "- review_pr: Leave a review comment on a PR\n"
+                "- respond_issue: Respond to a GitHub issue\n"
+                "- notify_owner: Send a notification to the repo owner\n"
+                "- comment_pr: Leave a comment on a PR\n"
+                "- refresh_context: Refresh repository understanding\n"
+                "- skip: Do nothing (explain why in reasoning)"
+            ),
+            safety_rules=(
+                "- ONLY merge Dependabot PRs that are patch/minor bumps with ALL CI checks passing\n"
+                "- NEVER merge major version bumps — notify the owner instead\n"
+                "- NEVER merge non-Dependabot PRs without explicit owner command\n"
+                "- When unsure, NOTIFY the owner rather than acting\n"
+                "- Owner commands (from Telegram) always take highest priority"
+            ),
+            output_format_hint=f'Valid action_type values: {action_types}',
+            learning_categories="dependabot|issues|ci|general",
+        )
+
+    def get_default_goals(self) -> list[AgentGoal]:
+        """Return default goals for the GitHub agent."""
+        return _DEFAULT_GOALS
+
+    def get_learning_categories(self) -> str:
+        """Return GitHub-specific learning categories."""
+        return "dependabot|issues|ci|general"
+
+    def get_valid_action_types(self) -> set[str]:
+        """Return set of valid GitHub action type strings."""
+        return {a.value for a in ActionType}
+
+    # ── Plugin-specific methods ──────────────────────────────────────────
 
     async def _notify_principal(self, message: str) -> bool:
         """Send a notification via TelegramNotifier capability."""
@@ -262,18 +349,6 @@ class GitHubAgentPlugin(PluginBase):
         except Exception as e:
             logger.warning("GitHub agent: notification failed: %s", e)
             return False
-
-    def _build_system_prompt(self) -> str:
-        """Build system prompt from identity personality."""
-        try:
-            identity = self.ctx.load_identity(self.ctx.identity_name)
-            return self.ctx.build_system_prompt(identity, platform="GitHub")
-        except FileNotFoundError:
-            return (
-                "You are a helpful GitHub repository caretaker. "
-                "Keep the repo healthy by reviewing PRs, responding to issues, "
-                "and notifying the owner of important events."
-            )
 
     def get_status(self) -> dict:
         """Expose status for dashboard."""
@@ -296,3 +371,39 @@ class GitHubAgentPlugin(PluginBase):
         if self._db:
             await self._db.close()
         logger.info("GitHubAgentPlugin teardown complete")
+
+
+class _MultiRepoObserver:
+    """
+    Adapter that wraps ObservationCollector to implement the Observer protocol.
+
+    The core loop expects a single observe() call that returns the complete
+    world state. This adapter iterates over configured repos and returns
+    a dict[str, RepoObservation].
+    """
+
+    def __init__(self, observer: ObservationCollector, repos: list[str]):
+        self._observer = observer
+        self._repos = repos
+
+    async def observe(self) -> Any:
+        """Collect observations for all configured repos."""
+        observations = {}
+        for repo in self._repos:
+            try:
+                obs = await self._observer.observe(repo)
+                observations[repo] = obs
+            except Exception as e:
+                logger.error("Observation failed for %s: %s", repo, e, exc_info=True)
+
+        return observations if observations else None
+
+    def format_for_planner(self, observation: Any) -> str:
+        """Format all repo observations as text for the LLM planner."""
+        if not observation or not isinstance(observation, dict):
+            return "No observations available."
+
+        return "\n\n".join(
+            self._observer.format_for_planner(obs)
+            for obs in observation.values()
+        )

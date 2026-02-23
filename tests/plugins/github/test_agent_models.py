@@ -1,5 +1,9 @@
 """
 Tests for GitHub agent models — PRSnapshot, RepoObservation, ActionPlan, etc.
+
+Core agentic models (AgentGoal, AgentLearning, etc.) are tested in
+tests/core/agentic/test_models.py. This file tests GitHub-specific
+models and verifies backward-compatible re-exports.
 """
 
 import pytest
@@ -99,7 +103,7 @@ class TestActionPlan:
 
     def test_plan_with_actions(self):
         action = PlannedAction(
-            action_type=ActionType.MERGE_PR,
+            action_type=ActionType.MERGE_PR.value,
             target="PR #42",
             target_number=42,
             repo="owner/repo",
@@ -111,7 +115,7 @@ class TestActionPlan:
             reasoning="Dependabot PR with passing CI",
         )
         assert len(plan.actions) == 1
-        assert plan.actions[0].action_type == ActionType.MERGE_PR
+        assert plan.actions[0].action_type == "merge_pr"
         assert plan.actions[0].priority == 90
 
 
@@ -120,7 +124,7 @@ class TestActionOutcome:
 
     def test_success_outcome(self):
         action = PlannedAction(
-            action_type=ActionType.MERGE_PR,
+            action_type=ActionType.MERGE_PR.value,
             target="PR #42",
             target_number=42,
             repo="owner/repo",
@@ -135,7 +139,7 @@ class TestActionOutcome:
 
     def test_failure_outcome(self):
         action = PlannedAction(
-            action_type=ActionType.MERGE_PR,
+            action_type=ActionType.MERGE_PR.value,
             target="PR #42",
             target_number=42,
             repo="owner/repo",
@@ -150,7 +154,7 @@ class TestActionOutcome:
 
 
 class TestGoalAndLearning:
-    """Test AgentGoal and AgentLearning models."""
+    """Test AgentGoal and AgentLearning models (re-exported from core)."""
 
     def test_goal_defaults(self):
         goal = AgentGoal(name="test_goal", description="Test description")
@@ -170,7 +174,7 @@ class TestGoalAndLearning:
 
 
 class TestTickLog:
-    """Test TickLog model."""
+    """Test TickLog model (re-exported from core)."""
 
     def test_tick_log(self):
         log = TickLog(
@@ -183,3 +187,28 @@ class TestTickLog:
         )
         assert log.tick_number == 10
         assert log.actions_succeeded == 2
+
+
+class TestBackwardCompatibility:
+    """Verify that core models are properly re-exported from github.models."""
+
+    def test_reexports_exist(self):
+        """All previously-available agentic models still importable from github.models."""
+        from overblick.plugins.github.models import (
+            ActionOutcome,
+            ActionPlan,
+            AgentGoal,
+            AgentLearning,
+            GoalStatus,
+            PlannedAction,
+            TickLog,
+        )
+        # Just verify they're importable
+        assert AgentGoal is not None
+        assert PlannedAction is not None
+
+    def test_action_type_still_enum(self):
+        """ActionType is still an enum with expected values."""
+        assert ActionType.MERGE_PR.value == "merge_pr"
+        assert ActionType.SKIP.value == "skip"
+        assert len(ActionType) >= 8

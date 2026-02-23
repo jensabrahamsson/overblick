@@ -1,12 +1,15 @@
 """
 Tests for GoalTracker — persistent goal management.
+
+Now uses core agentic GoalTracker with GitHub-specific default goals.
 """
 
 import pytest
 from unittest.mock import AsyncMock
 
-from overblick.plugins.github.goal_system import GoalTracker, DEFAULT_GOALS
-from overblick.plugins.github.models import AgentGoal, GoalStatus
+from overblick.core.agentic.goal_tracker import GoalTracker
+from overblick.core.agentic.models import AgentGoal, GoalStatus
+from overblick.plugins.github.plugin import _DEFAULT_GOALS as DEFAULT_GOALS
 
 
 class TestGoalTracker:
@@ -31,7 +34,7 @@ class TestGoalTracker:
         ])
 
         tracker = GoalTracker(db=mock_db)
-        await tracker.setup()
+        await tracker.setup(default_goals=DEFAULT_GOALS)
 
         assert mock_db.upsert_goal.call_count == len(DEFAULT_GOALS)
         assert len(tracker.active_goals) == len(DEFAULT_GOALS)
@@ -45,7 +48,7 @@ class TestGoalTracker:
         mock_db.get_goals = AsyncMock(return_value=existing)
 
         tracker = GoalTracker(db=mock_db)
-        await tracker.setup()
+        await tracker.setup(default_goals=DEFAULT_GOALS)
 
         assert len(tracker.active_goals) == 1
         assert mock_db.upsert_goal.call_count == 0

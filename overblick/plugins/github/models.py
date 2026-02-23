@@ -4,14 +4,27 @@ Pydantic models for the GitHub agent plugin.
 Defines data structures for:
 - GitHub events and legacy bot-pattern models (kept for backward compat)
 - Repository observations (world state snapshots)
-- Agent goals and planning
-- Action execution and outcomes
+- GitHub-specific action types
+
+Generic agentic models (AgentGoal, AgentLearning, TickLog, PlannedAction,
+ActionPlan, ActionOutcome, GoalStatus) are re-exported from core.
 """
 
 from enum import Enum
 from typing import Any, Optional
 
 from pydantic import BaseModel
+
+# Re-export core agentic models for backward compatibility
+from overblick.core.agentic.models import (  # noqa: F401
+    ActionOutcome,
+    ActionPlan,
+    AgentGoal,
+    AgentLearning,
+    GoalStatus,
+    PlannedAction,
+    TickLog,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +125,7 @@ class PluginState(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Agentic models — world state observations
+# Agentic models — world state observations (GitHub-specific)
 # ---------------------------------------------------------------------------
 
 class CIStatus(str, Enum):
@@ -187,35 +200,11 @@ class RepoObservation(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Agent goals
-# ---------------------------------------------------------------------------
-
-class GoalStatus(str, Enum):
-    """Status of an agent goal."""
-    ACTIVE = "active"
-    PAUSED = "paused"
-    COMPLETED = "completed"
-
-
-class AgentGoal(BaseModel):
-    """A persistent goal the agent works toward."""
-    id: Optional[int] = None
-    name: str
-    description: str
-    priority: int = 50  # 0-100, higher = more important
-    status: GoalStatus = GoalStatus.ACTIVE
-    progress: float = 0.0  # 0.0-1.0
-    created_at: str = ""
-    updated_at: str = ""
-    metadata: dict[str, Any] = {}
-
-
-# ---------------------------------------------------------------------------
-# Planning and actions
+# GitHub-specific action types (string constants for handler registration)
 # ---------------------------------------------------------------------------
 
 class ActionType(str, Enum):
-    """Types of actions the agent can take."""
+    """Types of actions the GitHub agent can take."""
     MERGE_PR = "merge_pr"
     APPROVE_PR = "approve_pr"
     REVIEW_PR = "review_pr"
@@ -224,58 +213,3 @@ class ActionType(str, Enum):
     REFRESH_CONTEXT = "refresh_context"
     COMMENT_PR = "comment_pr"
     SKIP = "skip"
-
-
-class PlannedAction(BaseModel):
-    """A single action in the agent's plan."""
-    action_type: ActionType
-    target: str = ""  # e.g. "PR #42", "issue #7"
-    target_number: int = 0
-    repo: str = ""
-    priority: int = 50
-    reasoning: str = ""
-    params: dict[str, Any] = {}
-
-
-class ActionPlan(BaseModel):
-    """Ordered list of planned actions for a tick."""
-    actions: list[PlannedAction] = []
-    reasoning: str = ""  # Overall reasoning for the plan
-    tick_summary: str = ""
-
-
-class ActionOutcome(BaseModel):
-    """Result of executing a planned action."""
-    action: PlannedAction
-    success: bool
-    result: str = ""
-    error: str = ""
-    duration_ms: float = 0.0
-
-
-# ---------------------------------------------------------------------------
-# Tick logging and learnings
-# ---------------------------------------------------------------------------
-
-class TickLog(BaseModel):
-    """Record of a complete agent tick cycle."""
-    id: Optional[int] = None
-    tick_number: int = 0
-    started_at: str = ""
-    completed_at: str = ""
-    observations_count: int = 0
-    actions_planned: int = 0
-    actions_executed: int = 0
-    actions_succeeded: int = 0
-    reasoning_summary: str = ""
-    duration_ms: float = 0.0
-
-
-class AgentLearning(BaseModel):
-    """A learning/insight extracted from agent experience."""
-    id: Optional[int] = None
-    category: str = ""  # e.g. "dependabot", "issues", "ci"
-    insight: str = ""
-    confidence: float = 0.5
-    created_at: str = ""
-    source_tick: int = 0

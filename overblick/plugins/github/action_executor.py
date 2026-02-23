@@ -1,24 +1,23 @@
 """
-ActionExecutor — dispatches planned actions to specialized handlers.
+GitHub action handlers — domain-specific ActionHandler implementations.
 
-Validates each action before execution, respects max_actions_per_tick
-and dry_run settings, and produces ActionOutcome records.
+Each handler wraps existing GitHub-specific logic (DependabotHandler,
+IssueResponder, etc.) to implement the core ActionHandler protocol.
+
+Provides build_github_handlers() factory to create the handler dict
+for the core ActionExecutor.
 """
 
 import logging
-import time
-from typing import Optional
+from typing import Any, Optional
 
+from overblick.core.agentic.models import ActionOutcome, PlannedAction
 from overblick.plugins.github.client import GitHubAPIClient
-from overblick.plugins.github.database import GitHubDB
 from overblick.plugins.github.dependabot_handler import DependabotHandler
 from overblick.plugins.github.issue_responder import IssueResponder
 from overblick.plugins.github.models import (
-    ActionOutcome,
-    ActionPlan,
     ActionType,
     IssueSnapshot,
-    PlannedAction,
     PRSnapshot,
     RepoObservation,
     VersionBumpType,
@@ -27,142 +26,46 @@ from overblick.plugins.github.models import (
 logger = logging.getLogger(__name__)
 
 
-class ActionExecutor:
-    """
-    Executes planned actions by dispatching to specialized handlers.
+def _find_pr(
+    action: PlannedAction,
+    observation: Any,
+) -> Optional[PRSnapshot]:
+    """Find a PR in observations by number."""
+    if not isinstance(observation, dict):
+        return None
+    obs = observation.get(action.repo)
+    if not obs:
+        return None
+    for pr in obs.open_prs:
+        if pr.number == action.target_number:
+            return pr
+    return None
 
-    Safety guards:
-    - Validates actions exist (PR/issue must be in observation)
-    - Respects max_actions_per_tick
-    - Respects dry_run mode
-    - Records all outcomes
-    """
 
-    def __init__(
-        self,
-        client: GitHubAPIClient,
-        db: GitHubDB,
-        dependabot_handler: DependabotHandler,
-        issue_responder: IssueResponder,
-        notify_fn=None,
-        max_actions_per_tick: int = 5,
-        dry_run: bool = True,
-        default_branch: str = "main",
-    ):
-        self._client = client
-        self._db = db
-        self._dependabot = dependabot_handler
-        self._issue_responder = issue_responder
-        self._notify_fn = notify_fn
-        self._max_actions = max_actions_per_tick
-        self._dry_run = dry_run
-        self._default_branch = default_branch
+def _find_issue(
+    action: PlannedAction,
+    observation: Any,
+) -> Optional[IssueSnapshot]:
+    """Find an issue in observations by number."""
+    if not isinstance(observation, dict):
+        return None
+    obs = observation.get(action.repo)
+    if not obs:
+        return None
+    for issue in obs.open_issues:
+        if issue.number == action.target_number:
+            return issue
+    return None
 
-    async def execute(
-        self,
-        plan: ActionPlan,
-        observations: dict[str, RepoObservation],
-    ) -> list[ActionOutcome]:
-        """
-        Execute a plan against the observed world state.
 
-        Args:
-            plan: The action plan from the planner
-            observations: Map of repo -> RepoObservation
+class MergePRHandler:
+    """Handle merge_pr actions (delegates to DependabotHandler)."""
 
-        Returns:
-            List of action outcomes
-        """
-        outcomes: list[ActionOutcome] = []
+    def __init__(self, dependabot: DependabotHandler):
+        self._dependabot = dependabot
 
-        for i, action in enumerate(plan.actions):
-            if i >= self._max_actions:
-                logger.info(
-                    "GitHub executor: max actions per tick reached (%d)",
-                    self._max_actions,
-                )
-                break
-
-            start_time = time.monotonic()
-            outcome = await self._execute_action(action, observations)
-            elapsed_ms = (time.monotonic() - start_time) * 1000
-            outcome.duration_ms = elapsed_ms
-
-            outcomes.append(outcome)
-
-            if outcome.success:
-                logger.info(
-                    "GitHub executor: %s on %s — %s (%.0fms)",
-                    action.action_type.value, action.target,
-                    outcome.result[:100], elapsed_ms,
-                )
-            else:
-                logger.warning(
-                    "GitHub executor: %s on %s FAILED — %s (%.0fms)",
-                    action.action_type.value, action.target,
-                    outcome.error[:100], elapsed_ms,
-                )
-
-        return outcomes
-
-    async def _execute_action(
-        self,
-        action: PlannedAction,
-        observations: dict[str, RepoObservation],
-    ) -> ActionOutcome:
-        """Execute a single planned action."""
-        try:
-            if action.action_type == ActionType.MERGE_PR:
-                return await self._handle_merge_pr(action, observations)
-
-            elif action.action_type == ActionType.APPROVE_PR:
-                return await self._handle_approve_pr(action, observations)
-
-            elif action.action_type == ActionType.REVIEW_PR:
-                return await self._handle_review_pr(action, observations)
-
-            elif action.action_type == ActionType.RESPOND_ISSUE:
-                return await self._handle_respond_issue(action, observations)
-
-            elif action.action_type == ActionType.NOTIFY_OWNER:
-                return await self._handle_notify_owner(action)
-
-            elif action.action_type == ActionType.COMMENT_PR:
-                return await self._handle_comment_pr(action)
-
-            elif action.action_type == ActionType.REFRESH_CONTEXT:
-                return ActionOutcome(
-                    action=action, success=True,
-                    result="Context refresh noted (handled by observation phase)",
-                )
-
-            elif action.action_type == ActionType.SKIP:
-                return ActionOutcome(
-                    action=action, success=True,
-                    result=f"Skipped: {action.reasoning}",
-                )
-
-            else:
-                return ActionOutcome(
-                    action=action, success=False,
-                    error=f"Unknown action type: {action.action_type}",
-                )
-
-        except Exception as e:
-            logger.error(
-                "GitHub executor: unhandled error in %s: %s",
-                action.action_type.value, e, exc_info=True,
-            )
-            return ActionOutcome(
-                action=action, success=False,
-                error=f"Unhandled error: {e}",
-            )
-
-    async def _handle_merge_pr(
-        self, action: PlannedAction, observations: dict[str, RepoObservation],
-    ) -> ActionOutcome:
-        """Handle merge_pr action."""
-        pr = self._find_pr(action, observations)
+    async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
+        pr = _find_pr(action, observation)
         if not pr:
             return ActionOutcome(
                 action=action, success=False,
@@ -180,11 +83,16 @@ class ActionExecutor:
 
         return await self._dependabot.handle_merge(action, pr)
 
-    async def _handle_approve_pr(
-        self, action: PlannedAction, observations: dict[str, RepoObservation],
-    ) -> ActionOutcome:
-        """Handle approve_pr action."""
-        pr = self._find_pr(action, observations)
+
+class ApprovePRHandler:
+    """Handle approve_pr actions."""
+
+    def __init__(self, client: GitHubAPIClient, dry_run: bool = True):
+        self._client = client
+        self._dry_run = dry_run
+
+    async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
+        pr = _find_pr(action, observation)
         if not pr:
             return ActionOutcome(
                 action=action, success=False,
@@ -213,11 +121,16 @@ class ActionExecutor:
                 error=f"Failed to approve PR: {e}",
             )
 
-    async def _handle_review_pr(
-        self, action: PlannedAction, observations: dict[str, RepoObservation],
-    ) -> ActionOutcome:
-        """Handle review_pr action (comment review)."""
-        pr = self._find_pr(action, observations)
+
+class ReviewPRHandler:
+    """Handle review_pr actions (comment review)."""
+
+    def __init__(self, client: GitHubAPIClient, dry_run: bool = True):
+        self._client = client
+        self._dry_run = dry_run
+
+    async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
+        pr = _find_pr(action, observation)
         if not pr:
             return ActionOutcome(
                 action=action, success=False,
@@ -247,11 +160,16 @@ class ActionExecutor:
                 error=f"Failed to review PR: {e}",
             )
 
-    async def _handle_respond_issue(
-        self, action: PlannedAction, observations: dict[str, RepoObservation],
-    ) -> ActionOutcome:
-        """Handle respond_issue action."""
-        issue = self._find_issue(action, observations)
+
+class RespondIssueHandler:
+    """Handle respond_issue actions (delegates to IssueResponder)."""
+
+    def __init__(self, issue_responder: IssueResponder, default_branch: str = "main"):
+        self._issue_responder = issue_responder
+        self._default_branch = default_branch
+
+    async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
+        issue = _find_issue(action, observation)
         if not issue:
             return ActionOutcome(
                 action=action, success=False,
@@ -262,8 +180,15 @@ class ActionExecutor:
             action, issue, default_branch=self._default_branch,
         )
 
-    async def _handle_notify_owner(self, action: PlannedAction) -> ActionOutcome:
-        """Handle notify_owner action."""
+
+class NotifyOwnerHandler:
+    """Handle notify_owner actions."""
+
+    def __init__(self, notify_fn=None, dry_run: bool = True):
+        self._notify_fn = notify_fn
+        self._dry_run = dry_run
+
+    async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
         message = (
             f"*GitHub Agent: {action.repo}*\n"
             f"{action.target}\n\n"
@@ -295,8 +220,15 @@ class ActionExecutor:
             error="No notification function available",
         )
 
-    async def _handle_comment_pr(self, action: PlannedAction) -> ActionOutcome:
-        """Handle comment_pr action."""
+
+class CommentPRHandler:
+    """Handle comment_pr actions."""
+
+    def __init__(self, client: GitHubAPIClient, dry_run: bool = True):
+        self._client = client
+        self._dry_run = dry_run
+
+    async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
         if self._dry_run:
             return ActionOutcome(
                 action=action, success=True,
@@ -311,7 +243,6 @@ class ActionExecutor:
             )
 
         try:
-            # Use issue comment endpoint (works for PRs too)
             await self._client.create_comment(
                 action.repo, action.target_number, body,
             )
@@ -325,26 +256,47 @@ class ActionExecutor:
                 error=f"Failed to comment: {e}",
             )
 
-    def _find_pr(
-        self, action: PlannedAction, observations: dict[str, RepoObservation],
-    ) -> Optional[PRSnapshot]:
-        """Find a PR in observations by number."""
-        obs = observations.get(action.repo)
-        if not obs:
-            return None
-        for pr in obs.open_prs:
-            if pr.number == action.target_number:
-                return pr
-        return None
 
-    def _find_issue(
-        self, action: PlannedAction, observations: dict[str, RepoObservation],
-    ) -> Optional[IssueSnapshot]:
-        """Find an issue in observations by number."""
-        obs = observations.get(action.repo)
-        if not obs:
-            return None
-        for issue in obs.open_issues:
-            if issue.number == action.target_number:
-                return issue
-        return None
+class RefreshContextHandler:
+    """Handle refresh_context actions (no-op — handled by observation phase)."""
+
+    async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
+        return ActionOutcome(
+            action=action, success=True,
+            result="Context refresh noted (handled by observation phase)",
+        )
+
+
+class SkipHandler:
+    """Handle skip actions."""
+
+    async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
+        return ActionOutcome(
+            action=action, success=True,
+            result=f"Skipped: {action.reasoning}",
+        )
+
+
+def build_github_handlers(
+    client: GitHubAPIClient,
+    dependabot: DependabotHandler,
+    issue_responder: IssueResponder,
+    notify_fn=None,
+    dry_run: bool = True,
+    default_branch: str = "main",
+) -> dict[str, Any]:
+    """
+    Build the complete handler dict for the GitHub agent.
+
+    Returns a dict mapping ActionType string values to handler instances.
+    """
+    return {
+        ActionType.MERGE_PR.value: MergePRHandler(dependabot),
+        ActionType.APPROVE_PR.value: ApprovePRHandler(client, dry_run),
+        ActionType.REVIEW_PR.value: ReviewPRHandler(client, dry_run),
+        ActionType.RESPOND_ISSUE.value: RespondIssueHandler(issue_responder, default_branch),
+        ActionType.NOTIFY_OWNER.value: NotifyOwnerHandler(notify_fn, dry_run),
+        ActionType.COMMENT_PR.value: CommentPRHandler(client, dry_run),
+        ActionType.REFRESH_CONTEXT.value: RefreshContextHandler(),
+        ActionType.SKIP.value: SkipHandler(),
+    }

@@ -1,35 +1,46 @@
 """
-ActionPlanner — LLM-driven plan generation for the GitHub agent.
+ActionPlanner — LLM-driven plan generation for the agentic core.
 
 Takes observations + goals and produces a prioritized ActionPlan.
-Uses complexity="ultra" to route through Devstral (128K context)
-for deep reasoning about repository state.
+Domain-agnostic: validates action types against a plugin-provided
+set of valid action strings.
 """
 
 import json
 import logging
 from typing import Optional
 
-from overblick.plugins.github.models import ActionPlan, ActionType, PlannedAction
-from overblick.plugins.github.prompts import planning_prompt
+from overblick.core.agentic.models import ActionPlan, PlannedAction
+from overblick.core.agentic.prompts import planning_prompt
+from overblick.core.agentic.protocols import PlanningPromptConfig
 
 logger = logging.getLogger(__name__)
-
-# Valid action types for validation
-_VALID_ACTIONS = {a.value for a in ActionType}
 
 
 class ActionPlanner:
     """
-    LLM-driven action planner for the GitHub agent.
+    LLM-driven action planner.
 
-    Takes formatted observations and goals, sends them to the LLM
-    with complexity=ultra, and parses the returned JSON plan.
+    Takes formatted observations and goals, sends them to the LLM,
+    and parses the returned JSON plan. Validates action types against
+    a plugin-provided set of valid strings.
     """
 
-    def __init__(self, llm_pipeline, system_prompt: str = ""):
+    def __init__(
+        self,
+        llm_pipeline,
+        system_prompt: str = "",
+        prompt_config: Optional[PlanningPromptConfig] = None,
+        valid_actions: Optional[set[str]] = None,
+        audit_action: str = "agent_planning",
+        complexity: str = "ultra",
+    ):
         self._llm_pipeline = llm_pipeline
         self._system_prompt = system_prompt
+        self._prompt_config = prompt_config or PlanningPromptConfig()
+        self._valid_actions = valid_actions
+        self._audit_action = audit_action
+        self._complexity = complexity
 
     async def plan(
         self,
@@ -37,60 +48,53 @@ class ActionPlanner:
         goals: str,
         recent_actions: str = "",
         learnings: str = "",
-        owner_commands: str = "",
+        extra_context: str = "",
         max_actions: int = 5,
     ) -> ActionPlan:
         """
         Generate an action plan from the current world state.
 
-        Args:
-            observations: Formatted observation text
-            goals: Formatted goals text
-            recent_actions: Recent action history
-            learnings: Agent learnings
-            owner_commands: Commands from owner (Telegram)
-            max_actions: Maximum number of actions to plan
-
         Returns:
             ActionPlan with prioritized actions
         """
         if not self._llm_pipeline:
-            logger.warning("GitHub planner: no LLM pipeline available")
+            logger.warning("Agent planner: no LLM pipeline available")
             return ActionPlan()
 
         messages = planning_prompt(
             system_prompt=self._system_prompt,
+            config=self._prompt_config,
             observations=observations,
             goals=goals,
             recent_actions=recent_actions,
             learnings=learnings,
-            owner_commands=owner_commands,
+            extra_context=extra_context,
             max_actions=max_actions,
         )
 
         try:
             result = await self._llm_pipeline.chat(
                 messages=messages,
-                audit_action="github_agent_planning",
+                audit_action=self._audit_action,
                 skip_preflight=True,
-                complexity="ultra",
+                complexity=self._complexity,
                 priority="low",
             )
 
             if not result or result.blocked or not result.content:
-                logger.warning("GitHub planner: LLM returned no plan")
+                logger.warning("Agent planner: LLM returned no plan")
                 return ActionPlan()
 
             plan = self._parse_plan(result.content.strip(), max_actions)
             logger.info(
-                "GitHub planner: generated plan with %d actions (reasoning: %s)",
+                "Agent planner: generated plan with %d actions (reasoning: %s)",
                 len(plan.actions),
                 plan.reasoning[:100] if plan.reasoning else "none",
             )
             return plan
 
         except Exception as e:
-            logger.error("GitHub planner: planning failed: %s", e, exc_info=True)
+            logger.error("Agent planner: planning failed: %s", e, exc_info=True)
             return ActionPlan()
 
     def _parse_plan(self, raw: str, max_actions: int) -> ActionPlan:
@@ -110,13 +114,15 @@ class ActionPlanner:
                 continue
 
             action_type_str = raw_action.get("action_type", "skip")
-            if action_type_str not in _VALID_ACTIONS:
-                logger.debug("GitHub planner: skipping unknown action type: %s", action_type_str)
+
+            # Validate against plugin's valid actions if provided
+            if self._valid_actions and action_type_str not in self._valid_actions:
+                logger.debug("Agent planner: skipping unknown action type: %s", action_type_str)
                 continue
 
             try:
                 action = PlannedAction(
-                    action_type=ActionType(action_type_str),
+                    action_type=action_type_str,
                     target=raw_action.get("target", ""),
                     target_number=int(raw_action.get("target_number", 0)),
                     repo=raw_action.get("repo", ""),
@@ -126,16 +132,13 @@ class ActionPlanner:
                 )
                 actions.append(action)
             except (ValueError, TypeError) as e:
-                logger.debug("GitHub planner: failed to parse action: %s", e)
+                logger.debug("Agent planner: failed to parse action: %s", e)
                 continue
 
         # Sort by priority (highest first)
         actions.sort(key=lambda a: a.priority, reverse=True)
 
-        return ActionPlan(
-            actions=actions,
-            reasoning=reasoning,
-        )
+        return ActionPlan(actions=actions, reasoning=reasoning)
 
     @staticmethod
     def _extract_json(raw: str) -> Optional[dict]:
@@ -167,5 +170,5 @@ class ActionPlanner:
             except json.JSONDecodeError:
                 pass
 
-        logger.warning("GitHub planner: could not parse JSON from response")
+        logger.warning("Agent planner: could not parse JSON from response")
         return None
