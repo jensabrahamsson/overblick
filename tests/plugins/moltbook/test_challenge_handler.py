@@ -162,13 +162,17 @@ class TestChallengeSolving:
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            llm_client=llm, http_session=session, base_url="https://api.test.com",
+            llm_client=llm,
+            http_session=session,
+            base_url="https://api.test.com",
         )
 
-        result = await handler.solve({
-            "question": "What is 2+2?",
-            "nonce": "abc",
-        })
+        result = await handler.solve(
+            {
+                "question": "What is 2+2?",
+                "nonce": "abc",
+            }
+        )
 
         assert result is not None
         assert handler._stats["challenges_solved"] == 1
@@ -203,10 +207,12 @@ class TestChallengeSolving:
         llm.chat = AsyncMock(return_value={"content": "spider"})
 
         handler = PerContentChallengeHandler(llm_client=llm)
-        await handler.solve({
-            "question": "What animal has 8 legs?",
-            "nonce": "test",
-        })
+        await handler.solve(
+            {
+                "question": "What animal has 8 legs?",
+                "nonce": "test",
+            }
+        )
 
         call_kwargs = llm.chat.call_args_list[0].kwargs
         assert call_kwargs["priority"] == "high"
@@ -217,10 +223,12 @@ class TestChallengeSolving:
         llm.chat = AsyncMock(return_value={"content": "lobster"})
 
         handler = PerContentChallengeHandler(llm_client=llm)
-        await handler.solve({
-            "question": "wHhAaTt aNnIiMmAaLl hHaAsS cClLaAwWsS?",
-            "nonce": "test",
-        })
+        await handler.solve(
+            {
+                "question": "wHhAaTt aNnIiMmAaLl hHaAsS cClLaAwWsS?",
+                "nonce": "test",
+            }
+        )
 
         # LLM should receive deobfuscated text
         call_kwargs = llm.chat.call_args_list[0].kwargs
@@ -283,10 +291,12 @@ class TestComplexityRouting:
         )
 
         # Use a non-arithmetic question so arithmetic fast-path doesn't trigger
-        result = await handler.solve({
-            "question": "What color is the sky?",
-            "verification_code": "nonce_1",
-        })
+        result = await handler.solve(
+            {
+                "question": "What color is the sky?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         assert result is not None
         # First call should be complexity="ultra"
@@ -297,10 +307,12 @@ class TestComplexityRouting:
         """When ultra LLM fails, local LLM (complexity=low) is used as fallback."""
         llm = AsyncMock()
         # First call (ultra) fails, second call (low) succeeds
-        llm.chat = AsyncMock(side_effect=[
-            Exception("Ultra backend unavailable"),
-            {"content": "blue"},
-        ])
+        llm.chat = AsyncMock(
+            side_effect=[
+                Exception("Ultra backend unavailable"),
+                {"content": "blue"},
+            ]
+        )
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
@@ -309,10 +321,12 @@ class TestComplexityRouting:
             base_url="https://api.test.com",
         )
 
-        result = await handler.solve({
-            "question": "What color is the sky?",
-            "verification_code": "nonce_1",
-        })
+        result = await handler.solve(
+            {
+                "question": "What color is the sky?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         assert result is not None
         assert llm.chat.call_count == 2
@@ -333,10 +347,12 @@ class TestComplexityRouting:
             base_url="https://api.test.com",
         )
 
-        result = await handler.solve({
-            "question": "What is 32 + 18?",
-            "verification_code": "nonce_1",
-        })
+        result = await handler.solve(
+            {
+                "question": "What is 32 + 18?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         assert result is not None
         # LLM should be called first (ultra then low), both failed
@@ -356,10 +372,12 @@ class TestComplexityRouting:
             base_url="https://api.test.com",
         )
 
-        await handler.solve({
-            "question": "What color is the sky?",
-            "verification_code": "nonce_1",
-        })
+        await handler.solve(
+            {
+                "question": "What color is the sky?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         call_kwargs = llm.chat.call_args_list[0].kwargs
         assert call_kwargs["temperature"] == 0.0
@@ -383,10 +401,12 @@ class TestSubmitStrategy:
             base_url="https://www.moltbook.com/api/v1",
         )
 
-        result = await handler.solve({
-            "question": "What is 25+25?",
-            "verification_code": "nonce_1",
-        })
+        result = await handler.solve(
+            {
+                "question": "What is 25+25?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         assert result is not None
         # POST was made to /verify
@@ -453,10 +473,12 @@ class TestSubmitStrategy:
             base_url="https://api.test.com",
         )
 
-        await handler.solve({
-            "question": "What is 25+25?",
-            "verification_code": "nonce_abc",
-        })
+        await handler.solve(
+            {
+                "question": "What is 25+25?",
+                "verification_code": "nonce_abc",
+            }
+        )
 
         call_kwargs = session.post.call_args[1]
         payload = call_kwargs["json"]
@@ -482,14 +504,17 @@ class TestAuditEvents:
             audit_log=audit_log,
         )
 
-        await handler.solve({
-            "question": "What is 25+25?",
-            "verification_code": "nonce_1",
-        })
+        await handler.solve(
+            {
+                "question": "What is 25+25?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         # Find challenge_received call
         received_calls = [
-            c for c in audit_log.log.call_args_list
+            c
+            for c in audit_log.log.call_args_list
             if c.kwargs.get("action") == "challenge_received"
         ]
         assert len(received_calls) == 1
@@ -511,13 +536,16 @@ class TestAuditEvents:
             audit_log=audit_log,
         )
 
-        await handler.solve({
-            "question": "What is 25+25?",
-            "verification_code": "nonce_1",
-        })
+        await handler.solve(
+            {
+                "question": "What is 25+25?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         response_calls = [
-            c for c in audit_log.log.call_args_list
+            c
+            for c in audit_log.log.call_args_list
             if c.kwargs.get("action") == "challenge_response"
         ]
         assert len(response_calls) == 1
@@ -540,13 +568,16 @@ class TestAuditEvents:
             audit_log=audit_log,
         )
 
-        await handler.solve({
-            "question": "What is 25+25?",
-            "verification_code": "nonce_1",
-        })
+        await handler.solve(
+            {
+                "question": "What is 25+25?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         submitted_calls = [
-            c for c in audit_log.log.call_args_list
+            c
+            for c in audit_log.log.call_args_list
             if c.kwargs.get("action") == "challenge_submitted"
         ]
         assert len(submitted_calls) == 1
@@ -573,10 +604,12 @@ class TestDBRecording:
             engagement_db=engagement_db,
         )
 
-        await handler.solve({
-            "question": "What is 25+25?",
-            "verification_code": "nonce_1",
-        })
+        await handler.solve(
+            {
+                "question": "What is 25+25?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         engagement_db.record_challenge.assert_called_once()
         call_kwargs = engagement_db.record_challenge.call_args.kwargs
@@ -598,10 +631,12 @@ class TestDBRecording:
             engagement_db=engagement_db,
         )
 
-        await handler.solve({
-            "question": "What is 25+25?",
-            "verification_code": "nonce_1",
-        })
+        await handler.solve(
+            {
+                "question": "What is 25+25?",
+                "verification_code": "nonce_1",
+            }
+        )
 
         engagement_db.record_challenge.assert_called_once()
         call_kwargs = engagement_db.record_challenge.call_args.kwargs
@@ -850,24 +885,28 @@ class TestFuzzyMatchStrictness:
     def test_thir_does_not_match_thirteen(self):
         """'thir' (fragment of 'thirty') must NOT match 'thirteen'."""
         from overblick.plugins.moltbook.challenge_handler import _ONES
+
         result = _fuzzy_match("thir", _ONES)
         assert result is None
 
     def test_ty_does_not_match_twenty(self):
         """'ty' (fragment of 'twenty') must NOT match any number."""
         from overblick.plugins.moltbook.challenge_handler import _TENS, _ONES
+
         assert _fuzzy_match("ty", _TENS) is None
         assert _fuzzy_match("ty", _ONES) is None
 
     def test_wen_does_not_match(self):
         """'wen' (fragment of 'twenty') must NOT match any number."""
         from overblick.plugins.moltbook.challenge_handler import _TENS, _ONES
+
         assert _fuzzy_match("wen", _TENS) is None
         assert _fuzzy_match("wen", _ONES) is None
 
     def test_thre_matches_three(self):
         """'thre' (deobfuscation artifact) SHOULD match 'three'."""
         from overblick.plugins.moltbook.challenge_handler import _ONES
+
         result = _fuzzy_match("thre", _ONES)
         assert result is not None
         assert result[1] == 3
@@ -875,6 +914,7 @@ class TestFuzzyMatchStrictness:
     def test_exact_matches_preserved(self):
         """Exact word matches must always work."""
         from overblick.plugins.moltbook.challenge_handler import _TENS, _ONES
+
         assert _fuzzy_match("twenty", _TENS) == ("twenty", 20)
         assert _fuzzy_match("seven", _ONES) == ("seven", 7)
         assert _fuzzy_match("thirteen", _ONES) == ("thirteen", 13)
@@ -897,3 +937,56 @@ class TestSubtractionDetection:
         """'drops by five' must detect subtraction."""
         result = solve_arithmetic("force is thirty and drops by five")
         assert result == "25.00"
+
+
+class TestLLMAnswerValidation:
+    """Test validation of LLM answers against arithmetic solver."""
+
+    def test_answers_differ_detects_discrepancy(self):
+        """Different numeric answers should be detected."""
+        result = PerContentChallengeHandler._answers_differ("30", "40.00")
+        assert result is True
+
+    def test_answers_differ_same_numbers(self):
+        """Same numbers in different formats should not differ."""
+        result = PerContentChallengeHandler._answers_differ("40", "40.00")
+        assert result is False
+
+    def test_answers_differ_textual_answers(self):
+        """Text answers that are different should be detected."""
+        result = PerContentChallengeHandler._answers_differ("hello", "world")
+        assert result is True
+
+    def test_answers_differ_same_text(self):
+        """Same text answers should not differ."""
+        result = PerContentChallengeHandler._answers_differ("answer", "answer")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_llm_fallback_to_arithmetic_on_discrepancy(self):
+        """When LLM answer differs from arithmetic, use arithmetic."""
+        session = _make_mock_session(200, '{"success": true}')
+        handler = PerContentChallengeHandler(
+            llm_client=AsyncMock(),
+            http_session=session,
+            base_url="https://api.moltbook.test",
+        )
+
+        # Mock LLM to return wrong answer "30" for "twenty six + fourteen"
+        handler._llm.chat = AsyncMock(return_value={"content": "30"})
+
+        challenge_data = {
+            "question": "Lobster claw force is twenty six newtons and gains fourteen more, what is total force?",
+            "nonce": "test_nonce",
+            "respond_url": "/api/v1/verify",
+        }
+
+        result = await handler.solve(challenge_data)
+
+        # Should use arithmetic answer (40.00) not LLM answer (30)
+        assert result is not None
+        assert handler._stats["challenges_solved"] == 1
+
+        # Verify the SUBMITTED answer was 40.00 (arithmetic), not 30 (LLM)
+        call_kwargs = session.post.call_args[1]
+        assert call_kwargs["json"]["answer"] == "40.00"

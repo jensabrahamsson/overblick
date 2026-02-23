@@ -49,6 +49,7 @@ Rules:
 #   2. Letter-doubling: each char repeated with case swap → tWwEeNnTtYy → twenty
 # We strip doubling first, then normalize case, before sending to the LLM.
 
+
 def _strip_letter_doubling(word: str) -> str:
     """Remove letter-doubling obfuscation from a single word.
 
@@ -143,32 +144,100 @@ def deobfuscate_challenge(text: str) -> str:
 
 # Word-form number dictionaries
 _ONES = {
-    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
-    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
 }
 
 _TENS = {
-    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
-    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+    "twenty": 20,
+    "thirty": 30,
+    "forty": 40,
+    "fifty": 50,
+    "sixty": 60,
+    "seventy": 70,
+    "eighty": 80,
+    "ninety": 90,
 }
 
 # Words to ignore when parsing word numbers
-_FILLER = frozenset({
-    "what", "is", "whats", "the", "of", "a", "an", "and", "are", "how",
-    "many", "much", "if", "you", "have", "had", "get", "got", "give",
-    "gave", "away", "left", "remain", "remains", "remaining", "result",
-    "answer", "calculate", "solve", "compute", "find", "equal", "equals",
-    "to", "from", "with", "do", "does", "would", "will", "be", "by",
-    "apples", "oranges", "items", "things", "objects", "numbers",
-})
+_FILLER = frozenset(
+    {
+        "what",
+        "is",
+        "whats",
+        "the",
+        "of",
+        "a",
+        "an",
+        "and",
+        "are",
+        "how",
+        "many",
+        "much",
+        "if",
+        "you",
+        "have",
+        "had",
+        "get",
+        "got",
+        "give",
+        "gave",
+        "away",
+        "left",
+        "remain",
+        "remains",
+        "remaining",
+        "result",
+        "answer",
+        "calculate",
+        "solve",
+        "compute",
+        "find",
+        "equal",
+        "equals",
+        "to",
+        "from",
+        "with",
+        "do",
+        "does",
+        "would",
+        "will",
+        "be",
+        "by",
+        "apples",
+        "oranges",
+        "items",
+        "things",
+        "objects",
+        "numbers",
+    }
+)
 
 _DIGIT_EXPR_RE = re.compile(r"[\d+\-*/().^ ]+")
 _OP_DETECT = {
     "mul": re.compile(r"\b(times|multipl\w*|product|multiplied)\b"),
     "div": re.compile(r"\b(divid\w*|ratio|split)\b"),
-    "sub": re.compile(r"\b(subtract\w*|minus|less|reduce\w*|remain\w*|take\s+away|gave?\s+away|slow\w*|los[ei]\w*|drop\w*|decreas\w*|fell|lower\w*|dip\w*)\b"),
+    "sub": re.compile(
+        r"\b(subtract\w*|minus|less|reduce\w*|remain\w*|take\s+away|gave?\s+away|slow\w*|los[ei]\w*|drop\w*|decreas\w*|fell|lower\w*|dip\w*)\b"
+    ),
 }
 
 
@@ -273,7 +342,7 @@ def _compute(numbers: list[int | float], op: str) -> Optional[float]:
     if op == "div":
         if numbers[1] == 0:
             return None
-        return numbers[0] / numbers[1]
+        return float(numbers[0]) / float(numbers[1])
     return None
 
 
@@ -289,8 +358,7 @@ def _solve_digit_expression(text: str) -> Optional[str]:
 
     # Pick the longest candidate containing an operator
     candidates = [
-        m.strip() for m in matches
-        if re.search(r"[+\-*/^]", m) and re.search(r"\d", m)
+        m.strip() for m in matches if re.search(r"[+\-*/^]", m) and re.search(r"\d", m)
     ]
     if not candidates:
         return None
@@ -302,7 +370,9 @@ def _solve_digit_expression(text: str) -> Optional[str]:
     expr = expr.replace("^", "**")
 
     # Try simple binary: a op b
-    m = re.match(r"^\s*(-?\d+(?:\.\d+)?)\s*([+\-*/]|\*\*)\s*(-?\d+(?:\.\d+)?)\s*$", expr)
+    m = re.match(
+        r"^\s*(-?\d+(?:\.\d+)?)\s*([+\-*/]|\*\*)\s*(-?\d+(?:\.\d+)?)\s*$", expr
+    )
     if m:
         a, op, b = float(m.group(1)), m.group(2), float(m.group(3))
         try:
@@ -315,7 +385,7 @@ def _solve_digit_expression(text: str) -> Optional[str]:
             if op == "/":
                 return f"{a / b:.2f}" if b != 0 else None
             if op == "**":
-                result = a ** b
+                result = a**b
                 if abs(result) > 1e15:
                     return None
                 return f"{result:.2f}"
@@ -375,18 +445,23 @@ def solve_arithmetic(text: str) -> Optional[str]:
     # Confidence guard: if using word numbers and ALL are < 20 in a long text,
     # we likely missed a tens-word due to obfuscation (e.g. "t wen ty" → lost "twenty",
     # only found "five"). Bail out and let the LLM handle it.
-    if not digit_numbers and numbers and len(text) > 60 and all(n < 20 for n in numbers):
+    if (
+        not digit_numbers
+        and numbers
+        and len(text) > 60
+        and all(n < 20 for n in numbers)
+    ):
         return None
 
     if len(numbers) >= 2:
         op = _detect_operation(text)
-        computed = _compute(numbers, op)
+        computed = _compute([float(n) for n in numbers], op)
         if computed is not None and abs(computed) < 1e15:
             return f"{computed:.2f}"
 
     # Hybrid: mix digit and word numbers
     if digit_numbers and word_numbers and len(digit_numbers) + len(word_numbers) >= 2:
-        all_numbers = digit_numbers + word_numbers
+        all_numbers = [float(n) for n in (digit_numbers + word_numbers)]
         op = _detect_operation(text)
         computed = _compute(all_numbers, op)
         if computed is not None and abs(computed) < 1e15:
@@ -399,10 +474,37 @@ class PerContentChallengeHandler:
     """Handles per-content verification challenges from Moltbook API."""
 
     CHALLENGE_FIELDS = ("challenge", "nonce", "verification", "solve", "question")
-    QUESTION_FIELDS = ("question", "challenge_text", "prompt", "challenge", "task", "instructions")
-    NONCE_FIELDS = ("nonce", "challenge_nonce", "token", "challenge_id", "verification_code", "code")
-    ENDPOINT_FIELDS = ("respond_url", "answer_url", "callback", "endpoint", "submit_url", "verification_url")
-    TIME_LIMIT_FIELDS = ("time_limit", "timeout", "expires_in", "ttl", "deadline_seconds")
+    QUESTION_FIELDS = (
+        "question",
+        "challenge_text",
+        "prompt",
+        "challenge",
+        "task",
+        "instructions",
+    )
+    NONCE_FIELDS = (
+        "nonce",
+        "challenge_nonce",
+        "token",
+        "challenge_id",
+        "verification_code",
+        "code",
+    )
+    ENDPOINT_FIELDS = (
+        "respond_url",
+        "answer_url",
+        "callback",
+        "endpoint",
+        "submit_url",
+        "verification_url",
+    )
+    TIME_LIMIT_FIELDS = (
+        "time_limit",
+        "timeout",
+        "expires_in",
+        "ttl",
+        "deadline_seconds",
+    )
 
     # Nesting paths where challenge data may be located (issue #134 community findings).
     # Each path is a tuple of dict keys to traverse from the top-level response.
@@ -518,16 +620,22 @@ class PerContentChallengeHandler:
 
         logger.warning(
             "PER-CONTENT CHALLENGE: question=%s | nonce=%s | endpoint=%s | time_limit=%s",
-            question[:200] if question else None, nonce, endpoint, time_limit,
+            question[:200] if question else None,
+            nonce,
+            endpoint,
+            time_limit,
         )
 
         # Audit: challenge_received
-        self._audit("challenge_received", {
-            "question_raw": question[:500] if question else None,
-            "nonce": nonce,
-            "has_submit_url": bool(endpoint),
-            "has_original_endpoint": bool(original_endpoint),
-        })
+        self._audit(
+            "challenge_received",
+            {
+                "question_raw": question[:500] if question else None,
+                "nonce": nonce,
+                "has_submit_url": bool(endpoint),
+                "has_original_endpoint": bool(original_endpoint),
+            },
+        )
 
         if not question:
             logger.error("CHALLENGE: No question found in data: %s", challenge_data)
@@ -539,7 +647,8 @@ class PerContentChallengeHandler:
         if clean_question != question:
             logger.info(
                 "CHALLENGE: Deobfuscated: '%s' -> '%s'",
-                question[:100], clean_question[:100],
+                question[:100],
+                clean_question[:100],
             )
 
         # Solve: cloud LLM (Devstral) → local LLM → arithmetic fallback
@@ -558,6 +667,20 @@ class PerContentChallengeHandler:
             if answer:
                 solver = "local_llm"
 
+        # Validate LLM answers against arithmetic solver for math challenges
+        if answer and solver and solver.endswith("_llm"):
+            arithmetic_answer = solve_arithmetic(clean_question)
+            if arithmetic_answer:
+                # If answers differ, prefer the arithmetic solution (more reliable for math)
+                if self._answers_differ(answer, arithmetic_answer):
+                    logger.warning(
+                        "CHALLENGE: LLM answer '%s' differs from arithmetic '%s', using arithmetic",
+                        answer,
+                        arithmetic_answer,
+                    )
+                    answer = arithmetic_answer
+                    solver = "arithmetic_fallback"
+
         if not answer:
             answer = solve_arithmetic(clean_question)
             if answer:
@@ -568,27 +691,36 @@ class PerContentChallengeHandler:
         if not answer:
             logger.error("CHALLENGE: All solvers failed for: %s", clean_question[:200])
             self._stats["challenges_failed"] += 1
-            self._audit("challenge_response", {
-                "question_clean": clean_question[:500],
-                "answer": None,
-                "solver": None,
-                "duration_ms": round(elapsed * 1000, 1),
-                "error": "all_solvers_failed",
-            })
+            self._audit(
+                "challenge_response",
+                {
+                    "question_clean": clean_question[:500],
+                    "answer": None,
+                    "solver": None,
+                    "duration_ms": round(elapsed * 1000, 1),
+                    "error": "all_solvers_failed",
+                },
+            )
             return None
 
         logger.info(
             "CHALLENGE: %s answered in %.1fs: '%s' -> '%s'",
-            solver, elapsed, clean_question[:100], answer,
+            solver,
+            elapsed,
+            clean_question[:100],
+            answer,
         )
 
         # Audit: challenge_response
-        self._audit("challenge_response", {
-            "question_clean": clean_question[:500],
-            "answer": answer,
-            "solver": solver,
-            "duration_ms": round(elapsed * 1000, 1),
-        })
+        self._audit(
+            "challenge_response",
+            {
+                "question_clean": clean_question[:500],
+                "answer": answer,
+                "solver": solver,
+                "duration_ms": round(elapsed * 1000, 1),
+            },
+        )
 
         # Submit answer via multi-strategy
         submit_result = await self._try_submit(
@@ -603,7 +735,9 @@ class PerContentChallengeHandler:
         total_elapsed = time.monotonic() - start_time
 
         if submit_result is not None:
-            logger.info("CHALLENGE: Solved in %.1fs (limit: %ss)", total_elapsed, time_limit)
+            logger.info(
+                "CHALLENGE: Solved in %.1fs (limit: %ss)", total_elapsed, time_limit
+            )
             self._stats["challenges_solved"] += 1
         else:
             self._stats["challenges_failed"] += 1
@@ -618,13 +752,17 @@ class PerContentChallengeHandler:
             correct=submit_result is not None,
             endpoint=endpoint or original_endpoint,
             duration_ms=round(total_elapsed * 1000, 1),
-            http_status=submit_result.get("_http_status") if isinstance(submit_result, dict) else None,
+            http_status=submit_result.get("_http_status")
+            if isinstance(submit_result, dict)
+            else None,
             error=None if submit_result else "submit_failed",
         )
 
         return submit_result
 
-    async def _solve_with_llm(self, clean_question: str, complexity: str = "low") -> Optional[str]:
+    async def _solve_with_llm(
+        self, clean_question: str, complexity: str = "low"
+    ) -> Optional[str]:
         """Solve challenge via LLM Gateway with specified complexity routing."""
         messages = [
             {"role": "system", "content": CHALLENGE_SOLVER_SYSTEM},
@@ -674,28 +812,46 @@ class PerContentChallengeHandler:
             verify_payload: dict = {"answer": formatted_answer}
             if nonce:
                 verify_payload["verification_code"] = nonce
-            challenge_id = challenge_data.get("challenge_id") or challenge_data.get("id")
+            challenge_id = challenge_data.get("challenge_id") or challenge_data.get(
+                "id"
+            )
             if challenge_id:
                 verify_payload["challenge_id"] = str(challenge_id)
 
             result = await self._post_with_logging(
-                "/verify", verify_payload, "post_verify",
+                "/verify",
+                verify_payload,
+                "post_verify",
             )
             strategies_tried.append(("post_verify", "/verify", result is not None))
             if result is not None:
-                self._audit("challenge_submitted", {
-                    "nonce": nonce, "answer": formatted_answer, "method": "post_verify", "success": True,
-                })
+                self._audit(
+                    "challenge_submitted",
+                    {
+                        "nonce": nonce,
+                        "answer": formatted_answer,
+                        "method": "post_verify",
+                        "success": True,
+                    },
+                )
                 return result
 
         # Strategy 2: Explicit submit endpoint from challenge data (if different from /verify)
         if endpoint and endpoint != "/verify":
-            result = await self._submit_answer(endpoint, formatted_answer, nonce, challenge_data)
+            result = await self._submit_answer(
+                endpoint, formatted_answer, nonce, challenge_data
+            )
             strategies_tried.append(("explicit_endpoint", endpoint, result is not None))
             if result is not None:
-                self._audit("challenge_submitted", {
-                    "nonce": nonce, "answer": formatted_answer, "method": "explicit_endpoint", "success": True,
-                })
+                self._audit(
+                    "challenge_submitted",
+                    {
+                        "nonce": nonce,
+                        "answer": formatted_answer,
+                        "method": "explicit_endpoint",
+                        "success": True,
+                    },
+                )
                 return result
 
         # Strategy 3: Retry original POST with verification fields
@@ -706,13 +862,23 @@ class PerContentChallengeHandler:
                 retry_payload["verification_code"] = nonce
 
             result = await self._post_with_logging(
-                original_endpoint, retry_payload, "retry_original",
+                original_endpoint,
+                retry_payload,
+                "retry_original",
             )
-            strategies_tried.append(("retry_original", original_endpoint, result is not None))
+            strategies_tried.append(
+                ("retry_original", original_endpoint, result is not None)
+            )
             if result is not None:
-                self._audit("challenge_submitted", {
-                    "nonce": nonce, "answer": formatted_answer, "method": "retry_original", "success": True,
-                })
+                self._audit(
+                    "challenge_submitted",
+                    {
+                        "nonce": nonce,
+                        "answer": formatted_answer,
+                        "method": "retry_original",
+                        "success": True,
+                    },
+                )
                 return result
 
         # All strategies failed
@@ -720,13 +886,16 @@ class PerContentChallengeHandler:
             "CHALLENGE: All submit strategies failed: %s",
             [(s[0], s[1], s[2]) for s in strategies_tried],
         )
-        self._audit("challenge_submitted", {
-            "nonce": nonce,
-            "answer": formatted_answer,
-            "method": "all_failed",
-            "success": False,
-            "strategies_tried": [s[0] for s in strategies_tried],
-        })
+        self._audit(
+            "challenge_submitted",
+            {
+                "nonce": nonce,
+                "answer": formatted_answer,
+                "method": "all_failed",
+                "success": False,
+                "strategies_tried": [s[0] for s in strategies_tried],
+            },
+        )
         return None
 
     @staticmethod
@@ -745,7 +914,10 @@ class PerContentChallengeHandler:
         return answer
 
     async def _post_with_logging(
-        self, url: str, payload: dict, strategy_name: str,
+        self,
+        url: str,
+        payload: dict,
+        strategy_name: str,
     ) -> Optional[dict]:
         """POST with full forensic logging for submit strategies."""
         if not self._session:
@@ -765,9 +937,14 @@ class PerContentChallengeHandler:
                 raw_body = await response.text()
                 logger.info(
                     "CHALLENGE SUBMIT [%s]: %s -> HTTP %d | headers=%s | body=%.1000s",
-                    strategy_name, url, response.status,
-                    {k: v for k, v in response.headers.items()
-                     if k.lower().startswith("x-") or "verif" in k.lower()},
+                    strategy_name,
+                    url,
+                    response.status,
+                    {
+                        k: v
+                        for k, v in response.headers.items()
+                        if k.lower().startswith("x-") or "verif" in k.lower()
+                    },
                     raw_body,
                 )
                 if response.status >= 400:
@@ -777,10 +954,28 @@ class PerContentChallengeHandler:
                     result["_http_status"] = response.status
                     return result
                 except Exception:
-                    return {"success": True, "raw_response": raw_body, "_http_status": response.status}
+                    return {
+                        "success": True,
+                        "raw_response": raw_body,
+                        "_http_status": response.status,
+                    }
         except Exception as e:
             logger.warning("CHALLENGE SUBMIT [%s] failed: %s", strategy_name, e)
             return None
+
+    @staticmethod
+    def _answers_differ(llm_answer: str, arithmetic_answer: str) -> bool:
+        """Check if LLM and arithmetic answers differ significantly."""
+        try:
+            # Parse both answers as numbers
+            llm_num = float(llm_answer.replace(",", "").replace(" ", ""))
+            arith_num = float(arithmetic_answer.replace(",", "").replace(" ", ""))
+
+            # Consider them different if more than 0.01 apart
+            return abs(llm_num - arith_num) > 0.01
+        except (ValueError, AttributeError):
+            # If we can't parse as numbers, they're different
+            return llm_answer != arithmetic_answer
 
     def _extract_field(self, data: dict, field_names: tuple) -> Optional[str]:
         """Extract a field value trying multiple possible names and nesting paths."""
@@ -812,7 +1007,11 @@ class PerContentChallengeHandler:
         return None
 
     async def _submit_answer(
-        self, endpoint: str, answer: str, nonce: Optional[str], challenge_data: dict,
+        self,
+        endpoint: str,
+        answer: str,
+        nonce: Optional[str],
+        challenge_data: dict,
     ) -> Optional[dict]:
         """Submit a challenge answer."""
         if not self._session:
@@ -827,9 +1026,12 @@ class PerContentChallengeHandler:
                 logger.warning(
                     "CHALLENGE: Endpoint URL '%s' outside base_url '%s', "
                     "submitting WITHOUT auth header",
-                    url, self._base_url,
+                    url,
+                    self._base_url,
                 )
-                return await self._submit_answer_no_auth(url, answer, nonce, challenge_data)
+                return await self._submit_answer_no_auth(
+                    url, answer, nonce, challenge_data
+                )
         else:
             url = f"{self._base_url}{endpoint}"
 
@@ -849,13 +1051,20 @@ class PerContentChallengeHandler:
 
         try:
             async with self._session.post(
-                url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=10),
+                url,
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 raw_body = await response.text()
-                logger.info("CHALLENGE: Response HTTP %d: %s", response.status, raw_body[:1000])
+                logger.info(
+                    "CHALLENGE: Response HTTP %d: %s", response.status, raw_body[:1000]
+                )
 
                 if response.status >= 400:
-                    logger.error("CHALLENGE: Rejected HTTP %d: %s", response.status, raw_body)
+                    logger.error(
+                        "CHALLENGE: Rejected HTTP %d: %s", response.status, raw_body
+                    )
                     return None
 
                 try:
@@ -868,7 +1077,11 @@ class PerContentChallengeHandler:
             return None
 
     async def _submit_answer_no_auth(
-        self, url: str, answer: str, nonce: Optional[str], challenge_data: dict,
+        self,
+        url: str,
+        answer: str,
+        nonce: Optional[str],
+        challenge_data: dict,
     ) -> Optional[dict]:
         """Submit without auth header (external endpoint — no API key leakage)."""
         payload = {"answer": answer}
@@ -879,12 +1092,19 @@ class PerContentChallengeHandler:
             payload["challenge_id"] = str(challenge_id)
 
         try:
+            if not self._session:
+                logger.error("CHALLENGE: No HTTP session available")
+                return None
             async with self._session.post(
-                url, json=payload, headers={"Content-Type": "application/json"},
+                url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 raw_body = await response.text()
-                logger.info("CHALLENGE: Response HTTP %d: %s", response.status, raw_body[:1000])
+                logger.info(
+                    "CHALLENGE: Response HTTP %d: %s", response.status, raw_body[:1000]
+                )
                 if response.status >= 400:
                     return None
                 try:
