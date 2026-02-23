@@ -9,6 +9,8 @@ from overblick.plugins.moltbook.challenge_handler import (
     _strip_letter_doubling,
     _extract_word_numbers,
     _fuzzy_match,
+    _reassemble_fragments,
+    _edit_distance_one,
 )
 
 
@@ -854,8 +856,8 @@ class TestRealChallengeArithmetic:
         result = solve_arithmetic(clean)
         assert result == "32.00"
 
-    def test_split_twenty_five_returns_none(self):
-        """Split 'T w/eN tY- fIvE' can't be parsed — must return None for LLM."""
+    def test_split_twenty_five_now_solved(self):
+        """Split 'T w/eN tY- fIvE' reassembled by fragment merger → correct answer."""
         clean = deobfuscate_challenge(
             "ThIs] LoOooBssst-Er S^wImS[ iN aC-iDd WaTeR, ShAkInG aNtEnNaS "
             "aNd MuLtInG; ItS VeLoOociTy Is T w/eN tY- fIvE mE^tErS PeR "
@@ -863,20 +865,17 @@ class TestRealChallengeArithmetic:
             "SpEeD, So wHaT Is T"
         )
         result = solve_arithmetic(clean)
-        # Split word → incomplete extraction → should NOT produce a wrong answer.
-        # Acceptable outcomes: None (defers to LLM) or "18.00" (correct)
-        assert result is None or result == "18.00"
+        assert result == "18.00"
 
-    def test_split_thirty_five_returns_none(self):
-        """Split 'tHiR tY fIvE' can't be parsed — must return None for LLM."""
+    def test_split_thirty_five_now_solved(self):
+        """Split 'tHiR tY fIvE' reassembled by fragment merger → correct answer."""
         clean = deobfuscate_challenge(
             "A] lO b-.StEr ClAw] FoR cE Is^ tHiR tY] fIvE nEu-TonS um~ "
             "aNd| AfTeR- a DoMinAnCe] PiNcH gAiNs^ tWeLvE nEu>ToNs, "
             "wHaT Is< tHe ToTaL- FoRcE?"
         )
         result = solve_arithmetic(clean)
-        # Split word → incomplete extraction → should NOT produce a wrong answer.
-        assert result is None or result == "47.00"
+        assert result == "47.00"
 
 
 class TestFuzzyMatchStrictness:
@@ -990,3 +989,192 @@ class TestLLMAnswerValidation:
         # Verify the SUBMITTED answer was 40.00 (arithmetic), not 30 (LLM)
         call_kwargs = session.post.call_args[1]
         assert call_kwargs["json"]["answer"] == "40.00"
+
+
+# ── Fragment reassembly tests ──────────────────────────────────────────────
+
+
+class TestFragmentReassembly:
+    """Tests for _reassemble_fragments() — space injection countermeasure."""
+
+    def test_reassemble_forty_five(self):
+        """'for ty f iv e' → 'forty' 'five' (two separate number words)."""
+        tokens = ["for", "ty", "f", "iv", "e"]
+        result = _reassemble_fragments(tokens)
+        assert "forty" in result
+        assert "five" in result
+
+    def test_reassemble_twenty_three(self):
+        """'twent y t hr ee' → 'twenty' 'three'."""
+        tokens = ["twent", "y", "t", "hr", "ee"]
+        result = _reassemble_fragments(tokens)
+        assert "twenty" in result
+        assert "three" in result
+
+    def test_reassemble_newtons(self):
+        """'n ew ton s' → 'newtons'."""
+        tokens = ["n", "ew", "ton", "s"]
+        result = _reassemble_fragments(tokens)
+        assert "newtons" in result
+
+    def test_reassemble_fourteen(self):
+        """'four teen' → 'fourteen'."""
+        tokens = ["four", "teen"]
+        result = _reassemble_fragments(tokens)
+        assert "fourteen" in result
+
+    def test_reassemble_no_merge_real_words(self):
+        """'for the win' must NOT be merged (none form a target word)."""
+        tokens = ["for", "the", "win"]
+        result = _reassemble_fragments(tokens)
+        assert result == ["for", "the", "win"]
+
+    def test_reassemble_preserves_trailing_punct(self):
+        """Trailing punctuation from the last fragment is preserved."""
+        tokens = ["new", "tons,"]
+        result = _reassemble_fragments(tokens)
+        assert result == ["newtons,"]
+
+    def test_reassemble_preserves_question_mark(self):
+        """Trailing ? from the last fragment is preserved."""
+        tokens = ["for", "ce?"]
+        result = _reassemble_fragments(tokens)
+        assert result == ["force?"]
+
+    def test_reassemble_mixed_clean_and_fragments(self):
+        """Mixed: clean words + fragments in same sequence."""
+        tokens = ["thirty", "two", "n", "ew", "ton", "s"]
+        result = _reassemble_fragments(tokens)
+        assert "thirty" in result
+        assert "two" in result
+        assert "newtons" in result
+
+    def test_reassemble_single_char_fragments(self):
+        """'f i v e' → 'five' (single-character fragments)."""
+        tokens = ["f", "i", "v", "e"]
+        result = _reassemble_fragments(tokens)
+        assert "five" in result
+
+    def test_reassemble_no_cross_word_merge(self):
+        """'twenty' + 'three' must NOT merge into 'twentythree'."""
+        tokens = ["twenty", "three"]
+        result = _reassemble_fragments(tokens)
+        # Both should remain separate (neither "twentythree" is in targets)
+        assert "twenty" in result
+        assert "three" in result
+
+    def test_reassemble_empty(self):
+        """Empty token list returns empty list."""
+        assert _reassemble_fragments([]) == []
+
+    def test_reassemble_single_token(self):
+        """Single token is returned as-is."""
+        assert _reassemble_fragments(["hello"]) == ["hello"]
+
+    def test_reassemble_lobster(self):
+        """'lo b ster' → 'lobster'."""
+        tokens = ["lo", "b", "ster"]
+        result = _reassemble_fragments(tokens)
+        assert "lobster" in result
+
+
+# ── Edit-distance fuzzy match tests ────────────────────────────────────────
+
+
+class TestEditDistanceFuzzyMatch:
+    """Tests for edit-distance-1 matching in _fuzzy_match()."""
+
+    def test_fourten_matches_fourteen(self):
+        """'fourten' (missing 'e') matches 'fourteen' via edit-distance-1."""
+        from overblick.plugins.moltbook.challenge_handler import _ONES
+
+        result = _fuzzy_match("fourten", _ONES)
+        assert result is not None
+        assert result[1] == 14
+
+    def test_edit_distance_short_no_match(self):
+        """Short words (< 6 chars) must NOT use edit-distance matching."""
+        from overblick.plugins.moltbook.challenge_handler import _ONES
+
+        # "for" is edit-distance-1 from "four" but len("for") = 3 < 6
+        result = _fuzzy_match("for", _ONES)
+        assert result is None
+
+    def test_edit_distance_one_deletion(self):
+        """Single deletion detected correctly (fourten → fourteen)."""
+        assert _edit_distance_one("fourteen", "fourten") is True  # 1 char deleted
+        assert _edit_distance_one("fourten", "fourteen") is True  # symmetric
+
+    def test_edit_distance_one_insertion(self):
+        """Single insertion detected correctly."""
+        assert _edit_distance_one("thirtyy", "thirty") is True
+
+    def test_edit_distance_one_same(self):
+        """Identical strings are distance 0, not 1."""
+        assert _edit_distance_one("twenty", "twenty") is False
+
+    def test_edit_distance_one_too_far(self):
+        """Strings differing by > 1 edit are rejected."""
+        assert _edit_distance_one("twenty", "thirty") is False
+
+    def test_sevnteen_matches_seventeen(self):
+        """'sevnteen' (missing 'e') matches 'seventeen'."""
+        from overblick.plugins.moltbook.challenge_handler import _ONES
+
+        result = _fuzzy_match("sevnteen", _ONES)
+        assert result is not None
+        assert result[1] == 17
+
+
+# ── Real challenge regression tests (from Cherry logs 2026-02-23) ──────────
+
+
+class TestRealChallengeRegression20260223:
+    """Full pipeline regression tests: raw challenge → deobfuscate → arithmetic."""
+
+    def test_real_challenge_26_plus_14(self):
+        """Challenge 1: twenty six + fourteen = 40 (LLM said 30)."""
+        raw = (
+            "A] lO.oBb^SsStTeR ~ClLaAwW fFoOrRcCeE iI]sS tTwWeEnNtTyY "
+            "sS]iIxX nNeEwW~tToOnNsS, aAnNdD ++ gGaAiInNsS fFoOuUrRtEeEn "
+            "mMoOrReE; wWhHaAtT iIsS tThHeE tToO~tTaAlL fFoOrRcCeE?"
+        )
+        clean = deobfuscate_challenge(raw)
+        result = solve_arithmetic(clean)
+        assert result == "40.00"
+
+    def test_real_challenge_32_plus_14(self):
+        """Challenge 2: thirty two + fourteen = 46 (LLM said 36)."""
+        raw = (
+            "A] lO.oBb^SsStTeR ~ClLaAwW eExXeErRtTsS tThHiIrRtTyY "
+            "tTwWoO nNeEwW~tToOnNsS, pPlLuUsS fFoOuUrRtEeEn mMoOrReE "
+            "fFrRoOmM dDoOmMiInNaAnNcCeE; wWhHaAtT iIsS tToO~tTaAlL?"
+        )
+        clean = deobfuscate_challenge(raw)
+        result = solve_arithmetic(clean)
+        assert result == "46.00"
+
+    def test_real_challenge_45_plus_23(self):
+        """Challenge 3: forty five + twenty three = 68 (LLM said 15)."""
+        raw = (
+            "A] dDoOmMiInNaAnNtT lO.oBb^SsStTeR ~ClLaAwW iIsS "
+            "fFoOrR~tTyY fFiIvVeE nNeEwW~tToOnNsS; cChHaAlLlLeEnNgGeErR "
+            "hHaAsS tTwWeEnNtTyY tThHrReEeE nNeEwW~tToOnNsS. "
+            "wWhHaAtT iIsS cCoOmMbBiInNeEdD fFoOrRcCeE?"
+        )
+        clean = deobfuscate_challenge(raw)
+        result = solve_arithmetic(clean)
+        assert result == "68.00"
+
+    def test_real_challenge_deob_preserves_numbers(self):
+        """Deobfuscation of challenge 1 produces parseable word numbers."""
+        raw = (
+            "A] lO.oBb^SsStTeR ~ClLaAwW fFoOrRcCeE iI]sS tTwWeEnNtTyY "
+            "sS]iIxX nNeEwW~tToOnNsS, aAnNdD ++ gGaAiInNsS fFoOuUrRtEeEn "
+            "mMoOrReE; wWhHaAtT iIsS tThHeE tToO~tTaAlL fFoOrRcCeE?"
+        )
+        clean = deobfuscate_challenge(raw)
+        assert "twenty" in clean
+        assert "six" in clean
+        assert "fourteen" in clean or "fourten" in clean
+        assert "newtons" in clean

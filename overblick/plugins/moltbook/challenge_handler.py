@@ -9,7 +9,7 @@ Community findings (issue #134):
 - Challenge data nested at data.comment.verification (not top-level)
 - Field names: challenge_text, verification_code
 - API returns "success": true even during pending verification
-- Obfuscation: case-mixing (tWeNtY) + letter-doubling (tWwEeNnTtYy)
+- Obfuscation: case-mixing (tWeNtY) + letter-doubling (tWwEeNnTtYy) + space injection (f i v e)
 - Word-form numbers (twenty three → 23)
 - 5-minute time limit
 
@@ -44,10 +44,11 @@ Rules:
 
 
 # ── Deobfuscation utilities ──────────────────────────────────────────────────
-# Moltbook challenges use two obfuscation techniques (per community reports):
+# Moltbook challenges use three obfuscation techniques (per community reports):
 #   1. Case-mixing: random upper/lower casing  →  tWeNtY → twenty
 #   2. Letter-doubling: each char repeated with case swap → tWwEeNnTtYy → twenty
-# We strip doubling first, then normalize case, before sending to the LLM.
+#   3. Space injection: words split with spaces/noise → "f i v e" → "five"
+# We strip doubling first, then normalize case, then reassemble fragments.
 
 
 def _strip_letter_doubling(word: str) -> str:
@@ -98,12 +99,14 @@ def _strip_letter_doubling(word: str) -> str:
 
 
 def deobfuscate_challenge(text: str) -> str:
-    """Remove case-mixing and letter-doubling from challenge text.
+    """Remove case-mixing, letter-doubling, and space injection from challenge text.
 
     Processes each word independently:
     1. Extract only alpha characters (strips obfuscation punctuation like . ^ / ~)
     2. Strip letter-doubling (lOoBbSsStTeR → loBster)
     3. Normalize to lowercase (loBster → lobster)
+    4. Reassemble space-injected fragments (f i v e → five)
+    5. Correct near-miss artifacts against known vocabulary (fourten → fourteen)
 
     Non-alphabetic tokens (numbers, punctuation, operators) are preserved as-is.
     Trailing punctuation (? ! , .) on tokens is preserved.
@@ -133,6 +136,10 @@ def deobfuscate_challenge(text: str) -> str:
         else:
             result.append(token)
 
+    # Reassemble space-injected fragments (e.g. "for ty" → "forty")
+    result = _reassemble_fragments(result)
+    # Correct single-token artifacts (e.g. "fourten" → "fourteen")
+    result = _correct_known_words(result)
     return " ".join(result)
 
 
@@ -176,6 +183,97 @@ _TENS = {
     "eighty": 80,
     "ninety": 90,
 }
+
+# ── Fragment reassembly for space-injection obfuscation ─────────────────────
+# Moltbook splits words with spaces and noise chars: "f i v e" instead of "five".
+# After per-token deobfuscation, we greedily merge short fragments back into
+# known words (number words + challenge domain vocabulary).
+
+_NUMBER_WORDS = frozenset(_ONES.keys()) | frozenset(_TENS.keys()) | frozenset(
+    {"hundred", "thousand"}
+)
+
+_CHALLENGE_VOCAB = frozenset(
+    {
+        "newtons", "newton", "lobster", "lobsters",
+        "meters", "meter", "velocity", "speed",
+        "force", "claw", "claws", "dominance",
+        "fight", "combined", "total", "gains",
+        "loses", "slows", "drops", "antenna", "antennas",
+        "plus", "minus", "more", "less",
+        "exerts", "swims", "swimming", "molting", "water",
+    }
+)
+
+_REASSEMBLY_TARGETS = _NUMBER_WORDS | _CHALLENGE_VOCAB
+
+
+def _reassemble_fragments(tokens: list[str]) -> list[str]:
+    """Reassemble space-injected word fragments into known words.
+
+    Scans deobfuscated tokens and greedily merges short fragments that
+    together form a word in _REASSEMBLY_TARGETS (number words + challenge
+    domain vocabulary). Longest match wins to minimize false merges.
+
+    Preserves trailing punctuation from the last merged token.
+    Single tokens that are already valid words are never merged further.
+    """
+    MAX_MERGE = 5
+    result = []
+    i = 0
+    while i < len(tokens):
+        best_match = None
+        best_length = 0
+
+        for k in range(min(MAX_MERGE, len(tokens) - i), 1, -1):
+            merged = "".join(
+                "".join(c for c in tokens[j] if c.isalpha())
+                for j in range(i, i + k)
+            ).lower()
+            if merged in _REASSEMBLY_TARGETS:
+                best_match = merged
+                best_length = k
+                break
+
+        if best_match:
+            last = tokens[i + best_length - 1]
+            trailing = ""
+            if last and last[-1] in ",.?!;:":
+                trailing = last[-1]
+            result.append(best_match + trailing)
+            i += best_length
+        else:
+            result.append(tokens[i])
+            i += 1
+
+    return result
+
+
+def _correct_known_words(tokens: list[str]) -> list[str]:
+    """Correct single-token deobfuscation artifacts against known vocabulary.
+
+    Letter-doubling stripping can eat natural doubles (e.g. the 'ee' in
+    'fourteen' → 'fourten'). This pass fixes tokens that are edit-distance-1
+    from a known word. Only corrects words >= 5 chars to avoid false positives.
+    """
+    result = []
+    for token in tokens:
+        alpha = "".join(c for c in token if c.isalpha())
+        trailing = token[len(alpha):] if alpha else ""
+        low = alpha.lower()
+
+        if len(low) >= 5 and low not in _REASSEMBLY_TARGETS:
+            for target in _REASSEMBLY_TARGETS:
+                if len(target) >= 5 and abs(len(low) - len(target)) <= 1:
+                    if _edit_distance_one(low, target):
+                        result.append(target + trailing)
+                        break
+            else:
+                result.append(token)
+        else:
+            result.append(token)
+    return result
+
 
 # Words to ignore when parsing word numbers
 _FILLER = frozenset(
@@ -241,12 +339,34 @@ _OP_DETECT = {
 }
 
 
+def _edit_distance_one(a: str, b: str) -> bool:
+    """Check if two strings are exactly edit-distance 1 apart.
+
+    Handles substitution (same length, 1 char differs) and
+    insertion/deletion (length differs by 1).
+    """
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        return sum(1 for x, y in zip(a, b) if x != y) == 1
+    short, long_ = (a, b) if len(a) < len(b) else (b, a)
+    skips = 0
+    j = 0
+    for i in range(len(long_)):
+        if j < len(short) and long_[i] == short[j]:
+            j += 1
+        else:
+            skips += 1
+    return skips == 1 and j == len(short)
+
+
 def _fuzzy_match(word: str, dictionary: dict[str, int]) -> Optional[tuple[str, int]]:
     """Match a word against a dictionary with tolerance for deobfuscation artifacts.
 
     Conservative matching to avoid false positives from obfuscation fragments:
     - Exact match always accepted
     - Prefix match only if word covers >= 80% of the key (e.g. 'thre'→'three')
+    - Edit-distance-1 for words >= 6 chars (catches 'fourten'→'fourteen')
     - Subsequence matching disabled (too many false positives with short fragments)
     """
     if word in dictionary:
@@ -259,6 +379,13 @@ def _fuzzy_match(word: str, dictionary: dict[str, int]) -> Optional[tuple[str, i
             return (key, val)
         if len(key) >= 4 and word.startswith(key) and len(key) >= len(word) * 0.8:
             return (key, val)
+
+    # Edit-distance-1 for long words (deobfuscation artifacts like "fourten")
+    if len(word) >= 6:
+        for key, val in dictionary.items():
+            if len(key) >= 6 and abs(len(word) - len(key)) <= 1:
+                if _edit_distance_one(word, key):
+                    return (key, val)
 
     return None
 
