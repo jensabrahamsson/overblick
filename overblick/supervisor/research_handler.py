@@ -16,6 +16,7 @@ from typing import Optional
 import aiohttp
 
 from overblick.core.security.audit_log import AuditLog
+from overblick.core.security.input_sanitizer import wrap_external_content
 from overblick.supervisor.ipc import IPCMessage
 
 logger = logging.getLogger(__name__)
@@ -285,11 +286,14 @@ class ResearchHandler:
         if not self._llm_pipeline or not self._system_prompt:
             return None
 
-        user_message = f"Research query: {query}\n"
+        safe_query = wrap_external_content(query, "search_query")
+        safe_results = wrap_external_content(search_results, "web_search_results")
+
+        user_message = f"Research query: {safe_query}\n"
         if context:
             user_message += f"Context: {context}\n"
         user_message += (
-            f"\nWeb search results:\n---\n{search_results}\n---\n\n"
+            f"\nWeb search results:\n---\n{safe_results}\n---\n\n"
             "Provide a concise English summary of the findings."
         )
 

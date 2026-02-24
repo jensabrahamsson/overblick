@@ -42,26 +42,58 @@ async def moltbook_page(request: Request):
 
 
 def has_data() -> bool:
-    """Return True if any identity has a moltbook_bio defined."""
+    """Return True if any identity has the moltbook plugin configured."""
     identities_dir = Path("overblick/identities")
     if not identities_dir.exists():
         return False
     for d in identities_dir.iterdir():
         if not d.is_dir():
             continue
-        personality = d / "personality.yaml"
-        if personality.exists():
-            try:
-                data = yaml.safe_load(personality.read_text()) or {}
-                if data.get("moltbook_bio"):
-                    return True
-            except Exception:
-                pass
+        if "moltbook" in _collect_plugins(d):
+            return True
     return False
 
 
+def _safe_load_yaml(path: Path) -> dict:
+    """Load a YAML file safely, returning {} on any error."""
+    if not path.exists():
+        return {}
+    try:
+        return yaml.safe_load(path.read_text()) or {}
+    except Exception:
+        return {}
+
+
+def _collect_plugins(identity_dir: Path) -> set[str]:
+    """Collect plugins from all config sources for an identity.
+
+    Plugins can be defined in three places:
+    1. personality.yaml top-level ``plugins:``
+    2. personality.yaml ``operational.plugins:``
+    3. identity.yaml ``plugins:``
+    """
+    plugins: set[str] = set()
+
+    data = _safe_load_yaml(identity_dir / "personality.yaml")
+    top = data.get("plugins", [])
+    if isinstance(top, list):
+        plugins.update(top)
+    op = data.get("operational", {})
+    if isinstance(op, dict):
+        op_plugins = op.get("plugins", [])
+        if isinstance(op_plugins, list):
+            plugins.update(op_plugins)
+
+    id_data = _safe_load_yaml(identity_dir / "identity.yaml")
+    id_plugins = id_data.get("plugins", [])
+    if isinstance(id_plugins, list):
+        plugins.update(id_plugins)
+
+    return plugins
+
+
 def _get_moltbook_profiles() -> list[dict]:
-    """Gather Moltbook profile data from identity personality files."""
+    """Gather Moltbook profile data for identities with the moltbook plugin."""
     identities_dir = Path("overblick/identities")
     if not identities_dir.exists():
         return []
@@ -70,24 +102,42 @@ def _get_moltbook_profiles() -> list[dict]:
     for d in sorted(identities_dir.iterdir()):
         if not d.is_dir():
             continue
-        personality = d / "personality.yaml"
-        if not personality.exists():
-            continue
-        try:
-            data = yaml.safe_load(personality.read_text()) or {}
-        except Exception:
+
+        # Load both files once
+        personality_data = _safe_load_yaml(d / "personality.yaml")
+        identity_data = _safe_load_yaml(d / "identity.yaml")
+
+        # Collect plugins from all sources
+        plugins: set[str] = set()
+        top = personality_data.get("plugins", [])
+        if isinstance(top, list):
+            plugins.update(top)
+        op = personality_data.get("operational", {})
+        if isinstance(op, dict):
+            op_plugins = op.get("plugins", [])
+            if isinstance(op_plugins, list):
+                plugins.update(op_plugins)
+        id_plugins = identity_data.get("plugins", [])
+        if isinstance(id_plugins, list):
+            plugins.update(id_plugins)
+
+        if "moltbook" not in plugins:
             continue
 
-        bio = data.get("moltbook_bio", "").strip()
-        if not bio:
+        # Skip if personality.yaml was empty/missing (no data to show)
+        if not personality_data:
             continue
 
-        display_name = data.get("display_name", d.name.capitalize())
+        identity_section = personality_data.get("identity", {})
+        display_name = identity_section.get("display_name", d.name.capitalize())
+        bio = personality_data.get("moltbook_bio", "").strip()
+        agent_name = identity_data.get("agent_name", display_name)
+
         profiles.append({
             "identity": d.name,
             "display_name": display_name,
             "bio": bio,
-            "url": f"{MOLTBOOK_BASE_URL}/{display_name}",
+            "url": f"{MOLTBOOK_BASE_URL}/{agent_name}",
             "status": None,
             "detail": "",
             "updated_at": "",

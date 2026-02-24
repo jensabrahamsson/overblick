@@ -24,7 +24,7 @@
             </div>
             <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin: 0 0 0.75rem 0;">{{ p.bio }}</p>
             <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
-                <span style="color: var(--accent);">moltbook.com/u/{{ p.display_name }}</span>
+                <span style="color: var(--accent);">{{ p.url | replace("https://www.", "") }}</span>
                 <span style="margin-left: auto;">&#x2197;</span>
             </div>
             {% if p.updated_at %}

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityContext
+from overblick.core.security.input_sanitizer import wrap_external_content
 
 logger = logging.getLogger(__name__)
 
@@ -135,18 +136,19 @@ class StyleTrainerCapability(CapabilityBase):
                 len(emails),
                 self._min_examples,
             )
+            return None
 
-        # Format emails for the prompt
+        # Format emails for the prompt (wrap external content for injection safety)
         formatted = []
         for i, email in enumerate(emails, 1):
             parts = [f"--- Email {i} ---"]
             if "subject" in email:
-                parts.append(f"Subject: {email['subject']}")
+                parts.append(f"Subject: {wrap_external_content(email['subject'], 'email_subject')}")
             if "to" in email:
-                parts.append(f"To: {email['to']}")
+                parts.append(f"To: {wrap_external_content(email['to'], 'email_to')}")
             if "language" in email:
                 parts.append(f"Language: {email['language']}")
-            parts.append(f"Body:\n{email['body']}")
+            parts.append(f"Body:\n{wrap_external_content(email['body'][:3000], 'email_body')}")
             formatted.append("\n".join(parts))
 
         emails_text = "\n\n".join(formatted)

@@ -315,7 +315,7 @@ class GmailCapability:
             logger.warning("GmailCapability: not configured, cannot send")
             return False
 
-        reply_subject = subject if subject.startswith("Re:") else f"Re: {subject}"
+        reply_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
 
         # Build MIME message with threading headers
         mime_msg = MIMEText(body, "plain", "utf-8")
