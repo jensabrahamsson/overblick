@@ -217,6 +217,7 @@ When reviewing, check:
 | `boss_request` | `BossRequestCapability` | communication | Request approval from supervisor |
 | `email` | `EmailCapability` | communication | Email sending capability |
 | `gmail` | `GmailCapability` | communication | Gmail-specific email |
+| `style_trainer` | `StyleTrainerCapability` | communication | Writing style learning (Deepseek via Gateway) |
 | `telegram_notifier` | `TelegramNotifier` | communication | Telegram notifications |
 | `host_inspection` | `HostInspectionCapability` | monitoring | System health monitoring |
 | `system_clock` | `SystemClockCapability` | system | Time awareness for agents |
@@ -235,7 +236,7 @@ When reviewing, check:
 | `content` | summarizer | |
 | `speech` | stt, tts | |
 | `vision` | vision | |
-| `communication` | boss_request, email, gmail, telegram_notifier | |
+| `communication` | boss_request, email, gmail, style_trainer, telegram_notifier | |
 | `consulting` | personality_consultant | |
 | `monitoring` | host_inspection | |
 

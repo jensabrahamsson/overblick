@@ -201,6 +201,80 @@ def <name>_context(<name>_identity, tmp_path, mock_llm_client, mock_audit_log):
 ./venv/bin/python3 -m pytest tests/ -v -m "not llm" -x
 ```
 
+## Agentic Plugins
+
+For plugins that need autonomous goal-driven behavior (OBSERVE/THINK/PLAN/ACT/REFLECT), extend `AgenticPluginBase` instead of `PluginBase`. This provides the full agentic loop infrastructure.
+
+### When to Use AgenticPluginBase
+
+Use `AgenticPluginBase` when your plugin needs:
+- **Goal tracking** — persistent goals that evolve over time
+- **Observation → Planning → Action cycles** — autonomous decision-making via LLM
+- **Reflection and learning** — post-action analysis stored for future improvement
+- **Multi-step execution** — multiple actions per tick with priority ordering
+
+### Three Abstract Methods
+
+```python
+class MyAgenticPlugin(AgenticPluginBase):
+    name = "my_agent"
+
+    async def create_observer(self) -> Observer:
+        """Create the domain-specific observer that gathers observations."""
+        return MyObserver(...)
+
+    def get_action_handlers(self) -> dict[str, ActionHandler]:
+        """Map action type strings to handler callables."""
+        return {
+            "fix_bug": self._handle_fix_bug,
+            "create_pr": self._handle_create_pr,
+        }
+
+    def get_planning_prompt_config(self) -> PlanningPromptConfig:
+        """Configure the planning prompt (action types, constraints, examples)."""
+        return PlanningPromptConfig(
+            action_types=["fix_bug", "create_pr"],
+            planning_guidelines="...",
+        )
+```
+
+### Agentic Lifecycle
+
+```
+setup():
+  1. Create DatabaseBackend
+  2. setup_agentic_db(backend, extra_migrations)
+  3. Create domain components
+  4. setup_agentic_loop(max_actions_per_tick=5, complexity="ultra")
+
+tick():
+  1. Guard checks (interval, quiet hours)
+  2. agentic_tick() → OBSERVE → THINK → PLAN → ACT → REFLECT
+```
+
+### Agentic Plugin Scaffold
+
+```
+overblick/plugins/<name>/
+├── __init__.py
+├── plugin.py            # Extends AgenticPluginBase
+├── observer.py          # Implements Observer protocol
+├── handlers.py          # Action handler functions
+├── migrations.py        # Domain-specific DB migrations
+```
+
+### Key Agentic Files
+
+| File | Purpose |
+|------|---------|
+| `overblick/core/agentic/plugin_base.py` | `AgenticPluginBase` with setup helpers |
+| `overblick/core/agentic/protocols.py` | `Observer`, `ActionHandler`, `PlanningPromptConfig` |
+| `overblick/core/agentic/loop.py` | `AgentLoop` — the OBSERVE/THINK/PLAN/ACT/REFLECT cycle |
+| `overblick/core/agentic/planner.py` | `ActionPlanner` — LLM-driven action planning |
+| `overblick/core/agentic/executor.py` | `ActionExecutor` — dispatches planned actions |
+| `overblick/core/agentic/reflection.py` | `ReflectionPipeline` — post-action learning |
+| `overblick/core/agentic/goal_tracker.py` | `GoalTracker` — persistent goal management |
+
 ## Reviewing a Plugin
 
 When asked to review a plugin, check against the checklist in `references/plugin-checklist.md`. Key areas:

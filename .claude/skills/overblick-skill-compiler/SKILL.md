@@ -62,7 +62,8 @@ Apply the decision tree from `references/component-decision-tree.md`:
 
 | Signal | Component |
 |--------|-----------|
-| External service/API interaction | **Plugin** |
+| External service/API interaction | **Plugin** (`PluginBase`) |
+| Autonomous agent with goals/learning | **Agentic Plugin** (`AgenticPluginBase`) |
 | Reusable behavior across plugins | **Capability** |
 | New persona/character | **Personality** |
 | External API + reusable analysis | **Plugin + Capability** |
@@ -89,7 +90,7 @@ Generate code using the templates in `references/`. Follow dependency order:
 1. **Personality YAML** (if needed) — `references/personality-template.md`
 2. **Capability source** + bundle `__init__.py` (if needed) — `references/capability-template.md`
 3. **Capability registry update** (`overblick/capabilities/__init__.py`) — `references/registry-wiring.md`
-4. **Plugin source** + `__init__.py` (if needed) — `references/plugin-template.md`
+4. **Plugin source** + `__init__.py` (if needed) — `references/plugin-template.md` for standard plugins, or `overblick/core/agentic/plugin_base.py` for agentic plugins (extend `AgenticPluginBase` instead of `PluginBase`)
 5. **Plugin registry update** (`overblick/core/plugin_registry.py`) — `references/registry-wiring.md`
 
 Every generated file must:

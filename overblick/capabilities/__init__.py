@@ -12,7 +12,7 @@ Bundles:
     consulting     = [personality_consultant]
     speech         = [stt, tts]
     vision         = [vision]
-    communication  = [boss_request, email, gmail, telegram_notifier]
+    communication  = [boss_request, email, gmail, style_trainer, telegram_notifier]
     monitoring     = [host_inspection]
 """
 
@@ -32,6 +32,7 @@ from overblick.capabilities.vision.analyzer import VisionCapability
 from overblick.capabilities.communication.boss_request import BossRequestCapability
 from overblick.capabilities.communication.email import EmailCapability
 from overblick.capabilities.communication.gmail import GmailCapability
+from overblick.capabilities.communication.style_trainer import StyleTrainerCapability
 from overblick.capabilities.communication.telegram_notifier import TelegramNotifier
 from overblick.capabilities.consulting.personality_consultant import PersonalityConsultantCapability
 from overblick.capabilities.monitoring.inspector import HostInspectionCapability
@@ -55,6 +56,7 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "boss_request": BossRequestCapability,
     "email": EmailCapability,
     "gmail": GmailCapability,
+    "style_trainer": StyleTrainerCapability,
     "telegram_notifier": TelegramNotifier,
     "host_inspection": HostInspectionCapability,
     "system_clock": SystemClockCapability,
@@ -72,7 +74,7 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "content": ["summarizer"],
     "speech": ["stt", "tts"],
     "vision": ["vision"],
-    "communication": ["boss_request", "email", "gmail", "telegram_notifier"],
+    "communication": ["boss_request", "email", "gmail", "style_trainer", "telegram_notifier"],
     "consulting": ["personality_consultant"],
     "monitoring": ["host_inspection"],
     "system": ["system_clock"],
@@ -110,6 +112,7 @@ __all__ = [
     "VisionCapability",
     "EmailCapability",
     "GmailCapability",
+    "StyleTrainerCapability",
     "TelegramNotifier",
     "HostInspectionCapability",
     "PersonalityConsultantCapability",

@@ -186,6 +186,7 @@ The security section is automatically added:
 | **Rost** | rost (rust) | Cynical, dark humor | genuineness 0.90, neuroticism 0.55 |
 | **Natt** | natt (night) | Eerie, paradoxical | cerebral 0.95, warmth 0.25 |
 | **Stal** | stal (steel) | Professional, meticulous | conscientiousness 0.90, precision 0.85 |
+| **Smed** | smed (blacksmith) | Technical, precise, methodical | conscientiousness 0.95, precision 0.95, patience 0.90 |
 
 **Note:** Old English names (Volt, Birch, Prism, Rust, Nyx) are auto-aliased to their Swedish equivalents.
 

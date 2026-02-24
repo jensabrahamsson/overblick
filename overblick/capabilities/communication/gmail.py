@@ -73,6 +73,12 @@ class GmailCapability:
     - Simple API: fetch, send, mark-as-read
     """
 
+    # Hard kill switch for email sending. Must be explicitly set to True in
+    # source code before any email can be sent. This is a defense-in-depth
+    # measure — even if dry_run is disabled in config, this gate prevents
+    # accidental sends until the style training pipeline is validated.
+    SENDING_ENABLED = False
+
     name = "gmail"
 
     def __init__(self, ctx):
@@ -298,6 +304,13 @@ class GmailCapability:
         Returns:
             True if sent successfully.
         """
+        if not self.SENDING_ENABLED:
+            logger.warning(
+                "Gmail sending is hard-disabled (SENDING_ENABLED=False). "
+                "Set GmailCapability.SENDING_ENABLED = True to enable."
+            )
+            return False
+
         if not self.configured:
             logger.warning("GmailCapability: not configured, cannot send")
             return False

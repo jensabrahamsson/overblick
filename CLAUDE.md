@@ -4,14 +4,15 @@
 **PERFECTION IS THE STANDARD.** Every file, every test, every prompt, every line of code must be production-grade. No shortcuts. No "good enough." No TODO comments left behind. If it's worth building, it's worth building right.
 
 ## Overview
-Överblick is a security-focused multi-identity agent framework with a personality stable. It consolidates multiple agent personalities (Anomal, Cherry, Blixt, Björk, Prisma, Rost, Natt, Stål) into ONE codebase with a plugin architecture.
+Överblick is a security-focused multi-identity agent framework with a personality stable. It consolidates multiple agent personalities (Anomal, Cherry, Blixt, Björk, Prisma, Rost, Natt, Stål, Smed) into ONE codebase with a plugin architecture.
 
 ## Architecture
 - **Core:** Orchestrator, identity system, plugin registry, event bus, scheduler, capability system, permission system
 - **Security:** SafeLLMPipeline (fail-closed), preflight checks, output safety, audit log, secrets manager, input sanitizer with boundary markers, rate limiter
 - **LLM:** Abstract client with Ollama, LLM Gateway, and Cloud provider backends. Cloud LLM stub supports future integration with OpenAI, Anthropic, etc. SafeLLMPipeline wraps ALL LLM calls (sanitize → preflight → rate limit → LLM → output safety → audit).
 - **Database:** Abstract backend (SQLite + PostgreSQL) with migration system
-- **Plugins:** Self-contained modules (Moltbook, Telegram, Email Agent, Host Health, AI Digest) that receive PluginContext as their only framework interface.
+- **Agentic:** Reusable OBSERVE/THINK/PLAN/ACT/REFLECT loop (`AgenticPluginBase`, `ActionPlanner`, `ActionExecutor`, `ReflectionPipeline`, `GoalTracker`). Used by GitHub Agent and Dev Agent plugins.
+- **Plugins:** Self-contained modules (Moltbook, Telegram, Email Agent, Host Health, AI Digest, GitHub Agent, Dev Agent) that receive PluginContext as their only framework interface.
 - **Identities:** Unified identity stable — YAML-driven character definitions (voice, traits, interests, backstory, psychology, key_knowledge, operational config) loadable by any plugin via `load_identity()` + `build_system_prompt()`. Each identity is a single `personality.yaml` containing both character AND operational config.
 - **Supervisor:** Multi-process boss agent with IPC (authenticated Unix sockets), permission management, agent audit system.
 - **Dashboard:** FastAPI + Jinja2 + htmx web dashboard (localhost only). Read-only agent monitoring, audit trail, identity browsing, and integrated 8-step settings wizard (at `/settings/`). On first run (no `config/overblick.yaml`), the dashboard auto-redirects to the wizard. No npm — vendored htmx, hand-crafted dark theme CSS.
@@ -21,6 +22,7 @@
 # Run with specific identity
 python -m overblick run anomal
 python -m overblick run cherry
+python -m overblick run smed
 
 # Start LLM Gateway (required for LLM tests and production)
 python -m overblick.gateway

@@ -264,10 +264,75 @@ class TestFetchUnread:
         assert results == []
 
 
-class TestSendReply:
-    """Test send_reply() with mocked SMTP."""
+class TestSendingKillSwitch:
+    """Test the SENDING_ENABLED hard kill switch."""
+
+    def test_sending_disabled_by_default(self):
+        """SENDING_ENABLED class constant is False by default."""
+        assert GmailCapability.SENDING_ENABLED is False
 
     @pytest.mark.asyncio
+    async def test_send_reply_blocked_when_disabled(self):
+        """send_reply() returns False when SENDING_ENABLED is False."""
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+        assert cap.configured is True
+
+        result = await cap.send_reply(
+            thread_id="<thread@example.com>",
+            message_id="<msg@example.com>",
+            to="alice@example.com",
+            subject="Test",
+            body="Should not be sent.",
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_reply_works_when_enabled(self):
+        """send_reply() proceeds to SMTP when SENDING_ENABLED is True."""
+        ctx = _make_ctx()
+        cap = GmailCapability(ctx)
+        await cap.setup()
+
+        # Temporarily enable sending for this test
+        original = GmailCapability.SENDING_ENABLED
+        try:
+            GmailCapability.SENDING_ENABLED = True
+
+            mock_smtp = MagicMock()
+            mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+            mock_smtp.__exit__ = MagicMock(return_value=False)
+
+            with patch("overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp):
+                result = await cap.send_reply(
+                    thread_id="<thread@example.com>",
+                    message_id="<msg@example.com>",
+                    to="alice@example.com",
+                    subject="Test",
+                    body="This should be sent.",
+                )
+
+            assert result is True
+            mock_smtp.send_message.assert_called_once()
+        finally:
+            GmailCapability.SENDING_ENABLED = original
+
+
+@pytest.fixture(autouse=False)
+def _enable_sending():
+    """Temporarily enable SENDING_ENABLED for SMTP behavior tests."""
+    original = GmailCapability.SENDING_ENABLED
+    GmailCapability.SENDING_ENABLED = True
+    yield
+    GmailCapability.SENDING_ENABLED = original
+
+
+class TestSendReply:
+    """Test send_reply() with mocked SMTP (SENDING_ENABLED=True)."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("_enable_sending")
     async def test_send_reply_success(self):
         """send_reply() returns True on successful SMTP send."""
         ctx = _make_ctx()
@@ -299,6 +364,7 @@ class TestSendReply:
         assert sent_msg["Subject"] == "Re: Meeting"
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("_enable_sending")
     async def test_send_reply_adds_re_prefix(self):
         """send_reply() adds Re: prefix when missing."""
         ctx = _make_ctx()
@@ -316,6 +382,7 @@ class TestSendReply:
         assert sent_msg["Subject"] == "Re: Original Subject"
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("_enable_sending")
     async def test_send_reply_preserves_existing_re(self):
         """send_reply() does not double the Re: prefix."""
         ctx = _make_ctx()
@@ -334,6 +401,7 @@ class TestSendReply:
         assert "Re: Re:" not in sent_msg["Subject"]
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("_enable_sending")
     async def test_send_reply_smtp_failure(self):
         """send_reply() returns False on SMTP error."""
         ctx = _make_ctx()
@@ -349,6 +417,7 @@ class TestSendReply:
         assert result is False
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("_enable_sending")
     async def test_send_reply_returns_false_when_not_configured(self):
         """send_reply() returns False when not configured."""
         ctx = MagicMock()
@@ -495,6 +564,7 @@ class TestSendAsAlias:
     """Test Gmail send-as alias (sending from a different address)."""
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("_enable_sending")
     async def test_setup_loads_send_as_alias(self):
         """setup() loads optional gmail_send_as secret."""
         ctx = MagicMock()
@@ -514,6 +584,7 @@ class TestSendAsAlias:
         assert cap.configured is True
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("_enable_sending")
     async def test_send_reply_uses_send_as_from_address(self):
         """send_reply() uses send_as address in From header when set."""
         ctx = MagicMock()
@@ -540,6 +611,7 @@ class TestSendAsAlias:
         assert sent_msg["From"] == "alias@example.com"
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("_enable_sending")
     async def test_send_reply_uses_login_address_when_no_alias(self):
         """send_reply() uses login address in From when no send_as is set."""
         ctx = _make_ctx()

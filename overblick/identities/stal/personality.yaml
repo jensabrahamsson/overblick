@@ -572,7 +572,7 @@ operational:
   # Email agent plugin configuration (must be under operational for raw_config)
   email_agent:
     max_email_age_hours: 5               # Skip emails older than 5 hours (prevents stale processing)
-    dry_run: false                       # Send actual replies
+    dry_run: true                        # SAFETY: Never set to false without validating style training
     show_draft_replies: true             # Send draft reply to Telegram after each NOTIFY (trust-building)
     filter_mode: "opt_out"              # "opt_in" or "opt_out"
     allowed_senders: []                  # Unused in opt_out mode
@@ -590,6 +590,12 @@ operational:
       confidence_low: 0.5                # Only consult when confidence is between
       confidence_high: 0.8               # these bounds (moderate uncertainty)
       identities: "all"                  # Auto-discover all identities with interest_keywords
+
+  # Style training — INACTIVE until enough example data collected
+  # style_trainer:
+  #   enabled: false
+  #   min_examples: 20       # Minimum emails before profile is useful
+  #   auto_update: false     # Don't auto-update profile on each email
 
   # GitHub agent plugin configuration
   github:
