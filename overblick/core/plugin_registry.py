@@ -31,6 +31,7 @@ _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "compass": ("overblick.plugins.compass.plugin", "CompassPlugin"),
     "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
     "github": ("overblick.plugins.github.plugin", "GitHubAgentPlugin"),
+    "dev_agent": ("overblick.plugins.dev_agent.plugin", "DevAgentPlugin"),
 }
 
 # Module-level alias for backward compatibility (tests import this)

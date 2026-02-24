@@ -59,6 +59,9 @@ class CapabilityContext(BaseModel):
     # Safe LLM pipeline (set by plugin or orchestrator)
     llm_pipeline: Any = None
 
+    # Engagement database for persistence (optional)
+    engagement_db: Any = None
+
     # Capability-specific config from identity YAML
     config: dict[str, Any] = {}
 
@@ -93,6 +96,7 @@ class CapabilityContext(BaseModel):
             identity=ctx.identity,
             ipc_client=getattr(ctx, "ipc_client", None),
             llm_pipeline=getattr(ctx, "llm_pipeline", None),
+            engagement_db=getattr(ctx, "engagement_db", None),
             config=config or {},
         )
         # Set private attributes after creation

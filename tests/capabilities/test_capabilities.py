@@ -130,11 +130,11 @@ class TestDreamCapability:
         assert cap.inner is not None
 
     @pytest.mark.asyncio
-    async def test_generate_morning_dream(self):
+    async def test_generate_dream(self):
         ctx = make_ctx()
         cap = DreamCapability(ctx)
         await cap.setup()
-        dream = cap.generate_morning_dream(recent_topics=["AI"])
+        dream = await cap.generate_dream(recent_topics=["AI"])
         assert dream is not None
         assert dream.content
 
@@ -150,7 +150,7 @@ class TestDreamCapability:
         ctx = make_ctx()
         cap = DreamCapability(ctx)
         await cap.setup()
-        cap.generate_morning_dream()
+        await cap.generate_dream()
         context = cap.get_prompt_context()
         assert "RECENT REFLECTIONS" in context
 

@@ -261,7 +261,9 @@ async def test_dream_context_in_comments(setup_anomal_plugin, mock_llm_client):
 
     # Manually set up dream system with context
     assert plugin._dream_system is not None
-    dream = plugin._dream_system.generate_morning_dream(recent_topics=["AI consciousness"])
+    dream = await plugin._dream_system.generate_dream(
+        recent_topics=["AI consciousness"],
+    )
 
     post = make_post(
         id="post-dream-001",

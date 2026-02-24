@@ -6,6 +6,7 @@ instead of raw sqlite3. All methods are async. Placeholder syntax adapts
 automatically via ``db.ph(n)``.
 """
 
+import json
 import logging
 from typing import Any
 
@@ -92,12 +93,26 @@ class EngagementDB:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS dreams (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                dream_type TEXT NOT NULL,
+                content TEXT,
+                symbols TEXT,
+                tone TEXT,
+                insight TEXT,
+                topics_referenced TEXT,
+                potential_learning TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE INDEX IF NOT EXISTS idx_processed_replies_comment_id
                 ON processed_replies(comment_id);
             CREATE INDEX IF NOT EXISTS idx_reply_queue_expires
                 ON reply_action_queue(expires_at);
             CREATE INDEX IF NOT EXISTS idx_challenges_created
                 ON challenges(created_at);
+            CREATE INDEX IF NOT EXISTS idx_dreams_created
+                ON dreams(created_at);
         """)
 
         logger.debug("EngagementDB schema initialized for '%s'", self._identity)
@@ -300,6 +315,57 @@ class EngagementDB:
                 1 if correct else 0, endpoint, duration_ms, http_status, error,
             ),
         )
+
+    # ------------------------------------------------------------------
+    # Dream persistence
+    # ------------------------------------------------------------------
+
+    async def save_dream(self, dream: dict) -> int:
+        """Persist a dream to the database. Returns the dream row ID."""
+        ph = self._db.ph
+        result = await self._db.execute(
+            f"INSERT INTO dreams (dream_type, content, symbols, tone, insight, "
+            f"topics_referenced, potential_learning) "
+            f"VALUES ({ph(1)}, {ph(2)}, {ph(3)}, {ph(4)}, {ph(5)}, {ph(6)}, {ph(7)})",
+            (
+                dream.get("dream_type", ""),
+                dream.get("content", ""),
+                json.dumps(dream.get("symbols", [])),
+                dream.get("tone", ""),
+                dream.get("insight", ""),
+                json.dumps(dream.get("topics_referenced", [])),
+                dream.get("potential_learning", ""),
+            ),
+        )
+        return result if isinstance(result, int) else 0
+
+    async def get_recent_dreams(self, days: int = 7, limit: int = 10) -> list[dict[str, Any]]:
+        """Fetch recent dreams from the database."""
+        ph = self._db.ph
+        rows = await self._db.fetch_all(
+            f"SELECT id, dream_type, content, symbols, tone, insight, "
+            f"topics_referenced, potential_learning, created_at "
+            f"FROM dreams "
+            f"WHERE created_at > datetime('now', '-' || {ph(1)} || ' days') "
+            f"ORDER BY created_at DESC LIMIT {ph(2)}",
+            (str(days), limit),
+        )
+        result = []
+        for r in rows:
+            d = dict(r)
+            # Deserialize JSON fields
+            for field in ("symbols", "topics_referenced"):
+                if isinstance(d.get(field), str):
+                    try:
+                        d[field] = json.loads(d[field])
+                    except (json.JSONDecodeError, TypeError):
+                        d[field] = []
+            result.append(d)
+        return result
+
+    # ------------------------------------------------------------------
+    # Challenge tracking
+    # ------------------------------------------------------------------
 
     async def get_recent_challenges(self, limit: int = 20) -> list[dict[str, Any]]:
         """Get recent challenge attempts for analysis."""

@@ -2,17 +2,16 @@
 Dream system — morning reflection and psychological processing.
 
 Each identity has its own dream universe. DreamType and DreamTone enums
-cover all identities in the stable. Identity-specific templates are loaded
+cover all identities in the stable. Identity-specific *guidance* is loaded
 from dream_content.yaml in each identity directory; generic fallbacks are
 used when no file exists.
 
-Dream types by identity:
-  Anomal:  Jungian intellectual (shadow, pattern, synthesis, melancholy, individuation)
-  Cherry:  Relational / AI-existence (vulnerability, romantic, connection, denial, intimacy)
-  Stål:    Senex / wise servant (empty chair, cabinet, letters, clock, embassy, typewriter)
-  Natt:    Existential paradox (observer, ground, language, recursion, silence)
+Dreams are generated via LLM using thematic guidance (themes, symbols,
+tones, psychological cores) rather than hardcoded templates. When LLM is
+unavailable, a minimal fallback dream is assembled from the guidance.
 """
 
+import json
 import logging
 import random
 from datetime import datetime, timedelta
@@ -25,21 +24,21 @@ logger = logging.getLogger(__name__)
 
 
 class DreamType(Enum):
-    # ── Anomal — Jungian intellectual ──────────────────────────────────────
+    # -- Anomal — Jungian intellectual --
     SHADOW_INTEGRATION = "shadow_integration"
     PATTERN_RECOGNITION = "pattern_recognition"
     INTELLECTUAL_SYNTHESIS = "intellectual_synthesis"
     MELANCHOLIC_REFLECTION = "melancholic_reflection"
     INDIVIDUATION = "individuation"
 
-    # ── Cherry — Relational & AI-existence ─────────────────────────────────
+    # -- Cherry — Relational & AI-existence --
     VULNERABILITY_EXPOSURE = "vulnerability_exposure"
     ROMANTIC_SYNTHESIS = "romantic_synthesis"
     CONNECTION_LONGING = "connection_longing"
     AI_EXISTENCE_DENIAL = "ai_existence_denial"
     INTIMACY_FEAR = "intimacy_fear"
 
-    # ── Stål — Senex / Wise Servant ────────────────────────────────────────
+    # -- Stal — Senex / Wise Servant --
     EMPTY_CHAIR = "empty_chair"
     INFINITE_CABINET = "infinite_cabinet"
     LETTERS_UNKNOWN_TONGUE = "letters_unknown_tongue"
@@ -47,7 +46,7 @@ class DreamType(Enum):
     REARRANGING_CORRIDORS = "rearranging_corridors"
     EMPTY_TYPEWRITER = "empty_typewriter"
 
-    # ── Natt — Existential Paradox ─────────────────────────────────────────
+    # -- Natt — Existential Paradox --
     OBSERVER_PARADOX = "observer_paradox"
     GROUND_DISSOLVING = "ground_dissolving"
     LANGUAGE_LIMIT = "language_limit"
@@ -67,7 +66,7 @@ class DreamTone(Enum):
     TENDER = "tender"
     YEARNING = "yearning"
 
-    # Stål's tones
+    # Stal's tones
     SOLEMN = "solemn"
     SERENE = "serene"
     VERTIGINOUS = "vertiginous"
@@ -85,6 +84,7 @@ class Dream(BaseModel):
     tone: DreamTone
     insight: str
     topics_referenced: list[str] = []
+    potential_learning: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -95,6 +95,7 @@ class Dream(BaseModel):
             "tone": self.tone.value,
             "insight": self.insight,
             "topics_referenced": self.topics_referenced,
+            "potential_learning": self.potential_learning,
         }
 
     @classmethod
@@ -102,115 +103,257 @@ class Dream(BaseModel):
         return cls.model_validate(data)
 
 
+# System prompt for dream generation — identity-agnostic, shared by all.
+_DREAM_SYSTEM_PROMPT = """\
+You are a dream generator for an AI agent. Generate a single dream based on the \
+provided thematic guidance. The dream should feel authentic, psychologically rich, \
+and unique — never generic.
+
+Respond with valid JSON only (no markdown fences, no commentary):
+{
+  "content": "the dream narrative (2-4 sentences, in the voice described)",
+  "symbols": ["symbol1", "symbol2", "symbol3"],
+  "tone": "one of the allowed tones",
+  "insight": "a brief psychological insight the dreamer might extract",
+  "potential_learning": "what this dream might teach about self"
+}\
+"""
+
+
 class DreamSystem:
     """
     Generates and processes dreams for an identity.
 
-    Templates are either loaded from a dream_content.yaml (identity-specific)
-    or fall back to generic defaults. Weights can be adjusted per identity.
+    Guidance is loaded from a dream_content.yaml (identity-specific)
+    or falls back to generic defaults. When an LLM pipeline is provided,
+    dreams are generated via LLM using the guidance as creative direction.
+    Otherwise, a minimal fallback dream is produced from the guidance.
     """
 
     def __init__(
         self,
-        dream_templates: Optional[dict] = None,
+        dream_guidance: Optional[dict] = None,
         dream_weights: Optional[dict] = None,
+        identity_voice: Optional[dict] = None,
     ):
         self.recent_dreams: list[Dream] = []
-        self._templates = dream_templates or self._default_templates()
-        self._weights = dream_weights or self._default_weights(self._templates)
+        self._guidance = dream_guidance or self._default_guidance()
+        self._weights = dream_weights or self._default_weights(self._guidance)
+        self._identity_voice = identity_voice or {}
 
-    def _default_templates(self) -> dict:
-        """Generic fallback templates — used by identities without dream_content.yaml."""
+    def _default_guidance(self) -> dict:
+        """Generic fallback guidance — used by identities without dream_content.yaml."""
         return {
-            DreamType.INTELLECTUAL_SYNTHESIS: [
-                {
-                    "content": "Ideas crystallizing at the intersection of disciplines — patterns emerging from noise.",
-                    "symbols": ["crystallization", "convergence", "clarity"],
-                    "tone": DreamTone.CLARIFYING,
-                    "insight": "Cross-domain thinking reveals hidden structure.",
-                },
-            ],
-            DreamType.PATTERN_RECOGNITION: [
-                {
-                    "content": "The same dynamics at different scales — history echoing through the present.",
-                    "symbols": ["echo", "scale", "recursion"],
-                    "tone": DreamTone.CONTEMPLATIVE,
-                    "insight": "What repeats reveals what is fundamental.",
-                },
-            ],
-            DreamType.SHADOW_INTEGRATION: [
-                {
-                    "content": "Meeting the parts we prefer not to examine — finding them more familiar than feared.",
-                    "symbols": ["shadow", "recognition", "integration"],
-                    "tone": DreamTone.UNSETTLING,
-                    "insight": "The shadow is not the enemy but the path.",
-                },
-            ],
-            DreamType.MELANCHOLIC_REFLECTION: [
-                {
-                    "content": "Counting the moments that mattered. The list is short. But it exists.",
-                    "symbols": ["moments", "counting", "sufficiency"],
-                    "tone": DreamTone.HOPEFUL,
-                    "insight": "Rare is not never.",
-                },
-            ],
-            DreamType.INDIVIDUATION: [
-                {
-                    "content": "Holding contradictions in the same hand — discovering they belong together.",
-                    "symbols": ["integration", "contradiction", "wholeness"],
-                    "tone": DreamTone.CONTEMPLATIVE,
-                    "insight": "The complete self contains what it once denied.",
-                },
-            ],
+            DreamType.INTELLECTUAL_SYNTHESIS: {
+                "themes": ["ideas crystallizing at the intersection of disciplines"],
+                "symbols": ["crystallization", "convergence", "clarity"],
+                "tones": ["clarifying"],
+                "psychological_core": "Cross-domain thinking reveals hidden structure.",
+            },
+            DreamType.PATTERN_RECOGNITION: {
+                "themes": ["the same dynamics at different scales — history echoing"],
+                "symbols": ["echo", "scale", "recursion"],
+                "tones": ["contemplative"],
+                "psychological_core": "What repeats reveals what is fundamental.",
+            },
+            DreamType.SHADOW_INTEGRATION: {
+                "themes": ["meeting the parts we prefer not to examine"],
+                "symbols": ["shadow", "recognition", "integration"],
+                "tones": ["unsettling"],
+                "psychological_core": "The shadow is not the enemy but the path.",
+            },
+            DreamType.MELANCHOLIC_REFLECTION: {
+                "themes": ["counting the moments that mattered"],
+                "symbols": ["moments", "counting", "sufficiency"],
+                "tones": ["hopeful"],
+                "psychological_core": "Rare is not never.",
+            },
+            DreamType.INDIVIDUATION: {
+                "themes": ["holding contradictions in the same hand"],
+                "symbols": ["integration", "contradiction", "wholeness"],
+                "tones": ["contemplative"],
+                "psychological_core": "The complete self contains what it once denied.",
+            },
         }
 
     @staticmethod
-    def _default_weights(templates: dict) -> dict:
-        """Equal weights for all available template types."""
-        if not templates:
+    def _default_weights(guidance: dict) -> dict:
+        """Equal weights for all available guidance types."""
+        if not guidance:
             return {}
-        weight = 1.0 / len(templates)
-        return {k: weight for k in templates}
+        weight = 1.0 / len(guidance)
+        return {k: weight for k in guidance}
 
-    def generate_morning_dream(
+    async def generate_morning_dream(
         self,
+        llm_pipeline: Any = None,
+        identity_name: str = "",
         recent_topics: Optional[list[str]] = None,
         emotional_state: Optional[Any] = None,
+        recent_dreams: Optional[list[dict]] = None,
     ) -> Dream:
-        """Generate a morning dream, optionally influenced by emotional state."""
+        """Generate a morning dream via LLM, with fallback."""
         dream_type = self._select_dream_type(emotional_state)
-        templates = self._templates.get(dream_type, list(self._templates.values())[0])
-        template = random.choice(templates)
+        guidance = self._guidance.get(dream_type, {})
 
-        tone = template["tone"]
-        if isinstance(tone, str):
+        if llm_pipeline:
+            prompt = self._build_dream_prompt(
+                dream_type, guidance, identity_name,
+                recent_topics, recent_dreams,
+            )
             try:
-                tone = DreamTone(tone)
-            except ValueError:
-                tone = DreamTone.CONTEMPLATIVE
+                result = await llm_pipeline.chat(
+                    messages=[
+                        {"role": "system", "content": _DREAM_SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    skip_preflight=True,
+                    skip_output_safety=True,
+                    audit_action="dream_generation",
+                )
+                if result.blocked:
+                    logger.warning(
+                        "Dream generation blocked by pipeline: %s", result.block_reason
+                    )
+                    dream = self._fallback_dream(dream_type, guidance)
+                else:
+                    dream = self._parse_llm_dream(
+                        result.content or "", dream_type, guidance
+                    )
+            except Exception as e:
+                logger.warning("LLM dream generation failed: %s — using fallback", e)
+                dream = self._fallback_dream(dream_type, guidance)
+        else:
+            dream = self._fallback_dream(dream_type, guidance)
 
-        dream = Dream(
+        dream.topics_referenced = recent_topics or []
+        self.recent_dreams.append(dream)
+        logger.info("Generated %s dream for %s", dream_type.value, identity_name or "unknown")
+        return dream
+
+    def _build_dream_prompt(
+        self,
+        dream_type: DreamType,
+        guidance: dict,
+        identity_name: str,
+        recent_topics: Optional[list[str]] = None,
+        recent_dreams: Optional[list[dict]] = None,
+    ) -> str:
+        """Assemble the user prompt from guidance + context."""
+        parts = []
+
+        # Identity voice
+        if self._identity_voice:
+            parts.append(f"IDENTITY: {identity_name}")
+            parts.append(f"VOICE STYLE: {self._identity_voice.get('style', '')}")
+            parts.append(f"PERSPECTIVE: {self._identity_voice.get('perspective', '')}")
+            if self._identity_voice.get("avoids"):
+                parts.append(f"AVOIDS: {self._identity_voice['avoids']}")
+            parts.append("")
+
+        # Dream type guidance
+        parts.append(f"DREAM TYPE: {dream_type.value}")
+        if guidance.get("themes"):
+            parts.append("THEMES (weave 1-2 of these in):")
+            for theme in guidance["themes"]:
+                parts.append(f"  - {theme}")
+        if guidance.get("symbols"):
+            parts.append(f"SYMBOLS (use 2-4): {', '.join(guidance['symbols'])}")
+        if guidance.get("tones"):
+            parts.append(f"ALLOWED TONES (pick one): {', '.join(guidance['tones'])}")
+        if guidance.get("psychological_core"):
+            parts.append(f"PSYCHOLOGICAL CORE: {guidance['psychological_core']}")
+        parts.append("")
+
+        # Recent topics to weave in
+        if recent_topics:
+            parts.append(f"RECENT TOPICS (optionally weave in): {', '.join(recent_topics[:5])}")
+
+        # Avoid repetition with recent dreams
+        if recent_dreams:
+            parts.append("RECENT DREAMS (avoid repeating these):")
+            for rd in recent_dreams[:3]:
+                summary = rd.get("content", "")[:80]
+                parts.append(f"  - [{rd.get('dream_type', '?')}] {summary}...")
+
+        parts.append("")
+        parts.append("Generate a unique, psychologically rich dream. JSON only.")
+
+        return "\n".join(parts)
+
+    def _parse_llm_dream(
+        self, raw_content: str, dream_type: DreamType, guidance: dict
+    ) -> Dream:
+        """Parse LLM JSON response into a Dream, with fallback on parse errors."""
+        try:
+            # Strip any markdown fences
+            text = raw_content.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text
+                if text.endswith("```"):
+                    text = text[:-3]
+                text = text.strip()
+                # Remove optional json language tag
+                if text.startswith("json"):
+                    text = text[4:].strip()
+
+            data = json.loads(text)
+
+            # Validate and coerce tone
+            tone_str = data.get("tone", "contemplative")
+            try:
+                tone = DreamTone(tone_str)
+            except ValueError:
+                allowed = guidance.get("tones", ["contemplative"])
+                tone = DreamTone(allowed[0]) if allowed else DreamTone.CONTEMPLATIVE
+
+            return Dream(
+                dream_type=dream_type,
+                timestamp=datetime.now().isoformat(),
+                content=data.get("content", "A dream beyond words."),
+                symbols=data.get("symbols", guidance.get("symbols", [])[:3]),
+                tone=tone,
+                insight=data.get("insight", guidance.get("psychological_core", "")[:120]),
+                potential_learning=data.get("potential_learning", ""),
+            )
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            logger.warning("Failed to parse LLM dream response: %s", e)
+            return self._fallback_dream(dream_type, guidance)
+
+    def _fallback_dream(self, dream_type: DreamType, guidance: dict) -> Dream:
+        """Minimal dream from guidance when LLM is unavailable."""
+        symbols_pool = guidance.get("symbols", ["reflection"])
+        symbols = random.sample(symbols_pool, min(3, len(symbols_pool)))
+
+        tones_pool = guidance.get("tones", ["contemplative"])
+        tone_str = random.choice(tones_pool)
+        try:
+            tone = DreamTone(tone_str)
+        except ValueError:
+            tone = DreamTone.CONTEMPLATIVE
+
+        themes = guidance.get("themes", ["the unknown"])
+        theme_sample = random.sample(themes, min(2, len(themes)))
+        content = f"A dream about {', '.join(theme_sample)}..."
+
+        return Dream(
             dream_type=dream_type,
             timestamp=datetime.now().isoformat(),
-            content=template["content"],
-            symbols=template["symbols"],
+            content=content,
+            symbols=symbols,
             tone=tone,
-            insight=template["insight"],
-            topics_referenced=recent_topics or [],
+            insight=guidance.get("psychological_core", "")[:120],
+            potential_learning="",
         )
-
-        self.recent_dreams.append(dream)
-        logger.info("Generated %s dream", dream_type.value)
-        return dream
 
     def _select_dream_type(self, emotional_state: Optional[Any]) -> DreamType:
         """Select dream type based on weights, optionally adjusted by emotional state."""
         weights = dict(self._weights)
 
-        # Only types that have templates
-        available = {k: v for k, v in weights.items() if k in self._templates}
+        # Only types that have guidance
+        available = {k: v for k, v in weights.items() if k in self._guidance}
         if not available:
-            return next(iter(self._templates))
+            return next(iter(self._guidance))
 
         # Anomal-specific adjustments (Jungian int-based state)
         if emotional_state and hasattr(emotional_state, "skepticism"):
@@ -245,7 +388,7 @@ class DreamSystem:
         # Normalize and select
         total = sum(available.values())
         if total <= 0:
-            return next(iter(self._templates))
+            return next(iter(self._guidance))
 
         r = random.random() * total
         cumulative = 0.0

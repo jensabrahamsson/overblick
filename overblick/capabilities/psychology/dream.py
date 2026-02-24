@@ -1,11 +1,14 @@
 """
 DreamCapability — wraps DreamSystem as a composable capability.
 
-Generates morning reflections and provides dream context for prompt injection.
-Each identity loads its own dream templates from:
+Generates morning reflections via LLM using thematic guidance, and
+provides dream context for prompt injection. Dreams are persisted to
+EngagementDB when available.
+
+Each identity loads its own dream guidance from:
   overblick/identities/{name}/dream_content.yaml
 
-If no file exists, generic fallback templates are used.
+If no file exists, generic fallback guidance is used.
 """
 
 import logging
@@ -23,12 +26,13 @@ logger = logging.getLogger(__name__)
 _IDENTITIES_DIR = Path(__file__).parent.parent.parent / "identities"
 
 
-def _load_dream_content(identity_name: str) -> Optional[dict]:
+def _load_dream_guidance(identity_name: str) -> Optional[dict]:
     """
-    Load identity-specific dream content from YAML.
+    Load identity-specific dream guidance from YAML.
 
     Returns:
-        dict with "templates" and "weights" keys, or None if no file found.
+        dict with "guidance", "weights", and "identity_voice" keys,
+        or None if no file found.
     """
     dream_content_path = _IDENTITIES_DIR / identity_name / "dream_content.yaml"
     if not dream_content_path.exists():
@@ -41,7 +45,7 @@ def _load_dream_content(identity_name: str) -> Optional[dict]:
         logger.warning("Failed to load dream_content.yaml for %s: %s", identity_name, e)
         return None
 
-    templates: dict[DreamType, list[dict]] = {}
+    guidance: dict[DreamType, dict] = {}
     weights: dict[DreamType, float] = {}
 
     for type_name, type_data in raw.get("dream_types", {}).items():
@@ -51,24 +55,20 @@ def _load_dream_content(identity_name: str) -> Optional[dict]:
             logger.warning("Unknown dream type '%s' in %s/dream_content.yaml", type_name, identity_name)
             continue
 
-        raw_templates = type_data.get("templates", [])
-        for tmpl in raw_templates:
-            # Coerce string tone to DreamTone if needed
-            if isinstance(tmpl.get("tone"), str):
-                try:
-                    tmpl["tone"] = DreamTone(tmpl["tone"])
-                except ValueError:
-                    logger.warning("Unknown tone '%s' in %s templates", tmpl["tone"], type_name)
-                    tmpl["tone"] = DreamTone.CONTEMPLATIVE
-
-        templates[dream_type] = raw_templates
+        guidance[dream_type] = {
+            "themes": type_data.get("themes", []),
+            "symbols": type_data.get("symbols", []),
+            "tones": type_data.get("tones", []),
+            "psychological_core": type_data.get("psychological_core", ""),
+        }
         weights[dream_type] = float(type_data.get("weight", 0.20))
 
-    if not templates:
+    if not guidance:
         return None
 
-    logger.debug("Loaded %d dream types for %s", len(templates), identity_name)
-    return {"templates": templates, "weights": weights}
+    identity_voice = raw.get("identity_voice", {})
+    logger.debug("Loaded %d dream types for %s", len(guidance), identity_name)
+    return {"guidance": guidance, "weights": weights, "identity_voice": identity_voice}
 
 
 class DreamCapability(CapabilityBase):
@@ -77,7 +77,7 @@ class DreamCapability(CapabilityBase):
 
     Wraps the DreamSystem module, exposing it through the standard
     capability lifecycle. Generates a morning dream once per day
-    and provides dream context for LLM prompts.
+    via LLM and persists to EngagementDB.
     """
 
     name = "dream_system"
@@ -88,21 +88,20 @@ class DreamCapability(CapabilityBase):
         self._last_dream_date: Optional[date] = None
 
     async def setup(self) -> None:
-        """Initialize, loading identity-specific dream templates if available."""
-        content = _load_dream_content(self.ctx.identity_name)
+        """Initialize, loading identity-specific dream guidance if available."""
+        content = _load_dream_guidance(self.ctx.identity_name)
         if content:
             self._dream_system = DreamSystem(
-                dream_templates=content["templates"],
+                dream_guidance=content["guidance"],
                 dream_weights=content["weights"],
+                identity_voice=content.get("identity_voice", {}),
             )
             logger.info(
-                "DreamCapability initialized for %s (identity-specific templates, %d types)",
-                self.ctx.identity_name, len(content["templates"]),
+                "DreamCapability initialized for %s (identity-specific guidance, %d types)",
+                self.ctx.identity_name, len(content["guidance"]),
             )
         else:
-            # Fall back to config-provided templates or generic defaults
-            templates = self.ctx.config.get("dream_templates", None)
-            self._dream_system = DreamSystem(dream_templates=templates)
+            self._dream_system = DreamSystem()
             logger.info(
                 "DreamCapability initialized for %s (generic defaults)",
                 self.ctx.identity_name,
@@ -128,7 +127,29 @@ class DreamCapability(CapabilityBase):
             return
 
         self._last_dream_date = today
-        dream = self._dream_system.generate_morning_dream()
+
+        # Load recent dreams from DB to avoid repetition
+        recent_db_dreams: list[dict] = []
+        if self.ctx.engagement_db:
+            try:
+                recent_db_dreams = await self.ctx.engagement_db.get_recent_dreams(days=3)
+            except Exception as e:
+                logger.warning("Failed to load recent dreams from DB: %s", e)
+
+        dream = await self._dream_system.generate_morning_dream(
+            llm_pipeline=self.ctx.llm_pipeline,
+            identity_name=self.ctx.identity_name,
+            recent_dreams=recent_db_dreams,
+        )
+
+        # Persist to database
+        if self.ctx.engagement_db and dream:
+            try:
+                await self.ctx.engagement_db.save_dream(dream.to_dict())
+                logger.info("Dream persisted to DB for %s", self.ctx.identity_name)
+            except Exception as e:
+                logger.warning("Failed to persist dream to DB: %s", e)
+
         type_str = dream.dream_type.value if hasattr(dream.dream_type, "value") else str(dream.dream_type)
         logger.info("Morning dream generated for %s: %s", self.ctx.identity_name, type_str)
 
@@ -138,15 +159,29 @@ class DreamCapability(CapabilityBase):
             return ""
         return self._dream_system.get_dream_context_for_prompt()
 
-    def generate_morning_dream(
+    async def generate_dream(
         self,
         recent_topics: Optional[list[str]] = None,
         emotional_state: Optional[Any] = None,
-    ):
-        """Generate a morning dream. Delegates to DreamSystem."""
+    ) -> Optional["Dream"]:
+        """Generate a dream on demand. Delegates to DreamSystem."""
         if not self._dream_system:
             return None
-        return self._dream_system.generate_morning_dream(recent_topics, emotional_state)
+
+        recent_db_dreams: list[dict] = []
+        if self.ctx.engagement_db:
+            try:
+                recent_db_dreams = await self.ctx.engagement_db.get_recent_dreams(days=3)
+            except Exception:
+                pass
+
+        return await self._dream_system.generate_morning_dream(
+            llm_pipeline=self.ctx.llm_pipeline,
+            identity_name=self.ctx.identity_name,
+            recent_topics=recent_topics,
+            emotional_state=emotional_state,
+            recent_dreams=recent_db_dreams,
+        )
 
     def get_dream_insights(self, days: int = 7) -> list[str]:
         """Get insights from recent dreams."""
