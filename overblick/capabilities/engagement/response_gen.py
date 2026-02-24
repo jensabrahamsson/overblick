@@ -241,15 +241,37 @@ class ResponseGenerator:
 
     async def generate_dream_post(
         self,
-        dream_content: str,
-        dream_insight: str,
+        dream: dict,
         prompt_template: str,
+        extra_format_vars: dict[str, str] | None = None,
     ) -> Optional[tuple[str, str, str]]:
-        """Generate a dream journal post."""
-        prompt = prompt_template.format(
-            dream_content=dream_content,
-            dream_insight=dream_insight,
-        )
+        """
+        Generate a dream journal post from a dream.
+
+        Args:
+            dream: Dream dict with dream_type, tone, content, insight, symbols.
+            prompt_template: Identity-specific DREAM_JOURNAL_PROMPT template.
+            extra_format_vars: Additional format variables (e.g. submolt_instruction).
+
+        Returns:
+            (title, content, submolt) tuple or None on failure.
+        """
+        symbols = dream.get("symbols", [])
+        format_vars = {
+            "dream_type": dream.get("dream_type", "unknown"),
+            "dream_tone": dream.get("tone", "contemplative"),
+            "dream_content": dream.get("content", ""),
+            "dream_insight": dream.get("insight", ""),
+            "dream_symbols": ", ".join(symbols) if isinstance(symbols, list) else str(symbols),
+        }
+        if extra_format_vars:
+            format_vars.update(extra_format_vars)
+
+        try:
+            prompt = prompt_template.format(**format_vars)
+        except KeyError as e:
+            logger.warning("Dream journal prompt missing key %s, skipping", e)
+            return None
 
         content = await self._call_llm(
             prompt,

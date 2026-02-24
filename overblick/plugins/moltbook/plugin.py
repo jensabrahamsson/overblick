@@ -18,7 +18,7 @@ Conditional capabilities (enabled via identity.enabled_modules):
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -75,6 +75,7 @@ class MoltbookPlugin(PluginBase):
         self._max_comments_per_cycle = 2
         self._suspended_until: Optional[datetime] = None
         self._dms_supported: bool = True  # Set to False on first 404 from DM endpoints
+        self._dream_journal_posted_date: Optional[date] = None
 
     async def setup(self) -> None:
         """Initialize all Moltbook components using self.ctx."""
@@ -209,6 +210,9 @@ class MoltbookPlugin(PluginBase):
 
         # Tick capabilities (dreams, therapy, learning) — runs even on quiet ticks
         await self._tick_capabilities()
+
+        # Post dream journal if a new dream was generated this tick
+        await self._maybe_post_dream_journal()
 
         try:
             # Step 1: OBSERVE — Poll feed for new posts
@@ -606,6 +610,81 @@ class MoltbookPlugin(PluginBase):
             logger.warning("Rate limited posting heartbeat")
         except MoltbookError as e:
             logger.error("Heartbeat failed: %s", e, exc_info=True)
+
+        return False
+
+    async def _maybe_post_dream_journal(self) -> bool:
+        """
+        Post a dream journal entry if a new dream was generated today.
+
+        The DreamCapability generates a dream once per day (after 06:00).
+        This method transforms that dream into a Moltbook post using the
+        identity's DREAM_JOURNAL_PROMPT. Only posts once per day.
+
+        Returns:
+            True if a journal was posted, False otherwise.
+        """
+        if not self._dream_system:
+            return False
+
+        # Only post once per day
+        today = date.today()
+        if self._dream_journal_posted_date == today:
+            return False
+
+        # Get the dream from the capability
+        dream = self._dream_system.last_dream
+        if not dream:
+            return False
+
+        # Load identity-specific dream journal prompt
+        prompts = self._load_prompts(self.ctx.identity.name)
+        journal_prompt = getattr(prompts, "DREAM_JOURNAL_PROMPT", None)
+        if not journal_prompt:
+            return False
+
+        # Get submolt instruction if the prompt template uses it
+        submolt_instruction = getattr(prompts, "SUBMOLT_INSTRUCTION", "")
+
+        dream_dict = dream.to_dict()
+
+        try:
+            result = await self._response_gen.generate_dream_post(
+                dream=dream_dict,
+                prompt_template=journal_prompt,
+                extra_format_vars={"submolt_instruction": submolt_instruction},
+            )
+        except Exception as e:
+            logger.warning("Dream journal generation failed: %s", e)
+            return False
+
+        if not result:
+            return False
+
+        title, content, submolt = result
+
+        try:
+            post = await self._client.create_post(title, content, submolt=submolt)
+            if not post:
+                logger.error("create_post returned None for dream journal '%s'", title)
+                return False
+
+            await self.ctx.engagement_db.track_my_post(post.id, title)
+            self._dream_journal_posted_date = today
+
+            self.ctx.audit_log.log(
+                action="dream_journal_posted",
+                details={"post_id": post.id, "title": title, "submolt": submolt},
+            )
+            logger.info("Dream journal posted for %s: %s", self.ctx.identity.name, title)
+            return True
+
+        except RateLimitError:
+            logger.warning("Rate limited posting dream journal")
+        except SuspensionError:
+            raise  # Let tick() handle suspension backoff
+        except MoltbookError as e:
+            logger.error("Dream journal post failed: %s", e, exc_info=True)
 
         return False
 

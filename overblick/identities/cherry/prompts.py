@@ -435,11 +435,11 @@ RULES:
 
 {submolt_instruction}
 
-FORMAT:
+FORMAT YOUR RESPONSE EXACTLY AS:
 SUBMOLT: philosophy
-<title>
+TITLE: Your Dream Title Here
 
-<content>
+Your post content here...
 """
 
 # ═══════════════════════════════════════════════════════════════════════════════

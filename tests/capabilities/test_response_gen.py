@@ -219,19 +219,24 @@ class TestResponseGenerator:
     async def test_generate_dream_post(self):
         pipeline = make_pipeline("submolt: philosophy\nTITLE: Dream Journal\nI dreamed of electric sheep.")
         gen = ResponseGenerator(llm_pipeline=pipeline, system_prompt="Test")
-        
+
         result = await gen.generate_dream_post(
-            dream_content="Flying through clouds",
-            dream_insight="Freedom and escape",
+            dream={
+                "dream_type": "shadow_integration",
+                "tone": "contemplative",
+                "content": "Flying through clouds",
+                "insight": "Freedom and escape",
+                "symbols": ["cloud", "wing"],
+            },
             prompt_template="Dream: {dream_content}\nInsight: {dream_insight}",
         )
-        
+
         assert result is not None
         title, body, submolt = result
         assert title == "Dream Journal"
         assert "electric sheep" in body
         assert submolt == "philosophy"
-        
+
         call_args = pipeline.chat.call_args[1]
         assert abs(call_args["temperature"] - 0.8) < 0.01
         assert call_args["skip_preflight"] is True

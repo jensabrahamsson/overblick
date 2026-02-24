@@ -86,6 +86,7 @@ class DreamCapability(CapabilityBase):
         super().__init__(ctx)
         self._dream_system: Optional[DreamSystem] = None
         self._last_dream_date: Optional[date] = None
+        self._last_dream: Optional[Any] = None  # Most recently generated Dream
 
     async def setup(self) -> None:
         """Initialize, loading identity-specific dream guidance if available."""
@@ -150,6 +151,7 @@ class DreamCapability(CapabilityBase):
             except Exception as e:
                 logger.warning("Failed to persist dream to DB: %s", e)
 
+        self._last_dream = dream
         type_str = dream.dream_type.value if hasattr(dream.dream_type, "value") else str(dream.dream_type)
         logger.info("Morning dream generated for %s: %s", self.ctx.identity_name, type_str)
 
@@ -188,6 +190,11 @@ class DreamCapability(CapabilityBase):
         if not self._dream_system:
             return []
         return self._dream_system.get_dream_insights(days)
+
+    @property
+    def last_dream(self) -> Optional[Any]:
+        """The most recently generated Dream (set during tick)."""
+        return self._last_dream
 
     @property
     def inner(self) -> Optional[DreamSystem]:
