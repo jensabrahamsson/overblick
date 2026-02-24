@@ -332,6 +332,9 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   max-width: 1100px;
   margin: 0 auto;
 }
+.section-inner--wide {
+  max-width: 1300px;
+}
 
 .section-header {
   margin-bottom: 3rem;
@@ -697,7 +700,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 /* ── Architecture Columns ── */
 .arch-cols {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 2rem;
 }
 
@@ -1086,6 +1089,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .personality-card:nth-child(6) { animation-delay: 0.18s; }
 .personality-card:nth-child(7) { animation-delay: 0.21s; }
 .personality-card:nth-child(8) { animation-delay: 0.24s; }
+.personality-card:nth-child(9) { animation-delay: 0.27s; }
 
 /* Plugin cards stagger */
 .plugin-card {
@@ -1104,6 +1108,9 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .plugin-card:nth-child(8)  { animation-delay: 0.16s; }
 .plugin-card:nth-child(9)  { animation-delay: 0.18s; }
 .plugin-card:nth-child(10) { animation-delay: 0.20s; }
+.plugin-card:nth-child(11) { animation-delay: 0.22s; }
+.plugin-card:nth-child(12) { animation-delay: 0.24s; }
+.plugin-card:nth-child(13) { animation-delay: 0.26s; }
 
 /* Pipeline SVG stages light up left-to-right */
 .pipeline-svg .pipe-box {
@@ -1140,6 +1147,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .arch-col:nth-child(2) { animation-delay: 0.15s; }
 .arch-col:nth-child(3) { animation-delay: 0.25s; }
 .arch-col:nth-child(4) { animation-delay: 0.35s; }
+.arch-col:nth-child(5) { animation-delay: 0.45s; }
 
 /* Build-your-own reveal */
 .build-your-own {
@@ -1170,7 +1178,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   .hero-title { font-size: 2.5rem; }
   .section-title { font-size: 2rem; }
   .personalities-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-  .arch-cols { grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+  .arch-cols { grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
 }
 
 @media (max-width: 768px) {
@@ -1245,6 +1253,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .card-prisma { --card-accent: #f0a500; }
 .card-rost   { --card-accent: #ff8c42; }
 .card-stal   { --card-accent: #a8b5c0; }
+.card-smed   { --card-accent: #d4915e; }
 
 /* ── SVG pipeline accent helpers (replaces inline style on LLM CALL stage) ── */
 .pipe-box-accent     { stroke: var(--accent); stroke-width: 2; }
