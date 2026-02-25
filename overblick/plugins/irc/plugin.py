@@ -132,6 +132,7 @@ class IRCPlugin(PluginBase):
         Periodic tick — start or continue a conversation.
 
         Only runs if system load is low and we're not in quiet hours.
+        Uses _conversation_lock to protect state mutations against concurrent teardown.
         """
         if not self._running:
             return
@@ -143,51 +144,54 @@ class IRCPlugin(PluginBase):
 
         # Check system load
         if not await self._is_system_idle():
-            if self._current_conversation and self._current_conversation.is_active:
-                # Emit NETSPLIT event before pausing
-                netsplit_turn = IRCTurn(
-                    identity="server",
-                    display_name="",
-                    content="Netsplit: *.overblick.net <-> *.llm.local",
-                    turn_number=self._current_conversation.turn_count,
-                    type=IRCEventType.NETSPLIT,
+            async with self._conversation_lock:
+                if self._current_conversation and self._current_conversation.is_active:
+                    # Emit NETSPLIT event before pausing
+                    netsplit_turn = IRCTurn(
+                        identity="server",
+                        display_name="",
+                        content="Netsplit: *.overblick.net <-> *.llm.local",
+                        turn_number=self._current_conversation.turn_count,
+                        type=IRCEventType.NETSPLIT,
+                    )
+                    updated_turns = list(self._current_conversation.turns) + [netsplit_turn]
+                    self._current_conversation = self._current_conversation.model_copy(
+                        update={
+                            "state": ConversationState.PAUSED,
+                            "turns": updated_turns,
+                            "updated_at": time.time(),
+                        }
+                    )
+                    self._save_conversation(self._current_conversation)
+                    logger.info("IRC: Conversation paused — high system load (netsplit)")
+                else:
+                    logger.debug("IRC: Skipping tick — high system load")
+            return
+
+        # Lock protects state mutations; released before _run_turns (which has its own locking)
+        async with self._conversation_lock:
+            # Resume paused conversation — emit REJOIN events
+            if self._current_conversation and self._current_conversation.state == ConversationState.PAUSED:
+                rejoin_turns = self._make_system_events(
+                    IRCEventType.REJOIN,
+                    self._current_conversation.participants,
+                    self._current_conversation.channel,
                 )
-                updated_turns = list(self._current_conversation.turns) + [netsplit_turn]
+                updated_turns = list(self._current_conversation.turns) + rejoin_turns
                 self._current_conversation = self._current_conversation.model_copy(
                     update={
-                        "state": ConversationState.PAUSED,
+                        "state": ConversationState.ACTIVE,
                         "turns": updated_turns,
                         "updated_at": time.time(),
                     }
                 )
                 self._save_conversation(self._current_conversation)
-                logger.info("IRC: Conversation paused — high system load (netsplit)")
-            else:
-                logger.debug("IRC: Skipping tick — high system load")
-            return
 
-        # Resume paused conversation — emit REJOIN events
-        if self._current_conversation and self._current_conversation.state == ConversationState.PAUSED:
-            rejoin_turns = self._make_system_events(
-                IRCEventType.REJOIN,
-                self._current_conversation.participants,
-                self._current_conversation.channel,
-            )
-            updated_turns = list(self._current_conversation.turns) + rejoin_turns
-            self._current_conversation = self._current_conversation.model_copy(
-                update={
-                    "state": ConversationState.ACTIVE,
-                    "turns": updated_turns,
-                    "updated_at": time.time(),
-                }
-            )
-            self._save_conversation(self._current_conversation)
+            # Start new conversation if none active
+            if not self._current_conversation or not self._current_conversation.is_active:
+                await self._start_conversation()
 
-        # Start new conversation if none active
-        if not self._current_conversation or not self._current_conversation.is_active:
-            await self._start_conversation()
-
-        # Run a few turns
+        # Run a few turns (uses its own internal locking)
         if self._current_conversation and self._current_conversation.is_active:
             await self._run_turns(max_turns=3)
 

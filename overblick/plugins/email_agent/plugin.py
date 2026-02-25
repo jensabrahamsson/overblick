@@ -157,121 +157,130 @@ class EmailAgentPlugin(PluginBase):
             # Build system prompt from personality
             self._system_prompt = self._build_system_prompt()
         except Exception:
-            # Clean up DB if setup fails after DB init
-            if self._db:
-                try:
-                    await self._db.close()
-                except Exception as close_err:
-                    logger.warning("EmailAgent: DB close failed during setup cleanup: %s", close_err)
-                self._db = None
+            # Clean up DB if setup fails during state loading
+            await self._close_db_safe()
             raise
 
-        # Load email agent config from personality
-        raw_config = identity.raw_config
-        ea_config = raw_config.get("email_agent", {})
-        self._filter_mode = ea_config.get("filter_mode", "opt_in")
-        self._allowed_senders = set(ea_config.get("allowed_senders", []))
-        self._blocked_senders = set(ea_config.get("blocked_senders", []))
+        try:
+            # Load email agent config from personality
+            raw_config = identity.raw_config
+            ea_config = raw_config.get("email_agent", {})
+            self._filter_mode = ea_config.get("filter_mode", "opt_in")
+            self._allowed_senders = set(ea_config.get("allowed_senders", []))
+            self._blocked_senders = set(ea_config.get("blocked_senders", []))
 
-        # Sender profiles directory (GDPR-safe consolidated data)
-        self._profiles_dir = self.ctx.data_dir / "sender_profiles"
-        self._profiles_dir.mkdir(parents=True, exist_ok=True)
+            # Sender profiles directory (GDPR-safe consolidated data)
+            self._profiles_dir = self.ctx.data_dir / "sender_profiles"
+            self._profiles_dir.mkdir(parents=True, exist_ok=True)
 
-        # Load principal name from secrets (injected at runtime — never hardcoded)
-        self._principal_name = self.ctx.get_secret("principal_name") or ""
+            # Load principal name from secrets (injected at runtime — never hardcoded)
+            self._principal_name = self.ctx.get_secret("principal_name") or ""
 
-        # Max email age — skip emails older than this (hours).
-        age_val = ea_config.get("max_email_age_hours")
-        if age_val is not None:
-            try:
-                parsed = float(age_val)
-            except (ValueError, TypeError):
-                parsed = None
-            if parsed is not None and parsed > 0 and not math.isinf(parsed) and not math.isnan(parsed):
-                self._max_email_age_hours = parsed
+            # Max email age — skip emails older than this (hours).
+            age_val = ea_config.get("max_email_age_hours")
+            if age_val is not None:
+                try:
+                    parsed = float(age_val)
+                except (ValueError, TypeError):
+                    parsed = None
+                if parsed is not None and parsed > 0 and not math.isinf(parsed) and not math.isnan(parsed):
+                    self._max_email_age_hours = parsed
+                else:
+                    logger.warning(
+                        "EmailAgent: invalid max_email_age_hours=%r — must be positive number, "
+                        "falling back to default %dh",
+                        age_val, _DEFAULT_MAX_EMAIL_AGE_HOURS,
+                    )
+                    self._max_email_age_hours = _DEFAULT_MAX_EMAIL_AGE_HOURS
             else:
-                logger.warning(
-                    "EmailAgent: invalid max_email_age_hours=%r — must be positive number, "
-                    "falling back to default %dh",
-                    age_val, _DEFAULT_MAX_EMAIL_AGE_HOURS,
-                )
                 self._max_email_age_hours = _DEFAULT_MAX_EMAIL_AGE_HOURS
-        else:
-            self._max_email_age_hours = _DEFAULT_MAX_EMAIL_AGE_HOURS
-            logger.info(
-                "EmailAgent: max_email_age_hours not configured — defaulting to %dh",
-                _DEFAULT_MAX_EMAIL_AGE_HOURS,
+                logger.info(
+                    "EmailAgent: max_email_age_hours not configured — defaulting to %dh",
+                    _DEFAULT_MAX_EMAIL_AGE_HOURS,
+                )
+
+            # Dry-run mode: classify and notify, but never send actual email replies
+            self._dry_run = ea_config.get("dry_run", False)
+            if self._dry_run:
+                logger.info("EmailAgentPlugin running in DRY RUN mode — no emails will be sent")
+
+            # Draft replies: send a second Telegram message with Stål's suggested reply
+            self._show_draft_replies = ea_config.get("show_draft_replies", False)
+            if self._show_draft_replies:
+                logger.info("EmailAgentPlugin: draft reply mode enabled — suggested replies will be sent to Telegram")
+
+            # Reputation thresholds (configurable, not hardcoded)
+            reputation_config = ea_config.get("reputation", {})
+            self._auto_ignore_sender_threshold = reputation_config.get("sender_ignore_rate", 0.9)
+            self._auto_ignore_sender_min_count = reputation_config.get("sender_min_interactions", 5)
+            self._auto_ignore_domain_threshold = reputation_config.get("domain_ignore_rate", 0.9)
+            self._auto_ignore_domain_min_count = reputation_config.get("domain_min_interactions", 10)
+
+            # Cross-identity consultation config
+            self._relevance_consultants = ea_config.get("relevance_consultants", [])
+            consultation_config = ea_config.get("consultation", {})
+            self._consultation_confidence_low = consultation_config.get("confidence_low", 0.5)
+            self._consultation_confidence_high = consultation_config.get("confidence_high", 0.8)
+            self._consultation_identities = consultation_config.get("identities", "explicit")
+
+            # Load cached auto-ignore domains from DB
+            if self._db:
+                self._auto_ignore_domains = set(await self._db.get_auto_ignore_domains())
+
+            # Run GDPR cleanup on startup
+            await self._db.purge_gdpr_data(self.GDPR_RETENTION_DAYS)
+
+            # Check interval from schedule
+            self._check_interval = identity.schedule.feed_poll_minutes * 60
+
+            # Wire helper instances
+            self._reputation = ReputationManager(
+                db=self._db,
+                profiles_dir=self._profiles_dir,
+                thresholds={
+                    "sender_ignore_rate": self._auto_ignore_sender_threshold,
+                    "sender_min_interactions": self._auto_ignore_sender_min_count,
+                    "domain_ignore_rate": self._auto_ignore_domain_threshold,
+                    "domain_min_interactions": self._auto_ignore_domain_min_count,
+                },
+            )
+            self._classifier = EmailClassifier(
+                ctx=self.ctx,
+                state=self._state,
+                learnings=self._learnings,
+                db=self._db,
+                principal_name=self._principal_name,
+                allowed_senders=self._allowed_senders,
+                filter_mode=self._filter_mode,
+                blocked_senders=self._blocked_senders,
+            )
+            self._reply_gen = ReplyGenerator(
+                ctx=self.ctx,
+                principal_name=self._principal_name,
+                db=self._db,
+                reputation=self._reputation,
             )
 
-        # Dry-run mode: classify and notify, but never send actual email replies
-        self._dry_run = ea_config.get("dry_run", False)
-        if self._dry_run:
-            logger.info("EmailAgentPlugin running in DRY RUN mode — no emails will be sent")
+            logger.info(
+                "EmailAgentPlugin setup for '%s' (filter: %s, learnings: %d, goals: %d)",
+                self.ctx.identity_name,
+                self._filter_mode,
+                len(self._learnings),
+                len(self._state.goals),
+            )
+        except Exception:
+            # Clean up DB if setup fails after DB init
+            await self._close_db_safe()
+            raise
 
-        # Draft replies: send a second Telegram message with Stål's suggested reply
-        self._show_draft_replies = ea_config.get("show_draft_replies", False)
-        if self._show_draft_replies:
-            logger.info("EmailAgentPlugin: draft reply mode enabled — suggested replies will be sent to Telegram")
-
-        # Reputation thresholds (configurable, not hardcoded)
-        reputation_config = ea_config.get("reputation", {})
-        self._auto_ignore_sender_threshold = reputation_config.get("sender_ignore_rate", 0.9)
-        self._auto_ignore_sender_min_count = reputation_config.get("sender_min_interactions", 5)
-        self._auto_ignore_domain_threshold = reputation_config.get("domain_ignore_rate", 0.9)
-        self._auto_ignore_domain_min_count = reputation_config.get("domain_min_interactions", 10)
-
-        # Cross-identity consultation config
-        self._relevance_consultants = ea_config.get("relevance_consultants", [])
-        consultation_config = ea_config.get("consultation", {})
-        self._consultation_confidence_low = consultation_config.get("confidence_low", 0.5)
-        self._consultation_confidence_high = consultation_config.get("confidence_high", 0.8)
-        self._consultation_identities = consultation_config.get("identities", "explicit")
-
-        # Load cached auto-ignore domains from DB
+    async def _close_db_safe(self) -> None:
+        """Close database connection safely, suppressing errors."""
         if self._db:
-            self._auto_ignore_domains = set(await self._db.get_auto_ignore_domains())
-
-        # Run GDPR cleanup on startup
-        await self._db.purge_gdpr_data(self.GDPR_RETENTION_DAYS)
-
-        # Check interval from schedule
-        self._check_interval = identity.schedule.feed_poll_minutes * 60
-
-        # Wire helper instances
-        self._reputation = ReputationManager(
-            db=self._db,
-            profiles_dir=self._profiles_dir,
-            thresholds={
-                "sender_ignore_rate": self._auto_ignore_sender_threshold,
-                "sender_min_interactions": self._auto_ignore_sender_min_count,
-                "domain_ignore_rate": self._auto_ignore_domain_threshold,
-                "domain_min_interactions": self._auto_ignore_domain_min_count,
-            },
-        )
-        self._classifier = EmailClassifier(
-            ctx=self.ctx,
-            state=self._state,
-            learnings=self._learnings,
-            db=self._db,
-            principal_name=self._principal_name,
-            allowed_senders=self._allowed_senders,
-            filter_mode=self._filter_mode,
-            blocked_senders=self._blocked_senders,
-        )
-        self._reply_gen = ReplyGenerator(
-            ctx=self.ctx,
-            principal_name=self._principal_name,
-            db=self._db,
-            reputation=self._reputation,
-        )
-
-        logger.info(
-            "EmailAgentPlugin setup for '%s' (filter: %s, learnings: %d, goals: %d)",
-            self.ctx.identity_name,
-            self._filter_mode,
-            len(self._learnings),
-            len(self._state.goals),
-        )
+            try:
+                await self._db.close()
+            except Exception as close_err:
+                logger.warning("EmailAgent: DB close failed during setup cleanup: %s", close_err)
+            self._db = None
 
     async def tick(self) -> None:
         """

@@ -19,6 +19,7 @@ Steps:
 8. Complete
 """
 
+import html
 import logging
 from pathlib import Path
 from typing import Any
@@ -713,7 +714,7 @@ async def test_ollama(request: Request):
             data = resp.json()
             models = [m["name"] for m in data.get("models", [])]
             if models:
-                model_list = ", ".join(models[:10])
+                model_list = html.escape(", ".join(models[:10]))
                 return HTMLResponse(
                     f'<span class="badge badge-green">Connected</span>'
                     f'<span class="test-detail">Models: {model_list}</span>'
@@ -725,7 +726,7 @@ async def test_ollama(request: Request):
     except Exception as e:
         return HTMLResponse(
             f'<span class="badge badge-red">Not reachable</span>'
-            f'<span class="test-detail">{e}</span>'
+            f'<span class="test-detail">{html.escape(str(e))}</span>'
         )
 
 
@@ -748,12 +749,13 @@ async def fetch_models(request: Request):
         if models:
             options = ""
             for m in models:
+                m_esc = html.escape(m)
                 selected = ' selected' if m == current_model else ''
-                options += f'<option value="{m}"{selected}>{m}</option>'
+                options += f'<option value="{m_esc}"{selected}>{m_esc}</option>'
             return HTMLResponse(f'<select class="form-select" name="{{{{field_name}}}}">{options}</select>')
         return HTMLResponse('<span class="badge badge-amber">No models found</span>')
     except Exception as e:
-        return HTMLResponse(f'<span class="badge badge-red">Error: {e}</span>')
+        return HTMLResponse(f'<span class="badge badge-red">Error: {html.escape(str(e))}</span>')
 
 
 @router.post("/test/gateway", response_class=HTMLResponse)
@@ -770,11 +772,11 @@ async def test_gateway(request: Request):
             status = data.get("status", "unknown")
             if status == "healthy":
                 return HTMLResponse('<span class="badge badge-green">Connected</span>')
-            return HTMLResponse(f'<span class="badge badge-amber">{status}</span>')
+            return HTMLResponse(f'<span class="badge badge-amber">{html.escape(str(status))}</span>')
     except Exception as e:
         return HTMLResponse(
             f'<span class="badge badge-red">Not reachable</span>'
-            f'<span class="test-detail">{e}</span>'
+            f'<span class="test-detail">{html.escape(str(e))}</span>'
         )
 
 
@@ -798,7 +800,7 @@ async def test_gmail(request: Request):
             msg = "Authentication failed. Check your App Password."
         return HTMLResponse(
             f'<span class="badge badge-red">Failed</span>'
-            f'<span class="test-detail">{msg}</span>'
+            f'<span class="test-detail">{html.escape(msg)}</span>'
         )
 
 
@@ -816,7 +818,7 @@ async def test_telegram(request: Request):
             resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
             resp.raise_for_status()
             bot_data = resp.json()
-            bot_name = bot_data.get("result", {}).get("username", "unknown")
+            bot_name = html.escape(bot_data.get("result", {}).get("username", "unknown"))
             msg = f"Connected as @{bot_name}"
             if chat_id:
                 send_resp = await client.post(
@@ -827,11 +829,11 @@ async def test_telegram(request: Request):
                     msg += " — test message sent!"
                 else:
                     msg += " — bot OK but could not send to chat ID"
-            return HTMLResponse(f'<span class="badge badge-green">{msg}</span>')
+            return HTMLResponse(f'<span class="badge badge-green">{html.escape(msg)}</span>')
     except Exception as e:
         return HTMLResponse(
             f'<span class="badge badge-red">Failed</span>'
-            f'<span class="test-detail">{e}</span>'
+            f'<span class="test-detail">{html.escape(str(e))}</span>'
         )
 
 
@@ -852,7 +854,7 @@ async def test_deepseek(request: Request):
             if resp.status_code == 200:
                 data = resp.json()
                 models = [m.get("id", "?") for m in data.get("data", [])]
-                model_list = ", ".join(models[:5]) if models else "API reachable"
+                model_list = html.escape(", ".join(models[:5])) if models else "API reachable"
                 return HTMLResponse(
                     f'<span class="badge badge-green">Connected</span>'
                     f'<span class="test-detail">{model_list}</span>'
@@ -868,7 +870,7 @@ async def test_deepseek(request: Request):
     except Exception as e:
         return HTMLResponse(
             f'<span class="badge badge-red">Not reachable</span>'
-            f'<span class="test-detail">{e}</span>'
+            f'<span class="test-detail">{html.escape(str(e))}</span>'
         )
 
 

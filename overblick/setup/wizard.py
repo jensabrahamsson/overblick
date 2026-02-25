@@ -15,6 +15,7 @@ Steps:
 8. Complete
 """
 
+import html
 import logging
 import os
 import signal
@@ -707,7 +708,7 @@ def register_routes(app: FastAPI) -> None:
                 data = resp.json()
                 models = [m["name"] for m in data.get("models", [])]
                 if models:
-                    model_list = ", ".join(models[:10])
+                    model_list = html.escape(", ".join(models[:10]))
                     return HTMLResponse(
                         f'<span class="badge badge-green">Connected</span>'
                         f'<span class="test-detail">Models: {model_list}</span>'
@@ -719,7 +720,7 @@ def register_routes(app: FastAPI) -> None:
         except Exception as e:
             return HTMLResponse(
                 f'<span class="badge badge-red">Not reachable</span>'
-                f'<span class="test-detail">{e}</span>'
+                f'<span class="test-detail">{html.escape(str(e))}</span>'
             )
 
     @app.post("/test/gmail", response_class=HTMLResponse)
@@ -740,7 +741,7 @@ def register_routes(app: FastAPI) -> None:
             msg = str(e)
             if "AUTHENTICATIONFAILED" in msg:
                 msg = "Authentication failed. Check your App Password."
-            return HTMLResponse(f'<span class="badge badge-red">Failed</span><span class="test-detail">{msg}</span>')
+            return HTMLResponse(f'<span class="badge badge-red">Failed</span><span class="test-detail">{html.escape(msg)}</span>')
 
     @app.post("/test/telegram", response_class=HTMLResponse)
     async def test_telegram(request: Request):
@@ -756,7 +757,7 @@ def register_routes(app: FastAPI) -> None:
                 resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
                 resp.raise_for_status()
                 bot_data = resp.json()
-                bot_name = bot_data.get("result", {}).get("username", "unknown")
+                bot_name = html.escape(bot_data.get("result", {}).get("username", "unknown"))
                 msg = f'Connected as @{bot_name}'
                 if chat_id:
                     # Try sending a test message
@@ -768,9 +769,9 @@ def register_routes(app: FastAPI) -> None:
                         msg += " — test message sent!"
                     else:
                         msg += " — bot OK but could not send to chat ID"
-                return HTMLResponse(f'<span class="badge badge-green">{msg}</span>')
+                return HTMLResponse(f'<span class="badge badge-green">{html.escape(msg)}</span>')
         except Exception as e:
-            return HTMLResponse(f'<span class="badge badge-red">Failed</span><span class="test-detail">{e}</span>')
+            return HTMLResponse(f'<span class="badge badge-red">Failed</span><span class="test-detail">{html.escape(str(e))}</span>')
 
     # --- Chat endpoint ---
 
@@ -796,6 +797,7 @@ def register_routes(app: FastAPI) -> None:
                 status_code=400,
             )
 
+        state = _get_state(request.app)
         llm_config = state.get("llm", {})
 
         from overblick.shared.onboarding_chat import chat_with_identity
@@ -808,6 +810,7 @@ def register_routes(app: FastAPI) -> None:
         """Test LLM connection during setup."""
         from fastapi.responses import JSONResponse
 
+        state = _get_state(request.app)
         llm_config = state.get("llm", {})
         if not llm_config:
             return JSONResponse(

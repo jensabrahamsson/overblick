@@ -269,9 +269,9 @@ class IPCClient:
         If auth_token is configured, it is injected into the message.
         Returns the response message, or None if no response.
         """
-        # Inject auth token
+        # Inject auth token (copy to avoid mutating caller's message object)
         if self._auth_token and not message.auth_token:
-            message.auth_token = self._auth_token
+            message = message.model_copy(update={"auth_token": self._auth_token})
 
         try:
             reader, writer = await asyncio.wait_for(

@@ -101,7 +101,7 @@ class Scheduler:
     async def stop(self) -> None:
         """Stop all scheduled tasks."""
         self._running = False
-        for st in self._tasks.values():
+        for st in list(self._tasks.values()):
             if st._task and not st._task.done():
                 st._task.cancel()
                 try:

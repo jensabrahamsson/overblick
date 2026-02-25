@@ -53,12 +53,16 @@ class GatewayClient(LLMClient):
         self.top_p = top_p
         self.timeout_seconds = timeout_seconds
         self._session: Optional[aiohttp.ClientSession] = None
+        self._session_lock = asyncio.Lock()
 
         logger.info(f"GatewayClient: {base_url}, default_priority={default_priority}, model={model}")
 
     async def _ensure_session(self) -> None:
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            async with self._session_lock:
+                # Double-check after acquiring lock
+                if self._session is None or self._session.closed:
+                    self._session = aiohttp.ClientSession()
 
     async def chat(
         self,

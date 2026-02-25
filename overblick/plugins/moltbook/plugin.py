@@ -156,6 +156,9 @@ class MoltbookPlugin(PluginBase):
         openings = identity.raw_config.get("opening_phrases", None)
         self._opening_selector = OpeningSelector(phrases=openings)
 
+        # Restore dream journal dedup state from disk
+        self._load_dream_date()
+
         # Load capabilities via registry
         enabled_modules = identity.raw_config.get("enabled_modules", [])
         await self._setup_capabilities(enabled_modules, system_prompt)
@@ -186,6 +189,38 @@ class MoltbookPlugin(PluginBase):
             status_file.write_text(json.dumps(self._client.get_account_status()))
         except Exception:
             pass  # Non-critical: dashboard status persistence is best-effort
+
+    def _persist_dream_date(self) -> None:
+        """Save dream journal posted date to disk to prevent duplicate posts after restart."""
+        if not self._dream_journal_posted_date:
+            return
+        try:
+            data_dir = self.ctx.data_dir
+            if not isinstance(data_dir, Path):
+                return
+            state_file = data_dir / "dream_state.json"
+            state_file.parent.mkdir(parents=True, exist_ok=True)
+            state_file.write_text(json.dumps({
+                "dream_journal_posted_date": self._dream_journal_posted_date.isoformat(),
+            }))
+        except Exception:
+            pass  # Non-critical: worst case is a duplicate dream post
+
+    def _load_dream_date(self) -> None:
+        """Load dream journal posted date from disk."""
+        try:
+            data_dir = self.ctx.data_dir
+            if not isinstance(data_dir, Path):
+                return
+            state_file = data_dir / "dream_state.json"
+            if not state_file.exists():
+                return
+            data = json.loads(state_file.read_text())
+            date_str = data.get("dream_journal_posted_date")
+            if date_str:
+                self._dream_journal_posted_date = date.fromisoformat(date_str)
+        except Exception:
+            pass  # Non-critical: fresh start if state is corrupted
 
     async def tick(self) -> None:
         """
@@ -671,6 +706,7 @@ class MoltbookPlugin(PluginBase):
 
             await self.ctx.engagement_db.track_my_post(post.id, title)
             self._dream_journal_posted_date = today
+            self._persist_dream_date()
 
             self.ctx.audit_log.log(
                 action="dream_journal_posted",

@@ -264,7 +264,7 @@ _DEOBFUSCATION_FIXES: dict[str, str] = {
     "gans": "gains",
     # Truncated words from deobfuscation
     "thre": "three",
-    "for": "four",  # only applied when surrounded by number context
+    "for": "four",  # unconditional — all challenges are numeric contexts
     "fiv": "five",
     "seve": "seven",
     "eigh": "eight",
