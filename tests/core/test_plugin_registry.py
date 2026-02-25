@@ -340,14 +340,18 @@ class TestPluginRegistryAvailablePlugins:
         available = registry.available_plugins()
         expected_core = [
             "ai_digest",
-            "discord",
-            "matrix",
-            "moltbook",
-            "rss",
-            "telegram",
-            "webhook",
-            "host_health",
+            "compass",
+            "dev_agent",
             "email_agent",
+            "github",
+            "host_health",
+            "irc",
+            "kontrast",
+            "moltbook",
+            "skuggspel",
+            "spegel",
+            "stage",
+            "telegram",
         ]
         for name in expected_core:
             assert name in available, f"Core plugin '{name}' missing from available list"

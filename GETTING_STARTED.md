@@ -48,6 +48,7 @@ Available identities:
   - natt
   - prisma
   - rost
+  - smed
   - stal
 ```
 

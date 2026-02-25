@@ -288,7 +288,7 @@ class TestMigrationManager:
 
     @pytest.mark.asyncio
     async def test_real_migrations(self, db):
-        """Apply the actual Blick migrations."""
+        """Apply the actual Överblick migrations."""
         mgr = MigrationManager(db)
         applied = await mgr.apply(MIGRATIONS)
         assert applied == len(MIGRATIONS)

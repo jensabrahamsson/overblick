@@ -1,5 +1,5 @@
 """
-Shared test fixtures for Blick tests.
+Shared test fixtures for Överblick tests.
 """
 
 import asyncio

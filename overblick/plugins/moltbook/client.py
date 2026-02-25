@@ -147,7 +147,7 @@ class MoltbookClient:
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": f"Blick/1.0 ({self._identity_name})",
+                "User-Agent": f"Overblick/1.0 ({self._identity_name})",
             }
             self._session = aiohttp.ClientSession(headers=headers)
             if self._challenge_handler:

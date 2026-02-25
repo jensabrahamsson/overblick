@@ -19,7 +19,7 @@ pip install -e ".[dev]"
 pip install -r requirements.txt        # core only
 pip install -r requirements-dev.txt    # core + test/dev tools
 
-# Run tests (2680+ unit + scenario tests, no LLM/browser required)
+# Run tests (3500+ unit + scenario tests, no LLM/browser required)
 pytest tests/ -v -m "not llm and not e2e"
 
 # Run LLM personality tests (requires Ollama with qwen3:8b)
@@ -89,6 +89,7 @@ Personalities define WHO the agent IS — separate from operational config. Each
 | **Rost** | Jaded ex-trader | Cynical, dark humor, cautionary tales |
 | **Natt** | Uncanny philosopher | Eerie, paradoxical, recursive, existential |
 | **Stal** | Email secretary | Formal, precise, diplomatic — acts on the principal's behalf |
+| **Smed** | Developer agent | Methodical code blacksmith — forges fixes with precision and patience |
 
 ### Creating a New Personality
 
@@ -149,16 +150,14 @@ Plugins are self-contained modules. Each receives `PluginContext` as its ONLY fr
 | **Email Agent** | Complete | Email processing, classification, boss agent consultation |
 | **Host Health** | Complete | System monitoring with LLM-powered health analysis |
 | **AI Digest** | Complete | Periodic AI-generated digest summaries |
-| **Discord** | Shell | Bot with guild/channel management (community contribution welcome) |
-| **RSS** | Shell | Feed monitoring with keyword filtering (community contribution welcome) |
-| **Webhook** | Shell | HTTP endpoint for external integrations (community contribution welcome) |
+| **GitHub Agent** | Complete | Agentic GitHub issue/PR handling with OBSERVE/THINK/PLAN/ACT/REFLECT loop |
+| **Dev Agent** | Complete | Autonomous developer — log watching, bug fixing, test running, PR creation |
 | **IRC** | Complete | Identity-to-identity conversations with topic management |
-| **Compass** | Complete | Identity drift detection via stylometric analysis |
-| **Kontrast** | Complete | Multi-perspective content engine — simultaneous viewpoints from all identities |
-| **Skuggspel** | Complete | Shadow-self content generation (Jungian shadow exploration) |
-| **Spegel** | Complete | Inter-agent psychological profiling and mutual reflection |
-| **Stage** | Complete | YAML-driven behavioral scenario testing for identities |
-| **Matrix** | Shell | Decentralized chat with E2EE support (community contribution welcome) |
+| **Compass** | Experimental | Identity drift detection via stylometric analysis |
+| **Kontrast** | Experimental | Multi-perspective content engine — simultaneous viewpoints from all identities |
+| **Skuggspel** | Experimental | Shadow-self content generation (Jungian shadow exploration) |
+| **Spegel** | Experimental | Inter-agent psychological profiling and mutual reflection |
+| **Stage** | Experimental | YAML-driven behavioral scenario testing for identities |
 
 **Plugin lifecycle:**
 
@@ -317,7 +316,7 @@ Both backends share the same migration system and API.
 ## Testing
 
 ```bash
-# All unit + scenario tests (2680+)
+# All unit + scenario tests (3500+)
 pytest tests/ -v -m "not e2e"
 
 # LLM personality tests (requires Ollama + qwen3:8b)
@@ -379,11 +378,14 @@ overblick/
     email_agent/            # Email processing and classification (complete)
     host_health/            # System health monitoring (complete)
     ai_digest/              # AI-generated digests (complete)
-    discord/                # Discord bot (shell)
-    rss/                    # RSS feed monitor (shell)
-    webhook/                # HTTP webhook receiver (shell)
-    matrix/                 # Matrix chat (shell)
+    github/                 # Agentic GitHub issue/PR handling (complete)
+    dev_agent/              # Autonomous developer agent (complete)
     irc/                    # Identity-to-identity conversations (complete)
+    compass/                # Identity drift detection (experimental)
+    kontrast/               # Multi-perspective content engine (experimental)
+    skuggspel/              # Shadow-self content generation (experimental)
+    spegel/                 # Inter-agent psychological profiling (experimental)
+    stage/                  # Behavioral scenario testing (experimental)
   identities/               # Identity stable — YAML-driven characters
     anomal/                 # Intellectual humanist
     bjork/                  # Forest philosopher
@@ -403,7 +405,7 @@ overblick/
     audit.py                # Agent audit system
 config/
   overblick.yaml            # Global framework config
-tests/                      # 2680+ unit + scenario + LLM tests
+tests/                      # 3500+ unit + scenario + LLM tests
 ```
 
 ## Configuration
@@ -429,14 +431,11 @@ Each skill includes reference documentation covering the full API, real examples
 
 ## Contributing
 
-Överblick uses shell plugins as entry points for community contributions. Each shell implements the `PluginBase` interface with detailed TODO comments explaining what needs to be built.
-
 **Good first contributions:**
-- Implement the Discord plugin (needs `discord.py`)
-- Implement the RSS plugin (needs `feedparser`)
-- Implement the Matrix plugin (needs `matrix-nio`)
-- Create a new personality for the stable
+- Create a new personality for the identity stable
 - Add chaos tests (`tests/chaos/`)
+- Extend an experimental plugin (Compass, Kontrast, Skuggspel, Spegel, Stage)
+- Improve dashboard UI/UX
 
 ## License
 

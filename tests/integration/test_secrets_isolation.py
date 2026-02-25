@@ -12,15 +12,24 @@ from pathlib import Path
 
 import pytest
 import yaml
-
+from cryptography.fernet import Fernet
 
 from overblick.core.security.secrets_manager import SecretsManager
 
 
 @pytest.fixture
 def secrets_dir(tmp_path):
-    """Create a temporary secrets directory."""
-    return tmp_path / "secrets"
+    """Create a temporary secrets directory with a master key.
+
+    The master key file is pre-created so tests don't depend on
+    macOS Keychain being available (it's often locked in CLI sessions).
+    """
+    d = tmp_path / "secrets"
+    d.mkdir(parents=True, exist_ok=True)
+    key_file = d / ".master_key"
+    key_file.write_bytes(Fernet.generate_key())
+    key_file.chmod(0o600)
+    return d
 
 
 @pytest.fixture

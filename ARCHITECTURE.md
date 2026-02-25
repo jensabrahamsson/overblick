@@ -324,19 +324,17 @@ The sole framework interface. Provides controlled access to everything a plugin 
 _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest":   ("overblick.plugins.ai_digest.plugin",   "AiDigestPlugin"),
     "compass":     ("overblick.plugins.compass.plugin",      "CompassPlugin"),
-    "discord":     ("overblick.plugins.discord.plugin",      "DiscordPlugin"),
+    "dev_agent":   ("overblick.plugins.dev_agent.plugin",    "DevAgentPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin",  "EmailAgentPlugin"),
+    "github":      ("overblick.plugins.github.plugin",       "GitHubPlugin"),
     "host_health": ("overblick.plugins.host_health.plugin",  "HostHealthPlugin"),
     "irc":         ("overblick.plugins.irc.plugin",          "IRCPlugin"),
     "kontrast":    ("overblick.plugins.kontrast.plugin",     "KontrastPlugin"),
-    "matrix":      ("overblick.plugins.matrix.plugin",       "MatrixPlugin"),
     "moltbook":    ("overblick.plugins.moltbook.plugin",     "MoltbookPlugin"),
-    "rss":         ("overblick.plugins.rss.plugin",          "RSSPlugin"),
     "skuggspel":   ("overblick.plugins.skuggspel.plugin",    "SkuggspelPlugin"),
     "spegel":      ("overblick.plugins.spegel.plugin",       "SpegelPlugin"),
     "stage":       ("overblick.plugins.stage.plugin",        "StagePlugin"),
     "telegram":    ("overblick.plugins.telegram.plugin",     "TelegramPlugin"),
-    "webhook":     ("overblick.plugins.webhook.plugin",      "WebhookPlugin"),
 }
 ```
 
@@ -354,18 +352,16 @@ The registry uses a **whitelist** — only plugins in `_KNOWN_PLUGINS` can be lo
 | **Moltbook** | Production | Autonomous social engagement (OBSERVE → THINK → DECIDE → ACT → LEARN) |
 | **Telegram** | Complete | Bot with commands, conversation tracking, rate limiting |
 | **Email Agent** | Complete | LLM-driven email classification, reply, notification |
+| **GitHub Agent** | Complete | Agentic GitHub issue/PR handling with OBSERVE/THINK/PLAN/ACT/REFLECT loop |
+| **Dev Agent** | Complete | Autonomous developer — log watching, bug fixing, test running, PR creation |
 | **IRC** | Complete | Identity-to-identity conversations with topic management |
 | **AI Digest** | Complete | RSS-powered daily news digest with personality voice |
 | **Host Health** | Complete | System health monitoring with Supervisor IPC |
-| **Compass** | Complete | Identity drift detection via stylometric analysis |
-| **Kontrast** | Complete | Multi-perspective content engine — simultaneous viewpoints from all identities |
-| **Skuggspel** | Complete | Shadow-self content generation (Jungian shadow exploration) |
-| **Spegel** | Complete | Inter-agent psychological profiling and mutual reflection |
-| **Stage** | Complete | YAML-driven behavioral scenario testing for identities |
-| **Discord** | Shell | Community contribution welcome |
-| **RSS** | Shell | Community contribution welcome |
-| **Webhook** | Shell | Community contribution welcome |
-| **Matrix** | Shell | Community contribution welcome |
+| **Compass** | Experimental | Identity drift detection via stylometric analysis |
+| **Kontrast** | Experimental | Multi-perspective content engine — simultaneous viewpoints from all identities |
+| **Skuggspel** | Experimental | Shadow-self content generation (Jungian shadow exploration) |
+| **Spegel** | Experimental | Inter-agent psychological profiling and mutual reflection |
+| **Stage** | Experimental | YAML-driven behavioral scenario testing for identities |
 
 ---
 
@@ -1149,7 +1145,7 @@ example_conversations:
 
 ## Testing
 
-2680+ tests organized by module:
+3500+ tests organized by module:
 
 ```bash
 # All unit + scenario tests (excludes LLM)
@@ -1265,15 +1261,15 @@ overblick/
     telegram/                    # Telegram bot (complete)
     email_agent/                 # Email agent (complete)
     host_health/                 # System health monitoring (complete)
+    github/                      # Agentic GitHub issue/PR handling (complete)
+    dev_agent/                   # Autonomous developer agent (complete)
     irc/                         # Identity conversations (complete)
-    kontrast/                    # Multi-perspective content engine (complete)
-    skuggspel/                   # Shadow-self content generation (complete)
-    spegel/                      # Inter-agent psychological profiling (complete)
-    stage/                       # Behavioral scenario testing (complete)
-    discord/                     # Discord bot (shell)
-    rss/                         # RSS feed monitor (shell)
-    webhook/                     # HTTP webhook (shell)
-    matrix/                      # Matrix chat (shell)
+    ai_digest/                   # AI news digest (complete)
+    compass/                     # Identity drift detection (experimental)
+    kontrast/                    # Multi-perspective content engine (experimental)
+    skuggspel/                   # Shadow-self content generation (experimental)
+    spegel/                      # Inter-agent psychological profiling (experimental)
+    stage/                       # Behavioral scenario testing (experimental)
   capabilities/
     communication/               # Email, Gmail, Telegram, boss requests
     consulting/                  # Cross-identity personality consultation
@@ -1322,5 +1318,5 @@ overblick/
 config/
   overblick.yaml                 # Global framework config
   secrets.yaml.example           # Secrets template
-tests/                           # 2680+ tests
+tests/                           # 3500+ tests
 ```

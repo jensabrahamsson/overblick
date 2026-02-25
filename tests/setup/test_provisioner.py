@@ -6,6 +6,7 @@ import yaml
 import pytest
 from pathlib import Path
 
+from cryptography.fernet import Fernet
 from overblick.setup.provisioner import provision
 
 
@@ -55,6 +56,16 @@ def wizard_state() -> dict:
             },
         },
     }
+
+
+@pytest.fixture(autouse=True)
+def _seed_master_key(tmp_path: Path):
+    """Pre-create a Fernet master key so tests don't depend on macOS Keychain."""
+    secrets_dir = tmp_path / "config" / "secrets"
+    secrets_dir.mkdir(parents=True, exist_ok=True)
+    key_file = secrets_dir / ".master_key"
+    key_file.write_bytes(Fernet.generate_key())
+    key_file.chmod(0o600)
 
 
 class TestProvisioner:

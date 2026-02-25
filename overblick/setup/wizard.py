@@ -56,9 +56,6 @@ PLUGIN_DISPLAY_NAMES: dict[str, str] = {
     "irc": "IRC",
     "github": "GitHub",
     "dev_agent": "Dev Agent",
-    "discord": "Discord",
-    "matrix": "Matrix",
-    "webhook": "Webhook",
 }
 
 
@@ -130,37 +127,6 @@ USE_CASES: list[dict[str, Any]] = [
             "anomal", "blixt", "stal",
         ],
         "recommended": "blixt",
-    },
-    {
-        "id": "discord_chat",
-        "name": "Discord Chat",
-        "description": "Personality-driven chat bot for Discord servers and channels",
-        "icon": "\U0001F3AE",
-        "plugins": ["discord"],
-        "compatible_personalities": [
-            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt",
-        ],
-        "recommended": "cherry",
-    },
-    {
-        "id": "matrix_chat",
-        "name": "Matrix Chat",
-        "description": "Decentralized chat with E2E encryption via the Matrix protocol",
-        "icon": "\U0001F510",
-        "plugins": ["matrix"],
-        "compatible_personalities": [
-            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt",
-        ],
-        "recommended": "anomal",
-    },
-    {
-        "id": "webhooks",
-        "name": "Webhooks",
-        "description": "Receive and process webhooks from external services",
-        "icon": "\U0001F517",
-        "plugins": ["webhook"],
-        "compatible_personalities": ["stal", "anomal", "blixt"],
-        "recommended": "stal",
     },
     {
         "id": "irc_conversations",

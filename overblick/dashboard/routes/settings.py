@@ -184,12 +184,6 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
         detected_use_cases.append("research")
     if "github" in active_plugins:
         detected_use_cases.append("github_monitor")
-    if "discord" in active_plugins:
-        detected_use_cases.append("discord_chat")
-    if "matrix" in active_plugins:
-        detected_use_cases.append("matrix_chat")
-    if "webhook" in active_plugins:
-        detected_use_cases.append("webhooks")
     if "irc" in active_plugins:
         detected_use_cases.append("irc_conversations")
     if "kontrast" in active_plugins:

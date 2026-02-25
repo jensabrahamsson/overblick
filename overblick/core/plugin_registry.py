@@ -16,22 +16,18 @@ logger = logging.getLogger(__name__)
 # Default registry of known plugins (name -> module path + class name)
 _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
-    "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
-    "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
-    "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
-    "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
-    "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
+    "compass": ("overblick.plugins.compass.plugin", "CompassPlugin"),
+    "dev_agent": ("overblick.plugins.dev_agent.plugin", "DevAgentPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
+    "github": ("overblick.plugins.github.plugin", "GitHubAgentPlugin"),
+    "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "irc": ("overblick.plugins.irc.plugin", "IRCPlugin"),
     "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
-    "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
+    "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
-    "compass": ("overblick.plugins.compass.plugin", "CompassPlugin"),
+    "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
     "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
-    "github": ("overblick.plugins.github.plugin", "GitHubAgentPlugin"),
-    "dev_agent": ("overblick.plugins.dev_agent.plugin", "DevAgentPlugin"),
+    "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
 }
 
 # Module-level alias for backward compatibility (tests import this)
