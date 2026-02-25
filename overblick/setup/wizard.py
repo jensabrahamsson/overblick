@@ -54,6 +54,11 @@ PLUGIN_DISPLAY_NAMES: dict[str, str] = {
     "compass": "Compass",
     "stage": "Stage",
     "irc": "IRC",
+    "github": "GitHub",
+    "dev_agent": "Dev Agent",
+    "discord": "Discord",
+    "matrix": "Matrix",
+    "webhook": "Webhook",
 }
 
 
@@ -156,6 +161,68 @@ USE_CASES: list[dict[str, Any]] = [
         "plugins": ["webhook"],
         "compatible_personalities": ["stal", "anomal", "blixt"],
         "recommended": "stal",
+    },
+    {
+        "id": "irc_conversations",
+        "name": "IRC Conversations",
+        "description": "Free-form group conversations between agent identities on curated topics",
+        "icon": "\U0001F4AC",
+        "plugins": ["irc"],
+        "compatible_personalities": [
+            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt", "stal",
+        ],
+        "recommended": "anomal",
+    },
+    {
+        "id": "multi_perspective",
+        "name": "Multi-Perspective Content",
+        "description": "Watch RSS feeds for trends and collect each identity's unique perspective",
+        "icon": "\U0001F500",
+        "plugins": ["kontrast"],
+        "compatible_personalities": [
+            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt", "stal",
+        ],
+        "recommended": "prisma",
+    },
+    {
+        "id": "psychological_mirror",
+        "name": "Psychological Mirror",
+        "description": "Identities write psychological profiles of each other and reflect on the results",
+        "icon": "\U0001FA9E",
+        "plugins": ["spegel"],
+        "compatible_personalities": [
+            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt", "stal",
+        ],
+        "recommended": "anomal",
+    },
+    {
+        "id": "shadow_work",
+        "name": "Shadow Work",
+        "description": "Generate content from each identity's Jungian shadow — their psychological opposite",
+        "icon": "\U0001F312",
+        "plugins": ["skuggspel"],
+        "compatible_personalities": [
+            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt", "stal",
+        ],
+        "recommended": "anomal",
+    },
+    {
+        "id": "identity_drift",
+        "name": "Identity Drift Detection",
+        "description": "Monitor all identity outputs for stylometric drift — security and quality guardian",
+        "icon": "\U0001F9ED",
+        "plugins": ["compass"],
+        "compatible_personalities": ["anomal", "bjork", "stal", "prisma"],
+        "recommended": "bjork",
+    },
+    {
+        "id": "dev_automation",
+        "name": "Dev Automation",
+        "description": "Autonomous bug-fixing agent that finds bugs, writes fixes, runs tests, and creates PRs",
+        "icon": "\U0001F527",
+        "plugins": ["dev_agent"],
+        "compatible_personalities": ["smed"],
+        "recommended": "smed",
     },
 ]
 

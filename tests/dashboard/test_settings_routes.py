@@ -256,6 +256,22 @@ class TestSettingsStep5:
         assert "/settings/step/6" in resp.headers["location"]
 
     @pytest.mark.asyncio
+    async def test_step5_shows_new_use_cases(self, client, session_cookie):
+        """All 14 use cases should render on step 5, including the 6 new ones."""
+        cookie_value, _ = session_cookie
+        resp = await client.get(
+            "/settings/step/5",
+            cookies={SESSION_COOKIE: cookie_value},
+        )
+        assert resp.status_code == 200
+        assert "IRC Conversations" in resp.text
+        assert "Multi-Perspective Content" in resp.text
+        assert "Psychological Mirror" in resp.text
+        assert "Shadow Work" in resp.text
+        assert "Identity Drift Detection" in resp.text
+        assert "Dev Automation" in resp.text
+
+    @pytest.mark.asyncio
     async def test_step5_empty_selection_shows_error(self, client, session_cookie):
         cookie_value, csrf_token = session_cookie
         resp = await client.post(

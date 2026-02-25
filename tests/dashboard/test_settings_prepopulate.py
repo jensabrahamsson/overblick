@@ -78,6 +78,22 @@ class TestConfigToWizardState:
         assert state["llm"]["openai"]["enabled"] is True
         assert state["llm"]["default_backend"] == "openai"
 
+    def test_detects_new_plugin_use_cases(self, tmp_path):
+        """Active plugins for new use cases map to correct use_case IDs."""
+        identities_dir = tmp_path / "overblick" / "identities" / "anomal"
+        identities_dir.mkdir(parents=True)
+        (identities_dir / "personality.yaml").write_text(yaml.dump({
+            "plugins": ["irc", "kontrast", "spegel", "skuggspel", "compass", "dev_agent"],
+        }))
+        state = _config_to_wizard_state({}, base_dir=tmp_path)
+        selected = state.get("selected_use_cases", [])
+        assert "irc_conversations" in selected
+        assert "multi_perspective" in selected
+        assert "psychological_mirror" in selected
+        assert "shadow_work" in selected
+        assert "identity_drift" in selected
+        assert "dev_automation" in selected
+
     def test_empty_config_returns_empty(self):
         state = _config_to_wizard_state({})
         assert state == {}

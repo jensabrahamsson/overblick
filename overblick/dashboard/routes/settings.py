@@ -190,6 +190,18 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
         detected_use_cases.append("matrix_chat")
     if "webhook" in active_plugins:
         detected_use_cases.append("webhooks")
+    if "irc" in active_plugins:
+        detected_use_cases.append("irc_conversations")
+    if "kontrast" in active_plugins:
+        detected_use_cases.append("multi_perspective")
+    if "spegel" in active_plugins:
+        detected_use_cases.append("psychological_mirror")
+    if "skuggspel" in active_plugins:
+        detected_use_cases.append("shadow_work")
+    if "compass" in active_plugins:
+        detected_use_cases.append("identity_drift")
+    if "dev_agent" in active_plugins:
+        detected_use_cases.append("dev_automation")
     if detected_use_cases:
         state_update["selected_use_cases"] = detected_use_cases
 

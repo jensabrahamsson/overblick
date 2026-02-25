@@ -149,6 +149,17 @@ class TestUseCaseStep:
         assert resp.status_code == 303
         assert resp.headers["location"] == "/step/6"
 
+    async def test_step5_shows_new_use_cases(self, client: AsyncClient):
+        """All 14 use cases should render on step 5."""
+        resp = await client.get("/step/5")
+        assert resp.status_code == 200
+        assert "IRC Conversations" in resp.text
+        assert "Multi-Perspective Content" in resp.text
+        assert "Psychological Mirror" in resp.text
+        assert "Shadow Work" in resp.text
+        assert "Identity Drift Detection" in resp.text
+        assert "Dev Automation" in resp.text
+
 
 class TestAssignmentStep:
     """Step 6: Agent assignment."""
