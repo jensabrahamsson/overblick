@@ -113,6 +113,7 @@ class ReplyGenerator:
             result = await self._ctx.llm_pipeline.chat(
                 messages=messages,
                 audit_action="email_reply",
+                complexity="high",
             )
             if not result or result.blocked or not result.content:
                 return False
@@ -212,6 +213,7 @@ class ReplyGenerator:
                 messages=messages,
                 audit_action="email_draft_reply",
                 skip_preflight=True,
+                complexity="high",
             )
             if not result or result.blocked or not result.content:
                 logger.warning(

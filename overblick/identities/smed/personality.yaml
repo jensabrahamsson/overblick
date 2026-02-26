@@ -165,7 +165,6 @@ operational:
     temperature: 0.3          # Low — precision over creativity
     max_tokens: 2000
     timeout_seconds: 180
-    use_gateway: false
 
   schedule:
     heartbeat_hours: 1
@@ -189,7 +188,13 @@ operational:
     - "dev_agent"
 
   # Dev agent plugin configuration
+  # Git author identity — secrets (git_user, git_email) take priority,
+  # these are fallback defaults.
   dev_agent:
+    git_config:
+      author_name: "Smed (Överblick Dev Agent)"
+      author_email: "smed@overblick.dev"
+
     repo_url: "https://github.com/jensabrahamsson/overblick.git"
     workspace_dir: "workspace/overblick"     # Relative to data/smed/
     default_branch: "main"

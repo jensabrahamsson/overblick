@@ -540,7 +540,6 @@ operational:
     temperature: 0.4          # Low — precision over creativity
     max_tokens: 1500
     timeout_seconds: 180
-    use_gateway: false
 
   schedule:
     heartbeat_hours: 1        # Check email frequently

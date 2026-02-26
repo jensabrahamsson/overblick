@@ -27,9 +27,9 @@ class HealthInquiryHandler:
 
     On first inquiry, lazily initializes:
     - HostInspectionCapability for system data collection
-    - OllamaClient + SafeLLMPipeline for crafting responses in Anomal's voice
+    - GatewayClient + SafeLLMPipeline for crafting responses in Anomal's voice
 
-    All LLM calls go through the full security pipeline.
+    All LLM calls go through the gateway and the full security pipeline.
     """
 
     def __init__(self, audit_log: Optional[AuditLog] = None):
@@ -75,13 +75,14 @@ class HealthInquiryHandler:
                 "If previous context is provided, do NOT echo or paraphrase it."
             )
 
-            # Create LLM client and pipeline
-            from overblick.core.llm.ollama_client import OllamaClient
+            # Create LLM client (via gateway) and pipeline
+            from overblick.core.llm.gateway_client import GatewayClient
             from overblick.core.llm.pipeline import SafeLLMPipeline
             from overblick.core.security.rate_limiter import RateLimiter
 
-            llm_client = OllamaClient(
+            llm_client = GatewayClient(
                 model=anomal.llm.model,
+                default_priority="low",
                 temperature=anomal.llm.temperature,
                 max_tokens=anomal.llm.max_tokens,
                 timeout_seconds=anomal.llm.timeout_seconds,

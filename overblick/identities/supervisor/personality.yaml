@@ -641,7 +641,6 @@ operational:
     temperature: 0.3          # Very low — decisions must be consistent
     max_tokens: 2000
     timeout_seconds: 180
-    use_gateway: false
 
   schedule:
     heartbeat_hours: 1        # Frequent monitoring

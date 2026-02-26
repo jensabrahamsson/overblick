@@ -3,10 +3,16 @@ Email classifier — LLM-based intent classification for incoming emails.
 
 Owns all classification logic: building prompts, calling the LLM pipeline,
 parsing and normalising responses, and building signal/reputation context strings.
+
+Security layers (applied before LLM):
+1. Blocked domains — hardcoded high-risk domains auto-ignored
+2. Phishing detection — urgency/link patterns auto-ignored
+3. LLM classification — intent + confidence
 """
 
 import json
 import logging
+import re
 from typing import TYPE_CHECKING, Any, Optional
 
 from overblick.plugins.email_agent.models import (
@@ -23,6 +29,26 @@ if TYPE_CHECKING:
     from overblick.plugins.email_agent.database import EmailAgentDB
 
 logger = logging.getLogger(__name__)
+
+# Domains known to be high-risk or exclusively used for spam/phishing.
+# Emails from these domains are auto-ignored before reaching the LLM.
+BLOCKED_DOMAINS: frozenset[str] = frozenset({
+    "tempmail.com", "throwaway.email", "guerrillamail.com",
+    "mailinator.com", "yopmail.com", "sharklasers.com",
+    "guerrillamailblock.com", "grr.la", "dispostable.com",
+    "trashmail.com", "fakeinbox.com", "maildrop.cc",
+})
+
+# Regex patterns that indicate phishing or social engineering attempts.
+# Matched against subject + body (case-insensitive).
+_PHISHING_PATTERNS: list[re.Pattern] = [
+    re.compile(r"verify\s+your\s+(account|identity|payment)", re.IGNORECASE),
+    re.compile(r"(click|log\s*in)\s+(here|now|immediately)", re.IGNORECASE),
+    re.compile(r"your\s+account\s+(has been|will be)\s+(suspended|locked|closed)", re.IGNORECASE),
+    re.compile(r"(urgent|immediate)\s+(action|attention|response)\s+required", re.IGNORECASE),
+    re.compile(r"confirm\s+your\s+(identity|password|credentials)", re.IGNORECASE),
+    re.compile(r"unusual\s+(activity|sign.?in|login)\s+(detected|attempt)", re.IGNORECASE),
+]
 
 # Map common LLM-hallucinated intents to valid EmailIntent values
 _INTENT_ALIASES: dict[str, str] = {
@@ -84,6 +110,21 @@ class EmailClassifier:
             )
         return "Can reply to any sender"
 
+    @staticmethod
+    def is_blocked_domain(sender: str) -> bool:
+        """Check if sender's domain is in the blocked list."""
+        try:
+            domain = sender.rsplit("@", 1)[-1].lower().strip()
+            return domain in BLOCKED_DOMAINS
+        except (IndexError, AttributeError):
+            return False
+
+    @staticmethod
+    def detect_phishing(subject: str, body: str) -> bool:
+        """Check for common phishing/social engineering patterns."""
+        text = f"{subject} {body[:2000]}"
+        return any(p.search(text) for p in _PHISHING_PATTERNS)
+
     async def classify(
         self,
         sender: str,
@@ -92,7 +133,32 @@ class EmailClassifier:
         sender_reputation: str = "",
         email_signals: str = "",
     ) -> Optional[EmailClassification]:
-        """Run classification prompt — pure LLM decision."""
+        """Run classification with pre-LLM safety checks, then LLM decision."""
+        # Pre-LLM safety: blocked domains
+        if self.is_blocked_domain(sender):
+            logger.info(
+                "EmailAgent: sender %s blocked (domain blocklist), auto-ignore",
+                sender,
+            )
+            return EmailClassification(
+                intent=EmailIntent.IGNORE,
+                confidence=1.0,
+                reasoning="Sender domain is on the blocklist",
+                priority="low",
+            )
+
+        # Pre-LLM safety: phishing detection
+        if self.detect_phishing(subject, body):
+            logger.warning(
+                "EmailAgent: phishing pattern detected in email from %s: %s",
+                sender, subject[:80],
+            )
+            return EmailClassification(
+                intent=EmailIntent.IGNORE,
+                confidence=0.95,
+                reasoning="Phishing/social engineering pattern detected",
+                priority="low",
+            )
         goals_text = "\n".join(
             f"- {g.description} (priority: {g.priority})"
             for g in self._state.goals

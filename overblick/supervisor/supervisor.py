@@ -25,6 +25,7 @@ from overblick.supervisor.health_handler import HealthInquiryHandler
 from overblick.supervisor.research_handler import ResearchHandler
 from overblick.supervisor.ipc import IPCMessage, IPCServer, generate_ipc_token
 from overblick.supervisor.process import AgentProcess, ProcessState
+from overblick.supervisor.routing import MessageRouter, RouteStatus
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,9 @@ class Supervisor:
         # Research handler (lazy LLM initialization)
         self._research_handler = ResearchHandler(audit_log=self._audit_log)
 
+        # Inter-agent message router
+        self._message_router = MessageRouter(audit_log=self._audit_log)
+
     @property
     def state(self) -> SupervisorState:
         return self._state
@@ -102,6 +106,8 @@ class Supervisor:
         self._ipc.on("research_request", self._handle_research_request)
         self._ipc.on("start_agent", self._handle_start_agent)
         self._ipc.on("stop_agent", self._handle_stop_agent)
+        self._ipc.on("route_message", self._handle_route_message)
+        self._ipc.on("collect_messages", self._handle_collect_messages)
         self._ipc.on("shutdown", self._handle_shutdown)
 
         self._audit_log.log("supervisor_starting", category="lifecycle")
@@ -135,6 +141,8 @@ class Supervisor:
         success = await agent.start()
         if success:
             self._agents[identity] = agent
+            # Register agent with message router for inter-agent messaging
+            self._message_router.register_agent(identity)
             # Start monitoring task
             task = asyncio.create_task(self._monitor_agent(identity))
             self._monitor_tasks[identity] = task
@@ -154,6 +162,9 @@ class Supervisor:
         task = self._monitor_tasks.pop(identity, None)
         if task:
             task.cancel()
+
+        # Unregister from message router
+        self._message_router.unregister_agent(identity)
 
         return await agent.stop()
 
@@ -212,7 +223,13 @@ class Supervisor:
                 1 for a in self._agents.values()
                 if a.state == ProcessState.RUNNING
             ),
+            "routing": self._message_router.get_stats(),
         }
+
+    @property
+    def message_router(self) -> MessageRouter:
+        """Expose message router for testing and dashboard."""
+        return self._message_router
 
     # ------------------------------------------------------------------
     # Internal methods
@@ -342,6 +359,77 @@ class Supervisor:
         return IPCMessage(
             msg_type="agent_action_response",
             payload={"success": False, "error": f"Agent '{identity}' not found or not running", "identity": identity, "action": "stop"},
+            sender="supervisor",
+        )
+
+    async def _handle_route_message(self, msg: IPCMessage) -> Optional[IPCMessage]:
+        """
+        Handle an agent-to-agent message routing request.
+
+        Expected payload:
+            target: str — target agent identity
+            message_type: str — message type for routing
+            data: dict — actual message payload
+            ttl_seconds: float (optional) — time-to-live
+        """
+        target = msg.payload.get("target", "")
+        message_type = msg.payload.get("message_type", "")
+        data = msg.payload.get("data", {})
+        ttl = msg.payload.get("ttl_seconds", 300.0)
+
+        if not target or not message_type:
+            return IPCMessage(
+                msg_type="route_response",
+                payload={
+                    "success": False,
+                    "error": "Missing 'target' or 'message_type' in payload",
+                },
+                sender="supervisor",
+            )
+
+        routed = self._message_router.route(
+            source=msg.sender,
+            target=target,
+            message_type=message_type,
+            payload=data,
+            ttl_seconds=ttl,
+        )
+
+        return IPCMessage(
+            msg_type="route_response",
+            payload={
+                "success": routed.status == RouteStatus.PENDING,
+                "message_id": routed.message_id,
+                "status": routed.status.value,
+                "error": routed.error,
+            },
+            sender="supervisor",
+        )
+
+    async def _handle_collect_messages(self, msg: IPCMessage) -> Optional[IPCMessage]:
+        """
+        Handle a message collection request from an agent.
+
+        The agent polls for pending messages addressed to it.
+        """
+        agent = msg.sender
+        messages = self._message_router.collect(agent)
+
+        return IPCMessage(
+            msg_type="collect_response",
+            payload={
+                "messages": [
+                    {
+                        "message_id": m.message_id,
+                        "source_agent": m.source_agent,
+                        "message_type": m.message_type,
+                        "payload": m.payload,
+                        "created_at": m.created_at,
+                    }
+                    for m in messages
+                ],
+                "count": len(messages),
+            },
             sender="supervisor",
         )
 

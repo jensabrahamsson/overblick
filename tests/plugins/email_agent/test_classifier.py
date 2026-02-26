@@ -15,7 +15,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from overblick.core.llm.pipeline import PipelineResult
-from overblick.plugins.email_agent.classifier import EmailClassifier
+from overblick.plugins.email_agent.classifier import (
+    BLOCKED_DOMAINS,
+    EmailClassifier,
+)
 from overblick.plugins.email_agent.models import (
     AgentState,
     EmailClassification,
@@ -409,3 +412,198 @@ class TestClassify:
         result = await c.classify("sender@example.com", "Subject", "Body")
 
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# is_blocked_domain — static, pre-LLM safety
+# ---------------------------------------------------------------------------
+
+class TestIsBlockedDomain:
+    """Tests for EmailClassifier.is_blocked_domain() — static method."""
+
+    def test_blocked_domain_returns_true(self):
+        """Known throwaway domains are blocked."""
+        for domain in ("mailinator.com", "guerrillamail.com", "yopmail.com", "tempmail.com"):
+            assert EmailClassifier.is_blocked_domain(f"user@{domain}") is True, f"domain={domain}"
+
+    def test_legitimate_domain_returns_false(self):
+        """Legitimate domains are not blocked."""
+        for sender in ("ceo@google.com", "hr@example.com", "alice@company.org"):
+            assert EmailClassifier.is_blocked_domain(sender) is False, f"sender={sender}"
+
+    def test_case_insensitive(self):
+        """Domain check is case-insensitive."""
+        assert EmailClassifier.is_blocked_domain("user@MAILINATOR.COM") is True
+        assert EmailClassifier.is_blocked_domain("user@Yopmail.Com") is True
+
+    def test_empty_sender_returns_false(self):
+        """Empty sender does not crash."""
+        assert EmailClassifier.is_blocked_domain("") is False
+
+    def test_no_at_sign_returns_false(self):
+        """Sender without @ sign returns False (no domain to check)."""
+        assert EmailClassifier.is_blocked_domain("nodomain") is False
+
+    def test_none_sender_returns_false(self):
+        """None sender returns False."""
+        assert EmailClassifier.is_blocked_domain(None) is False
+
+    def test_all_blocked_domains_in_frozenset(self):
+        """Verify BLOCKED_DOMAINS contains expected entries."""
+        assert isinstance(BLOCKED_DOMAINS, frozenset)
+        assert len(BLOCKED_DOMAINS) >= 10
+        assert "mailinator.com" in BLOCKED_DOMAINS
+        assert "guerrillamail.com" in BLOCKED_DOMAINS
+
+
+# ---------------------------------------------------------------------------
+# detect_phishing — static, pre-LLM safety
+# ---------------------------------------------------------------------------
+
+class TestDetectPhishing:
+    """Tests for EmailClassifier.detect_phishing() — static method."""
+
+    def test_account_verification_detected(self):
+        """'Verify your account' pattern is detected."""
+        assert EmailClassifier.detect_phishing(
+            "Important: Verify your account", "Please click below.",
+        ) is True
+
+    def test_click_here_immediately_detected(self):
+        """'Click here immediately' pattern is detected."""
+        assert EmailClassifier.detect_phishing(
+            "Security alert", "Click here immediately to secure your account.",
+        ) is True
+
+    def test_account_suspended_detected(self):
+        """'Your account has been suspended' pattern is detected."""
+        assert EmailClassifier.detect_phishing(
+            "Account suspended", "Your account has been suspended due to unusual activity.",
+        ) is True
+
+    def test_urgent_action_required_detected(self):
+        """'Urgent action required' pattern is detected."""
+        assert EmailClassifier.detect_phishing(
+            "Urgent action required", "Please respond immediately.",
+        ) is True
+
+    def test_confirm_credentials_detected(self):
+        """'Confirm your credentials' pattern is detected."""
+        assert EmailClassifier.detect_phishing(
+            "Security check", "Please confirm your credentials below.",
+        ) is True
+
+    def test_unusual_login_detected(self):
+        """'Unusual sign-in detected' pattern is detected."""
+        assert EmailClassifier.detect_phishing(
+            "Security alert", "Unusual sign-in detected on your account.",
+        ) is True
+
+    def test_legitimate_email_not_flagged(self):
+        """Normal business email is not flagged as phishing."""
+        assert EmailClassifier.detect_phishing(
+            "Meeting tomorrow at 3pm",
+            "Hi, can we meet tomorrow to discuss the project? Thanks.",
+        ) is False
+
+    def test_newsletter_not_flagged(self):
+        """Newsletter content is not flagged as phishing."""
+        assert EmailClassifier.detect_phishing(
+            "Weekly AI digest",
+            "Here are this week's top AI stories and developments.",
+        ) is False
+
+    def test_empty_content_not_flagged(self):
+        """Empty subject/body does not trigger false positive."""
+        assert EmailClassifier.detect_phishing("", "") is False
+
+    def test_case_insensitive(self):
+        """Phishing detection is case-insensitive."""
+        assert EmailClassifier.detect_phishing(
+            "VERIFY YOUR ACCOUNT NOW", "CLICK HERE IMMEDIATELY",
+        ) is True
+
+
+# ---------------------------------------------------------------------------
+# classify — pre-LLM safety checks integration
+# ---------------------------------------------------------------------------
+
+class TestClassifyPreLLMSafety:
+    """Tests for pre-LLM safety checks in EmailClassifier.classify()."""
+
+    @pytest.mark.asyncio
+    async def test_blocked_domain_auto_ignored_without_llm(self):
+        """Emails from blocked domains are auto-ignored without calling LLM."""
+        ctx = MagicMock()
+        ctx.llm_pipeline.chat = AsyncMock()
+        db = MagicMock()
+        db.get_sender_history = AsyncMock(return_value=[])
+
+        c = make_classifier(ctx=ctx, db=db)
+        result = await c.classify("scammer@mailinator.com", "Hello", "Some body")
+
+        assert result is not None
+        assert result.intent == EmailIntent.IGNORE
+        assert result.confidence == 1.0
+        assert "blocklist" in result.reasoning.lower()
+        # LLM should NOT have been called
+        ctx.llm_pipeline.chat.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_phishing_auto_ignored_without_llm(self):
+        """Emails with phishing patterns are auto-ignored without calling LLM."""
+        ctx = MagicMock()
+        ctx.llm_pipeline.chat = AsyncMock()
+        db = MagicMock()
+        db.get_sender_history = AsyncMock(return_value=[])
+
+        c = make_classifier(ctx=ctx, db=db)
+        result = await c.classify(
+            "support@legit-bank.com",
+            "Urgent action required",
+            "Your account will be suspended. Urgent action required to keep access.",
+        )
+
+        assert result is not None
+        assert result.intent == EmailIntent.IGNORE
+        assert result.confidence == 0.95
+        assert "phishing" in result.reasoning.lower()
+        ctx.llm_pipeline.chat.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_blocked_domain_takes_priority_over_phishing(self):
+        """Blocked domain check runs before phishing detection."""
+        ctx = MagicMock()
+        ctx.llm_pipeline.chat = AsyncMock()
+        db = MagicMock()
+        db.get_sender_history = AsyncMock(return_value=[])
+
+        c = make_classifier(ctx=ctx, db=db)
+        result = await c.classify(
+            "hacker@guerrillamail.com",
+            "Verify your account",
+            "Click here immediately to verify your credentials.",
+        )
+
+        assert result is not None
+        assert result.intent == EmailIntent.IGNORE
+        assert result.confidence == 1.0
+        assert "blocklist" in result.reasoning.lower()
+
+    @pytest.mark.asyncio
+    async def test_safe_email_reaches_llm(self):
+        """Emails that pass safety checks are classified by LLM."""
+        ctx = MagicMock()
+        valid_json = '{"intent": "reply", "confidence": 0.9, "reasoning": "Meeting", "priority": "normal"}'
+        ctx.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content=valid_json),
+        )
+        db = MagicMock()
+        db.get_sender_history = AsyncMock(return_value=[])
+
+        c = make_classifier(ctx=ctx, db=db)
+        result = await c.classify("colleague@company.com", "Meeting tomorrow", "Can we meet at 3?")
+
+        assert result is not None
+        assert result.intent == EmailIntent.REPLY
+        ctx.llm_pipeline.chat.assert_called_once()

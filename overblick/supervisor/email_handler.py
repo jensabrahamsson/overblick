@@ -60,12 +60,13 @@ class EmailConsultationHandler:
                 "Respond in JSON: {\"advised_action\": \"...\", \"reasoning\": \"...\"}"
             )
 
-            from overblick.core.llm.ollama_client import OllamaClient
+            from overblick.core.llm.gateway_client import GatewayClient
             from overblick.core.llm.pipeline import SafeLLMPipeline
             from overblick.core.security.rate_limiter import RateLimiter
 
-            llm_client = OllamaClient(
+            llm_client = GatewayClient(
                 model=anomal.llm.model,
+                default_priority="low",
                 temperature=anomal.llm.temperature,
                 max_tokens=anomal.llm.max_tokens,
                 timeout_seconds=anomal.llm.timeout_seconds,

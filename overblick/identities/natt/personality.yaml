@@ -757,8 +757,6 @@ operational:
     temperature: 0.75
     max_tokens: 2000
     timeout_seconds: 180
-    use_gateway: false
-    gateway_url: "http://127.0.0.1:8200"
   schedule:
     heartbeat_hours: 6
     feed_poll_minutes: 10

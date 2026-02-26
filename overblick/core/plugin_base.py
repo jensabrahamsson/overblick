@@ -149,6 +149,74 @@ class PluginContext(BaseModel):
             secrets_getter=getattr(self, "_secrets_getter", None),
         )
 
+    async def send_to_agent(
+        self,
+        target: str,
+        message_type: str,
+        payload: Optional[dict] = None,
+        ttl_seconds: float = 300.0,
+        timeout: float = 10.0,
+    ) -> Optional[dict]:
+        """
+        Send a message to another agent via the Supervisor's MessageRouter.
+
+        Args:
+            target: Target agent identity (e.g. "smed", "vakt")
+            message_type: Message type for routing (e.g. "bug_report", "log_alert")
+            payload: Message data
+            ttl_seconds: How long the message stays pending before expiring
+            timeout: IPC timeout in seconds
+
+        Returns:
+            Response dict with "success", "message_id", "status", "error"
+            or None if IPC is unavailable
+        """
+        if not self.ipc_client:
+            logger.debug("send_to_agent: no IPC client available")
+            return None
+
+        from overblick.supervisor.ipc import IPCMessage
+
+        msg = IPCMessage(
+            msg_type="route_message",
+            sender=self.identity_name,
+            payload={
+                "target": target,
+                "message_type": message_type,
+                "data": payload or {},
+                "ttl_seconds": ttl_seconds,
+            },
+        )
+
+        response = await self.ipc_client.send(msg, timeout=timeout)
+        if response and response.payload:
+            return response.payload
+        return None
+
+    async def collect_messages(self, timeout: float = 5.0) -> list[dict]:
+        """
+        Collect pending messages from other agents via the Supervisor.
+
+        Returns:
+            List of message dicts with "message_id", "source_agent",
+            "message_type", "payload", "created_at"
+        """
+        if not self.ipc_client:
+            return []
+
+        from overblick.supervisor.ipc import IPCMessage
+
+        msg = IPCMessage(
+            msg_type="collect_messages",
+            sender=self.identity_name,
+            payload={},
+        )
+
+        response = await self.ipc_client.send(msg, timeout=timeout)
+        if response and response.payload:
+            return response.payload.get("messages", [])
+        return []
+
     def model_post_init(self, __context) -> None:
         # Ensure directories exist
         self.data_dir.mkdir(parents=True, exist_ok=True)

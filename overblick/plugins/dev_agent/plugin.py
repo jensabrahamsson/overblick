@@ -133,6 +133,11 @@ class DevAgentPlugin(AgenticPluginBase):
         lw_enabled = lw_config.get("enabled", True)
         lw_identities = lw_config.get("scan_identities", [])
 
+        # Git author config (from secrets for security, with fallback to YAML)
+        git_config = da_config.get("git_config", {})
+        git_author_name = self.ctx.get_secret("git_user") or git_config.get("author_name", "")
+        git_author_email = self.ctx.get_secret("git_email") or git_config.get("author_email", "")
+
         # ── Initialize infrastructure ────────────────────────────────────
 
         # Database
@@ -155,6 +160,8 @@ class DevAgentPlugin(AgenticPluginBase):
             repo_url=repo_url,
             default_branch=default_branch,
             dry_run=self._dry_run,
+            git_author_name=git_author_name,
+            git_author_email=git_author_email,
         )
 
         # Opencode runner

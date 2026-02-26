@@ -2813,3 +2813,102 @@ class TestDraftReplyDatabaseTracking:
         assert MIGRATIONS[6].name == "draft_reply_tracking"
 
         await db.close()
+
+
+# ---------------------------------------------------------------------------
+# Reply rate limiting
+# ---------------------------------------------------------------------------
+
+class TestReplyRateLimiting:
+    """Tests for per-domain reply rate limiting in EmailAgentPlugin."""
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_not_triggered_below_threshold(self, stal_plugin_context):
+        """Replies below the rate limit threshold are allowed."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # First 4 replies should not be rate limited (limit is 5)
+        for _ in range(4):
+            assert plugin._is_reply_rate_limited("sender@example.com") is False
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_triggered_at_threshold(self, stal_plugin_context):
+        """Rate limit triggers when threshold is reached."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Make 5 non-limited calls (each appends a timestamp)
+        for _ in range(5):
+            plugin._is_reply_rate_limited("sender@example.com")
+
+        # 6th call should be rate limited
+        assert plugin._is_reply_rate_limited("sender@example.com") is True
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_per_domain(self, stal_plugin_context):
+        """Rate limits are tracked per domain, not per sender."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Exhaust limit for example.com
+        for _ in range(5):
+            plugin._is_reply_rate_limited("a@example.com")
+
+        # Same domain, different sender — should be limited
+        assert plugin._is_reply_rate_limited("b@example.com") is True
+
+        # Different domain — should NOT be limited
+        assert plugin._is_reply_rate_limited("c@other.com") is False
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_expires_after_one_hour(self, stal_plugin_context):
+        """Old timestamps are cleaned up after one hour."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Inject old timestamps (> 1 hour ago)
+        old_time = time.time() - 3700  # 1 hour + 100 seconds ago
+        plugin._reply_timestamps["example.com"] = [old_time] * 5
+
+        # Should NOT be rate limited — old timestamps are cleaned
+        assert plugin._is_reply_rate_limited("sender@example.com") is False
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_handles_malformed_sender(self, stal_plugin_context):
+        """Malformed sender address does not crash rate limiter."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # No @ sign — should not crash, just return False
+        assert plugin._is_reply_rate_limited("no-at-sign") is False
+
+    @pytest.mark.asyncio
+    async def test_rate_limited_reply_falls_back_to_notification(
+        self, stal_plugin_context, mock_telegram_notifier,
+    ):
+        """When rate limited, reply action falls back to notification."""
+        plugin = EmailAgentPlugin(stal_plugin_context)
+        await plugin.setup()
+
+        # Exhaust rate limit for example.com
+        plugin._reply_timestamps["example.com"] = [time.time()] * 5
+
+        email = {
+            "sender": "jens@example.com",
+            "subject": "Another meeting",
+            "body": "Can we meet again?",
+            "snippet": "Can we meet again?",
+            "message_id": "rate-limit-test",
+            "thread_id": "thread-rate-limit",
+        }
+
+        classification = EmailClassification(
+            intent=EmailIntent.REPLY,
+            confidence=0.95,
+            reasoning="Meeting request",
+            priority="normal",
+        )
+
+        result = await plugin._execute_action(email, classification)
+        assert result == "reply_rate_limited_notify_fallback"

@@ -120,6 +120,9 @@ class EmailAgentPlugin(PluginBase):
         self._discovered_consultants: dict[str, list[str]] = {}
         # Cached auto-ignore domains
         self._auto_ignore_domains: set[str] = set()
+        # Reply rate limiting: max replies per domain per hour
+        self._reply_rate_limit: int = 5
+        self._reply_timestamps: dict[str, list[float]] = {}  # domain → [timestamps]
         # Helper instances (set in setup())
         self._classifier: Optional[EmailClassifier] = None
         self._reputation: Optional[ReputationManager] = None
@@ -175,6 +178,11 @@ class EmailAgentPlugin(PluginBase):
 
             # Load principal name from secrets (injected at runtime — never hardcoded)
             self._principal_name = self.ctx.get_secret("principal_name") or ""
+            if not self._principal_name:
+                logger.error(
+                    "EmailAgent: principal_name secret not configured — "
+                    "reply prompts will be degraded. Set it via secrets manager."
+                )
 
             # Max email age — skip emails older than this (hours).
             age_val = ea_config.get("max_email_age_hours")
@@ -668,6 +676,19 @@ class EmailAgentPlugin(PluginBase):
                         self._state.notifications_sent += 1
                     return "reply_suppressed_notify_fallback" if success else "reply_suppressed_notify_failed"
 
+                if self._is_reply_rate_limited(sender):
+                    logger.warning(
+                        "Reply rate limited for domain of %s — "
+                        "max %d replies/hour exceeded, falling back to notification",
+                        sender, self._reply_rate_limit,
+                    )
+                    success = await self._send_notification(
+                        email, classification, email_record_id=email_record_id,
+                    )
+                    if success:
+                        self._state.notifications_sent += 1
+                    return "reply_rate_limited_notify_fallback"
+
                 if self._dry_run:
                     logger.info("DRY RUN: would reply to %s re: %s — skipped", sender, email.get("subject", ""))
                     return "dry_run_reply_skipped"
@@ -1044,6 +1065,32 @@ class EmailAgentPlugin(PluginBase):
         elif self._filter_mode == "opt_out":
             return sender not in self._blocked_senders
         return True
+
+    def _is_reply_rate_limited(self, sender: str) -> bool:
+        """Check if reply rate limit has been exceeded for sender's domain.
+
+        Tracks reply timestamps per domain and enforces a max replies/hour limit.
+        Returns True if the limit has been exceeded.
+        """
+        try:
+            domain = sender.rsplit("@", 1)[-1].lower().strip()
+        except (IndexError, AttributeError):
+            return False
+
+        now = time.time()
+        one_hour_ago = now - 3600
+
+        # Clean old timestamps
+        timestamps = self._reply_timestamps.get(domain, [])
+        timestamps = [t for t in timestamps if t > one_hour_ago]
+        self._reply_timestamps[domain] = timestamps
+
+        if len(timestamps) >= self._reply_rate_limit:
+            return True
+
+        # Record this reply attempt
+        timestamps.append(now)
+        return False
 
     def _build_system_prompt(self) -> str:
         """Build system prompt from Stål's personality."""

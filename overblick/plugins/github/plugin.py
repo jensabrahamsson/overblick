@@ -30,6 +30,7 @@ from overblick.plugins.github.dependabot_handler import DependabotHandler
 from overblick.plugins.github.issue_responder import IssueResponder
 from overblick.plugins.github.models import ActionType, PluginState
 from overblick.plugins.github.observation import ObservationCollector
+from overblick.plugins.github.owner_commands import OwnerCommandQueue
 from overblick.plugins.github.response_gen import ResponseGenerator
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,7 @@ class GitHubAgentPlugin(AgenticPluginBase):
         self._check_interval: int = 600  # 10 minutes default
         self._repos: list[str] = []
         self._dry_run: bool = True
+        self._command_queue = OwnerCommandQueue()
 
     async def setup(self) -> None:
         """Initialize all components and wire the agentic loop."""
@@ -272,11 +274,19 @@ class GitHubAgentPlugin(AgenticPluginBase):
 
         self._state.last_check = now
 
+        # Fetch owner commands from Telegram before the planning phase
+        notifier = self.ctx.get_capability("telegram_notifier")
+        if notifier:
+            await self._command_queue.fetch_commands(notifier)
+
         # Run the agentic loop (provided by AgenticPluginBase)
         tick_log = await self.agentic_tick()
         if tick_log:
             self._state.events_processed += tick_log.observations_count
             self._state.comments_posted += tick_log.actions_succeeded
+
+        # Clear processed commands after the tick
+        self._command_queue.pop_commands()
 
         # Update rate limit info
         if self._client:
@@ -332,6 +342,10 @@ class GitHubAgentPlugin(AgenticPluginBase):
     def get_valid_action_types(self) -> set[str]:
         """Return set of valid GitHub action type strings."""
         return {a.value for a in ActionType}
+
+    def get_extra_planning_context(self) -> str:
+        """Inject pending owner commands into the planner's context."""
+        return self._command_queue.format_for_planner()
 
     # ── Plugin-specific methods ──────────────────────────────────────────
 

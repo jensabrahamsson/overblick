@@ -38,11 +38,15 @@ class WorkspaceManager:
         repo_url: str,
         default_branch: str = "main",
         dry_run: bool = True,
+        git_author_name: str = "",
+        git_author_email: str = "",
     ):
         self._path = workspace_path
         self._repo_url = repo_url
         self._default_branch = default_branch
         self._dry_run = dry_run
+        self._git_author_name = git_author_name
+        self._git_author_email = git_author_email
 
     @property
     def path(self) -> Path:
@@ -51,6 +55,15 @@ class WorkspaceManager:
     @property
     def repo_url(self) -> str:
         return self._repo_url
+
+    async def _configure_git_author(self) -> None:
+        """Set local git author config in the workspace (if configured)."""
+        if self._git_author_name:
+            await self._run_git("config", "user.name", self._git_author_name)
+            logger.info("Workspace git user.name set to: %s", self._git_author_name)
+        if self._git_author_email:
+            await self._run_git("config", "user.email", self._git_author_email)
+            logger.info("Workspace git user.email set to: %s", self._git_author_email)
 
     async def get_state(self) -> WorkspaceState:
         """Get the current workspace state."""
@@ -78,6 +91,7 @@ class WorkspaceManager:
         """
         if (self._path / ".git").is_dir():
             logger.debug("Workspace already cloned at %s", self._path)
+            await self._configure_git_author()
             return True
 
         logger.info("Cloning %s to %s", self._repo_url, self._path)
@@ -90,6 +104,9 @@ class WorkspaceManager:
         if not ok:
             logger.error("Clone failed: %s", output)
             return False
+
+        # Configure git author identity (local to this workspace only)
+        await self._configure_git_author()
 
         logger.info("Clone successful")
         return True
