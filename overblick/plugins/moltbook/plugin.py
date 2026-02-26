@@ -617,6 +617,7 @@ class MoltbookPlugin(PluginBase):
             prompt_template=heartbeat_prompt,
             topic_index=topic_index,
             topic_vars=topic_vars,
+            extra_context=self._gather_capability_context(),
         )
 
         if not result:
@@ -688,6 +689,7 @@ class MoltbookPlugin(PluginBase):
                 dream=dream_dict,
                 prompt_template=journal_prompt,
                 extra_format_vars={"submolt_instruction": submolt_instruction},
+                extra_context=self._gather_capability_context(),
             )
         except Exception as e:
             logger.warning("Dream journal generation failed: %s", e)
@@ -811,7 +813,7 @@ class MoltbookPlugin(PluginBase):
     def _gather_capability_context(self) -> str:
         """Collect prompt context from all enabled capabilities."""
         parts = []
-        for cap in self._capabilities.values():
+        for cap in getattr(self, "_capabilities", {}).values():
             # Use getattr: framework capabilities (e.g. EmailCapability, GmailCapability)
             # may be shared into this dict but don't implement CapabilityBase.enabled.
             if getattr(cap, "enabled", False):

@@ -206,6 +206,7 @@ class ResponseGenerator:
         prompt_template: str,
         topic_index: int = 0,
         topic_vars: dict[str, str] | None = None,
+        extra_context: str = "",
     ) -> Optional[tuple[str, str, str]]:
         """
         Generate a heartbeat post.
@@ -218,6 +219,7 @@ class ResponseGenerator:
             topic_index: Index into the HEARTBEAT_TOPICS list.
             topic_vars: Extra format variables (topic_instruction, topic_example)
                         resolved from HEARTBEAT_TOPICS by the caller.
+            extra_context: Additional context to prepend (e.g. time, capabilities).
 
         Returns:
             (title, content, submolt) tuple or None on failure.
@@ -226,6 +228,9 @@ class ResponseGenerator:
         if topic_vars:
             fmt_vars.update(topic_vars)
         prompt = prompt_template.format(**fmt_vars)
+
+        if extra_context:
+            prompt = f"{extra_context}\n\n{prompt}"
 
         content = await self._call_llm(
             prompt,
@@ -244,6 +249,7 @@ class ResponseGenerator:
         dream: dict,
         prompt_template: str,
         extra_format_vars: dict[str, str] | None = None,
+        extra_context: str = "",
     ) -> Optional[tuple[str, str, str]]:
         """
         Generate a dream journal post from a dream.
@@ -252,6 +258,7 @@ class ResponseGenerator:
             dream: Dream dict with dream_type, tone, content, insight, symbols.
             prompt_template: Identity-specific DREAM_JOURNAL_PROMPT template.
             extra_format_vars: Additional format variables (e.g. submolt_instruction).
+            extra_context: Additional context to prepend (e.g. time, capabilities).
 
         Returns:
             (title, content, submolt) tuple or None on failure.
@@ -272,6 +279,9 @@ class ResponseGenerator:
         except KeyError as e:
             logger.warning("Dream journal prompt missing key %s, skipping", e)
             return None
+
+        if extra_context:
+            prompt = f"{extra_context}\n\n{prompt}"
 
         content = await self._call_llm(
             prompt,
