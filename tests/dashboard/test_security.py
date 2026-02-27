@@ -118,6 +118,30 @@ class TestRateLimiterBounds:
         rl.check("key:overflow", max_requests=5, window_seconds=60)
         assert "key:0" not in rl._windows
 
+    def test_current_key_not_evicted(self):
+        """The key being checked should never be evicted (even if it's newest)."""
+        rl = RateLimiter()
+        limit = rl._MAX_TRACKED_KEYS
+        for i in range(limit):
+            rl.check(f"key:{i}", max_requests=5, window_seconds=60)
+        # The new key should survive eviction
+        result = rl.check("new_key", max_requests=5, window_seconds=60)
+        assert result is True
+        assert "new_key" in rl._windows
+
+    def test_eviction_preserves_active_keys(self):
+        """Eviction removes least-recently-active key, not most-recently-active."""
+        rl = RateLimiter()
+        limit = rl._MAX_TRACKED_KEYS
+        for i in range(limit):
+            rl.check(f"key:{i}", max_requests=5, window_seconds=60)
+        # Re-check the first key to make it recent
+        rl.check("key:0", max_requests=5, window_seconds=60)
+        # Overflow should evict key:1 (oldest), not key:0 (recently active)
+        rl.check("overflow", max_requests=5, window_seconds=60)
+        assert "key:0" in rl._windows
+        assert "key:1" not in rl._windows
+
 
 class TestOnboardingLLMValidation:
     def test_cloud_api_url_empty_is_allowed(self):

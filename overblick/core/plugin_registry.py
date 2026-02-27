@@ -23,6 +23,7 @@ _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "irc": ("overblick.plugins.irc.plugin", "IRCPlugin"),
     "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
+    "log_agent": ("overblick.plugins.log_agent.plugin", "LogAgentPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
     "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
     "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),

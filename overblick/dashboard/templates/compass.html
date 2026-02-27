@@ -125,7 +125,8 @@
             {% set sev = dm.severity|default('info') %}
             {% set dot_sev = 'low' if sev == 'info' else ('medium' if sev == 'warning' else 'high') %}
             <div class="drift-timeline-entry">
-                <div class="drift-timeline-dot" data-severity="{{ dot_sev }}"></div>
+                <div class="drift-timeline-dot" data-severity="{{ dot_sev }}" tabindex="0"
+                     role="listitem" aria-label="{{ dm.identity_name }}: drift {{ '%.2f'|format(dm.drift_score) }}"></div>
                 <div>
                     <strong>{{ dm.identity_name }}</strong>
                     <span class="badge-state {% if sev == 'critical' %}badge-state--error{% elif sev == 'warning' %}badge-state--paused{% else %}badge-state--active{% endif %}">

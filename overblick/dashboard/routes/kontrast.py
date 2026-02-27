@@ -5,9 +5,10 @@ Displays Kontrast pieces: multiple identity perspectives on the same topic,
 shown side-by-side on the dashboard.
 """
 
+import asyncio
 import logging
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Query
 from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
@@ -15,18 +16,33 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+_PAGE_SIZE = 20
+
+
 @router.get("/kontrast", response_class=HTMLResponse)
-async def kontrast_page(request: Request):
+async def kontrast_page(request: Request, page: int = Query(default=1, ge=1)):
     """Render the Kontrast multi-perspective page."""
     templates = request.app.state.templates
 
-    # Get stored pieces from plugin state (read-only)
-    pieces = _load_pieces(request)
+    try:
+        all_pieces = await asyncio.to_thread(_load_pieces, request)
+        data_errors = []
+    except Exception as e:
+        logger.error("Failed to load kontrast data: %s", e, exc_info=True)
+        all_pieces = []
+        data_errors = [f"Failed to load kontrast data: {e}"]
+
+    total = len(all_pieces)
+    pieces = all_pieces[:page * _PAGE_SIZE]
+    has_more = total > page * _PAGE_SIZE
 
     return templates.TemplateResponse("kontrast.html", {
         "request": request,
         "csrf_token": request.state.session.get("csrf_token", ""),
         "pieces": pieces,
+        "page": page,
+        "has_more": has_more,
+        "data_errors": data_errors,
     })
 
 
@@ -42,8 +58,9 @@ def _load_pieces(request: Request) -> list:
     from pathlib import Path
 
     # Try to find kontrast state files across all identity data dirs
+    from overblick.dashboard.routes._plugin_utils import resolve_data_root
     pieces = []
-    data_root = Path("data")
+    data_root = resolve_data_root(request)
     if not data_root.exists():
         return pieces
 
@@ -58,4 +75,4 @@ def _load_pieces(request: Request) -> list:
 
     # Sort by creation time, newest first
     pieces.sort(key=lambda p: p.get("created_at", 0), reverse=True)
-    return pieces[:20]
+    return pieces

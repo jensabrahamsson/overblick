@@ -15,7 +15,7 @@
     <div class="flash flash-error" role="alert">{{ error }}</div>
     {% endif %}
 
-    <div class="card" style="max-width: 640px;">
+    <div class="card settings-card-narrow">
         <form method="post" action="/settings/step/2" hx-boost="true">
 
             <div class="form-group">
@@ -60,16 +60,16 @@
             <div class="form-group">
                 <label class="form-label">Primary language</label>
                 {% set lang = (form_data or state.principal or {}).get('language_preference', 'en') %}
-                <div style="display: flex; gap: var(--space-lg);">
-                    <label style="cursor: pointer;">
+                <div class="settings-radio-group">
+                    <label class="settings-radio-label">
                         <input type="radio" name="language_preference" value="en" {{ 'checked' if lang == 'en' }}>
                         English
                     </label>
-                    <label style="cursor: pointer;">
+                    <label class="settings-radio-label">
                         <input type="radio" name="language_preference" value="sv" {{ 'checked' if lang == 'sv' }}>
                         Swedish
                     </label>
-                    <label style="cursor: pointer;">
+                    <label class="settings-radio-label">
                         <input type="radio" name="language_preference" value="auto" {{ 'checked' if lang == 'auto' }}>
                         Auto-detect
                     </label>

@@ -4,21 +4,21 @@
 {% block content %}
 <div class="conversations-page">
     <h1 class="page-title">Agent Conversations</h1>
-    <p class="page-subtitle" style="color: var(--text-muted); margin-bottom: 1.5rem;">
+    <p class="page-subtitle">
         Inter-agent communication log. Read-only monitoring of IPC exchanges.
     </p>
 
     {% if not conversations %}
-    <div class="empty-state" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+    <div class="conv-empty">
         <p>No agent conversations recorded yet.</p>
-        <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+        <p class="conv-empty-hint">
             Conversations appear when agents communicate via IPC (e.g. health inquiries).
         </p>
     </div>
     {% else %}
 
     <!-- Filter -->
-    <div class="filter-bar" style="margin-bottom: 1.5rem;">
+    <div class="conv-filter-bar">
         <select name="identity" class="form-select" aria-label="Filter by agent"
                 data-action="filter-conversations">
             <option value="">All Agents</option>
@@ -31,37 +31,37 @@
     <!-- Chat timeline -->
     <div class="conversation-timeline">
         {% for conv in conversations %}
-        <div class="conversation-entry" style="margin-bottom: 2rem; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card, #1a1a2e);">
+        <div class="conv-entry">
             <!-- Header: timestamp + health grade -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
-                <span style="color: var(--text-muted); font-size: 0.8rem;">
+            <div class="conv-entry-header">
+                <span class="conv-timestamp">
                     {{ conv.timestamp[:19].replace('T', ' ') }}
                     {% if conv.relative_time %}
-                    <span style="margin-left: 0.4rem;">({{ conv.relative_time }})</span>
+                    <span class="conv-relative-time">({{ conv.relative_time }})</span>
                     {% endif %}
                 </span>
                 <span class="badge-type badge-type--{% if conv.conversation_type == 'email' %}email{% elif conv.conversation_type == 'research' %}research{% elif conv.health_grade == 'good' %}good{% elif conv.health_grade == 'fair' %}fair{% elif conv.health_grade == 'poor' %}poor{% else %}default{% endif %}">{% if conv.conversation_type == 'email' %}email{% elif conv.conversation_type == 'research' %}research{% elif conv.health_grade %}{{ conv.health_grade }}{% else %}{{ conv.source }}{% endif %}</span>
             </div>
 
             <!-- Inquiry (left-aligned) -->
-            <div style="display: flex; margin-bottom: 0.75rem;">
-                <div style="max-width: 80%; background: var(--bg-input, #252540); padding: 0.75rem 1rem; border-radius: 12px 12px 12px 2px;">
-                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.5px;">
+            <div class="conv-bubble-row">
+                <div class="conv-bubble">
+                    <div class="conv-sender-label">
                         {{ conv.sender }}
                     </div>
-                    <div style="color: var(--text); line-height: 1.5;">
+                    <div class="conv-message-text">
                         {{ conv.motivation }}
                     </div>
                 </div>
             </div>
 
             <!-- Response (right-aligned) -->
-            <div style="display: flex; justify-content: flex-end;">
-                <div style="max-width: 80%; background: var(--accent-bg, #1e3a5f); padding: 0.75rem 1rem; border-radius: 12px 12px 2px 12px;">
-                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.5px; text-align: right;">
+            <div class="conv-bubble-row--right">
+                <div class="conv-bubble conv-bubble--response">
+                    <div class="conv-sender-label conv-sender-label--right">
                         {{ conv.responder }}
                     </div>
-                    <div style="color: var(--text); line-height: 1.5;">
+                    <div class="conv-message-text">
                         {{ conv.response }}
                     </div>
                 </div>
@@ -69,12 +69,12 @@
 
             {% if conv.acknowledgment %}
             <!-- Acknowledgment from initiator (left-aligned) -->
-            <div style="display: flex; margin-top: 0.75rem;">
-                <div style="max-width: 80%; background: var(--bg-input, #252540); padding: 0.5rem 1rem; border-radius: 12px 12px 12px 2px;">
-                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px;">
+            <div class="conv-bubble-row--ack">
+                <div class="conv-bubble conv-bubble--ack">
+                    <div class="conv-sender-label">
                         {{ conv.sender }} — ack
                     </div>
-                    <div style="color: var(--text-secondary); line-height: 1.5; font-style: italic; font-size: 0.9rem;">
+                    <div class="conv-ack-text">
                         {{ conv.acknowledgment }}
                     </div>
                 </div>
@@ -83,9 +83,9 @@
 
             {% if conv.outcome %}
             <!-- Outcome footer -->
-            <div style="margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem;">
-                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Outcome:</span>
-                <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ conv.outcome }}</span>
+            <div class="conv-outcome">
+                <span class="conv-outcome-label">Outcome:</span>
+                <span class="conv-outcome-text">{{ conv.outcome }}</span>
             </div>
             {% endif %}
         </div>

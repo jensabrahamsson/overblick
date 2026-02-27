@@ -2,6 +2,8 @@
 Tests for the GitHub decision engine — event scoring and action determination.
 """
 
+from datetime import datetime, timezone
+
 import pytest
 
 from overblick.plugins.github.decision_engine import GitHubDecisionEngine
@@ -196,6 +198,8 @@ class TestDecisionEngine:
         """Multiple factors combine correctly."""
         engine = self._make_engine()
         # mention(50) + label(30) + keyword(20) + priority(15) = 115
+        # Use a recent timestamp to avoid old_issue penalty
+        recent = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         event = GitHubEvent(
             event_id="test/1",
             event_type=EventType.ISSUE_OPENED,
@@ -205,7 +209,7 @@ class TestDecisionEngine:
             body="How does the API authentication work?",
             author="user",
             labels=["question"],
-            created_at="2026-02-20T12:00:00Z",
+            created_at=recent,
         )
         result = engine.evaluate(event)
 

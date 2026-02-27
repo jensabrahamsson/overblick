@@ -45,18 +45,26 @@ class RateLimiter:
         now = time.time()
         cutoff = now - window_seconds
 
-        # Clean old entries
-        self._windows[key] = [t for t in self._windows[key] if t > cutoff]
+        # Clean old entries (avoid defaultdict auto-creation for new keys)
+        if key in self._windows:
+            self._windows[key] = [t for t in self._windows[key] if t > cutoff]
+        else:
+            self._windows[key] = []
 
         if len(self._windows[key]) >= max_requests:
             return False
 
-        # Evict oldest key if dict is too large (prevents unbounded memory growth)
-        if len(self._windows) > self._MAX_TRACKED_KEYS:
-            oldest = next(iter(self._windows))
-            del self._windows[oldest]
-
         self._windows[key].append(now)
+
+        # Evict least-recently-active key if dict is too large
+        # (exclude current key — it was just added)
+        if len(self._windows) > self._MAX_TRACKED_KEYS:
+            oldest_key = min(
+                (k for k in self._windows if k != key),
+                key=lambda k: self._windows[k][-1] if self._windows[k] else 0,
+            )
+            del self._windows[oldest_key]
+
         return True
 
     def reset(self, key: str) -> None:

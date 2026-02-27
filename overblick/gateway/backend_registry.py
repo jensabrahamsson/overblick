@@ -124,16 +124,23 @@ class BackendRegistry:
     ) -> None:
         """Register a Deepseek API backend."""
         api_url = bcfg.get("api_url", "https://api.deepseek.com/v1")
-        api_key = (
-            bcfg.get("api_key")
-            or os.getenv("OVERBLICK_DEEPSEEK_API_KEY", "")
-        )
         model = bcfg.get("model", "deepseek-chat")
+
+        # Security: API keys must come from environment variables only.
+        # Reject keys embedded in YAML config files to prevent accidental
+        # exposure through version control or config sharing.
+        if bcfg.get("api_key"):
+            logger.warning(
+                "Backend '%s': API key found in YAML config — IGNORED for security. "
+                "Set OVERBLICK_DEEPSEEK_API_KEY environment variable instead.",
+                name,
+            )
+        api_key = os.getenv("OVERBLICK_DEEPSEEK_API_KEY", "")
 
         if not api_key:
             logger.warning(
                 "Backend '%s': Deepseek enabled but no API key configured "
-                "(set api_key in config or OVERBLICK_DEEPSEEK_API_KEY env var)",
+                "(set OVERBLICK_DEEPSEEK_API_KEY env var)",
                 name,
             )
 

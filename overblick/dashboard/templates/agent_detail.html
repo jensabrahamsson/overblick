@@ -132,7 +132,7 @@
             {% if 'dream_system' in identity.capability_names or
                  'therapy_system' in identity.capability_names or
                  'emotional_state' in identity.capability_names %}
-            <p class="text-muted mt-2" style="font-size: 0.85em;">
+            <p class="text-muted text-sm mt-2">
                 <em>Note: Psychology capabilities are now configured via Psychological Framework (see below).</em>
             </p>
             {% endif %}
@@ -182,7 +182,7 @@
             </div>
 
             {% if psych.get('domains') %}
-            <h4 class="mt-2" style="font-size: 0.9rem; color: var(--text-secondary);">Domains</h4>
+            <h4 class="mt-2 agent-detail-subtitle">Domains</h4>
             <div class="tag-list">
                 {% for domain in psych.get('domains', []) %}
                 <span class="tag tag-psychology">{{ domain.replace('_', ' ') }}</span>
@@ -191,8 +191,8 @@
             {% endif %}
 
             {% if psych.get('key_concepts') %}
-            <h4 class="mt-2" style="font-size: 0.9rem; color: var(--text-secondary);">Key Concepts</h4>
-            <ul style="margin-top: 0.5rem; padding-left: 1.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+            <h4 class="mt-2 agent-detail-subtitle">Key Concepts</h4>
+            <ul class="agent-detail-concept-list">
                 {% for concept in psych.get('key_concepts', []) %}
                 <li>{{ concept }}</li>
                 {% endfor %}

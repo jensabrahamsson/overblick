@@ -430,9 +430,21 @@ def load_identity(name: str) -> "Identity":
 load_personality = load_identity
 
 
+_identity_list_cache: list[str] = []
+_identity_list_cache_ts: float = 0.0
+_IDENTITY_LIST_TTL: float = 30.0  # seconds
+
+
 def list_identities() -> list[str]:
-    """List available identity names."""
-    names = set()
+    """List available identity names (cached with 30s TTL)."""
+    global _identity_list_cache, _identity_list_cache_ts
+
+    import time as _time
+    now = _time.monotonic()
+    if _identity_list_cache and (now - _identity_list_cache_ts < _IDENTITY_LIST_TTL):
+        return _identity_list_cache
+
+    names: set[str] = set()
 
     # Directory-based identities (overblick/identities/<name>/personality.yaml)
     if _IDENTITIES_DIR.exists():
@@ -451,7 +463,9 @@ def list_identities() -> list[str]:
             if d.is_dir() and (d / "personality.yaml").exists():
                 names.add(d.name)
 
-    return sorted(names)
+    _identity_list_cache = sorted(names)
+    _identity_list_cache_ts = now
+    return _identity_list_cache
 
 
 # Backward-compatible alias

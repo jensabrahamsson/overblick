@@ -401,3 +401,61 @@ class TestSafeLLMPipeline:
 
         call_kwargs = mock_llm.chat.call_args.kwargs
         assert call_kwargs["complexity"] is None
+
+    @pytest.mark.asyncio
+    async def test_stage_timings_populated(self, mock_llm, mock_preflight, mock_output_safety, mock_rate_limiter):
+        """Pipeline result includes stage timing data (Pass 4, fix 4.1)."""
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            preflight_checker=mock_preflight,
+            output_safety=mock_output_safety,
+            rate_limiter=mock_rate_limiter,
+        )
+        result = await pipeline.chat(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        assert not result.blocked
+        assert "input_sanitize" in result.stage_timings
+        assert "preflight" in result.stage_timings
+        assert "llm_call" in result.stage_timings
+        assert "output_safety" in result.stage_timings
+        # All timings should be non-negative
+        for stage, ms in result.stage_timings.items():
+            assert ms >= 0, f"Stage {stage} has negative timing: {ms}"
+
+    @pytest.mark.asyncio
+    async def test_stage_timings_default_empty(self):
+        """PipelineResult stage_timings defaults to empty dict."""
+        r = PipelineResult(content="hello")
+        assert r.stage_timings == {}
+
+    @pytest.mark.asyncio
+    async def test_rate_limiter_per_user_key(self, mock_llm, mock_rate_limiter):
+        """Rate limiter is called with composite per-user key (Pass 1, fix 1.7)."""
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            rate_limiter=mock_rate_limiter,
+            rate_limit_key="test_pipeline",
+        )
+        await pipeline.chat(
+            messages=[{"role": "user", "content": "Hello"}],
+            user_id="alice",
+        )
+        # Verify rate limiter was called with composite key
+        call_args = mock_rate_limiter.allow.call_args
+        assert call_args.args[0] == "test_pipeline:alice"
+
+    @pytest.mark.asyncio
+    async def test_think_tokens_stripped(self, mock_llm):
+        """Think tokens are stripped from LLM output (Pass 1, fix 1.6)."""
+        mock_llm.chat = AsyncMock(return_value={
+            "content": "<think>Internal reasoning here</think>The actual response."
+        })
+        pipeline = SafeLLMPipeline(llm_client=mock_llm)
+        result = await pipeline.chat(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        assert not result.blocked
+        assert "<think>" not in result.content
+        assert "Internal reasoning" not in result.content
+        assert "The actual response." in result.content

@@ -25,6 +25,8 @@ from overblick.supervisor.ipc import (
     IPCServer,
     IPCClient,
     generate_ipc_token,
+    read_ipc_token,
+    _IPCRateLimiter,
     _MAX_MESSAGE_SIZE,
 )
 
@@ -147,11 +149,13 @@ class TestIPCServer:
 
     @pytest.mark.asyncio
     async def test_token_file_created_with_secure_permissions(self, ipc_dir):
+        from overblick.supervisor.ipc import read_ipc_token
         srv = IPCServer(name="test", socket_dir=ipc_dir, auth_token="secrettoken")
         await srv.start()
         token_path = srv.token_path
         assert token_path.exists()
-        assert token_path.read_text() == "secrettoken"
+        # Token is now encrypted — verify via read_ipc_token helper
+        assert read_ipc_token("test", ipc_dir) == "secrettoken"
         # Check permissions (owner-only)
         mode = oct(os.stat(str(token_path)).st_mode)[-3:]
         assert mode == "600"
@@ -356,3 +360,51 @@ class TestIPCClientServer:
             assert result is None
         finally:
             await srv.stop()
+
+
+class TestIPCRateLimiter:
+    """Tests for IPC connection rate limiting (Pass 1, fix 1.3)."""
+
+    def test_allows_under_limit(self):
+        limiter = _IPCRateLimiter(max_per_minute=10)
+        for _ in range(10):
+            assert limiter.allow("sender1")
+
+    def test_blocks_over_limit(self):
+        limiter = _IPCRateLimiter(max_per_minute=5)
+        for _ in range(5):
+            assert limiter.allow("sender1")
+        assert not limiter.allow("sender1")
+
+    def test_separate_senders(self):
+        limiter = _IPCRateLimiter(max_per_minute=3)
+        for _ in range(3):
+            assert limiter.allow("a")
+        assert not limiter.allow("a")
+        # Different sender should still have capacity
+        assert limiter.allow("b")
+
+    def test_default_limit_is_100(self):
+        limiter = _IPCRateLimiter()
+        assert limiter._max_per_minute == 100
+
+
+class TestReadIPCToken:
+    """Tests for encrypted IPC token read/write (Pass 1, fix 1.2)."""
+
+    def test_read_token_from_encrypted_file(self, tmp_path):
+        """Token can be written encrypted and read back."""
+        token = generate_ipc_token()
+        srv = IPCServer(name="read_test", socket_dir=tmp_path, auth_token=token)
+        # The server writes encrypted token on start; simulate by calling
+        # the internal write mechanism via start/stop
+        # Instead, test read_ipc_token with a known token
+        from overblick.supervisor.ipc import _encrypt_token
+        token_path = tmp_path / "overblick-read_test.token"
+        token_path.write_bytes(_encrypt_token(token))
+        result = read_ipc_token("read_test", socket_dir=tmp_path)
+        assert result == token
+
+    def test_read_missing_token_returns_empty(self, tmp_path):
+        result = read_ipc_token("nonexistent", socket_dir=tmp_path)
+        assert result == ""

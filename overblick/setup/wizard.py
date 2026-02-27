@@ -221,11 +221,46 @@ def _create_templates() -> Environment:
     return env
 
 
+_WIZARD_STATE_FILE = Path("config/.wizard_state.json")
+
+
 def _get_state(app: FastAPI) -> dict[str, Any]:
-    """Get wizard state from app.state, initializing if needed."""
+    """Get wizard state from app.state, restoring from disk if needed.
+
+    State is persisted to config/.wizard_state.json so that a page
+    refresh or server restart does not lose wizard progress.
+    """
     if not hasattr(app.state, "wizard_state"):
-        app.state.wizard_state = dict(_DEFAULT_STATE)
+        restored = _load_wizard_state()
+        app.state.wizard_state = restored if restored else dict(_DEFAULT_STATE)
     return app.state.wizard_state
+
+
+def _save_wizard_state(state: dict[str, Any]) -> None:
+    """Persist wizard state to disk (config/.wizard_state.json)."""
+    import json
+    try:
+        _WIZARD_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        # Filter out sensitive keys before saving
+        safe_state = {
+            k: v for k, v in state.items()
+            if not k.startswith("_") and k not in ("deepseek_api_key",)
+        }
+        _WIZARD_STATE_FILE.write_text(json.dumps(safe_state, default=str))
+    except Exception as e:
+        logger.warning("Failed to save wizard state: %s", e)
+
+
+def _load_wizard_state() -> dict[str, Any] | None:
+    """Load wizard state from disk, returning None if not available."""
+    import json
+    if not _WIZARD_STATE_FILE.exists():
+        return None
+    try:
+        return json.loads(_WIZARD_STATE_FILE.read_text())
+    except Exception as e:
+        logger.warning("Failed to load wizard state: %s", e)
+        return None
 
 
 def _load_identity_data(base_dir: Path) -> list[dict[str, Any]]:

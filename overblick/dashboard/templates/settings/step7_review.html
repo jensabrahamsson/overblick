@@ -14,7 +14,7 @@
     <div class="flash flash-error" role="alert">{{ error }}</div>
     {% endif %}
 
-    <div class="card" style="max-width: 720px;">
+    <div class="card settings-card-wide">
         {% set principal = state.principal or {} %}
         {% set llm = state.llm or {} %}
         {% set comm = state.communication or {} %}
@@ -59,15 +59,15 @@
                 <span class="review-value">
                     {% if local.get('enabled') %}
                     <span class="badge badge-green">Local</span>
-                    <span class="mono" style="font-size: 0.85rem;">{{ local.get('model', 'qwen3:8b') }}</span>
+                    <span class="mono" class="review-model-name">{{ local.get('model', 'qwen3:8b') }}</span>
                     {% endif %}
                     {% if cloud_cfg.get('enabled') %}
-                    <span class="badge badge-green" style="margin-left: 4px;">Cloud</span>
-                    <span class="mono" style="font-size: 0.85rem;">{{ cloud_cfg.get('model', 'qwen3:8b') }}</span>
+                    <span class="badge badge-green" class="review-badge-ml">Cloud</span>
+                    <span class="mono" class="review-model-name">{{ cloud_cfg.get('model', 'qwen3:8b') }}</span>
                     {% endif %}
                     {% if deepseek.get('enabled') %}
-                    <span class="badge badge-green" style="margin-left: 4px;">Deepseek</span>
-                    <span class="mono" style="font-size: 0.85rem;">{{ deepseek.get('model', 'deepseek-chat') }}</span>
+                    <span class="badge badge-green" class="review-badge-ml">Deepseek</span>
+                    <span class="mono" class="review-model-name">{{ deepseek.get('model', 'deepseek-chat') }}</span>
                     {% endif %}
                     {% if not local.get('enabled') and not cloud_cfg.get('enabled') and not deepseek.get('enabled') %}
                     <span class="badge badge-amber">None enabled</span>
@@ -126,7 +126,7 @@
                 <span class="review-value">
                     <strong>{{ a.personality_display }}</strong>
                     {% for plugin in a.plugins %}
-                    <span class="badge badge-purple" style="margin-left: 4px;">{{ plugin_name(plugin) }}</span>
+                    <span class="badge badge-purple" class="review-badge-ml">{{ plugin_name(plugin) }}</span>
                     {% endfor %}
                 </span>
             </div>
@@ -138,11 +138,11 @@
             <div class="review-section-title">Files to write</div>
             <div class="review-item">
                 <span class="review-label">Config</span>
-                <span class="review-value mono" style="font-size: 0.85rem;">config/overblick.yaml</span>
+                <span class="review-value mono" class="review-model-name">config/overblick.yaml</span>
             </div>
             <div class="review-item">
                 <span class="review-label">Secrets</span>
-                <span class="review-value mono" style="font-size: 0.85rem;">
+                <span class="review-value mono" class="review-model-name">
                     {% for name in state.selected_characters %}config/secrets/{{ name }}.yaml{% if not loop.last %}, {% endif %}{% endfor %}
                 </span>
             </div>

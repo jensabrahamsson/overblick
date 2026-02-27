@@ -5,6 +5,7 @@ Every significant action (API call, LLM request, engagement, challenge)
 is logged to an append-only SQLite database per identity.
 """
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -46,9 +47,8 @@ class AuditLog:
         audit.log("api_call", category="moltbook", details={"endpoint": "/posts"})
     """
 
-    # Trim every N inserts to avoid per-insert overhead
-    _TRIM_INTERVAL = 100
     _DEFAULT_RETENTION_DAYS = 90
+    _CLEANUP_INTERVAL_SECONDS = 3600  # 1 hour
 
     def __init__(
         self,
@@ -59,7 +59,7 @@ class AuditLog:
         self._db_path = db_path
         self._identity = identity
         self._retention_days = retention_days
-        self._insert_count = 0
+        self._cleanup_task: Optional[asyncio.Task] = None
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), timeout=10)
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -112,11 +112,6 @@ class AuditLog:
             ),
         )
         self._conn.commit()
-
-        self._insert_count += 1
-        if self._insert_count >= self._TRIM_INTERVAL:
-            self._trim_old_entries()
-            self._insert_count = 0
 
         return cursor.lastrowid
 
@@ -230,8 +225,41 @@ class AuditLog:
             )
         return deleted
 
+    def start_background_cleanup(self) -> None:
+        """Start the periodic background cleanup task.
+
+        Call this after the event loop is running (e.g. during orchestrator
+        startup). Safe to call multiple times — only one task runs at a time.
+        """
+        if self._cleanup_task and not self._cleanup_task.done():
+            return
+        self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+        logger.debug("Audit log background cleanup started (every %ds)",
+                      self._CLEANUP_INTERVAL_SECONDS)
+
+    def stop_background_cleanup(self) -> None:
+        """Cancel the background cleanup task."""
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+            self._cleanup_task = None
+
+    async def _cleanup_loop(self) -> None:
+        """Periodically trim old entries in the background."""
+        try:
+            while True:
+                await asyncio.sleep(self._CLEANUP_INTERVAL_SECONDS)
+                try:
+                    deleted = self._trim_old_entries()
+                    if deleted:
+                        logger.debug("Background cleanup trimmed %d entries", deleted)
+                except Exception as e:
+                    logger.warning("Background audit cleanup error: %s", e)
+        except asyncio.CancelledError:
+            pass
+
     def close(self) -> None:
-        """Close the database connection."""
+        """Close the database connection and stop background tasks."""
+        self.stop_background_cleanup()
         if self._conn:
             self._conn.close()
             self._conn = None

@@ -11,6 +11,10 @@ from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
 
+# Severity classification multipliers for drift score thresholds
+_CRITICAL_MULTIPLIER = 2.0  # drift_score > threshold * 2 = critical
+_WARNING_MULTIPLIER = 1.0   # drift_score > threshold * 1 = warning
+
 router = APIRouter()
 
 
@@ -19,9 +23,16 @@ async def compass_page(request: Request):
     """Render the Compass drift detection page."""
     templates = request.app.state.templates
 
-    baselines, alerts, drift_history, drift_threshold, identity_status = (
-        _load_compass_data(request)
-    )
+    try:
+        baselines, alerts, drift_history, drift_threshold, identity_status = (
+            _load_compass_data(request)
+        )
+        data_errors = []
+    except Exception as e:
+        logger.error("Failed to load compass data: %s", e, exc_info=True)
+        baselines, alerts, drift_history = {}, [], []
+        drift_threshold, identity_status = 2.0, {}
+        data_errors = [f"Failed to load compass data: {e}"]
 
     return templates.TemplateResponse("compass.html", {
         "request": request,
@@ -31,6 +42,7 @@ async def compass_page(request: Request):
         "drift_history": drift_history,
         "drift_threshold": drift_threshold,
         "identity_status": identity_status,
+        "data_errors": data_errors,
     })
 
 
@@ -45,9 +57,9 @@ def _classify_severity(drift_score: float, threshold: float) -> str:
 
     Returns 'critical', 'warning', or 'info'.
     """
-    if drift_score > 2 * threshold:
+    if drift_score > _CRITICAL_MULTIPLIER * threshold:
         return "critical"
-    if drift_score > threshold:
+    if drift_score > _WARNING_MULTIPLIER * threshold:
         return "warning"
     return "info"
 
@@ -67,7 +79,8 @@ def _load_compass_data(request: Request) -> tuple:
     drift_history = []
     drift_threshold = 2.0
 
-    data_root = Path("data")
+    from overblick.dashboard.routes._plugin_utils import resolve_data_root
+    data_root = resolve_data_root(request)
     if not data_root.exists():
         return baselines, alerts, drift_history, drift_threshold, {}
 

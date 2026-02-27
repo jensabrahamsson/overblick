@@ -142,6 +142,19 @@ class DatabaseBackend(ABC):
     async def fetch_scalar(self, sql: str, params: Sequence[Any] = ()) -> Any:
         """Fetch a single scalar value. Returns None if no results."""
 
+    async def execute_many(self, sql: str, params_list: list[Sequence[Any]]) -> int:
+        """Execute a SQL statement for each parameter set (batch inserts).
+
+        Default implementation calls execute() in a loop. Backends may
+        override for better performance (e.g. executemany in SQLite).
+
+        Returns total affected rows.
+        """
+        total = 0
+        for params in params_list:
+            total += await self.execute(sql, params)
+        return total
+
     @abstractmethod
     async def execute_script(self, sql: str) -> None:
         """Execute a multi-statement SQL script (for migrations)."""

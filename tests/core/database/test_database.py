@@ -200,6 +200,49 @@ class TestSQLiteBackend:
         assert backend.db_path.exists()
         await backend.close()
 
+    @pytest.mark.asyncio
+    async def test_execute_many(self, db):
+        """Batch insert via execute_many (Pass 4, fix 4.4)."""
+        await db.execute_script("CREATE TABLE batch (id INTEGER PRIMARY KEY, val TEXT);")
+        params = [(1, "a"), (2, "b"), (3, "c")]
+        count = await db.execute_many(
+            "INSERT INTO batch (id, val) VALUES (?, ?)", params
+        )
+        assert count == 3
+        rows = await db.fetch_all("SELECT * FROM batch ORDER BY id")
+        assert len(rows) == 3
+        assert rows[0]["val"] == "a"
+        assert rows[2]["val"] == "c"
+
+    @pytest.mark.asyncio
+    async def test_execute_many_empty(self, db):
+        """execute_many with empty list returns 0."""
+        await db.execute_script("CREATE TABLE empty_batch (id INTEGER PRIMARY KEY);")
+        count = await db.execute_many("INSERT INTO empty_batch (id) VALUES (?)", [])
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_read_executor_exists(self, db):
+        """SQLite backend has a separate read executor (Pass 4, fix 4.3)."""
+        assert hasattr(db, "_read_executor")
+        assert db._read_executor._max_workers == 3
+
+    @pytest.mark.asyncio
+    async def test_reads_use_read_executor(self, db):
+        """Read operations use the dedicated read executor."""
+        await db.execute_script("CREATE TABLE cr (id INTEGER PRIMARY KEY, val TEXT);")
+        await db.execute("INSERT INTO cr (id, val) VALUES (?, ?)", (1, "hello"))
+
+        # Verify sequential reads work through the read executor
+        row = await db.fetch_one("SELECT * FROM cr WHERE id = ?", (1,))
+        assert row["val"] == "hello"
+
+        rows = await db.fetch_all("SELECT * FROM cr")
+        assert len(rows) == 1
+
+        count = await db.fetch_scalar("SELECT COUNT(*) FROM cr")
+        assert count == 1
+
 
 # ---------------------------------------------------------------------------
 # MigrationManager

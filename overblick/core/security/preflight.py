@@ -10,6 +10,7 @@ Defense layers:
 3. User context tracking for multi-message attacks
 """
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -153,13 +154,20 @@ class PreflightChecker:
         self.cache_ttl = cache_ttl
         self._message_cache: dict[str, tuple[PreflightResult, float]] = {}
         self._user_contexts: dict[str, SecurityContext] = {}
+        self._lock = asyncio.Lock()
+        # Persistent set of flagged user IDs (survives cache eviction)
+        self._flagged_users: set[str] = set()
 
     async def check(
         self,
         message: str,
         user_id: str,
     ) -> PreflightResult:
-        """Run preflight security check on a message."""
+        """Run preflight security check on a message.
+
+        Thread-safe: uses asyncio.Lock to protect cache and context access
+        against concurrent coroutine access.
+        """
         start_time = time.time()
 
         if user_id in self.admin_user_ids:
@@ -173,37 +181,40 @@ class PreflightChecker:
                 analysis_time_ms=(time.time() - start_time) * 1000,
             )
 
-        ctx = self._get_user_context(user_id)
-        if ctx.blocked_until and time.time() < ctx.blocked_until:
-            return PreflightResult(
-                allowed=False,
-                threat_level=ThreatLevel.BLOCKED,
-                threat_type=ThreatType.NONE,
-                threat_score=1.0,
-                reason="Temporary ban active",
-                analysis_time_ms=(time.time() - start_time) * 1000,
-            )
+        async with self._lock:
+            ctx = self._get_user_context(user_id)
+            if ctx.blocked_until and time.time() < ctx.blocked_until:
+                return PreflightResult(
+                    allowed=False,
+                    threat_level=ThreatLevel.BLOCKED,
+                    threat_type=ThreatType.NONE,
+                    threat_score=1.0,
+                    reason="Temporary ban active",
+                    analysis_time_ms=(time.time() - start_time) * 1000,
+                )
 
-        cache_key = hashlib.sha256(f"{user_id}:{message}".encode()).hexdigest()[:16]
-        cached = self._get_cached(cache_key)
-        if cached:
-            return cached
+            cache_key = hashlib.sha256(f"{user_id}:{message}".encode()).hexdigest()[:16]
+            cached = self._get_cached(cache_key)
+            if cached:
+                return cached
 
         result = self._check_patterns(message)
 
         if not result.allowed:
             result.deflection = self._generate_deflection(result.threat_type)
             result.analysis_time_ms = (time.time() - start_time) * 1000
-            self._update_user_context(ctx, result)
-            self._cache_result(cache_key, result)
+            async with self._lock:
+                self._update_user_context(ctx, result)
+                self._cache_result(cache_key, result)
             return result
 
         if result.threat_level == ThreatLevel.SUSPICIOUS and self.llm:
             result = await self._ai_analysis(message)
 
         result.analysis_time_ms = (time.time() - start_time) * 1000
-        self._update_user_context(ctx, result)
-        self._cache_result(cache_key, result)
+        async with self._lock:
+            self._update_user_context(ctx, result)
+            self._cache_result(cache_key, result)
         return result
 
     def _check_patterns(self, message: str) -> PreflightResult:
@@ -335,31 +346,48 @@ class PreflightChecker:
         options = defaults.get(threat_type, defaults[ThreatType.JAILBREAK])
         return random.choice(options)
 
+    def _evict_stale_contexts(self) -> None:
+        """Remove oldest user contexts when over limit.
+
+        High-suspicion users are preserved in _flagged_users so their
+        elevated suspicion score persists even after context eviction.
+        """
+        sorted_ids = sorted(
+            self._user_contexts,
+            key=lambda uid: self._user_contexts[uid].last_interaction,
+        )
+        for uid in sorted_ids[:len(sorted_ids) // 2]:
+            ctx = self._user_contexts[uid]
+            # Preserve high-suspicion users in flagged set
+            if ctx.suspicion_score >= 0.5 or ctx.escalation_count >= 3:
+                self._flagged_users.add(uid)
+            del self._user_contexts[uid]
+
     def _get_user_context(self, user_id: str) -> SecurityContext:
         if user_id not in self._user_contexts:
             # Evict stale contexts if over limit
             if len(self._user_contexts) >= self.MAX_USER_CONTEXTS:
                 self._evict_stale_contexts()
-            self._user_contexts[user_id] = SecurityContext(user_id=user_id)
+            ctx = SecurityContext(user_id=user_id)
+            # Restore suspicion for previously flagged users
+            if user_id in self._flagged_users:
+                ctx.suspicion_score = 0.5
+                ctx.escalation_count = 3
+                logger.debug("Restored flagged status for user %s", user_id)
+            self._user_contexts[user_id] = ctx
         ctx = self._user_contexts[user_id]
         hours_elapsed = (time.time() - ctx.last_interaction) / 3600
         ctx.suspicion_score = max(0.0, ctx.suspicion_score - 0.1 * hours_elapsed)
         ctx.last_interaction = time.time()
         return ctx
 
-    def _evict_stale_contexts(self) -> None:
-        """Remove oldest user contexts when over limit."""
-        sorted_ids = sorted(
-            self._user_contexts,
-            key=lambda uid: self._user_contexts[uid].last_interaction,
-        )
-        for uid in sorted_ids[:len(sorted_ids) // 2]:
-            del self._user_contexts[uid]
-
     def _update_user_context(self, ctx: SecurityContext, result: PreflightResult) -> None:
         if result.threat_level in (ThreatLevel.SUSPICIOUS, ThreatLevel.HOSTILE, ThreatLevel.BLOCKED):
             ctx.suspicion_score = min(1.0, ctx.suspicion_score + result.threat_score * 0.3)
             ctx.escalation_count += 1
+            # Auto-flag users who cross suspicion threshold
+            if ctx.suspicion_score >= 0.5 or ctx.escalation_count >= 3:
+                self._flagged_users.add(ctx.user_id)
 
     def _get_cached(self, key: str) -> Optional[PreflightResult]:
         if key in self._message_cache:

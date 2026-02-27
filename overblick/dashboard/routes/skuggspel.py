@@ -5,27 +5,43 @@ Displays shadow content: the repressed side of each identity,
 marked with shadow metadata on the dashboard.
 """
 
+import asyncio
 import logging
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
+
+_PAGE_SIZE = 30
 
 router = APIRouter()
 
 
 @router.get("/skuggspel", response_class=HTMLResponse)
-async def skuggspel_page(request: Request):
+async def skuggspel_page(request: Request, page: int = Query(default=1, ge=1)):
     """Render the Skuggspel shadow content page."""
     templates = request.app.state.templates
 
-    posts = _load_posts(request)
+    try:
+        all_posts = await asyncio.to_thread(_load_posts, request)
+        data_errors = []
+    except Exception as e:
+        logger.error("Failed to load skuggspel data: %s", e, exc_info=True)
+        all_posts = []
+        data_errors = [f"Failed to load skuggspel data: {e}"]
+
+    total = len(all_posts)
+    posts = all_posts[:page * _PAGE_SIZE]
+    has_more = total > page * _PAGE_SIZE
 
     return templates.TemplateResponse("skuggspel.html", {
         "request": request,
         "csrf_token": request.state.session.get("csrf_token", ""),
         "posts": posts,
+        "page": page,
+        "has_more": has_more,
+        "data_errors": data_errors,
     })
 
 
@@ -40,8 +56,9 @@ def _load_posts(request: Request) -> list:
     import json
     from pathlib import Path
 
+    from overblick.dashboard.routes._plugin_utils import resolve_data_root
     posts = []
-    data_root = Path("data")
+    data_root = resolve_data_root(request)
     if not data_root.exists():
         return posts
 
@@ -55,4 +72,4 @@ def _load_posts(request: Request) -> list:
                 logger.warning("Failed to load skuggspel state from %s: %s", state_file, e)
 
     posts.sort(key=lambda p: p.get("generated_at", 0), reverse=True)
-    return posts[:30]
+    return posts

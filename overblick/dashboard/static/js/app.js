@@ -78,4 +78,30 @@
             window.location.href = "/conversations?identity=" + this.value;
         });
     }
+
+    // ── Pause htmx polling when tab is hidden ────────────────────────
+    // Saves bandwidth and reduces server load when user switches tabs.
+    var _htmxPollingPaused = false;
+    document.addEventListener("visibilitychange", function () {
+        if (document.hidden) {
+            // Pause all htmx polling by adding a class that triggers stop
+            _htmxPollingPaused = true;
+            // htmx listens for htmx:beforeRequest — cancel if hidden
+        } else {
+            _htmxPollingPaused = false;
+            // Re-trigger polling elements to resume immediately
+            document.querySelectorAll("[hx-trigger*='every']").forEach(function (el) {
+                htmx.trigger(el, "htmx:poll");
+            });
+        }
+    });
+
+    // Cancel outgoing htmx requests when tab is hidden
+    document.body.addEventListener("htmx:beforeRequest", function (evt) {
+        if (_htmxPollingPaused && evt.detail.elt &&
+            evt.detail.elt.getAttribute("hx-trigger") &&
+            evt.detail.elt.getAttribute("hx-trigger").indexOf("every") !== -1) {
+            evt.preventDefault();
+        }
+    });
 })();

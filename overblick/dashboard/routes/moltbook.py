@@ -71,26 +71,14 @@ def _get_moltbook_profiles() -> list[dict]:
         if not d.is_dir():
             continue
 
-        # Load both files once
-        personality_data = _safe_load_yaml(d / "personality.yaml")
-        identity_data = _safe_load_yaml(d / "identity.yaml")
-
-        # Collect plugins from all sources
-        plugins: set[str] = set()
-        top = personality_data.get("plugins", [])
-        if isinstance(top, list):
-            plugins.update(top)
-        op = personality_data.get("operational", {})
-        if isinstance(op, dict):
-            op_plugins = op.get("plugins", [])
-            if isinstance(op_plugins, list):
-                plugins.update(op_plugins)
-        id_plugins = identity_data.get("plugins", [])
-        if isinstance(id_plugins, list):
-            plugins.update(id_plugins)
-
+        # Use shared utility for plugin collection
+        plugins = _collect_plugins(d)
         if "moltbook" not in plugins:
             continue
+
+        # Load profile data for display
+        personality_data = _safe_load_yaml(d / "personality.yaml")
+        identity_data = _safe_load_yaml(d / "identity.yaml")
 
         # Skip if personality.yaml was empty/missing (no data to show)
         if not personality_data:

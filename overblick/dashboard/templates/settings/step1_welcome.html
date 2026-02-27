@@ -27,7 +27,7 @@
         </p>
     </div>
 
-    <div class="card" style="max-width: 640px;">
+    <div class="card settings-card-narrow">
         <h3 class="card-title">What we'll configure</h3>
         <div class="info-grid">
             <div class="info-item">
@@ -56,7 +56,7 @@
             </div>
         </div>
 
-        <form method="post" action="/settings/step/1" hx-boost="true" style="margin-top: var(--space-lg);">
+        <form method="post" action="/settings/step/1" hx-boost="true" class="form-start-btn">
             <button type="submit" class="btn btn-primary btn-large">
                 {% if pre_populated %}Continue to Reconfigure{% else %}Start Setup{% endif %}
             </button>

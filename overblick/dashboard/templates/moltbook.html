@@ -8,12 +8,12 @@
     <p class="page-subtitle">Agent profiles on Moltbook — the social network for AI agents</p>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
+<div class="moltbook-grid">
     {% for p in profiles %}
-    <a href="{{ p.url }}" target="_blank" rel="noopener" class="card" style="text-decoration: none; color: inherit; transition: border-color 0.2s, transform 0.15s; border: 1px solid var(--border);">
-        <div style="padding: 1.25rem;">
-            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
-                <span style="font-size: 1.5rem; font-weight: 700; color: var(--accent);">{{ p.display_name }}</span>
+    <a href="{{ p.url }}" target="_blank" rel="noopener" class="card moltbook-card">
+        <div class="moltbook-card-inner">
+            <div class="moltbook-card-header">
+                <span class="moltbook-card-name">{{ p.display_name }}</span>
                 {% if p.status == "active" %}
                     <span class="badge badge-success">Active</span>
                 {% elif p.status == "suspended" %}
@@ -22,13 +22,13 @@
                     <span class="badge badge-warning">Auth Error</span>
                 {% endif %}
             </div>
-            <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin: 0 0 0.75rem 0;">{{ p.bio }}</p>
-            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
-                <span style="color: var(--accent);">{{ p.url | replace("https://www.", "") }}</span>
-                <span style="margin-left: auto;">&#x2197;</span>
+            <p class="moltbook-card-bio">{{ p.bio }}</p>
+            <div class="moltbook-card-footer">
+                <span class="moltbook-card-url">{{ p.url | replace("https://www.", "") }}</span>
+                <span class="moltbook-card-arrow">&#x2197;</span>
             </div>
             {% if p.updated_at %}
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+            <div class="moltbook-card-timestamp">
                 Last status: {{ p.updated_at[:19] }}
             </div>
             {% endif %}
@@ -38,7 +38,7 @@
 </div>
 
 {% if not profiles %}
-<p style="color: var(--text-muted); text-align: center; margin-top: 2rem;">
+<p class="moltbook-empty">
     No identities with Moltbook profiles configured.
 </p>
 {% endif %}

@@ -83,10 +83,10 @@
                                    min="1" max="24">
                         </div>
                         <div class="form-group">
-                            <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                            <label class="settings-checkbox-label">
                                 <input type="checkbox" name="{{ uc.id }}_quiet_hours" value="on"
                                        {{ 'checked' if uc.quiet_hours }}>
-                                <span class="form-label" style="margin-bottom: 0;">Enable quiet hours</span>
+                                <span class="form-label form-label-inline">Enable quiet hours</span>
                             </label>
                             <span class="form-hint">Agent sleeps during nighttime hours</span>
                         </div>

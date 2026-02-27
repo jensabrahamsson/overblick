@@ -15,7 +15,7 @@
     <div class="flash flash-error" role="alert">{{ error }}</div>
     {% endif %}
 
-    <div class="card" style="max-width: 720px;">
+    <div class="card settings-card-wide">
         <form method="post" action="/settings/step/3" hx-boost="true">
             {% set llm = state.llm or {} %}
             {% set local = llm.get('local', {}) %}
@@ -25,14 +25,14 @@
 
             <!-- Gateway (always visible — infrastructure) -->
             <div class="form-group">
-                <p class="form-hint" style="margin-bottom: var(--space-sm);">── Gateway ─────────────────────────────────────</p>
-                <div style="display: flex; align-items: center; gap: var(--space-md);">
-                    <div style="flex: 1;">
+                <p class="form-hint form-separator">── Gateway ─────────────────────────────────────</p>
+                <div class="settings-flex-row">
+                    <div class="settings-flex-grow">
                         <label class="form-label" for="gateway_url">Gateway URL</label>
                         <input type="text" class="form-input" id="gateway_url" name="gateway_url"
                                value="{{ llm.get('gateway_url', 'http://127.0.0.1:8200') }}">
                     </div>
-                    <div style="padding-top: 1.5rem;">
+                    <div class="settings-test-col">
                         <button type="button" class="btn btn-secondary btn-sm"
                                 hx-post="/settings/test/gateway"
                                 hx-include="#gateway_url"
@@ -45,20 +45,20 @@
             </div>
 
             <!-- Backends -->
-            <p class="form-hint" style="margin: var(--space-lg) 0 var(--space-sm);">── Backends ─────────────────────────────────────</p>
+            <p class="form-hint form-separator-lg">── Backends ─────────────────────────────────────</p>
 
             <!-- Local Inference -->
-            <div class="form-group" style="padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--space-md);">
-                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+            <div class="form-group settings-backend-panel">
+                <label class="settings-checkbox-label">
                     <input type="checkbox" name="local_enabled" value="on"
                            {{ 'checked' if local.get('enabled', true) else '' }}
                            onchange="toggleSection('local-config', this.checked)">
                     <strong>Local Inference</strong>
-                    <span class="form-hint" style="margin: 0;">(Ollama / LM Studio)</span>
+                    <span class="form-hint form-hint-inline">(Ollama / LM Studio)</span>
                 </label>
 
-                <div id="local-config" style="display: {{ 'block' if local.get('enabled', true) else 'none' }}; margin-top: var(--space-md);">
-                    <div style="display: grid; grid-template-columns: 1fr 2fr 1fr 2fr; gap: var(--space-sm); align-items: end;">
+                <div id="local-config" class="settings-config-body" style="display: {{ 'block' if local.get('enabled', true) else 'none' }};">
+                    <div class="settings-grid-4col">
                         <div>
                             <label class="form-label">Type</label>
                             <select class="form-select" name="local_type" id="local_type"
@@ -90,7 +90,7 @@
                             </datalist>
                         </div>
                     </div>
-                    <div style="margin-top: var(--space-sm);">
+                    <div class="settings-test-row">
                         <button type="button" class="btn btn-secondary btn-sm"
                                 hx-post="/settings/test/ollama"
                                 hx-include="#local_host, #local_port"
@@ -103,17 +103,17 @@
             </div>
 
             <!-- Cloud Remote -->
-            <div class="form-group" style="padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--space-md);">
-                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+            <div class="form-group settings-backend-panel">
+                <label class="settings-checkbox-label">
                     <input type="checkbox" name="cloud_enabled" value="on"
                            {{ 'checked' if cloud.get('enabled', false) else '' }}
                            onchange="toggleSection('cloud-config', this.checked)">
                     <strong>Cloud Remote</strong>
-                    <span class="form-hint" style="margin: 0;">(Ollama / LM Studio on remote server)</span>
+                    <span class="form-hint form-hint-inline">(Ollama / LM Studio on remote server)</span>
                 </label>
 
-                <div id="cloud-config" style="display: {{ 'block' if cloud.get('enabled', false) else 'none' }}; margin-top: var(--space-md);">
-                    <div style="display: grid; grid-template-columns: 1fr 2fr 1fr 2fr; gap: var(--space-sm); align-items: end;">
+                <div id="cloud-config" class="settings-config-body" style="display: {{ 'block' if cloud.get('enabled', false) else 'none' }};">
+                    <div class="settings-grid-4col">
                         <div>
                             <label class="form-label">Type</label>
                             <select class="form-select" name="cloud_type">
@@ -137,7 +137,7 @@
                                    value="{{ cloud.get('model', 'qwen3:8b') }}">
                         </div>
                     </div>
-                    <div style="margin-top: var(--space-sm);">
+                    <div class="settings-test-row">
                         <button type="button" class="btn btn-secondary btn-sm"
                                 hx-post="/settings/test/ollama"
                                 hx-include="#cloud_host, #cloud_port"
@@ -150,17 +150,17 @@
             </div>
 
             <!-- Deepseek -->
-            <div class="form-group" style="padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--space-md);">
-                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+            <div class="form-group settings-backend-panel">
+                <label class="settings-checkbox-label">
                     <input type="checkbox" name="deepseek_enabled" value="on"
                            {{ 'checked' if deepseek.get('enabled', false) else '' }}
                            onchange="toggleSection('deepseek-config', this.checked)">
                     <strong>Deepseek</strong>
-                    <span class="form-hint" style="margin: 0;">(Cloud API — deepseek-chat)</span>
+                    <span class="form-hint form-hint-inline">(Cloud API — deepseek-chat)</span>
                 </label>
 
-                <div id="deepseek-config" style="display: {{ 'block' if deepseek.get('enabled', false) else 'none' }}; margin-top: var(--space-md);">
-                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-sm); align-items: end;">
+                <div id="deepseek-config" class="settings-config-body" style="display: {{ 'block' if deepseek.get('enabled', false) else 'none' }};">
+                    <div class="settings-grid-2col">
                         <div>
                             <label class="form-label">API Key</label>
                             <input type="password" class="form-input" name="deepseek_api_key" id="deepseek_api_key"
@@ -173,7 +173,7 @@
                                    value="{{ deepseek.get('model', 'deepseek-chat') }}">
                         </div>
                     </div>
-                    <div style="margin-top: var(--space-sm);">
+                    <div class="settings-test-row">
                         <button type="button" class="btn btn-secondary btn-sm"
                                 hx-post="/settings/test/deepseek"
                                 hx-include="#deepseek_api_key"
@@ -186,18 +186,18 @@
             </div>
 
             <!-- OpenAI (Coming soon) -->
-            <div class="form-group" style="padding: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--space-md); opacity: 0.5;">
-                <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: not-allowed;">
+            <div class="form-group settings-backend-panel settings-backend-panel--disabled">
+                <label class="settings-checkbox-label settings-checkbox-label--disabled">
                     <input type="checkbox" disabled>
                     <strong>OpenAI</strong>
-                    <span class="badge badge-amber" style="font-size: 0.7rem;">Coming soon</span>
+                    <span class="badge badge-amber badge-sm">Coming soon</span>
                 </label>
                 <input type="hidden" name="openai_api_url" value="{{ openai.get('api_url', 'https://api.openai.com/v1') }}">
                 <input type="hidden" name="openai_model" value="{{ openai.get('model', 'gpt-4o') }}">
             </div>
 
             <!-- Common Settings -->
-            <p class="form-hint" style="margin: var(--space-lg) 0 var(--space-sm);">── Common Settings ──────────────────────────────</p>
+            <p class="form-hint form-separator-lg">── Common Settings ──────────────────────────────</p>
 
             <div class="form-group">
                 <label class="form-label" for="default_backend">Default Backend</label>

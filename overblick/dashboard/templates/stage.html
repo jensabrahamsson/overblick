@@ -9,16 +9,16 @@
 </div>
 
 {% if results %}
-<div class="card" style="margin-bottom: 2rem;">
+<div class="card stage-results-card">
     <div class="card-header">
-        <h2 style="margin: 0; font-size: 1rem;">Scenario Results</h2>
+        <h2 class="stage-card-title">Scenario Results</h2>
         <div>
-            <span class="badge" style="background: var(--success, #38a169); color: white;">{{ results|selectattr('passed')|list|length }} passed</span>
-            <span class="badge" style="background: var(--danger, #c53030); color: white;">{{ results|rejectattr('passed')|list|length }} failed</span>
+            <span class="badge badge-pass">{{ results|selectattr('passed')|list|length }} passed</span>
+            <span class="badge badge-fail">{{ results|rejectattr('passed')|list|length }} failed</span>
         </div>
     </div>
-    <div style="padding: 1rem; overflow-x: auto;">
-        <table style="width: 100%; font-size: 0.85rem;">
+    <div class="stage-table-wrap">
+        <table class="stage-table">
             <thead><tr><th>Scenario</th><th>Identity</th><th>Status</th><th>Constraints</th><th>Pass Rate</th><th>Duration</th><th>Time</th></tr></thead>
             <tbody>
             {% for r in results %}
@@ -27,9 +27,9 @@
                 <td>{{ r.identity }}</td>
                 <td>
                     {% if r.passed %}
-                    <span class="badge" style="background: var(--success, #38a169); color: white;">PASS</span>
+                    <span class="badge badge-pass">PASS</span>
                     {% else %}
-                    <span class="badge" style="background: var(--danger, #c53030); color: white;">FAIL</span>
+                    <span class="badge badge-fail">FAIL</span>
                     {% endif %}
                 </td>
                 <td>{{ r.passed_constraints }}/{{ r.total_constraints }}</td>
@@ -45,18 +45,18 @@
 
 {% for r in results %}
 {% if not r.passed %}
-<div class="card" style="margin-bottom: 1rem; border-left: 3px solid var(--danger, #c53030);">
+<div class="card stage-failure-card">
     <div class="card-header">
-        <h3 style="margin: 0; font-size: 0.95rem;">{{ r.scenario_name }} — {{ r.identity }}</h3>
-        {% if r.error %}<span class="badge" style="background: var(--danger, #c53030); color: white;">Error: {{ r.error }}</span>{% endif %}
+        <h3 class="stage-failure-title">{{ r.scenario_name }} — {{ r.identity }}</h3>
+        {% if r.error %}<span class="badge badge-fail">Error: {{ r.error }}</span>{% endif %}
     </div>
-    <div style="padding: 1rem;">
+    <div class="stage-failure-body">
         {% for step in r.step_results %}
         {% if not step.passed %}
-        <div style="margin-bottom: 0.75rem; padding: 0.5rem; background: var(--bg-secondary, #1a1a2e); border-radius: 4px; font-size: 0.85rem;">
+        <div class="stage-step-detail">
             <strong>Step {{ step.step_index + 1 }}:</strong> {{ step.input_text }}
             {% for fc in step.failed_constraints %}
-            <div style="color: var(--danger, #c53030); margin-top: 0.25rem; padding-left: 1rem;">
+            <div class="stage-constraint-error">
                 {{ fc.constraint_type }}: {{ fc.message }}
             </div>
             {% endfor %}
@@ -70,9 +70,9 @@
 
 {% else %}
 <div class="card">
-    <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+    <div class="stage-empty">
         <p>No scenario results yet.</p>
-        <p style="font-size: 0.85rem;">Run scenarios via CLI: <code>python -m overblick stage run scenarios/</code></p>
+        <p class="stage-empty-hint">Run scenarios via CLI: <code>python -m overblick stage run scenarios/</code></p>
     </div>
 </div>
 {% endif %}

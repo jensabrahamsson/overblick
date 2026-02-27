@@ -48,6 +48,7 @@ from overblick.setup.wizard import (
     _friendly_error,
     _get_state,
     _load_identity_data,
+    _save_wizard_state,
     plugin_name,
 )
 
@@ -402,6 +403,7 @@ async def step2_post(
             language_preference=language_preference,
         )
         state["principal"] = data.model_dump()
+        _save_wizard_state(state)
         return RedirectResponse("/settings/step/3", status_code=303)
     except Exception as e:
         return _render(
@@ -504,6 +506,7 @@ async def step3_post(request: Request):
         if deepseek_api_key:
             state["_deepseek_api_key"] = deepseek_api_key
 
+        _save_wizard_state(state)
         return RedirectResponse("/settings/step/4", status_code=303)
     except Exception as e:
         return _render("step3_llm.html", request, error=_friendly_error(e))
@@ -547,6 +550,7 @@ async def step4_post(
             telegram_chat_id=telegram_chat_id,
         )
         state["communication"] = data.model_dump()
+        _save_wizard_state(state)
         return RedirectResponse("/settings/step/5", status_code=303)
     except Exception as e:
         return _render("step4_communication.html", request, error=_friendly_error(e))
@@ -575,6 +579,7 @@ async def step5_post(request: Request):
     try:
         data = UseCaseSelection(selected_use_cases=selected)
         state["selected_use_cases"] = data.selected_use_cases
+        _save_wizard_state(state)
         return RedirectResponse("/settings/step/6", status_code=303)
     except Exception as e:
         comm = state.get("communication", {})
@@ -627,6 +632,7 @@ async def step6_post(request: Request):
 
     state["assignments"] = assignments
     _derive_provisioner_state(state)
+    _save_wizard_state(state)
     return RedirectResponse("/settings/step/7", status_code=303)
 
 

@@ -44,10 +44,12 @@ def _relative_time(timestamp_val: str | float | int) -> str:
     """
     try:
         if isinstance(timestamp_val, (int, float)):
-            ts = datetime.fromtimestamp(timestamp_val)
+            ts = datetime.fromtimestamp(timestamp_val, tz=timezone.utc)
         else:
             ts = datetime.fromisoformat(timestamp_val)
-        now = datetime.now()
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+        now = datetime.now(tz=timezone.utc)
         delta = now - ts
 
         seconds = int(delta.total_seconds())

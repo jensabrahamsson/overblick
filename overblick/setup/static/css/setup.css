@@ -1770,6 +1770,74 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 }
 
 /* ================================================
+   Settings Utilities (extracted inline styles)
+   ================================================ */
+
+.settings-card-narrow { max-width: 640px; }
+.settings-card-wide { max-width: 720px; }
+.settings-backend-panel {
+    padding: var(--space-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: var(--space-md);
+}
+.settings-backend-panel--disabled { opacity: 0.5; }
+.settings-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+}
+.settings-checkbox-label--disabled { cursor: not-allowed; }
+.settings-flex-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+.settings-flex-grow { flex: 1; }
+.settings-test-col { padding-top: 1.5rem; }
+.settings-test-row { margin-top: var(--space-sm); }
+.settings-grid-4col {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr 2fr;
+    gap: var(--space-sm);
+    align-items: end;
+}
+.settings-grid-2col {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-sm);
+    align-items: end;
+}
+.settings-config-body { margin-top: var(--space-md); }
+.settings-radio-group { display: flex; gap: var(--space-lg); }
+.settings-radio-label { cursor: pointer; }
+.form-separator { margin-bottom: var(--space-sm); }
+.form-separator-lg { margin: var(--space-lg) 0 var(--space-sm); }
+.form-hint-inline { margin: 0; }
+.form-label-inline { margin-bottom: 0; }
+.badge-sm { font-size: 0.7rem; }
+.review-model-name { font-size: 0.85rem; }
+.review-badge-ml { margin-left: 4px; }
+.nav-link-sm { font-size: 0.9em; }
+.dashboard-exit-link {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    color: var(--text-secondary, #8b949e);
+    font-size: 0.9rem;
+    text-decoration: none;
+    opacity: 0.9;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+.dashboard-exit-link:hover {
+    opacity: 1;
+    color: var(--accent, #58a6ff);
+}
+.form-start-btn { margin-top: var(--space-lg); }
+
+/* ================================================
    Reduced Motion Preference
    ================================================ */
 

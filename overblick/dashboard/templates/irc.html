@@ -2,22 +2,22 @@
 {% block title %}IRC{% endblock %}
 
 {% block content %}
-<div class="irc-page" style="display: flex; gap: 1rem; min-height: 70vh;">
+<div class="irc-page irc-layout">
 
     <!-- Sidebar: channel list -->
     <aside class="irc-sidebar" role="navigation" aria-label="IRC conversations">
-        <h2 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-md); font-weight: 400; text-transform: uppercase; letter-spacing: 0.05em;">
+        <h2 class="irc-sidebar-title">
             Channels
         </h2>
 
         {% if not conversations %}
-        <p style="color: var(--text-muted); font-size: 0.8rem; font-family: var(--font-mono);">
+        <p class="irc-sidebar-empty">
             No conversations yet.
         </p>
         {% else %}
-        <ul style="list-style: none;" role="list">
+        <ul class="irc-sidebar-list" role="list">
             {% for conv in conversations %}
-            <li style="margin-bottom: var(--space-xs);">
+            <li>
                 <a href="/irc?id={{ conv.id }}"
                    class="irc-sidebar-item {% if conv.id == selected_id %}irc-sidebar-item--active{% endif %}"
                    {% if conv.id == selected_id %}aria-current="true"{% endif %}>
@@ -37,7 +37,7 @@
     </aside>
 
     <!-- Main: conversation view -->
-    <section class="irc-main" style="flex: 1; display: flex; flex-direction: column;">
+    <section class="irc-main irc-main-content">
 
         {% if selected %}
         <!-- Channel header bar -->
@@ -50,14 +50,14 @@
                 {% endfor %}
                 &nbsp;|&nbsp;{{ selected.turns | length }} msgs
                 {% if selected.state == 'paused' %}
-                &nbsp;|&nbsp;<span style="color: var(--amber);">PAUSED</span>
+                &nbsp;|&nbsp;<span class="irc-paused-label">PAUSED</span>
                 {% endif %}
             </span>
         </div>
 
         <!-- IRC feed (htmx-polled) -->
         <div id="irc-feed"
-             class="irc-log"
+             class="irc-log irc-feed-container"
              role="log"
              aria-live="polite"
              aria-label="IRC conversation feed"
@@ -65,30 +65,18 @@
              hx-get="/irc/feed?id={{ selected.id }}"
              hx-trigger="every 3s"
              hx-swap="innerHTML settle:150ms"
-             {% endif %}
-             style="flex: 1; max-height: 65vh;">
+             {% endif %}>
             {% include "partials/irc_feed.html" with context %}
         </div>
 
         {% else %}
         <!-- Empty state -->
-        <div style="
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: var(--space-2xl);
-            text-align: center;
-            font-family: var(--font-mono);
-        ">
+        <div class="irc-empty-state">
             <div>
-                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: var(--space-sm);">
+                <p class="irc-empty-text">
                     No IRC conversations yet
                 </p>
-                <p style="color: var(--text-muted); font-size: 0.8rem;">
+                <p class="irc-empty-hint">
                     Identity conversations start automatically when system load is low.
                 </p>
             </div>

@@ -1,19 +1,46 @@
 """
-Shared utilities for plugin detection in dashboard routes.
+Shared utilities for plugin detection and path resolution in dashboard routes.
 
 Provides helpers to check if a specific plugin is configured for any identity,
 reading from all three configuration sources (personality.yaml top-level,
 personality.yaml operational section, and identity.yaml).
 """
 
+import re
 from pathlib import Path
+from typing import Optional
 
 import yaml
+from fastapi import Request
+
+# Shared identity/plugin name validation regex (no hyphens — lowercase + digits + underscores)
+IDENTITY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+PLUGIN_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+
+
+def resolve_base_dir(request: Request) -> Path:
+    """Get the project base directory from app config."""
+    cfg = request.app.state.config
+    if cfg.base_dir:
+        return Path(cfg.base_dir)
+    return Path(__file__).parent.parent.parent.parent
+
+
+def resolve_data_root(request: Request) -> Path:
+    """Get the data root directory from app config."""
+    return resolve_base_dir(request) / "data"
+
+
+def resolve_identities_dir(request: Optional[Request] = None) -> Path:
+    """Get the identities directory, resolving from app config if available."""
+    if request is not None:
+        return resolve_base_dir(request) / "overblick" / "identities"
+    return Path("overblick/identities")
 
 
 def is_plugin_configured(plugin_name: str) -> bool:
     """Return True if any identity has the given plugin configured."""
-    identities_dir = Path("overblick/identities")
+    identities_dir = resolve_identities_dir()
     if not identities_dir.exists():
         return False
     for d in identities_dir.iterdir():

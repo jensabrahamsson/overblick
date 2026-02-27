@@ -225,6 +225,7 @@ class Orchestrator:
             loop.add_signal_handler(sig, self._shutdown_event.set)
 
         self._audit_log.log("orchestrator_started", category="lifecycle")
+        self._audit_log.start_background_cleanup()
         logger.info(f"Överblick orchestrator running as '{self._identity.display_name}'")
         print(f"\n  [ Överblick ] {self._identity.display_name} is awake.\n")
 
@@ -234,12 +235,20 @@ class Orchestrator:
                 interval = self._identity.schedule.feed_poll_minutes * 60
 
                 async def _guarded_tick(p=plugin):
+                    import time as _time
                     logger.debug("Guarded tick starting for '%s'", p.name)
                     if await self._is_plugin_stopped(p.name):
                         logger.debug("Agent '%s' stopped via control file, skipping tick", p.name)
                         return
+                    tick_start = _time.monotonic()
                     await p.tick()
-                    logger.debug("Guarded tick completed for '%s'", p.name)
+                    tick_ms = (_time.monotonic() - tick_start) * 1000
+                    logger.debug("Guarded tick completed for '%s' (%.1fms)", p.name, tick_ms)
+                    self._event_bus.emit("plugin_tick", {
+                        "plugin": p.name,
+                        "identity": self._identity_name,
+                        "duration_ms": tick_ms,
+                    })
 
                 self._scheduler.add(
                     f"tick_{plugin.name}",

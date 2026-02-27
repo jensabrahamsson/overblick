@@ -213,3 +213,76 @@ class TestFastAPIApp:
         )
 
         assert response.status_code == 200
+
+
+class TestOriginMiddleware:
+    """Tests for Origin header check middleware (Pass 1, fix 1.8)."""
+
+    @pytest.fixture
+    def mock_backend_registry(self):
+        registry = MagicMock()
+        registry.available_backends = ["local"]
+        registry.default_backend = "local"
+        registry.health_check_all = AsyncMock(return_value={"local": True})
+        registry.get_client = MagicMock()
+        registry.get_model = MagicMock(return_value="qwen3:8b")
+        registry.get_backend_info = MagicMock(return_value={
+            "local": {"type": "ollama", "model": "qwen3:8b"},
+        })
+        mock_client = AsyncMock()
+        mock_client.health_check = AsyncMock(return_value=True)
+        mock_client.list_models = AsyncMock(return_value=["qwen3:8b"])
+        registry.get_client.return_value = mock_client
+        return registry
+
+    @pytest.fixture
+    def mock_queue_manager(self):
+        qm = MagicMock()
+        qm.is_running = True
+        qm.queue_size = 0
+        qm.client = AsyncMock()
+        return qm
+
+    @pytest.fixture
+    def client(self, mock_queue_manager, mock_backend_registry):
+        with patch("overblick.gateway.app._queue_manager", mock_queue_manager), \
+             patch("overblick.gateway.app._backend_registry", mock_backend_registry), \
+             patch("overblick.gateway.app.get_queue_manager", return_value=mock_queue_manager), \
+             patch("overblick.gateway.app.get_backend_registry", return_value=mock_backend_registry):
+            from overblick.gateway.app import app
+            with TestClient(app, raise_server_exceptions=False) as client:
+                yield client
+
+    def test_no_origin_allowed(self, client):
+        """Requests without Origin header are allowed."""
+        response = client.get("/health")
+        assert response.status_code == 200
+
+    def test_localhost_origin_allowed(self, client):
+        """Requests from localhost are allowed."""
+        response = client.get("/health", headers={"Origin": "http://localhost:8080"})
+        assert response.status_code == 200
+
+    def test_127_origin_allowed(self, client):
+        """Requests from 127.0.0.1 are allowed."""
+        response = client.get("/health", headers={"Origin": "http://127.0.0.1:3000"})
+        assert response.status_code == 200
+
+    def test_external_origin_rejected(self, client):
+        """Requests from non-localhost origins are rejected."""
+        response = client.get("/health", headers={"Origin": "https://evil.com"})
+        assert response.status_code == 403
+        assert "origin" in response.json()["detail"].lower()
+
+    def test_external_origin_rejected_on_post(self, client):
+        """POST requests with external origin are also rejected."""
+        payload = {
+            "model": "qwen3:8b",
+            "messages": [{"role": "user", "content": "Hello!"}],
+        }
+        response = client.post(
+            "/v1/chat/completions",
+            json=payload,
+            headers={"Origin": "https://attacker.com"},
+        )
+        assert response.status_code == 403

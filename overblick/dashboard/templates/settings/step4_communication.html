@@ -7,7 +7,7 @@
         <h1 class="detail-name">Step 4 — Communication</h1>
         <p class="detail-description">
             Set up Gmail and Telegram for your agents. Both are optional.
-            <a href="/settings/step/5" class="nav-link" style="font-size: 0.9em;">Skip this step →</a>
+            <a href="/settings/step/5" class="nav-link nav-link-sm">Skip this step →</a>
         </p>
     </div>
 
@@ -15,7 +15,7 @@
     <div class="flash flash-error" role="alert">{{ error }}</div>
     {% endif %}
 
-    <div class="card" style="max-width: 640px;">
+    <div class="card settings-card-narrow">
         <form method="post" action="/settings/step/4" hx-boost="true">
             {% set comm = state.communication or {} %}
             {% set has_gmail = state.get('_has_gmail_app_password') %}

@@ -104,6 +104,32 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Allowed origins for the gateway (localhost only)
+_ALLOWED_ORIGINS = {"http://127.0.0.1", "http://localhost", "https://127.0.0.1", "https://localhost"}
+
+
+@app.middleware("http")
+async def check_origin(request, call_next):
+    """Reject requests with non-localhost Origin headers.
+
+    The gateway is designed for localhost-only operation. Requests from
+    remote origins indicate misconfiguration or CSRF attempts.
+    """
+    origin = request.headers.get("origin")
+    if origin:
+        # Parse origin to check host (ignore port)
+        from urllib.parse import urlparse
+        parsed = urlparse(origin)
+        origin_base = f"{parsed.scheme}://{parsed.hostname}"
+        if origin_base not in _ALLOWED_ORIGINS:
+            logger.warning("Gateway: rejected non-localhost Origin: %s", origin)
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Non-localhost origin rejected"},
+            )
+    return await call_next(request)
+
+
 # API key authentication
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 

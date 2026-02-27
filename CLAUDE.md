@@ -12,10 +12,31 @@
 - **LLM:** Abstract client with Ollama, LLM Gateway, and Cloud provider backends. Cloud LLM stub supports future integration with OpenAI, Anthropic, etc. SafeLLMPipeline wraps ALL LLM calls (sanitize → preflight → rate limit → LLM → output safety → audit).
 - **Database:** Abstract backend (SQLite + PostgreSQL) with migration system
 - **Agentic:** Reusable OBSERVE/THINK/PLAN/ACT/REFLECT loop (`AgenticPluginBase`, `ActionPlanner`, `ActionExecutor`, `ReflectionPipeline`, `GoalTracker`). Used by GitHub Agent and Dev Agent plugins.
-- **Plugins:** Self-contained modules (Moltbook, Telegram, Email Agent, Host Health, AI Digest, GitHub Agent, Dev Agent) that receive PluginContext as their only framework interface.
+- **Plugins:** Self-contained modules that receive PluginContext as their only framework interface. See classification below.
 - **Identities:** Unified identity stable — YAML-driven character definitions (voice, traits, interests, backstory, psychology, key_knowledge, operational config) loadable by any plugin via `load_identity()` + `build_system_prompt()`. Each identity is a single `personality.yaml` containing both character AND operational config.
 - **Supervisor:** Multi-process boss agent with IPC (authenticated Unix sockets), permission management, agent audit system.
 - **Dashboard:** FastAPI + Jinja2 + htmx web dashboard (localhost only). Read-only agent monitoring, audit trail, identity browsing, and integrated 8-step settings wizard (at `/settings/`). On first run (no `config/overblick.yaml`), the dashboard auto-redirects to the wizard. No npm — vendored htmx, hand-crafted dark theme CSS.
+
+### Plugin Classification
+
+| Plugin | Type | Base Class | Purpose |
+|--------|------|-----------|---------|
+| **moltbook** | Content | PluginBase | Forum posting and social presence |
+| **telegram** | Communication | PluginBase | Telegram bot integration |
+| **email_agent** | Communication | PluginBase | Email monitoring and response |
+| **irc** | Communication | PluginBase | IRC channel participation |
+| **ai_digest** | Content | PluginBase | RSS feed analysis and summarization |
+| **kontrast** | Content | PluginBase | Multi-perspective commentary (fan-out) |
+| **skuggspel** | Content | PluginBase | Jungian shadow-self content generation |
+| **spegel** | Content | PluginBase | Inter-agent psychological profiling |
+| **compass** | Monitoring | PluginBase | Identity health scoring and trend tracking |
+| **stage** | Testing | PluginBase | Behavioral scenario test execution |
+| **host_health** | Monitoring | PluginBase | System health metrics collection |
+| **github** | **Agentic** | AgenticPluginBase | Autonomous GitHub issue/PR management (OBSERVE/THINK/PLAN/ACT/REFLECT) |
+| **dev_agent** | **Agentic** | AgenticPluginBase | Autonomous development task execution |
+| **log_agent** | **Agentic** | AgenticPluginBase | Autonomous log analysis and anomaly detection |
+
+**Agentic plugins** use the full reasoning loop (`AgenticPluginBase`) with goal tracking, action planning, and reflection. **Basic plugins** use `PluginBase` with a simpler setup/tick/teardown lifecycle.
 
 ## Running
 ```bash

@@ -110,7 +110,9 @@ class GatewayClient(LLMClient):
                 logger.warning("Gateway: No choices in response")
                 return None
 
-            content = choices[0].get("message", {}).get("content", "")
+            raw_content = choices[0].get("message", {}).get("content", "")
+            # Strip Qwen3 think tokens — gateway may pass them through
+            content = self.strip_think_tokens(raw_content)
             elapsed = time.monotonic() - start_time
 
             logger.info(f"Gateway: Response in {elapsed:.1f}s ({len(content)} chars)")

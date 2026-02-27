@@ -18,6 +18,7 @@ import logging
 import os
 import secrets
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Optional
@@ -36,6 +37,95 @@ _MAX_MESSAGE_SIZE = 1024 * 1024
 def generate_ipc_token() -> str:
     """Generate a cryptographically secure IPC authentication token."""
     return secrets.token_hex(32)
+
+
+def _encrypt_token(token: str) -> bytes:
+    """Encrypt IPC token with Fernet (auto-generates ephemeral key per session)."""
+    try:
+        from cryptography.fernet import Fernet
+        key = Fernet.generate_key()
+        f = Fernet(key)
+        encrypted = f.encrypt(token.encode())
+        # Return key + newline + encrypted token
+        return key + b"\n" + encrypted
+    except ImportError:
+        logger.warning("cryptography not installed — IPC token stored as plaintext")
+        return token.encode()
+
+
+def _decrypt_token(data: bytes) -> str:
+    """Decrypt IPC token written by _encrypt_token."""
+    try:
+        from cryptography.fernet import Fernet
+        parts = data.split(b"\n", 1)
+        if len(parts) == 2:
+            key, encrypted = parts
+            f = Fernet(key)
+            return f.decrypt(encrypted).decode()
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning("Failed to decrypt IPC token: %s", e)
+    # Fallback: plaintext (backward compat or no cryptography)
+    return data.decode().strip()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IPC CONNECTION RATE LIMITER
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _IPCRateLimiter:
+    """Per-sender rate limiter for IPC connections.
+
+    Limits each sender to max_per_minute connections within a sliding window.
+    """
+
+    def __init__(self, max_per_minute: int = 100):
+        self._max_per_minute = max_per_minute
+        self._counters: dict[str, list[float]] = {}
+
+    # Maximum tracked senders (prevents unbounded memory growth)
+    _MAX_TRACKED_SENDERS = 1000
+
+    def allow(self, sender: str) -> bool:
+        """Check if sender is within rate limit."""
+        now = time.monotonic()
+        cutoff = now - 60.0
+
+        if sender not in self._counters:
+            self._counters[sender] = []
+
+        # Prune old entries
+        timestamps = self._counters[sender]
+        self._counters[sender] = [t for t in timestamps if t > cutoff]
+
+        # Remove empty sender entries to prevent memory leak
+        if not self._counters[sender] and sender in self._counters:
+            del self._counters[sender]
+            self._counters[sender] = []
+
+        # Evict oldest senders if over limit
+        if len(self._counters) > self._MAX_TRACKED_SENDERS:
+            oldest = min(
+                self._counters,
+                key=lambda s: self._counters[s][-1] if self._counters[s] else 0,
+            )
+            del self._counters[oldest]
+
+        if len(self._counters.get(sender, [])) >= self._max_per_minute:
+            return False
+
+        self._counters.setdefault(sender, []).append(now)
+        return True
+
+
+def read_ipc_token(name: str = "supervisor", socket_dir: Optional[Path] = None) -> str:
+    """Read and decrypt IPC token from file (for child processes)."""
+    sd = socket_dir or _SOCKET_DIR
+    token_path = sd / f"overblick-{name}.token"
+    if not token_path.exists():
+        return ""
+    return _decrypt_token(token_path.read_bytes())
 
 
 class IPCMessage(BaseModel):
@@ -122,6 +212,7 @@ class IPCServer:
         name: str = "supervisor",
         socket_dir: Optional[Path] = None,
         auth_token: str = "",
+        rate_limit_per_minute: int = 100,
     ):
         self._name = name
         self._socket_dir = socket_dir or _SOCKET_DIR
@@ -130,6 +221,8 @@ class IPCServer:
         self._handlers: dict[str, MessageHandler] = {}
         self._auth_token = auth_token
         self._rejected_count = 0
+        self._rate_limiter = _IPCRateLimiter(max_per_minute=rate_limit_per_minute)
+        self._rate_limited_count = 0
 
     @property
     def socket_path(self) -> Path:
@@ -157,11 +250,12 @@ class IPCServer:
         if self._socket_path.exists():
             self._socket_path.unlink()
 
-        # Write auth token to file for child processes (secure: mode 0o600)
+        # Write auth token to encrypted file for child processes (mode 0o600)
         if self._auth_token:
+            encrypted_data = _encrypt_token(self._auth_token)
             fd = os.open(str(self.token_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with os.fdopen(fd, "w") as f:
-                f.write(self._auth_token)
+            with os.fdopen(fd, "wb") as f:
+                f.write(encrypted_data)
 
         self._server = await asyncio.start_unix_server(
             self._handle_connection,
@@ -207,6 +301,16 @@ class IPCServer:
                 return
 
             msg = IPCMessage.from_json(data.decode().strip())
+
+            # Rate limit per sender
+            sender_key = msg.sender or "unknown"
+            if not self._rate_limiter.allow(sender_key):
+                self._rate_limited_count += 1
+                logger.warning(
+                    "IPC rate limited sender '%s' (total: %d)",
+                    sender_key, self._rate_limited_count,
+                )
+                return
 
             # Validate authentication
             if not self._validate_auth(msg):

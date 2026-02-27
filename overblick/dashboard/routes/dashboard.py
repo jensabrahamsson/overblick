@@ -4,7 +4,8 @@ Dashboard routes — main page with agent cards and system health.
 
 import json
 import logging
-import re
+import os
+import tempfile
 import time
 from pathlib import Path
 
@@ -12,10 +13,13 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from starlette.responses import Response
 
-logger = logging.getLogger(__name__)
+from overblick.dashboard.routes._plugin_utils import (
+    IDENTITY_NAME_RE as _IDENTITY_NAME_RE,
+    PLUGIN_NAME_RE as _PLUGIN_NAME_RE,
+    resolve_base_dir as _resolve_base_dir,
+)
 
-_IDENTITY_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
-_PLUGIN_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -239,14 +243,6 @@ _ACRONYMS = {"ai", "llm", "rss", "api", "ipc"}
 
 # -- Plugin control file helpers (per-agent stop/start) ----------------------
 
-def _resolve_base_dir(request: Request) -> Path:
-    """Get the project base directory from app config."""
-    cfg = request.app.state.config
-    if cfg.base_dir:
-        return Path(cfg.base_dir)
-    return Path(__file__).parent.parent.parent.parent
-
-
 def _read_plugin_states(base_dir: Path, identity: str) -> dict[str, str]:
     """Read per-plugin states from the control file."""
     path = base_dir / "data" / identity / "plugin_control.json"
@@ -259,12 +255,28 @@ def _read_plugin_states(base_dir: Path, identity: str) -> dict[str, str]:
 
 
 def _write_plugin_state(base_dir: Path, identity: str, plugin: str, state: str) -> None:
-    """Write a single plugin's state to the control file."""
+    """Write a single plugin's state to the control file.
+
+    Uses atomic write (temp file + os.rename) to prevent corruption
+    if the process crashes mid-write or concurrent readers see partial data.
+    """
     data = _read_plugin_states(base_dir, identity)
     data[plugin] = state
     path = base_dir / "data" / identity / "plugin_control.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data))
+    # Atomic write: write to temp file in same directory, then rename
+    fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f)
+        os.rename(tmp_path, str(path))
+    except Exception:
+        # Clean up temp file on failure
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def _plugin_display_name(name: str) -> str:
