@@ -112,3 +112,21 @@ class TestPluginContextInit:
             log_dir=tmp_path / "logs",
         )
         assert ctx.capabilities == {}
+
+    def test_learning_store_defaults_to_none(self, tmp_path):
+        ctx = PluginContext(
+            identity_name="test",
+            data_dir=tmp_path / "data",
+            log_dir=tmp_path / "logs",
+        )
+        assert ctx.learning_store is None
+
+    def test_learning_store_can_be_set(self, tmp_path):
+        mock_store = MagicMock()
+        ctx = PluginContext(
+            identity_name="test",
+            data_dir=tmp_path / "data",
+            log_dir=tmp_path / "logs",
+            learning_store=mock_store,
+        )
+        assert ctx.learning_store is mock_store

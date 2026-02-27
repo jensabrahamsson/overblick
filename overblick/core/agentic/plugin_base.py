@@ -160,13 +160,15 @@ class AgenticPluginBase(PluginBase):
             max_actions_per_tick=max_actions_per_tick,
         )
 
-        # Reflection
+        # Reflection — routes through LearningStore if available
+        learning_store = getattr(self.ctx, "learning_store", None)
         reflection = ReflectionPipeline(
             db=self._agentic_db,
             llm_pipeline=self.ctx.llm_pipeline,
             system_prompt=system_prompt,
             learning_categories=self.get_learning_categories(),
             audit_action=f"{audit_action_prefix}_reflection",
+            learning_store=learning_store,
         )
 
         # Wire the loop
@@ -179,6 +181,7 @@ class AgenticPluginBase(PluginBase):
             db=self._agentic_db,
             max_actions_per_tick=max_actions_per_tick,
             get_extra_context=self.get_extra_planning_context,
+            learning_store=learning_store,
         )
         await self._agent_loop.setup()
 

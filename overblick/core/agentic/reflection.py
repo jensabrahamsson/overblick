@@ -20,7 +20,8 @@ class ReflectionPipeline:
     Extracts learnings from tick outcomes via LLM.
 
     Parses the LLM's JSON response into AgentLearning records
-    and stores them in the database.
+    and stores them in the database. If a LearningStore is provided,
+    routes learnings through ethos review instead of direct DB insert.
     """
 
     def __init__(
@@ -30,12 +31,14 @@ class ReflectionPipeline:
         system_prompt: str = "",
         learning_categories: str = "",
         audit_action: str = "agent_reflection",
+        learning_store=None,
     ):
         self._db = db
         self._llm_pipeline = llm_pipeline
         self._system_prompt = system_prompt
         self._learning_categories = learning_categories
         self._audit_action = audit_action
+        self._learning_store = learning_store
 
     async def reflect(
         self,
@@ -89,7 +92,11 @@ class ReflectionPipeline:
             logger.debug("Reflection failed (non-critical): %s", e)
 
     async def _store_learnings(self, tick_number: int, raw: str) -> None:
-        """Parse and store learnings from reflection LLM response."""
+        """Parse and store learnings from reflection LLM response.
+
+        Routes through LearningStore (with ethos review) if available,
+        otherwise falls back to direct AgenticDB insert.
+        """
         data = self._extract_json(raw)
         if not data:
             return
@@ -98,14 +105,29 @@ class ReflectionPipeline:
         for learning_data in learnings:
             if not isinstance(learning_data, dict):
                 continue
-            learning = AgentLearning(
-                category=learning_data.get("category", "general"),
-                insight=learning_data.get("insight", ""),
-                confidence=float(learning_data.get("confidence", 0.5)),
-                source="reflection",
-                source_tick=tick_number,
-            )
-            if learning.insight:
+
+            insight = learning_data.get("insight", "")
+            if not insight:
+                continue
+
+            category = learning_data.get("category", "general")
+            confidence = float(learning_data.get("confidence", 0.5))
+
+            if self._learning_store:
+                await self._learning_store.propose(
+                    content=insight,
+                    category=category,
+                    source="reflection",
+                    source_context=f"tick {tick_number}",
+                )
+            else:
+                learning = AgentLearning(
+                    category=category,
+                    insight=insight,
+                    confidence=confidence,
+                    source="reflection",
+                    source_tick=tick_number,
+                )
                 await self._db.add_learning(learning)
 
     @staticmethod

@@ -261,6 +261,9 @@ async def chat_completion(
     - low: Background tasks (scheduled ticks, housekeeping)
 
     Complexity levels (for backend routing):
+    - einstein: Deep reasoning — uses deepseek-reasoner model. Response includes
+      reasoning_content (thinking process) alongside content. DeepSeek only,
+      no fallback. Use for complex analysis, architecture decisions, code review.
     - ultra: Highest capability — prefer deepseek for precision tasks (math, challenges)
     - high: Complex tasks — prefer cloud/deepseek backends
     - low: Simple tasks — local inference is fine
@@ -290,6 +293,17 @@ async def chat_completion(
     elif _router and backend:
         resolved_backend = _router.resolve_backend(
             explicit_backend=backend,
+        )
+
+    # Einstein complexity: override model to deepseek-reasoner
+    # The reasoner is a separate model with different response format
+    if complexity == "einstein" and resolved_backend == "deepseek":
+        original_model = request.model
+        request = request.model_copy(update={"model": "deepseek-reasoner"})
+        logger.info(
+            "EINSTEIN MODE: model override %s → deepseek-reasoner "
+            "(reasoning_content will be included in response)",
+            original_model,
         )
 
     logger.info(

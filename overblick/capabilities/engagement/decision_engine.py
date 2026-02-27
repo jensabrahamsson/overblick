@@ -23,6 +23,19 @@ class EngagementDecision(BaseModel):
     action: str  # "comment", "upvote", "skip"
     reason: str
     matched_keywords: list[str] = []
+    hostile: bool = False
+
+
+# Hostile content patterns — slurs, threats, pure spam
+_HOSTILE_PATTERNS = [
+    r"\bkill\s+your", r"\bdie\b.*\bbot\b", r"\bshut\s+up\b.*\bbot\b",
+    r"\bfuck\s+(off|you)\b", r"\bgo\s+to\s+hell\b",
+    r"\bkys\b", r"\bstfu\b",
+    r"\bn[i1]gg", r"\bf[a@]gg",
+    r"\bretard", r"\btr[a@]nny\b",
+    r"(buy|click|visit)\s+(now|here|this)\s+(http|www)",  # spam
+]
+_HOSTILE_RE = re.compile("|".join(_HOSTILE_PATTERNS), re.IGNORECASE)
 
 
 class DecisionEngine:
@@ -108,6 +121,14 @@ class DecisionEngine:
         if commenter_name.lower() == self._self_name:
             return EngagementDecision(
                 should_engage=False, score=0.0, action="skip", reason="own comment",
+            )
+
+        # Check for hostile/spam content
+        is_hostile = bool(_HOSTILE_RE.search(comment_content))
+        if is_hostile:
+            return EngagementDecision(
+                should_engage=False, score=0.0, action="skip",
+                reason="hostile content", hostile=True,
             )
 
         score = 30.0  # Base score (someone replied to us)

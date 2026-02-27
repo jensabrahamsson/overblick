@@ -45,6 +45,7 @@ class AgentLoop:
         db: AgenticDB,
         max_actions_per_tick: int = 5,
         get_extra_context: Optional[Any] = None,
+        learning_store=None,
     ):
         self._observer = observer
         self._goals = goal_tracker
@@ -54,6 +55,7 @@ class AgentLoop:
         self._db = db
         self._max_actions = max_actions_per_tick
         self._get_extra_context = get_extra_context
+        self._learning_store = learning_store
         self._tick_count = 0
 
     async def setup(self) -> None:
@@ -93,10 +95,19 @@ class AgentLoop:
         recent_actions_rows = await self._db.get_recent_actions(limit=10)
         recent_actions_text = self._format_recent_actions(recent_actions_rows)
 
-        learnings = await self._db.get_learnings(limit=10)
-        learnings_text = "\n".join(
-            f"- [{l.category}] {l.insight}" for l in learnings
-        ) if learnings else ""
+        # Read learnings from LearningStore (semantic) or AgenticDB (legacy)
+        if self._learning_store:
+            store_learnings = await self._learning_store.get_relevant(
+                context=observations_text, limit=10,
+            )
+            learnings_text = "\n".join(
+                f"- [{l.category}] {l.content}" for l in store_learnings
+            ) if store_learnings else ""
+        else:
+            learnings = await self._db.get_learnings(limit=10)
+            learnings_text = "\n".join(
+                f"- [{l.category}] {l.insight}" for l in learnings
+            ) if learnings else ""
 
         extra_context = ""
         if self._get_extra_context:

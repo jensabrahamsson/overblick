@@ -86,6 +86,7 @@ class Orchestrator:
         self._ipc_client: Optional[object] = None
         self._engagement_db_backend: Optional[SQLiteBackend] = None
         self._engagement_db: Optional[EngagementDB] = None
+        self._learning_store: Optional[object] = None
         self._control_file: Optional[Path] = None
 
     @property
@@ -159,6 +160,9 @@ class Orchestrator:
         # 8. Create shared capabilities (orchestrator-level)
         await self._setup_capabilities()
 
+        # 8b. Initialize per-identity learning store
+        await self._setup_learning_store(data_dir)
+
         # 9. Create IPC client (if running under supervisor)
         self._ipc_client = self._create_ipc_client()
 
@@ -192,6 +196,7 @@ class Orchestrator:
                 capabilities=self._capabilities,
                 ipc_client=self._ipc_client,
                 engagement_db=self._engagement_db,
+                learning_store=self._learning_store,
             )
             ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
 
@@ -363,6 +368,42 @@ class Orchestrator:
         except Exception as e:
             logger.debug("Could not read plugin control file: %s", e)
         return False
+
+    async def _setup_learning_store(self, data_dir: Path) -> None:
+        """Initialize the per-identity LearningStore with ethos gating."""
+        from overblick.core.learning import LearningStore
+
+        # Extract ethos text from identity
+        ethos = self._identity.raw_config.get("ethos", [])
+        if isinstance(ethos, list):
+            ethos_text = "\n".join(str(e) for e in ethos)
+        else:
+            ethos_text = str(ethos) if ethos else ""
+
+        # Fall back to ethos_text field if ethos list is empty
+        if not ethos_text:
+            ethos_text = self._identity.raw_config.get("ethos_text", "")
+
+        # Build embed_fn from gateway client if available
+        embed_fn = self._get_embed_fn()
+
+        db_path = data_dir / "learnings.db"
+        self._learning_store = LearningStore(
+            db_path=db_path,
+            ethos_text=ethos_text,
+            llm_pipeline=self._llm_pipeline,
+            embed_fn=embed_fn,
+        )
+        await self._learning_store.setup()
+        logger.info("LearningStore initialized for %s (embeddings=%s)", self._identity_name, embed_fn is not None)
+
+    def _get_embed_fn(self):
+        """Create an embedding function from the LLM client if it supports embeddings."""
+        if self._llm_client and hasattr(self._llm_client, "embed"):
+            async def _embed(text: str) -> list[float]:
+                return await self._llm_client.embed(text)
+            return _embed
+        return None
 
     async def _setup_capabilities(self) -> None:
         """Create shared capabilities at the orchestrator level."""

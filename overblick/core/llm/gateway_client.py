@@ -110,19 +110,33 @@ class GatewayClient(LLMClient):
                 logger.warning("Gateway: No choices in response")
                 return None
 
-            raw_content = choices[0].get("message", {}).get("content", "")
+            message = choices[0].get("message", {})
+            raw_content = message.get("content", "")
             # Strip Qwen3 think tokens — gateway may pass them through
             content = self.strip_think_tokens(raw_content)
             elapsed = time.monotonic() - start_time
 
-            logger.info(f"Gateway: Response in {elapsed:.1f}s ({len(content)} chars)")
+            # DeepSeek reasoner returns reasoning_content alongside content
+            reasoning = message.get("reasoning_content")
 
-            return {
+            if reasoning:
+                logger.info(
+                    "Gateway: REASONER response in %.1fs "
+                    "(reasoning=%d chars, answer=%d chars)",
+                    elapsed, len(reasoning), len(content),
+                )
+            else:
+                logger.info(f"Gateway: Response in {elapsed:.1f}s ({len(content)} chars)")
+
+            result = {
                 "content": content,
                 "model": data.get("model", self.model),
                 "tokens_used": data.get("usage", {}).get("total_tokens", 0),
                 "finish_reason": choices[0].get("finish_reason"),
             }
+            if reasoning:
+                result["reasoning_content"] = reasoning
+            return result
 
         except asyncio.TimeoutError:
             logger.error(f"Gateway: Timeout ({self.timeout_seconds}s)", exc_info=True)
@@ -154,6 +168,29 @@ class GatewayClient(LLMClient):
         except Exception as e:
             logger.warning(f"Gateway: Health check failed: {e}")
             return False
+
+    async def embed(self, text: str, model: str = "nomic-embed-text") -> list[float]:
+        """Generate an embedding vector via the gateway's embedding endpoint."""
+        if not text:
+            return []
+
+        await self._ensure_session()
+        url = f"{self.base_url}/v1/embeddings?text={text}&model={model}"
+
+        try:
+            async with self._session.post(
+                url,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise LLMConnectionError(f"Embedding API error {response.status}: {error_text[:200]}")
+
+                data = await response.json()
+                return data.get("embedding", [])
+
+        except aiohttp.ClientError as e:
+            raise LLMConnectionError(f"Embedding connection error: {e}") from e
 
     async def close(self) -> None:
         if self._session and not self._session.closed:

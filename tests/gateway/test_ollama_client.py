@@ -163,3 +163,34 @@ class TestOllamaClient:
             await client.close()
 
             mock_instance.aclose.assert_called_once()
+
+    async def test_embed_success(self, client):
+        mock_response_data = {
+            "embeddings": [[0.1, 0.2, 0.3, 0.4, 0.5]],
+        }
+
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_response_data
+            mock_response.raise_for_status = MagicMock()
+            mock_http.post = AsyncMock(return_value=mock_response)
+            mock_get.return_value = mock_http
+
+            result = await client.embed("test text")
+
+            assert result == [0.1, 0.2, 0.3, 0.4, 0.5]
+            mock_http.post.assert_called_once()
+
+    async def test_embed_connection_error(self, client):
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
+            mock_get.return_value = mock_http
+
+            with pytest.raises(OllamaConnectionError):
+                await client.embed("test text")
+
+    async def test_embed_empty_text(self, client):
+        result = await client.embed("")
+        assert result == []

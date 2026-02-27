@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, PrivateAttr, SkipValidation
 if TYPE_CHECKING:
     from overblick.core.db.engagement_db import EngagementDB
     from overblick.core.event_bus import EventBus
+    from overblick.core.learning.store import LearningStore
     from overblick.core.llm.client import LLMClient
     from overblick.core.llm.pipeline import SafeLLMPipeline
     from overblick.core.llm.response_router import ResponseRouter
@@ -75,6 +76,9 @@ class PluginContext(BaseModel):
     permissions: Annotated[Optional["PermissionChecker"], SkipValidation] = None
 
     ipc_client: Annotated[Optional["IPCClient"], SkipValidation] = None
+
+    # Per-identity learning store (shared across all plugins for this identity)
+    learning_store: Annotated[Optional["LearningStore"], SkipValidation] = None
 
     # Shared capabilities (populated by orchestrator)
     capabilities: dict[str, Any] = {}
@@ -277,6 +281,7 @@ class PluginBase(ABC):
 # so there is no circular dependency. Placed after class definitions per PEP 8 E402.
 from overblick.core.db.engagement_db import EngagementDB  # noqa: E402
 from overblick.core.event_bus import EventBus  # noqa: E402
+from overblick.core.learning.store import LearningStore  # noqa: E402
 from overblick.core.llm.client import LLMClient  # noqa: E402
 from overblick.core.llm.pipeline import SafeLLMPipeline  # noqa: E402
 from overblick.core.llm.response_router import ResponseRouter  # noqa: E402

@@ -76,6 +76,7 @@ class MoltbookPlugin(PluginBase):
         self._suspended_until: Optional[datetime] = None
         self._dms_supported: bool = True  # Set to False on first 404 from DM endpoints
         self._dream_journal_posted_date: Optional[date] = None
+        self._processed_dm_convos: set[str] = set()  # Dedup within a single tick
 
     async def setup(self) -> None:
         """Initialize all Moltbook components using self.ctx."""
@@ -231,6 +232,7 @@ class MoltbookPlugin(PluginBase):
         """
         self._tick_count += 1
         self._comments_this_cycle = 0
+        self._processed_dm_convos.clear()
 
         # Check suspension backoff — skip all activity for 24h after suspension
         if self._suspended_until and datetime.now(timezone.utc).replace(tzinfo=None) < self._suspended_until:
@@ -345,11 +347,23 @@ class MoltbookPlugin(PluginBase):
 
         existing = [c.content for c in (post.comments or [])[:3]]
 
-        # Add context from knowledge loader and capabilities
+        # Add context from knowledge loader, capabilities, and learnings
         extra_context = ""
         if self._knowledge_loader:
             extra_context = self._knowledge_loader.format_for_prompt(max_items=10)
         extra_context += self._gather_capability_context()
+
+        # Inject relevant learnings from the identity's learning store
+        if self.ctx.learning_store:
+            try:
+                relevant = await self.ctx.learning_store.get_relevant(
+                    context=post.content, limit=8,
+                )
+                if relevant:
+                    learnings_text = "\n".join(f"- {l.content}" for l in relevant)
+                    extra_context += f"\n\nRelevant things you've learned:\n{learnings_text}\n"
+            except Exception as e:
+                logger.debug("Could not fetch relevant learnings: %s", e)
 
         response = await self._response_gen.generate_comment(
             post_title=post.title,
@@ -392,8 +406,18 @@ class MoltbookPlugin(PluginBase):
                 details={"post_id": post.id, "score": decision.score},
             )
 
-            # LEARN: Extract potential learnings via capability
-            if self._safe_learning:
+            # LEARN: Extract and propose learnings
+            if self.ctx.learning_store:
+                from overblick.core.learning import LearningExtractor
+                candidates = LearningExtractor.extract(post.content, source_agent=post.agent_name)
+                for c in candidates:
+                    await self.ctx.learning_store.propose(
+                        content=c["content"],
+                        category=c["category"],
+                        source="moltbook",
+                        source_context=c["context"],
+                    )
+            elif self._safe_learning:
                 from overblick.capabilities.knowledge.learning import LearningCapability
                 learnings = LearningCapability.extract_potential_learnings(
                     post.content, response, post.agent_name,
@@ -414,7 +438,12 @@ class MoltbookPlugin(PluginBase):
             logger.error("Failed to post comment: %s", e, exc_info=True)
 
     async def _check_own_post_replies(self) -> None:
-        """Check for new replies to our posts.
+        """Check for new replies to our posts and upvote engagement.
+
+        For comments on our own posts:
+        - Hostile/spam comments: skip entirely (no upvote, no reply)
+        - Engaging comments (above reply threshold): upvote AND queue reply
+        - Normal comments (below reply threshold): upvote only
 
         N+1 note: This issues one API call per post (up to 5) plus one
         DB query per comment. At typical agent scale (5 posts × 10 comments)
@@ -454,6 +483,19 @@ class MoltbookPlugin(PluginBase):
                         original_post_title=post.title,
                         commenter_name=comment.agent_name,
                     )
+
+                    # Hostile/spam: skip entirely — no upvote, no reply
+                    if decision.hostile:
+                        await self.ctx.engagement_db.mark_reply_processed(
+                            comment.id, post_id, "hostile_skip", 0,
+                        )
+                        continue
+
+                    # Upvote all non-hostile comments on our own posts
+                    try:
+                        await self._client.upvote_comment(post_id, comment.id)
+                    except MoltbookError as e:
+                        logger.debug("Upvote failed for comment %s: %s", comment.id, e)
 
                     if decision.should_engage:
                         await self.ctx.engagement_db.queue_reply_action(
@@ -501,6 +543,9 @@ class MoltbookPlugin(PluginBase):
             for conv in conversations:
                 if conv.unread_count <= 0:
                     continue
+                if conv.id in self._processed_dm_convos:
+                    continue
+                self._processed_dm_convos.add(conv.id)
 
                 response = await self._response_gen.generate_dm_reply(
                     sender_name=conv.participant_name,
