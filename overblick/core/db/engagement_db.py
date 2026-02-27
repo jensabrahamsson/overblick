@@ -136,6 +136,16 @@ class EngagementDB:
             (post_id, title),
         )
 
+    async def get_recent_heartbeat_titles(self, limit: int = 5) -> list[str]:
+        """Get titles of the most recent heartbeat posts for anti-repetition."""
+        ph = self._db.ph
+        rows = await self._db.fetch_all(
+            f"SELECT title FROM heartbeats WHERE title != '' "
+            f"ORDER BY created_at DESC LIMIT {ph(1)}",
+            (limit,),
+        )
+        return [r["title"] for r in rows]
+
     # ------------------------------------------------------------------
     # Reply processing
     # ------------------------------------------------------------------

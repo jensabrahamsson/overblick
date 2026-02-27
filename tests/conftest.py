@@ -52,6 +52,7 @@ def mock_engagement_db():
     db.track_my_post = AsyncMock()
     db.track_my_comment = AsyncMock()
     db.get_my_post_ids = AsyncMock(return_value=[])
+    db.get_recent_heartbeat_titles = AsyncMock(return_value=[])
     return db
 
 

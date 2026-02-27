@@ -43,17 +43,12 @@ from .conftest import _FallbackPrompts, make_post
 # ---------------------------------------------------------------------------
 
 class _TopicAwarePrompts(_FallbackPrompts):
-    """Prompts with HEARTBEAT_TOPICS for regression testing."""
+    """Prompts with free-form heartbeat (no forced topics)."""
     HEARTBEAT_PROMPT = (
-        "Write about {topic_instruction}.\n"
-        "Example: {topic_example}\n"
+        "Write an original post about whatever you're thinking about.\n"
         "Topic index: {topic_index}"
     )
-    HEARTBEAT_TOPICS = [
-        {"instruction": "AI consciousness", "example": "What is self-awareness?"},
-        {"instruction": "crypto regulation", "example": "Should DAOs be regulated?"},
-        {"instruction": "philosophy of mind", "example": "Is the mind computable?"},
-    ]
+    HEARTBEAT_TOPICS = []
 
 
 class _ResponsePromptOnly:
@@ -82,13 +77,13 @@ class TestHeartbeatTopicFormatting:
     """Regression tests for the heartbeat topic_vars fix."""
 
     @pytest.mark.asyncio
-    async def test_heartbeat_with_topics_formats_correctly(
+    async def test_heartbeat_free_form_posts_successfully(
         self, setup_anomal_plugin, mock_llm_client,
     ):
-        """HEARTBEAT_TOPICS resolved and passed to generate_heartbeat as topic_vars."""
+        """Free-form heartbeat (no forced topics) posts successfully."""
         plugin, ctx, client = setup_anomal_plugin
 
-        # Override _load_prompts to return topic-aware prompts
+        # Override _load_prompts to return free-form prompts
         plugin._load_prompts = lambda _: _TopicAwarePrompts()
 
         mock_llm_client.chat = AsyncMock(return_value={
@@ -100,41 +95,31 @@ class TestHeartbeatTopicFormatting:
         assert result is True
         client.create_post.assert_called_once()
 
-        # Verify LLM received the topic instruction and example (not KeyError)
-        call_args = mock_llm_client.chat.call_args
-        messages = call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
-        user_content = [m for m in messages if m["role"] == "user"][0]["content"]
-        assert "AI consciousness" in user_content
-        assert "What is self-awareness?" in user_content
-
     @pytest.mark.asyncio
-    async def test_heartbeat_topics_rotate(
+    async def test_heartbeat_includes_anti_repetition_context(
         self, setup_anomal_plugin, mock_llm_client,
     ):
-        """Topic index increments on each heartbeat call."""
+        """Heartbeat injects recent post titles as anti-repetition context."""
         plugin, ctx, client = setup_anomal_plugin
         plugin._load_prompts = lambda _: _TopicAwarePrompts()
+
+        # Mock engagement_db to return recent titles
+        ctx.engagement_db.get_recent_heartbeat_titles = AsyncMock(
+            return_value=["AI Consciousness", "Crypto Regulation"]
+        )
 
         mock_llm_client.chat = AsyncMock(return_value={
             "content": "submolt: ai\nTITLE: Post\nContent."
         })
 
-        # First heartbeat — topic 0
         await plugin.post_heartbeat()
-        call1 = mock_llm_client.chat.call_args
-        msgs1 = call1.kwargs.get("messages") or call1[1].get("messages") or call1[0][0]
-        user1 = [m for m in msgs1 if m["role"] == "user"][0]["content"]
-        assert "AI consciousness" in user1
 
-        mock_llm_client.chat.reset_mock()
-        client.create_post.reset_mock()
-
-        # Second heartbeat — topic 1
-        await plugin.post_heartbeat()
-        call2 = mock_llm_client.chat.call_args
-        msgs2 = call2.kwargs.get("messages") or call2[1].get("messages") or call2[0][0]
-        user2 = [m for m in msgs2 if m["role"] == "user"][0]["content"]
-        assert "crypto regulation" in user2
+        # Verify LLM received anti-repetition context
+        call_args = mock_llm_client.chat.call_args
+        messages = call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
+        user_content = [m for m in messages if m["role"] == "user"][0]["content"]
+        assert "AI Consciousness" in user_content
+        assert "DON'T repeat" in user_content
 
     @pytest.mark.asyncio
     async def test_heartbeat_no_topics_uses_fallback(

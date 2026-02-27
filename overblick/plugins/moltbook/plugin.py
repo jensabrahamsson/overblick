@@ -248,6 +248,13 @@ class MoltbookPlugin(PluginBase):
         # Tick capabilities (dreams, therapy, learning) — runs even on quiet ticks
         await self._tick_capabilities()
 
+        # Apply mood cycle threshold offset to engagement decisions
+        mood_cap = self._capabilities.get("mood_cycle")
+        if mood_cap and self._decision_engine:
+            base_threshold = self.ctx.identity.raw_config.get("engagement_threshold", 35.0)
+            offset = mood_cap.get_threshold_offset()
+            self._decision_engine._threshold = base_threshold + offset
+
         # Post dream journal if a new dream was generated this tick
         await self._maybe_post_dream_journal()
 
@@ -643,26 +650,32 @@ class MoltbookPlugin(PluginBase):
         if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
             return False
 
+        # Dream priority: if a dream journal hasn't been posted yet today, skip
+        # heartbeat and let tick() post the dream first
+        if self._dream_system and self._dream_system.last_dream:
+            today = date.today()
+            if self._dream_journal_posted_date != today:
+                logger.debug("Skipping heartbeat — dream journal pending for today")
+                return False
+
         prompts = self._load_prompts(self.ctx.identity.name)
         heartbeat_prompt = getattr(prompts, "HEARTBEAT_PROMPT", "Write a short post about topic {topic_index}.")
-        heartbeat_topics = getattr(prompts, "HEARTBEAT_TOPICS", [])
 
-        topic_index = self._heartbeat.get_next_topic_index()
-
-        # Resolve topic instruction and example from the topics list
-        topic_vars: dict[str, str] = {}
-        if heartbeat_topics and 0 <= topic_index < len(heartbeat_topics):
-            topic = heartbeat_topics[topic_index]
-            topic_vars = {
-                "topic_instruction": topic.get("instruction", ""),
-                "topic_example": topic.get("example", ""),
-            }
+        # Anti-repetition: inject recent post titles as context
+        extra_context = self._gather_capability_context()
+        try:
+            recent_titles = await self.ctx.engagement_db.get_recent_heartbeat_titles(limit=5)
+            if recent_titles:
+                titles_text = "\n".join(f"- {t}" for t in recent_titles)
+                extra_context += f"\n\nYour recent posts (DON'T repeat these topics):\n{titles_text}\n"
+        except Exception as e:
+            logger.debug("Could not fetch recent heartbeat titles: %s", e)
 
         result = await self._response_gen.generate_heartbeat(
             prompt_template=heartbeat_prompt,
-            topic_index=topic_index,
-            topic_vars=topic_vars,
-            extra_context=self._gather_capability_context(),
+            topic_index=0,
+            topic_vars={},
+            extra_context=extra_context,
         )
 
         if not result:
@@ -821,6 +834,7 @@ class MoltbookPlugin(PluginBase):
                 "ethos_text": identity.raw_config.get("ethos_text", ""),
             },
             "emotional_state": {},
+            "mood_cycle": identity.raw_config.get("mood_cycle", {}),
         }
 
         resolved = registry.resolve(enabled_modules)
