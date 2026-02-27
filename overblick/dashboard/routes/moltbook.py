@@ -87,13 +87,20 @@ def _get_moltbook_profiles() -> list[dict]:
         identity_section = personality_data.get("identity", {})
         display_name = identity_section.get("display_name", d.name.capitalize())
         bio = personality_data.get("moltbook_bio", "").strip()
-        agent_name = identity_data.get("agent_name", display_name)
+
+        # Resolve Moltbook username: operational.moltbook_username > identity.agent_name > display_name
+        operational = personality_data.get("operational", {})
+        moltbook_username = (
+            operational.get("moltbook_username", "")
+            or identity_data.get("agent_name", "")
+            or display_name
+        )
 
         profiles.append({
             "identity": d.name,
             "display_name": display_name,
             "bio": bio,
-            "url": f"{MOLTBOOK_BASE_URL}/{agent_name}",
+            "url": f"{MOLTBOOK_BASE_URL}/{moltbook_username}",
             "status": None,
             "detail": "",
             "updated_at": "",

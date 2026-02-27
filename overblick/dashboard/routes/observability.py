@@ -70,9 +70,9 @@ def _agent_health_color(agent: dict, error_rate: float) -> str:
 
 # ---- Main page ----
 
-@router.get("/observability", response_class=HTMLResponse)
-async def observability_page(request: Request):
-    """Render the Observability Command Center page."""
+@router.get("/monitor", response_class=HTMLResponse)
+async def monitor_page(request: Request):
+    """Render the Monitor Command Center page."""
     templates = request.app.state.templates
     return templates.TemplateResponse("observability.html", {
         "request": request,
@@ -82,7 +82,7 @@ async def observability_page(request: Request):
 
 # ---- Section A: Agent Health Strip ----
 
-@router.get("/observability/agents-strip", response_class=HTMLResponse)
+@router.get("/monitor/agents-strip", response_class=HTMLResponse)
 async def agents_strip_partial(request: Request):
     """htmx partial: agent health status dots."""
     templates = request.app.state.templates
@@ -116,7 +116,7 @@ async def agents_strip_partial(request: Request):
 
 # ---- Section B: LLM Gateway ----
 
-@router.get("/observability/gateway", response_class=HTMLResponse)
+@router.get("/monitor/gateway", response_class=HTMLResponse)
 async def gateway_partial(request: Request):
     """htmx partial: LLM Gateway metrics."""
     templates = request.app.state.templates
@@ -159,7 +159,7 @@ async def gateway_partial(request: Request):
 
 # ---- Section C: Agent Fleet ----
 
-@router.get("/observability/fleet", response_class=HTMLResponse)
+@router.get("/monitor/fleet", response_class=HTMLResponse)
 async def fleet_partial(request: Request):
     """htmx partial: agent fleet table."""
     templates = request.app.state.templates
@@ -189,7 +189,7 @@ async def fleet_partial(request: Request):
 
 # ---- Section D: Audit Activity ----
 
-@router.get("/observability/audit-activity", response_class=HTMLResponse)
+@router.get("/monitor/audit-activity", response_class=HTMLResponse)
 async def audit_activity_partial(request: Request):
     """htmx partial: audit activity sparkline and category breakdown."""
     templates = request.app.state.templates
@@ -220,7 +220,7 @@ async def audit_activity_partial(request: Request):
 
 # ---- Section E: Message Routing ----
 
-@router.get("/observability/routing", response_class=HTMLResponse)
+@router.get("/monitor/routing", response_class=HTMLResponse)
 async def routing_partial(request: Request):
     """htmx partial: message routing stats."""
     templates = request.app.state.templates
@@ -241,7 +241,7 @@ async def routing_partial(request: Request):
 
 # ---- Section F: Error Feed ----
 
-@router.get("/observability/errors", response_class=HTMLResponse)
+@router.get("/monitor/errors", response_class=HTMLResponse)
 async def errors_partial(request: Request):
     """htmx partial: recent error entries from audit log."""
     templates = request.app.state.templates

@@ -231,44 +231,22 @@ class TestDeepseekChatCompletion:
 
 class TestDeepseekHealthCheck:
     @pytest.mark.asyncio
-    async def test_health_check_success(self):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-
-        mock_client = AsyncMock()
-        mock_client.is_closed = False
-        mock_client.get = AsyncMock(return_value=mock_response)
-
+    async def test_health_check_with_key(self):
+        """Cloud backend with API key is healthy (no HTTP call)."""
         client = DeepseekClient(api_key="sk-test")
-        client._client = mock_client
-
         assert await client.health_check() is True
-        mock_client.get.assert_called_with("/models")
 
     @pytest.mark.asyncio
-    async def test_health_check_failure(self):
-        mock_response = MagicMock()
-        mock_response.status_code = 401
+    async def test_health_check_without_key(self):
+        """Cloud backend without API key is unhealthy."""
+        client = DeepseekClient(api_key="")
+        assert await client.health_check() is False
 
-        mock_client = AsyncMock()
-        mock_client.is_closed = False
-        mock_client.get = AsyncMock(return_value=mock_response)
-
+    @pytest.mark.asyncio
+    async def test_health_check_with_bad_key_still_healthy(self):
+        """Even an invalid key makes the backend 'configured' (healthy)."""
         client = DeepseekClient(api_key="bad-key")
-        client._client = mock_client
-
-        assert await client.health_check() is False
-
-    @pytest.mark.asyncio
-    async def test_health_check_exception(self):
-        mock_client = AsyncMock()
-        mock_client.is_closed = False
-        mock_client.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
-
-        client = DeepseekClient(api_key="sk-test")
-        client._client = mock_client
-
-        assert await client.health_check() is False
+        assert await client.health_check() is True
 
 
 # ---------------------------------------------------------------------------
@@ -367,3 +345,58 @@ class TestDeepseekClientSession:
         client = DeepseekClient()
         await client.close()  # Should not raise
         assert client._client is None
+
+
+# ---------------------------------------------------------------------------
+# Health check — new behavior (api_key-based, no HTTP call)
+# ---------------------------------------------------------------------------
+
+class TestDeepseekHealthCheckNew:
+    """New health_check behavior: returns bool(api_key), no HTTP call."""
+
+    @pytest.mark.asyncio
+    async def test_health_check_with_api_key(self):
+        """Cloud backend with API key is considered healthy (no HTTP call needed)."""
+        client = DeepseekClient(api_key="sk-test123")
+        assert await client.health_check() is True
+
+    @pytest.mark.asyncio
+    async def test_health_check_without_api_key(self):
+        """Cloud backend without API key is unhealthy."""
+        client = DeepseekClient(api_key="")
+        assert await client.health_check() is False
+
+
+# ---------------------------------------------------------------------------
+# Connectivity check (the old HTTP-based reachability test)
+# ---------------------------------------------------------------------------
+
+class TestDeepseekConnectivityCheck:
+    """connectivity_check() does the actual HTTP call to /models."""
+
+    @pytest.mark.asyncio
+    async def test_connectivity_check_success(self):
+        """connectivity_check returns True when API responds 200."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        mock_client = AsyncMock()
+        mock_client.is_closed = False
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        client = DeepseekClient(api_key="sk-test")
+        client._client = mock_client
+
+        assert await client.connectivity_check() is True
+
+    @pytest.mark.asyncio
+    async def test_connectivity_check_failure(self):
+        """connectivity_check returns False on connection error."""
+        mock_client = AsyncMock()
+        mock_client.is_closed = False
+        mock_client.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
+
+        client = DeepseekClient(api_key="sk-test")
+        client._client = mock_client
+
+        assert await client.connectivity_check() is False

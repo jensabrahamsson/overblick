@@ -80,13 +80,23 @@ class DeepseekClient:
             self._client = None
 
     async def health_check(self) -> bool:
-        """Check if the Deepseek API is reachable by listing models."""
+        """Check if the Deepseek backend is configured.
+
+        Cloud backends are considered healthy if an API key is configured.
+        Unlike local backends, cloud APIs may be transiently unreachable
+        (rate limits, network blips) without indicating misconfiguration.
+        Use connectivity_check() for a deeper reachability test.
+        """
+        return bool(self.api_key)
+
+    async def connectivity_check(self) -> bool:
+        """Check if the Deepseek API is actually reachable by listing models."""
         try:
             client = await self._get_client()
             response = await client.get("/models")
             return response.status_code == 200
         except Exception as e:
-            logger.warning("Deepseek health check failed: %s", e)
+            logger.warning("Deepseek connectivity check failed: %s", e)
             return False
 
     async def list_models(self) -> list[str]:

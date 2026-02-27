@@ -30,6 +30,7 @@ class RequestRouter:
         priority: Optional[str] = None,
         complexity: Optional[str] = None,
         explicit_backend: Optional[str] = None,
+        exclude: Optional[set[str]] = None,
     ) -> str:
         """
         Determine which backend should handle a request.
@@ -46,11 +47,14 @@ class RequestRouter:
             priority: Request priority ("high" or "low")
             complexity: Request complexity ("high" or "low")
             explicit_backend: Explicit backend name from ?backend= param
+            exclude: Set of backend names to skip (e.g. unhealthy backends)
 
         Returns:
             Backend name to route to (always valid)
         """
         available = set(self._registry.available_backends)
+        if exclude:
+            available -= exclude
 
         # 1. Explicit backend override — always wins
         if explicit_backend:

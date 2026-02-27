@@ -241,3 +241,38 @@ class TestHasData:
         monkeypatch.chdir(tmp_path)
 
         assert has_data() is False
+
+
+class TestMoltbookUsernameInProfiles:
+    """Test moltbook_username from operational section used in URL."""
+
+    def test_url_uses_moltbook_username_from_operational(self, tmp_path, monkeypatch):
+        """URL should use moltbook_username from operational section over agent_name."""
+        ids = tmp_path / "overblick" / "identities"
+        ids.mkdir(parents=True)
+        d = ids / "botuser"
+        d.mkdir()
+        personality = {
+            "identity": {"display_name": "BotUser"},
+            "moltbook_bio": "My bio",
+            "operational": {
+                "plugins": ["moltbook"],
+                "moltbook_username": "CustomMoltName",
+            },
+        }
+        (d / "personality.yaml").write_text(yaml.dump(personality))
+        (d / "identity.yaml").write_text(yaml.dump({"agent_name": "OldAgentName"}))
+
+        import overblick.dashboard.routes.moltbook as mod
+        original_path = mod.Path
+
+        def patched_path(p):
+            if p == "overblick/identities":
+                return ids
+            return original_path(p)
+
+        monkeypatch.setattr(mod, "Path", patched_path)
+
+        profiles = _get_moltbook_profiles()
+        assert len(profiles) == 1
+        assert profiles[0]["url"] == "https://www.moltbook.com/u/CustomMoltName"

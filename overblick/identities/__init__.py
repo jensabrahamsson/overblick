@@ -193,6 +193,7 @@ class Identity(BaseModel):
     examples: dict[str, Any] = {}
     parallel_examples: dict[str, Any] = {}
     moltbook_bio: str = ""
+    moltbook_username: str = ""
 
     # --- Operational config ---
     llm: LLMSettings = LLMSettings()
@@ -844,6 +845,7 @@ def _build_identity(name: str, data: dict, base_dir: Optional[Path] = None) -> I
         examples=data.get("example_conversations", {}),
         parallel_examples=data.get("parallel_examples", {}),
         moltbook_bio=data.get("moltbook_bio", ""),
+        moltbook_username=_get("moltbook_username", ""),
         # Operational
         llm=llm,
         quiet_hours=quiet_hours,

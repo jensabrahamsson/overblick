@@ -172,18 +172,28 @@ async def health_check() -> dict:
     stats = qm.get_stats()
     backend_info = registry.get_backend_info()
 
+    # Determine status label per backend: cloud backends with a key
+    # show "cloud_configured", local backends show "connected"/"disconnected".
+    backends_out = {}
+    for name, h in backend_health.items():
+        btype = backend_info.get(name, {}).get("type", "unknown")
+        if h and btype == "deepseek":
+            status_label = "cloud_configured"
+        elif h:
+            status_label = "connected"
+        else:
+            status_label = "disconnected"
+        backends_out[name] = {
+            "status": status_label,
+            "type": btype,
+            "model": backend_info.get(name, {}).get("model", "unknown"),
+            "default": name == registry.default_backend,
+        }
+
     return {
         "status": status,
         "gateway": "running" if qm.is_running else "stopped",
-        "backends": {
-            name: {
-                "status": "connected" if h else "disconnected",
-                "type": backend_info.get(name, {}).get("type", "unknown"),
-                "model": backend_info.get(name, {}).get("model", "unknown"),
-                "default": name == registry.default_backend,
-            }
-            for name, h in backend_health.items()
-        },
+        "backends": backends_out,
         "default_backend": registry.default_backend,
         "queue_size": queue_size,
         "gpu_starvation_risk": starvation_risk,
@@ -291,6 +301,25 @@ async def chat_completion(
     try:
         response = await qm.submit(request, prio, backend=resolved_backend)
         return response
+
+    except (DeepseekConnectionError, DeepseekError) as e:
+        # Backend-specific failure — retry with fallback backend if router
+        # can find an alternative (exclude the failed backend).
+        if resolved_backend and _router:
+            fallback = _router.resolve_backend(
+                priority=priority.lower() if priority else "low",
+                complexity=complexity,
+                exclude={resolved_backend},
+            )
+            if fallback != resolved_backend:
+                logger.warning(
+                    "Backend '%s' failed (%s), retrying with '%s'",
+                    resolved_backend, type(e).__name__, fallback,
+                )
+                fb_backend = None if fallback == _backend_registry.default_backend else fallback
+                response = await qm.submit(request, prio, backend=fb_backend)
+                return response
+        raise  # No fallback available — propagate original error
 
     except asyncio.QueueFull:
         logger.warning("Queue full, request rejected")

@@ -162,3 +162,34 @@ class TestUltraComplexityRouting:
         router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
         assert router.resolve_backend(complexity="ultra") == "deepseek"
         assert router.resolve_backend(complexity="high") == "cloud"
+
+
+class TestRouterExclude:
+    """Test exclude parameter for backend fallback."""
+
+    def test_ultra_excludes_deepseek_falls_to_cloud(self):
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        result = router.resolve_backend(complexity="ultra", exclude={"deepseek"})
+        assert result == "cloud"
+
+    def test_ultra_excludes_both_falls_to_default(self):
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        result = router.resolve_backend(complexity="ultra", exclude={"deepseek", "cloud"})
+        assert result == "local"
+
+    def test_high_excludes_cloud_falls_to_deepseek(self):
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        result = router.resolve_backend(complexity="high", exclude={"cloud"})
+        assert result == "deepseek"
+
+    def test_exclude_does_not_affect_explicit(self):
+        """Explicit backend override ignores exclude."""
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        result = router.resolve_backend(explicit_backend="cloud", exclude={"cloud"})
+        # Explicit wins — but cloud was excluded from available, so it falls to default
+        assert result == "local"
+
+    def test_exclude_none_same_as_default(self):
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        assert router.resolve_backend(complexity="ultra", exclude=None) == "deepseek"
+        assert router.resolve_backend(complexity="ultra") == "deepseek"

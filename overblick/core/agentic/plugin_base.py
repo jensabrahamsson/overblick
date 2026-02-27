@@ -123,7 +123,7 @@ class AgenticPluginBase(PluginBase):
         self,
         max_actions_per_tick: int = 5,
         audit_action_prefix: str = "agent",
-        complexity: str = "ultra",
+        complexity: str = "high",
     ) -> AgentLoop:
         """
         Wire and return the complete agentic loop.

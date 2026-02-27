@@ -138,6 +138,17 @@ class Supervisor:
             ipc_socket_dir=str(self._ipc._socket_dir),
         )
 
+        # Resolve actual plugins from identity config (personality.yaml)
+        # so Fleet display matches what the agent subprocess actually loads.
+        if not plugins:
+            try:
+                from overblick.identities import load_identity
+                ident = load_identity(identity)
+                if ident and ident.plugins:
+                    agent.plugins = list(ident.plugins)
+            except Exception:
+                pass  # Keep default if identity load fails
+
         success = await agent.start()
         if success:
             self._agents[identity] = agent
