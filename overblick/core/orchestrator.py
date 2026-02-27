@@ -257,11 +257,12 @@ class Orchestrator:
                     await p.tick()
                     tick_ms = (_time.monotonic() - tick_start) * 1000
                     logger.debug("Guarded tick completed for '%s' (%.1fms)", p.name, tick_ms)
-                    self._event_bus.emit("plugin_tick", {
-                        "plugin": p.name,
-                        "identity": self._identity_name,
-                        "duration_ms": tick_ms,
-                    })
+                    await self._event_bus.emit(
+                        "plugin_tick",
+                        plugin=p.name,
+                        identity=self._identity_name,
+                        duration_ms=tick_ms,
+                    )
 
                 self._scheduler.add(
                     f"tick_{plugin.name}",
