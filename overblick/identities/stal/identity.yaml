@@ -1,0 +1,4 @@
+name: stal
+plugins:
+- telegram
+- email_agent
