@@ -103,8 +103,32 @@ def provision(base_dir: Path, state: dict[str, Any]) -> dict[str, Any]:
         log_dir.mkdir(parents=True, exist_ok=True)
         created_files.append(f"logs/{char_name}/")
 
-    # --- 4. Per-agent config overrides (if non-default) ---
+    # --- 4. Update identity.yaml with wizard-assigned plugins ---
     agent_configs = state.get("agent_configs", {})
+    identities_dir = base_dir / "overblick" / "identities"
+    for char_name, cfg in agent_configs.items():
+        if char_name not in selected:
+            continue
+        wizard_plugins = cfg.get("plugins", [])
+        if wizard_plugins:
+            identity_yaml = identities_dir / char_name / "identity.yaml"
+            if identity_yaml.exists():
+                with open(identity_yaml) as f:
+                    identity_data = yaml.safe_load(f) or {}
+            else:
+                identity_data = {"name": char_name}
+            # Merge: add wizard plugins to existing, preserving order
+            existing_plugins = identity_data.get("plugins", [])
+            merged = list(existing_plugins)
+            for p in wizard_plugins:
+                if p not in merged:
+                    merged.append(p)
+            identity_data["plugins"] = merged
+            identity_yaml.parent.mkdir(parents=True, exist_ok=True)
+            _write_yaml(identity_yaml, identity_data)
+            created_files.append(str(identity_yaml.relative_to(base_dir)))
+
+    # --- 5. Per-agent config overrides (if non-default) ---
     for char_name, cfg in agent_configs.items():
         if char_name not in selected:
             continue

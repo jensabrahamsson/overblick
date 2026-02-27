@@ -15,7 +15,7 @@
         <input type="text" class="form-input {% if error and 'name' in (error|lower) %}error{% endif %}"
                id="principal_name" name="principal_name"
                value="{{ (form_data or state.principal).get('principal_name', '') }}"
-               placeholder="e.g. Jens Abrahamsson" required autofocus
+               placeholder="e.g. Göran Persson" required autofocus
                aria-describedby="principal_name_hint{% if error and 'name' in (error|lower) %} principal_name_error{% endif %}"
                aria-required="true">
         {% if error and 'name' in (error|lower) %}

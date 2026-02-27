@@ -853,7 +853,7 @@ python -m overblick run dusk</pre>
               <li>Scheduler with heartbeat and quiet hours</li>
               <li>Secrets management — Fernet-encrypted, per-identity</li>
               <li>Web dashboard monitoring at <code>localhost:8080</code></li>
-              <li>7-step onboarding wizard for guided setup</li>
+              <li>8-step setup wizard — starts automatically on first run</li>
             </ul>
           </div>
         </div>
@@ -999,7 +999,7 @@ python -m overblick run dusk</pre>
         <header class="section-header">
           <span class="section-label">Setup</span>
           <h2 class="section-title">Get Started</h2>
-          <p class="section-desc">No npm. No build step. No API keys required for the unit test suite.</p>
+          <p class="section-desc">No npm. No build step. Requires a local or cloud LLM — Ollama, LM Studio, or Deepseek.</p>
         </header>
 
         <div class="get-started-steps">
@@ -1018,52 +1018,36 @@ pip install -e ".[dev]"</pre>
             <span class="step-num" aria-hidden="true">2</span>
             <div class="step-body">
               <h3>Run the test suite</h3>
-              <pre class="codeblock"><span class="c"># 2250+ tests — no LLM or browser required</span>
-pytest tests/ -v -m "not llm and not e2e"
-
-<span class="c"># LLM personality tests (requires Ollama + qwen3:8b)</span>
-pytest tests/ -v -s -m llm</pre>
+              <pre class="codeblock"><span class="c"># 3250+ tests — no LLM or browser required</span>
+pytest tests/ -v -m "not llm and not e2e"</pre>
             </div>
           </div>
 
           <div class="step">
             <span class="step-num" aria-hidden="true">3</span>
             <div class="step-body">
-              <h3>Start an identity</h3>
-              <pre class="codeblock"><span class="c"># Start the LLM Gateway (load balancer on :8200)</span>
-python -m overblick.gateway
+              <h3>Start everything</h3>
+              <pre class="codeblock"><span class="c"># Starts gateway + dashboard and opens your browser</span>
+python -m overblick start
 
-<span class="c"># Run a personality</span>
-python -m overblick run anomal
-python -m overblick run blixt
-
-<span class="c"># Open the web dashboard (:8080)</span>
-python -m overblick dashboard</pre>
+<span class="c"># Chat with a personality directly in the terminal</span>
+./chat.sh cherry</pre>
+              <p class="step-note">On first run, the setup wizard configures your LLM, creates an identity, and activates plugins — all from the browser. Supports Ollama, LM Studio, and Deepseek.</p>
             </div>
           </div>
 
-          <div class="step">
-            <span class="step-num" aria-hidden="true">4</span>
-            <div class="step-body">
-              <h3>Configure your LLM</h3>
-              <pre class="codeblock"><span class="c"># Edit config/&lt;identity&gt;/personality.yaml:</span>
-operational:
-  llm:
-    model: <span class="c">"qwen3:8b"</span>      <span class="c"># → any Ollama model: llama3.2, mistral, phi4...</span>
-    temperature: 0.7        <span class="c"># tuned per personality</span>
-    max_tokens: 2000</pre>
-              <p class="step-note">Any Ollama-compatible model works. OpenAI-compatible cloud providers coming soon.</p>
-            </div>
-          </div>
-
-          <div class="wizard-hint" role="note" aria-label="Onboarding wizard hint">
+          <div class="wizard-hint" role="note" aria-label="LLM test hint">
             <span class="wizard-hint-icon" aria-hidden="true">◈</span>
             <div class="wizard-hint-body">
               <p>
-                <strong>New to Överblick?</strong> The web dashboard includes a
-                <strong>7-step onboarding wizard</strong> that walks you through identity setup,
-                secret configuration, and plugin activation.
-                Run <code>python -m overblick dashboard</code> → <code>localhost:8080/wizard</code>
+                <strong>After onboarding</strong>, verify your identities sound right:
+                <code>pytest tests/ -v -s -m llm</code>
+              </p>
+              <p>
+                Each identity ships with <strong>model-specific voice hints</strong>
+                (<code>llm_hints/qwen3_8b.yaml</code>) that reinforce personality traits for that LLM.
+                Running a different model? Create your own hints file — the system auto-loads
+                <code>llm_hints/&lt;model&gt;.yaml</code> based on your configured model.
               </p>
             </div>
           </div>
