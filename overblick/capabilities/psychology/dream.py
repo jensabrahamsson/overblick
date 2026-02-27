@@ -109,7 +109,7 @@ class DreamCapability(CapabilityBase):
             )
 
     async def tick(self) -> None:
-        """Generate morning dream once per day (after 06:00 local time)."""
+        """Generate morning dream once per day (06:00–07:00 local time)."""
         if not self._dream_system:
             return
 
@@ -121,8 +121,8 @@ class DreamCapability(CapabilityBase):
 
         today = now.date()
 
-        # Generate at most once per day, not before 06:00
-        if now.hour < 6:
+        # Generate at most once per day, only during the morning window (06:00–07:00)
+        if now.hour < 6 or now.hour >= 7:
             return
         if self._last_dream_date == today:
             return

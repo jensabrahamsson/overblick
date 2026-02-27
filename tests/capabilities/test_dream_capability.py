@@ -78,8 +78,8 @@ class TestDreamCapabilityTick:
         cap = DreamCapability(ctx)
         await cap.setup()
 
-        # Mock time to 08:00
-        mock_now = datetime(2026, 2, 23, 8, 0, 0)
+        # Mock time to 06:30 (inside the 06:00–07:00 dream window)
+        mock_now = datetime(2026, 2, 23, 6, 30, 0)
         with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
             mock_dt.now.return_value = mock_now
             await cap.tick()
@@ -109,6 +109,42 @@ class TestDreamCapabilityTick:
         db.save_dream.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_tick_skips_after_0700(self):
+        """No dream generated at 08:00 — outside 06:00–07:00 window."""
+        pipeline = AsyncMock()
+        db = AsyncMock()
+
+        ctx = _make_ctx(llm_pipeline=pipeline, engagement_db=db)
+        cap = DreamCapability(ctx)
+        await cap.setup()
+
+        mock_now = datetime(2026, 2, 23, 8, 0, 0)
+        with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_now
+            await cap.tick()
+
+        pipeline.chat.assert_not_awaited()
+        db.save_dream.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_tick_skips_late_evening(self):
+        """No dream generated at 22:56 — the bug that triggered this fix."""
+        pipeline = AsyncMock()
+        db = AsyncMock()
+
+        ctx = _make_ctx(llm_pipeline=pipeline, engagement_db=db)
+        cap = DreamCapability(ctx)
+        await cap.setup()
+
+        mock_now = datetime(2026, 2, 27, 22, 56, 0)
+        with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_now
+            await cap.tick()
+
+        pipeline.chat.assert_not_awaited()
+        db.save_dream.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_tick_skips_same_day(self):
         """Only one dream per day."""
         pipeline = AsyncMock()
@@ -121,7 +157,7 @@ class TestDreamCapabilityTick:
         cap = DreamCapability(ctx)
         await cap.setup()
 
-        mock_now = datetime(2026, 2, 23, 8, 0, 0)
+        mock_now = datetime(2026, 2, 23, 6, 30, 0)
         with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
             mock_dt.now.return_value = mock_now
 
@@ -141,7 +177,7 @@ class TestDreamCapabilityTick:
         cap = DreamCapability(ctx)
         await cap.setup()
 
-        mock_now = datetime(2026, 2, 23, 8, 0, 0)
+        mock_now = datetime(2026, 2, 23, 6, 30, 0)
         with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
             mock_dt.now.return_value = mock_now
             await cap.tick()
@@ -163,7 +199,7 @@ class TestDreamCapabilityTick:
         cap = DreamCapability(ctx)
         await cap.setup()
 
-        mock_now = datetime(2026, 2, 23, 8, 0, 0)
+        mock_now = datetime(2026, 2, 23, 6, 30, 0)
         with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
             mock_dt.now.return_value = mock_now
             await cap.tick()
@@ -179,7 +215,7 @@ class TestDreamCapabilityTick:
         cap = DreamCapability(ctx)
         await cap.setup()
 
-        mock_now = datetime(2026, 2, 23, 8, 0, 0)
+        mock_now = datetime(2026, 2, 23, 6, 30, 0)
         with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
             mock_dt.now.return_value = mock_now
             await cap.tick()
@@ -198,7 +234,7 @@ class TestDreamCapabilityPromptContext:
         await cap.setup()
 
         # Generate a fallback dream (no LLM)
-        mock_now = datetime(2026, 2, 23, 8, 0, 0)
+        mock_now = datetime(2026, 2, 23, 6, 30, 0)
         with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
             mock_dt.now.return_value = mock_now
             await cap.tick()
