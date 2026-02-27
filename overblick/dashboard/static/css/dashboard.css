@@ -2260,6 +2260,14 @@ button:focus-visible,
 
 /* --- Partials (LLM Table, System Metrics) --- */
 .llm-model-col { font-size: 0.8rem; }
+.llm-error-reason {
+    font-size: 0.75rem;
+    color: var(--red);
+    margin-top: var(--space-xs);
+    line-height: 1.3;
+    word-break: break-word;
+    max-width: 300px;
+}
 .system-llm-stat-sub { font-size: 0.75rem; display: block; }
 
 /* --- Text Utilities --- */

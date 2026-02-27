@@ -46,7 +46,7 @@
             <td class="mono audit-time">{{ entry.timestamp|epoch_to_datetime }}</td>
             <td>{{ entry.identity }}</td>
             <td>{{ entry.action }}</td>
-            <td class="mono text-muted" style="font-size: 0.8rem;">
+            <td class="mono text-muted llm-model-col">
                 {% if entry.details is mapping and entry.details.model %}
                 {{ entry.details.model }}
                 {% else %}
@@ -72,6 +72,9 @@
                 <span class="status-badge status-running">OK</span>
                 {% else %}
                 <span class="status-badge status-stopped">FAIL</span>
+                {% if entry.error %}
+                <div class="llm-error-reason">{{ entry.error[:120] }}{% if entry.error|length > 120 %}…{% endif %}</div>
+                {% endif %}
                 {% endif %}
             </td>
             <td>
