@@ -20,6 +20,10 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Environment files (may contain API keys)
+.env
+config/.env
+
 # Överblick-specific
 config/overblick.yaml
 config/secrets/

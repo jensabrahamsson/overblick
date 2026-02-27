@@ -59,6 +59,9 @@ class PipelineResult(BaseModel):
     # Deflection text to send back when blocked
     deflection: Optional[str] = None
 
+    # DeepSeek reasoner thinking process (only present when complexity=einstein)
+    reasoning_content: Optional[str] = None
+
 
 class SafeLLMPipeline:
     """
@@ -230,6 +233,7 @@ class SafeLLMPipeline:
             return result
 
         content = raw_response.get("content", "")
+        reasoning_content = raw_response.get("reasoning_content")
         # Safety net: strip any remaining think tokens that the client missed
         from overblick.core.llm.client import LLMClient
         content = LLMClient.strip_think_tokens(content)
@@ -268,6 +272,7 @@ class SafeLLMPipeline:
         duration = (time.monotonic() - start) * 1000
         result = PipelineResult(
             content=content,
+            reasoning_content=reasoning_content,
             raw_response=raw_response,
             duration_ms=duration,
             stages_passed=stages,

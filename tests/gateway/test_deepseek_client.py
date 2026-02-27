@@ -31,14 +31,17 @@ from overblick.gateway.models import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_chat_response_data(content="Hello!", model="deepseek-chat"):
+def _make_chat_response_data(content="Hello!", model="deepseek-chat", reasoning_content=None):
     """Create mock Deepseek API response JSON."""
+    message = {"role": "assistant", "content": content}
+    if reasoning_content is not None:
+        message["reasoning_content"] = reasoning_content
     return {
         "id": "chatcmpl-test123",
         "model": model,
         "choices": [{
             "index": 0,
-            "message": {"role": "assistant", "content": content},
+            "message": message,
             "finish_reason": "stop",
         }],
         "usage": {
@@ -400,3 +403,137 @@ class TestDeepseekConnectivityCheck:
         client._client = mock_client
 
         assert await client.connectivity_check() is False
+
+
+# ---------------------------------------------------------------------------
+# DeepSeek Reasoner (deepseek-reasoner model)
+# ---------------------------------------------------------------------------
+
+class TestDeepseekReasonerResponse:
+    """deepseek-reasoner returns reasoning_content alongside content."""
+
+    @pytest.mark.asyncio
+    async def test_reasoner_both_fields(self):
+        """Reasoner response includes both reasoning_content and content."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = _make_chat_response_data(
+            content="The answer is 42.",
+            model="deepseek-reasoner",
+            reasoning_content="Let me think step by step... First, consider the question...",
+        )
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.is_closed = False
+        mock_client.post = AsyncMock(return_value=mock_response)
+
+        client = DeepseekClient(api_key="sk-test")
+        client._client = mock_client
+
+        request = _make_request(model="deepseek-reasoner")
+        response = await client.chat_completion(request)
+
+        assert response.choices[0].message.content == "The answer is 42."
+        assert response.choices[0].message.reasoning_content == (
+            "Let me think step by step... First, consider the question..."
+        )
+
+    @pytest.mark.asyncio
+    async def test_reasoner_empty_content_uses_reasoning_fallback(self):
+        """When reasoner returns empty content, reasoning_content is used as fallback."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = _make_chat_response_data(
+            content="",
+            model="deepseek-reasoner",
+            reasoning_content="Deep analysis: The pattern shows...",
+        )
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.is_closed = False
+        mock_client.post = AsyncMock(return_value=mock_response)
+
+        client = DeepseekClient(api_key="sk-test")
+        client._client = mock_client
+
+        request = _make_request(model="deepseek-reasoner")
+        response = await client.chat_completion(request)
+
+        # Content should be the reasoning since content was empty
+        assert response.choices[0].message.content == "Deep analysis: The pattern shows..."
+        assert response.choices[0].message.reasoning_content == "Deep analysis: The pattern shows..."
+
+    @pytest.mark.asyncio
+    async def test_reasoner_no_reasoning_field(self):
+        """Reasoner response without reasoning_content still works."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = _make_chat_response_data(
+            content="Simple answer.",
+            model="deepseek-reasoner",
+        )
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.is_closed = False
+        mock_client.post = AsyncMock(return_value=mock_response)
+
+        client = DeepseekClient(api_key="sk-test")
+        client._client = mock_client
+
+        request = _make_request(model="deepseek-reasoner")
+        response = await client.chat_completion(request)
+
+        assert response.choices[0].message.content == "Simple answer."
+        assert response.choices[0].message.reasoning_content is None
+
+    @pytest.mark.asyncio
+    async def test_chat_model_has_no_reasoning(self):
+        """Regular deepseek-chat responses have no reasoning_content."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = _make_chat_response_data(
+            content="Hello!",
+            model="deepseek-chat",
+        )
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.is_closed = False
+        mock_client.post = AsyncMock(return_value=mock_response)
+
+        client = DeepseekClient(api_key="sk-test")
+        client._client = mock_client
+
+        request = _make_request(model="deepseek-chat")
+        response = await client.chat_completion(request)
+
+        assert response.choices[0].message.content == "Hello!"
+        assert response.choices[0].message.reasoning_content is None
+
+    @pytest.mark.asyncio
+    async def test_reasoner_model_sent_in_payload(self):
+        """deepseek-reasoner model name is sent correctly in request payload."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = _make_chat_response_data(
+            content="Answer.",
+            model="deepseek-reasoner",
+            reasoning_content="Thinking...",
+        )
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.is_closed = False
+        mock_client.post = AsyncMock(return_value=mock_response)
+
+        client = DeepseekClient(api_key="sk-test")
+        client._client = mock_client
+
+        request = _make_request(model="deepseek-reasoner")
+        await client.chat_completion(request)
+
+        payload = mock_client.post.call_args[1]["json"]
+        assert payload["model"] == "deepseek-reasoner"

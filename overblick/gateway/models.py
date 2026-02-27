@@ -28,15 +28,20 @@ class Complexity(str, Enum):
     - priority = how urgent (queue ordering)
     - complexity = how capable the backend needs to be (backend selection)
     """
-    LOW = "low"    # Simple tasks — local inference is fine
-    HIGH = "high"  # Complex tasks — prefer cloud/deepseek backends
-    ULTRA = "ultra"  # Highest capability — prefer deepseek for precision tasks
+    LOW = "low"        # Simple tasks — local inference is fine
+    HIGH = "high"      # Complex tasks — prefer cloud/deepseek backends
+    ULTRA = "ultra"    # Highest capability — prefer deepseek for precision tasks
+    EINSTEIN = "einstein"  # Deep reasoning — deepseek-reasoner model (no fallback)
 
 
 class ChatMessage(BaseModel):
     """A single message in a chat conversation."""
     role: str = Field(..., description="Message role: system, user, or assistant")
     content: str = Field(..., description="Message content")
+    reasoning_content: Optional[str] = Field(
+        default=None,
+        description="DeepSeek reasoner thinking process (only present for deepseek-reasoner responses)",
+    )
 
 
 class ChatRequest(BaseModel):

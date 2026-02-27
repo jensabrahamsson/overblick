@@ -38,6 +38,14 @@ fi
 
 PYTHON="$VENV/bin/python"
 
+# Load environment variables from config/.env if it exists
+# (contains API keys for cloud backends like DeepSeek)
+ENV_FILE="$PROJECT_DIR/config/.env"
+if [ -f "$ENV_FILE" ]; then
+    # shellcheck disable=SC1090
+    set -a && source "$ENV_FILE" && set +a
+fi
+
 usage() {
     echo "Överblick Manager"
     echo ""

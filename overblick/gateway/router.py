@@ -3,7 +3,11 @@ Request router for intelligent multi-backend routing.
 
 Routes requests to the best available backend based on:
 1. Explicit backend override (?backend=)
-2. Complexity level (ultra → deepseek/cloud, high → cloud/deepseek, low → local)
+2. Complexity level:
+   - einstein → deepseek only (uses deepseek-reasoner model, no fallback)
+   - ultra → deepseek/cloud (best available)
+   - high → cloud/deepseek (prefer cloud)
+   - low → local
 3. Priority level (high + cloud available → cloud)
 4. Default backend from configuration
 
@@ -37,7 +41,8 @@ class RequestRouter:
 
         Precedence:
         1. explicit_backend — user override, highest priority
-        2a. complexity=ultra → deepseek > cloud > local
+        2a-i. complexity=einstein → deepseek only (reasoner model, no fallback)
+        2a-ii. complexity=ultra → deepseek > cloud > local
         2b. complexity=high → cloud > deepseek > local
         3. complexity=low → local
         4. priority=high + cloud available → cloud (backward compat)
@@ -72,7 +77,19 @@ class RequestRouter:
 
         # 2. Complexity-based routing
 
-        # 2a. Ultra: prefer deepseek for precision tasks (math, challenges)
+        # 2a-i. Einstein: deepseek-reasoner only — no fallback (reasoning is
+        # DeepSeek-specific, other backends cannot run this model)
+        if complexity == "einstein":
+            if "deepseek" in available:
+                logger.info("Router: complexity=einstein → 'deepseek' (reasoner mode)")
+                return "deepseek"
+            logger.warning(
+                "Router: complexity=einstein but deepseek not available — "
+                "falling back to default (reasoning will NOT be used)"
+            )
+            return self._registry.default_backend
+
+        # 2a-ii. Ultra: prefer deepseek for precision tasks (math, challenges)
         if complexity == "ultra":
             for candidate in ("deepseek", "cloud"):
                 if candidate in available:

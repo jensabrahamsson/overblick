@@ -136,6 +136,7 @@ class TestEdgeCases:
         assert router.resolve_backend(complexity="low") == "deepseek"
         assert router.resolve_backend(complexity="high") == "deepseek"
         assert router.resolve_backend(complexity="ultra") == "deepseek"
+        assert router.resolve_backend(complexity="einstein") == "deepseek"
         assert router.resolve_backend(priority="high") == "deepseek"
 
 
@@ -162,6 +163,48 @@ class TestUltraComplexityRouting:
         router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
         assert router.resolve_backend(complexity="ultra") == "deepseek"
         assert router.resolve_backend(complexity="high") == "cloud"
+
+
+class TestEinsteinComplexityRouting:
+    """Rule 2a-i: Einstein complexity routes to deepseek only (reasoning model)."""
+
+    def test_einstein_routes_to_deepseek(self):
+        """Einstein always routes to deepseek for reasoning."""
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        assert router.resolve_backend(complexity="einstein") == "deepseek"
+
+    def test_einstein_without_deepseek_falls_to_default(self):
+        """Without deepseek, einstein falls to default (no cloud fallback)."""
+        router = RequestRouter(_make_registry(["local", "cloud"], default="local"))
+        assert router.resolve_backend(complexity="einstein") == "local"
+
+    def test_einstein_only_deepseek_available(self):
+        """Einstein works with only deepseek available."""
+        router = RequestRouter(_make_registry(["deepseek"], default="deepseek"))
+        assert router.resolve_backend(complexity="einstein") == "deepseek"
+
+    def test_einstein_vs_ultra_same_deepseek_preference(self):
+        """Both einstein and ultra prefer deepseek, but einstein has no cloud fallback."""
+        router_full = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        assert router_full.resolve_backend(complexity="einstein") == "deepseek"
+        assert router_full.resolve_backend(complexity="ultra") == "deepseek"
+
+        # Difference: without deepseek, ultra falls to cloud, einstein to default
+        router_no_ds = RequestRouter(_make_registry(["local", "cloud"], default="local"))
+        assert router_no_ds.resolve_backend(complexity="einstein") == "local"
+        assert router_no_ds.resolve_backend(complexity="ultra") == "cloud"
+
+    def test_einstein_with_exclude(self):
+        """Einstein with deepseek excluded falls to default."""
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        result = router.resolve_backend(complexity="einstein", exclude={"deepseek"})
+        assert result == "local"
+
+    def test_einstein_overrides_priority(self):
+        """Einstein complexity takes precedence over priority."""
+        router = RequestRouter(_make_registry(["local", "cloud", "deepseek"]))
+        result = router.resolve_backend(priority="low", complexity="einstein")
+        assert result == "deepseek"
 
 
 class TestRouterExclude:

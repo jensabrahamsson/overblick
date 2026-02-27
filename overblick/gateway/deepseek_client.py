@@ -119,6 +119,10 @@ class DeepseekClient:
         """
         Send a chat completion request to the Deepseek API.
 
+        Supports both deepseek-chat and deepseek-reasoner models.
+        The reasoner model returns reasoning_content (thinking process)
+        alongside the final content — both are preserved in the response.
+
         Args:
             request: The chat request with messages and parameters
 
@@ -132,9 +136,11 @@ class DeepseekClient:
         """
         try:
             client = await self._get_client()
+            selected_model = request.model or self.model
+            is_reasoner = selected_model == "deepseek-reasoner"
 
             payload = {
-                "model": request.model or self.model,
+                "model": selected_model,
                 "messages": [
                     {"role": m.role, "content": m.content}
                     for m in request.messages
@@ -144,11 +150,17 @@ class DeepseekClient:
                 "stream": False,
             }
 
-            logger.debug(
-                "Sending request to Deepseek: model=%s, messages=%d",
-                payload["model"],
-                len(request.messages),
-            )
+            if is_reasoner:
+                logger.info(
+                    "DeepSeek REASONER mode: model=%s, messages=%d "
+                    "(reasoning_content will be captured)",
+                    selected_model, len(request.messages),
+                )
+            else:
+                logger.debug(
+                    "Sending request to Deepseek: model=%s, messages=%d",
+                    selected_model, len(request.messages),
+                )
 
             response = await client.post("/chat/completions", json=payload)
             response.raise_for_status()
@@ -158,15 +170,32 @@ class DeepseekClient:
             choices = []
             for idx, choice in enumerate(data.get("choices", [])):
                 message = choice.get("message", {})
+                content = message.get("content", "")
+                reasoning = message.get("reasoning_content")
+
+                # deepseek-reasoner may return empty content with reasoning
+                # in reasoning_content — use reasoning as fallback
+                if not content and reasoning:
+                    content = reasoning
+
                 choices.append(
                     ChatResponseChoice(
                         index=idx,
                         message=ChatMessage(
                             role=message.get("role", "assistant"),
-                            content=message.get("content", ""),
+                            content=content,
+                            reasoning_content=reasoning,
                         ),
                         finish_reason=choice.get("finish_reason") or "stop",
                     )
+                )
+
+            if is_reasoner and choices:
+                rc = choices[0].message.reasoning_content
+                logger.info(
+                    "DeepSeek REASONER complete: reasoning=%d chars, answer=%d chars",
+                    len(rc) if rc else 0,
+                    len(choices[0].message.content),
                 )
 
             usage_data = data.get("usage", {})
@@ -177,8 +206,8 @@ class DeepseekClient:
             )
 
             return ChatResponse(
-                id=data.get("id", f"chatcmpl-deepseek"),
-                model=data.get("model", request.model or self.model),
+                id=data.get("id", "chatcmpl-deepseek"),
+                model=data.get("model", selected_model),
                 choices=choices
                 or [
                     ChatResponseChoice(

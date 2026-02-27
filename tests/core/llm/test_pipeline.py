@@ -459,3 +459,31 @@ class TestSafeLLMPipeline:
         assert "<think>" not in result.content
         assert "Internal reasoning" not in result.content
         assert "The actual response." in result.content
+
+    @pytest.mark.asyncio
+    async def test_reasoning_content_exposed(self, mock_llm):
+        """DeepSeek reasoner reasoning_content is exposed in PipelineResult."""
+        mock_llm.chat = AsyncMock(return_value={
+            "content": "The answer is 42.",
+            "reasoning_content": "Let me analyze this step by step...",
+        })
+        pipeline = SafeLLMPipeline(llm_client=mock_llm)
+        result = await pipeline.chat(
+            messages=[{"role": "user", "content": "What is the meaning?"}],
+            complexity="einstein",
+        )
+        assert not result.blocked
+        assert result.content == "The answer is 42."
+        assert result.reasoning_content == "Let me analyze this step by step..."
+
+    @pytest.mark.asyncio
+    async def test_reasoning_content_none_for_regular_models(self, mock_llm):
+        """Regular models have no reasoning_content in result."""
+        mock_llm.chat = AsyncMock(return_value={"content": "Hello!"})
+        pipeline = SafeLLMPipeline(llm_client=mock_llm)
+        result = await pipeline.chat(
+            messages=[{"role": "user", "content": "Hi"}],
+        )
+        assert not result.blocked
+        assert result.content == "Hello!"
+        assert result.reasoning_content is None
