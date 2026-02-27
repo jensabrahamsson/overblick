@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Smed: Blacksmith developer agent — hammer and anvil motif -->
+  <circle cx="50" cy="50" r="45" stroke="#c9883c" stroke-width="2" fill="#161b22"/>
+  <!-- Anvil -->
+  <path d="M30 62 L70 62 L66 55 L34 55 Z" stroke="#c9883c" stroke-width="2" fill="none"/>
+  <rect x="40" y="55" width="20" height="5" stroke="#c9883c" stroke-width="1.5" fill="none"/>
+  <!-- Hammer -->
+  <line x1="50" y1="28" x2="50" y2="48" stroke="#8b949e" stroke-width="2.5"/>
+  <rect x="38" y="24" width="24" height="8" rx="2" stroke="#c9883c" stroke-width="2" fill="none"/>
+  <!-- Sparks -->
+  <circle cx="38" cy="50" r="1.5" fill="#c9883c" opacity="0.7"/>
+  <circle cx="62" cy="48" r="1.5" fill="#c9883c" opacity="0.5"/>
+  <circle cx="44" cy="46" r="1" fill="#d29922" opacity="0.4"/>
+</svg>

@@ -203,7 +203,7 @@
             // Avatar
             var avatar = document.createElement('img');
             avatar.className = 'character-avatar';
-            avatar.src = '/static/img/personalities/' + encodeURIComponent(char.name) + '.svg';
+            avatar.src = '/setup-static/img/personalities/' + encodeURIComponent(char.name) + '.svg';
             avatar.alt = char.display_name;
             avatar.setAttribute('aria-hidden', 'true');
             avatar.onerror = function () {

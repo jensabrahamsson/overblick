@@ -118,7 +118,8 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
         if secrets_dir.exists():
             sensitive_keys = ("gmail_app_password", "telegram_bot_token",
                               "deepseek_api_key", "moltbook_api_key")
-            readable_keys = ("gmail_address", "telegram_chat_id")
+            readable_keys = ("gmail_address", "telegram_chat_id",
+                             "principal_name", "principal_email")
             try:
                 from overblick.core.security.secrets_manager import SecretsManager
                 sm = SecretsManager(secrets_dir)
@@ -158,6 +159,18 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
                         active_plugins.update(data.get("plugins", []))
                     except Exception:
                         pass
+
+    # Merge principal secrets into the principal dict
+    if state_update.get("principal_name") or state_update.get("principal_email"):
+        if "principal" not in state_update:
+            state_update["principal"] = {
+                "principal_name": "", "principal_email": "",
+                "timezone": "Europe/Stockholm", "language_preference": "en",
+            }
+        if state_update.get("principal_name"):
+            state_update["principal"]["principal_name"] = state_update["principal_name"]
+        if state_update.get("principal_email"):
+            state_update["principal"]["principal_email"] = state_update["principal_email"]
 
     # Auto-enable communication toggles and pre-fill non-sensitive values
     comm: dict[str, Any] = {}
@@ -704,8 +717,10 @@ async def step8_complete(request: Request):
 async def test_ollama(request: Request):
     """Test Ollama / LM Studio connection and return available models."""
     form = await request.form()
-    host = form.get("host", form.get("ollama_host", "127.0.0.1"))
-    port = form.get("port", form.get("ollama_port", "11434"))
+    host = (form.get("host") or form.get("ollama_host")
+            or form.get("local_host") or form.get("cloud_host") or "127.0.0.1")
+    port = (form.get("port") or form.get("ollama_port")
+            or form.get("local_port") or form.get("cloud_port") or "11434")
     try:
         import httpx
         async with httpx.AsyncClient(timeout=5.0) as client:
