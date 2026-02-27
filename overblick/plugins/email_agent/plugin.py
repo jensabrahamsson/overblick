@@ -377,8 +377,8 @@ class EmailAgentPlugin(PluginBase):
         headers = msg.get("headers", {})
         date_str = headers.get("Date") or headers.get("date")
         if not date_str:
-            logger.warning("EmailAgent: no Date header — treating as old (fail-closed)")
-            return False
+            logger.warning("EmailAgent: no Date header — treating as recent (fail-open to prevent data loss)")
+            return True
 
         try:
             msg_dt = email.utils.parsedate_to_datetime(date_str)
@@ -388,8 +388,8 @@ class EmailAgentPlugin(PluginBase):
             age_hours = (now - msg_dt).total_seconds() / 3600.0
             return age_hours <= max_hours
         except (ValueError, TypeError):
-            logger.warning("EmailAgent: unparseable Date header — treating as old (fail-closed)")
-            return False
+            logger.warning("EmailAgent: unparseable Date header — treating as recent (fail-open to prevent data loss)")
+            return True
 
     async def _mark_email_read(self, message_id: str) -> None:
         """Mark an email as read in Gmail to prevent re-processing."""
@@ -696,6 +696,7 @@ class EmailAgentPlugin(PluginBase):
                 success = await self._reply_gen.generate_and_send(email)
                 if success:
                     self._state.emails_replied += 1
+                    self._record_reply_sent(sender)
                 return "reply_sent" if success else "reply_failed"
 
             case EmailIntent.ASK_BOSS:
@@ -1088,9 +1089,23 @@ class EmailAgentPlugin(PluginBase):
         if len(timestamps) >= self._reply_rate_limit:
             return True
 
-        # Record this reply attempt
-        timestamps.append(now)
+        # Do NOT record here — caller records after successful send
         return False
+
+    def _record_reply_sent(self, sender: str) -> None:
+        """Record a successful reply for rate limiting purposes.
+
+        Called AFTER a reply is confirmed sent, preventing failed sends
+        from consuming rate limit slots.
+        """
+        try:
+            domain = sender.rsplit("@", 1)[-1].lower().strip()
+        except (IndexError, AttributeError):
+            return
+        now = time.time()
+        if domain not in self._reply_timestamps:
+            self._reply_timestamps[domain] = []
+        self._reply_timestamps[domain].append(now)
 
     def _build_system_prompt(self) -> str:
         """Build system prompt from Stål's personality."""

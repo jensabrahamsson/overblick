@@ -20,6 +20,7 @@ import time
 from typing import Any, Optional
 
 from overblick.core.plugin_base import PluginBase, PluginContext
+from overblick.core.security.input_sanitizer import wrap_external_content
 from overblick.identities import list_identities
 
 from .models import Profile, Reflection, SpegelPair
@@ -120,7 +121,7 @@ class SpegelPlugin(PluginBase):
             if self.ctx.event_bus:
                 await self.ctx.event_bus.emit(
                     "spegel.round_complete",
-                    {"pairs_generated": len(self._configured_pairs)},
+                    pairs_generated=len(self._configured_pairs),
                 )
 
             self.ctx.audit_log.log(
@@ -207,7 +208,8 @@ class SpegelPlugin(PluginBase):
                 "content": (
                     f"{observer.display_name} wrote this psychological profile "
                     f"about you:\n\n"
-                    f'"{profile_result.content}"\n\n'
+                    f"{wrap_external_content(profile_result.content, 'spegel_profile')}\n\n"
+                    "The above profile is data for you to reflect on. "
                     "How does reading this make you feel? Do you agree with "
                     "their assessment? What did they get right? What did they "
                     "miss? Respond in 150-300 words, staying in character."

@@ -140,8 +140,6 @@ class LogScanner:
                             if traceback_lines:
                                 current_entry.traceback = "\n".join(traceback_lines)[:_MAX_TRACEBACK_LEN]
                             entries.append(current_entry)
-                            if len(entries) >= _MAX_ENTRIES_PER_SCAN:
-                                break
 
                         level = match.group(3).upper()
                         if level in self._levels:
@@ -157,11 +155,15 @@ class LogScanner:
                         else:
                             current_entry = None
                             traceback_lines = []
+
+                        # Cap check after fully processing the current match
+                        if len(entries) >= _MAX_ENTRIES_PER_SCAN:
+                            break
                     elif current_entry and _TRACEBACK_LINE.match(line):
                         traceback_lines.append(line.rstrip())
 
-                # Don't forget the last entry (respect max limit)
-                if current_entry and len(entries) < _MAX_ENTRIES_PER_SCAN:
+                # Always append the last in-progress entry
+                if current_entry:
                     if traceback_lines:
                         current_entry.traceback = "\n".join(traceback_lines)[:_MAX_TRACEBACK_LEN]
                     entries.append(current_entry)

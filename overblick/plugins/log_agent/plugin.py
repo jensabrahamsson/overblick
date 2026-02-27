@@ -296,7 +296,11 @@ class _LogObserver:
 # ── Action Handlers ─────────────────────────────────────────────────────
 
 class _ScanLogsHandler:
-    """Handler for scan_logs action."""
+    """Handler for scan_logs action.
+
+    Uses observation data from the observer instead of re-scanning
+    (scanning advances byte offsets, so a second scan would find nothing).
+    """
 
     def __init__(self, scanner: LogScanner):
         self._scanner = scanner
@@ -304,8 +308,14 @@ class _ScanLogsHandler:
     async def handle(self, action: Any, observation: Any) -> Any:
         from overblick.core.agentic.models import ActionOutcome
 
-        results = self._scanner.scan_all()
-        total = sum(r.errors_found + r.criticals_found for r in results)
+        # Use observation data if available (observer already scanned)
+        if isinstance(observation, LogObservation) and observation.scan_results:
+            results = observation.scan_results
+            total = observation.total_errors + observation.total_criticals
+        else:
+            # Fallback: fresh scan if no observation available
+            results = self._scanner.scan_all()
+            total = sum(r.errors_found + r.criticals_found for r in results)
 
         return ActionOutcome(
             action=action,

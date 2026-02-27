@@ -149,11 +149,9 @@ class CompassPlugin(PluginBase):
                     if self.ctx.event_bus:
                         await self.ctx.event_bus.emit(
                             "compass.drift_alert",
-                            {
-                                "identity": identity_name,
-                                "drift_score": drift.drift_score,
-                                "dimensions": drift.drifted_dimensions,
-                            },
+                            identity=identity_name,
+                            drift_score=drift.drift_score,
+                            dimensions=drift.drifted_dimensions,
                         )
 
                     logger.warning(
@@ -174,10 +172,10 @@ class CompassPlugin(PluginBase):
         """Record an LLM output for analysis (called externally or via event)."""
         self._output_buffer.append((identity_name, text))
 
-    def _on_llm_output(self, event_data: dict) -> None:
-        """Event handler for LLM output events."""
-        identity_name = event_data.get("identity", "")
-        text = event_data.get("content", "")
+    async def _on_llm_output(self, **kwargs: Any) -> None:
+        """Event handler for LLM output events (receives kwargs from EventBus)."""
+        identity_name = kwargs.get("identity", "")
+        text = kwargs.get("content", "")
         if identity_name and text:
             self.record_output(identity_name, text)
 

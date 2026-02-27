@@ -256,11 +256,9 @@ class StagePlugin(PluginBase):
         if self.ctx.event_bus:
             await self.ctx.event_bus.emit(
                 "stage.run_complete",
-                {
-                    "scenarios": len(results),
-                    "passed": sum(1 for r in results if r.passed),
-                    "failed": sum(1 for r in results if not r.passed),
-                },
+                scenarios=len(results),
+                passed=sum(1 for r in results if r.passed),
+                failed=sum(1 for r in results if not r.passed),
             )
 
         return results

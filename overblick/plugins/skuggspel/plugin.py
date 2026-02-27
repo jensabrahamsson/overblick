@@ -193,7 +193,7 @@ class SkuggspelPlugin(PluginBase):
             if self.ctx.event_bus:
                 await self.ctx.event_bus.emit(
                     "skuggspel.round_complete",
-                    {"posts_generated": len(self._shadow_profiles)},
+                    posts_generated=len(self._shadow_profiles),
                 )
 
             self.ctx.audit_log.log(
@@ -341,13 +341,14 @@ class SkuggspelPlugin(PluginBase):
         """Pick a topic relevant to the identity's interests."""
         interests = identity.interests
         if interests:
-            # Pick first interest area's first topic
             for area, info in interests.items():
                 if isinstance(info, dict):
                     topics = info.get("topics", [])
                     if topics:
                         return topics[0]
-                return area.replace("_", " ").title()
+            # No dict-with-topics found — use first area name as fallback
+            first_area = next(iter(interests))
+            return first_area.replace("_", " ").title()
 
         return "the nature of identity and authenticity"
 

@@ -76,7 +76,7 @@ class OwnerCommandQueue:
     """
     pending_commands: list[OwnerCommand] = field(default_factory=list)
     processed_message_ids: set[int] = field(default_factory=set)
-    _max_processed_ids: int = field(default=10_000, repr=False)
+    _max_processed_ids: int = field(default=10_000, repr=False, init=False)
 
     @staticmethod
     def parse_command(text: str, message_id: int = 0, timestamp: str = "") -> Optional[OwnerCommand]:

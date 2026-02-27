@@ -249,6 +249,7 @@ class WorkspaceManager:
         """
         cmd = ["git"] + list(args)
         work_dir = cwd or self._path
+        proc = None
 
         try:
             proc = await asyncio.create_subprocess_exec(

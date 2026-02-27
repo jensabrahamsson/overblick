@@ -168,11 +168,9 @@ class KontrastPlugin(PluginBase):
             if self.ctx.event_bus:
                 await self.ctx.event_bus.emit(
                     "kontrast.new_piece",
-                    {
-                        "topic": topic,
-                        "identity_count": len(perspectives),
-                        "article_count": len(articles),
-                    },
+                    topic=topic,
+                    identity_count=len(perspectives),
+                    article_count=len(articles),
                 )
 
             self.ctx.audit_log.log(
