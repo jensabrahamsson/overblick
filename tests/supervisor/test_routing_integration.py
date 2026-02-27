@@ -19,6 +19,7 @@ import pytest
 
 from overblick.core.plugin_base import PluginContext
 from overblick.supervisor.ipc import IPCMessage
+from overblick.supervisor.process import ProcessState
 from overblick.supervisor.routing import MessageRouter, RouteStatus
 from overblick.supervisor.supervisor import Supervisor
 
@@ -76,7 +77,7 @@ class TestSupervisorAgentRegistration:
                 mock_agent = MagicMock()
                 mock_agent.start = AsyncMock(return_value=True)
                 mock_agent.monitor = AsyncMock()  # Prevent monitor task errors
-                mock_agent.state = "running"
+                mock_agent.state = ProcessState.RUNNING
                 MockAgent.return_value = mock_agent
 
                 await sup.start_agent("anomal")
@@ -110,7 +111,7 @@ class TestSupervisorAgentRegistration:
                 mock_agent = MagicMock()
                 mock_agent.start = AsyncMock(return_value=True)
                 mock_agent.monitor = AsyncMock()  # Prevent monitor task errors
-                mock_agent.state = "running"
+                mock_agent.state = ProcessState.RUNNING
                 MockAgent.return_value = mock_agent
 
                 await sup.start_agent("anomal")

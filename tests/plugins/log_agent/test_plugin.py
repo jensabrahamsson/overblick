@@ -118,13 +118,11 @@ class TestLogObserver:
 
         assert "All clear" in text
 
-    def test_format_for_planner_none_observation(self):
+    def test_format_for_planner_none_observation(self, tmp_path):
         """format_for_planner() handles None observation."""
         from overblick.plugins.log_agent.log_scanner import LogScanner
-        import tempfile
-        from pathlib import Path
 
-        scanner = LogScanner(Path(tempfile.mkdtemp()), identities=[])
+        scanner = LogScanner(tmp_path, identities=[])
         observer = _LogObserver(scanner)
         text = observer.format_for_planner(None)
 

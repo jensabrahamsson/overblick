@@ -136,6 +136,25 @@ class TestTopicPicking:
         topic = plugin._pick_topic(identity)
         assert "identity" in topic.lower()
 
+    def test_fallback_to_area_name_when_no_topics(self, skuggspel_context):
+        """Falls back to area name when interest is not a dict with topics."""
+        plugin = SkuggspelPlugin(skuggspel_context)
+        identity = MagicMock()
+        identity.interests = {"crypto_trading": "passionate"}
+        topic = plugin._pick_topic(identity)
+        assert topic == "Crypto Trading"
+
+    def test_iterates_past_empty_dict(self, skuggspel_context):
+        """Iterates past interest dicts with no topics to find one with topics."""
+        plugin = SkuggspelPlugin(skuggspel_context)
+        identity = MagicMock()
+        identity.interests = {
+            "philosophy": {"enthusiasm_level": "high"},  # No topics key
+            "music": {"topics": ["jazz"], "enthusiasm_level": "medium"},
+        }
+        topic = plugin._pick_topic(identity)
+        assert topic == "jazz"
+
 
 class TestModels:
     """Test Skuggspel data models."""

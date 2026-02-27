@@ -222,27 +222,22 @@ class TestGetMoltbookProfiles:
 
 class TestHasData:
     def test_returns_true_when_moltbook_plugin_configured(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities"
         ids.mkdir(parents=True)
         _make_identity(ids, "bot", identity_plugins=["moltbook"])
 
-        import overblick.dashboard.routes.moltbook as mod
-        monkeypatch.setattr(mod, "Path", lambda p: ids if p == "overblick/identities" else mod.Path(p))
-
         assert has_data() is True
 
     def test_returns_false_with_bio_but_no_plugin(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities"
         ids.mkdir(parents=True)
         _make_identity(ids, "bot", moltbook_bio="I have a bio but no plugin")
 
-        import overblick.dashboard.routes.moltbook as mod
-        monkeypatch.setattr(mod, "Path", lambda p: ids if p == "overblick/identities" else mod.Path(p))
-
         assert has_data() is False
 
     def test_returns_false_when_no_identities(self, tmp_path, monkeypatch):
-        import overblick.dashboard.routes.moltbook as mod
-        monkeypatch.setattr(mod, "Path", lambda p: tmp_path / "nonexistent" if p == "overblick/identities" else mod.Path(p))
+        monkeypatch.chdir(tmp_path)
 
         assert has_data() is False

@@ -246,6 +246,87 @@ class TestStateManagement:
         assert len(plugin._baselines) == 0
 
 
+class TestEventHandler:
+    """Test the _on_llm_output event handler."""
+
+    @pytest.mark.asyncio
+    async def test_on_llm_output_buffers_output(self, compass_context):
+        """Handler receives kwargs from EventBus and buffers output."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+        await plugin._on_llm_output(identity="anomal", content="Test text")
+        assert len(plugin._output_buffer) == 1
+        assert plugin._output_buffer[0] == ("anomal", "Test text")
+
+    @pytest.mark.asyncio
+    async def test_on_llm_output_ignores_empty_identity(self, compass_context):
+        """Handler ignores events with empty identity."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+        await plugin._on_llm_output(identity="", content="Some text")
+        assert len(plugin._output_buffer) == 0
+
+    @pytest.mark.asyncio
+    async def test_on_llm_output_ignores_empty_content(self, compass_context):
+        """Handler ignores events with empty content."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+        await plugin._on_llm_output(identity="anomal", content="")
+        assert len(plugin._output_buffer) == 0
+
+    @pytest.mark.asyncio
+    async def test_on_llm_output_ignores_missing_kwargs(self, compass_context):
+        """Handler gracefully handles missing kwargs."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+        await plugin._on_llm_output()
+        assert len(plugin._output_buffer) == 0
+
+
+class TestPublicAccessors:
+    """Test public accessor methods."""
+
+    @pytest.mark.asyncio
+    async def test_get_baseline_exists(self, compass_context):
+        """get_baseline() returns baseline when it exists."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+        plugin._baselines["anomal"] = BaselineProfile(
+            identity_name="anomal",
+            metrics=StyleMetrics(avg_sentence_length=15.0),
+            sample_count=10,
+        )
+        baseline = plugin.get_baseline("anomal")
+        assert baseline is not None
+        assert baseline.sample_count == 10
+
+    @pytest.mark.asyncio
+    async def test_get_baseline_missing(self, compass_context):
+        """get_baseline() returns None when identity has no baseline."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+        assert plugin.get_baseline("nonexistent") is None
+
+    @pytest.mark.asyncio
+    async def test_get_drift_history_filtered(self, compass_context):
+        """get_drift_history() filters by identity_name."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+        plugin._drift_history.append(DriftMetrics(
+            identity_name="anomal",
+            current_metrics=StyleMetrics(),
+            drift_score=1.0,
+        ))
+        plugin._drift_history.append(DriftMetrics(
+            identity_name="cherry",
+            current_metrics=StyleMetrics(),
+            drift_score=2.0,
+        ))
+        anomal_only = plugin.get_drift_history(identity_name="anomal")
+        assert len(anomal_only) == 1
+        assert anomal_only[0].identity_name == "anomal"
+
+
 class TestTeardown:
     """Test cleanup."""
 

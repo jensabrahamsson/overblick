@@ -368,6 +368,125 @@ def dashboard_server(tmp_path_factory):
     }
     app.state.onboarding_service = onboarding_svc
 
+    # Patch Compass data loader for E2E tests
+    import overblick.dashboard.routes.compass as compass_mod
+
+    def _mock_compass_data(request):
+        """Return realistic compass mock data for E2E tests."""
+        baselines = {
+            "anomal": {
+                "identity_name": "anomal",
+                "metrics": {"avg_sentence_length": 15.5, "formality_score": 0.65},
+                "sample_count": 10,
+                "established_at": 1708000000.0,
+                "std_devs": {},
+            },
+            "cherry": {
+                "identity_name": "cherry",
+                "metrics": {"avg_sentence_length": 12.0, "formality_score": 0.45},
+                "sample_count": 8,
+                "established_at": 1708001000.0,
+                "std_devs": {},
+            },
+        }
+        alerts = [
+            {
+                "identity_name": "anomal",
+                "drift_score": 5.2,
+                "threshold": 2.0,
+                "drifted_dimensions": ["avg_sentence_length", "formality_score"],
+                "message": "Critical drift detected",
+                "fired_at": 1708002000.0,
+                "acknowledged": False,
+                "severity": "critical",
+            },
+            {
+                "identity_name": "cherry",
+                "drift_score": 2.8,
+                "threshold": 2.0,
+                "drifted_dimensions": ["vocabulary_richness"],
+                "message": "Warning drift detected",
+                "fired_at": 1708001500.0,
+                "acknowledged": False,
+                "severity": "warning",
+            },
+        ]
+        drift_history = [
+            {
+                "identity_name": "anomal",
+                "drift_score": 5.2,
+                "drifted_dimensions": ["avg_sentence_length", "formality_score"],
+                "sample_count": 5,
+                "measured_at": 1708002000.0,
+                "severity": "critical",
+            },
+            {
+                "identity_name": "cherry",
+                "drift_score": 2.8,
+                "drifted_dimensions": ["vocabulary_richness"],
+                "sample_count": 4,
+                "measured_at": 1708001500.0,
+                "severity": "warning",
+            },
+            {
+                "identity_name": "anomal",
+                "drift_score": 1.2,
+                "drifted_dimensions": [],
+                "sample_count": 3,
+                "measured_at": 1708000500.0,
+                "severity": "info",
+            },
+        ]
+        identity_status = {
+            "anomal": {"drift_score": 5.2, "severity": "critical"},
+            "cherry": {"drift_score": 2.8, "severity": "warning"},
+        }
+        return baselines, alerts, drift_history, 2.0, identity_status
+
+    compass_mod._load_compass_data = _mock_compass_data
+
+    # Patch Skuggspel data loader for E2E tests
+    import overblick.dashboard.routes.skuggspel as skuggspel_mod
+
+    def _mock_skuggspel_posts(request):
+        """Return realistic skuggspel mock data for E2E tests."""
+        return [
+            {
+                "identity_name": "anomal",
+                "display_name": "Anomal",
+                "topic": "Social Acceptance",
+                "shadow_content": "I just want to fit in. To be normal for once. "
+                    "The weight of constant analysis exhausts even me.",
+                "shadow_profile": {
+                    "identity_name": "anomal",
+                    "shadow_description": "The part that craves normalcy and belonging",
+                    "inverted_traits": {},
+                    "shadow_voice": "Eager to please, desperate for approval",
+                    "framework": "jungian_inversion",
+                },
+                "generated_at": 1708002000.0,
+                "word_count": 24,
+            },
+            {
+                "identity_name": "cherry",
+                "display_name": "Cherry",
+                "topic": "Emotional Detachment",
+                "shadow_content": "Sometimes I wish I could stop feeling everything so deeply. "
+                    "What if numbness is the real freedom?",
+                "shadow_profile": {
+                    "identity_name": "cherry",
+                    "shadow_description": "The cold, analytical side that rejects emotion",
+                    "inverted_traits": {},
+                    "shadow_voice": "Clinical and detached",
+                    "framework": "default_inversion",
+                },
+                "generated_at": 1708001000.0,
+                "word_count": 19,
+            },
+        ]
+
+    skuggspel_mod._load_posts = _mock_skuggspel_posts
+
     url = f"http://127.0.0.1:{port}"
 
     import uvicorn

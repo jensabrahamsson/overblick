@@ -20,6 +20,9 @@ class TestFastAPIApp:
         registry.health_check_all = AsyncMock(return_value={"local": True})
         registry.get_client = MagicMock()
         registry.get_model = MagicMock(return_value="qwen3:8b")
+        registry.get_backend_info = MagicMock(return_value={
+            "local": {"type": "ollama", "model": "qwen3:8b"},
+        })
         mock_client = AsyncMock()
         mock_client.health_check = AsyncMock(return_value=True)
         mock_client.list_models = AsyncMock(return_value=["qwen3:8b"])
@@ -66,7 +69,10 @@ class TestFastAPIApp:
         data = response.json()
         assert data["status"] == "healthy"
         assert data["gateway"] == "running"
-        assert data["backends"]["local"] == "connected"
+        assert data["backends"]["local"]["status"] == "connected"
+        assert data["backends"]["local"]["type"] == "ollama"
+        assert data["backends"]["local"]["model"] == "qwen3:8b"
+        assert data["backends"]["local"]["default"] is True
 
     def test_health_check_degraded(self, client, mock_queue_manager, mock_backend_registry):
         mock_backend_registry.health_check_all = AsyncMock(return_value={"local": False})
@@ -76,7 +82,7 @@ class TestFastAPIApp:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "degraded"
-        assert data["backends"]["local"] == "disconnected"
+        assert data["backends"]["local"]["status"] == "disconnected"
 
     def test_get_stats(self, client, mock_queue_manager):
         response = client.get("/stats")

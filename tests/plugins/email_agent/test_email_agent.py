@@ -2051,19 +2051,19 @@ class TestMaxEmailAgeFilter:
         assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
 
     def test_is_recent_email_no_date_header(self):
-        """Missing Date header fails closed (False) — skip unknown-age emails."""
+        """Missing Date header fails open (True) — prevent permanent data loss."""
         msg = {"headers": {}}
-        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
 
     def test_is_recent_email_no_headers(self):
-        """Missing headers dict fails closed (False) — skip unknown-age emails."""
+        """Missing headers dict fails open (True) — prevent permanent data loss."""
         msg = {}
-        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
 
     def test_is_recent_email_unparseable_date(self):
-        """Unparseable Date header fails closed (False) — skip unknown-age emails."""
+        """Unparseable Date header fails open (True) — prevent permanent data loss."""
         msg = {"headers": {"Date": "not-a-date"}}
-        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
+        assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
 
     def test_is_recent_email_naive_datetime(self):
         """Date header without timezone is treated as UTC."""
@@ -2828,8 +2828,9 @@ class TestReplyRateLimiting:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        # First 4 replies should not be rate limited (limit is 5)
+        # Record 4 successful replies — still under limit of 5
         for _ in range(4):
+            plugin._record_reply_sent("sender@example.com")
             assert plugin._is_reply_rate_limited("sender@example.com") is False
 
     @pytest.mark.asyncio
@@ -2838,9 +2839,9 @@ class TestReplyRateLimiting:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        # Make 5 non-limited calls (each appends a timestamp)
+        # Record 5 successful replies
         for _ in range(5):
-            plugin._is_reply_rate_limited("sender@example.com")
+            plugin._record_reply_sent("sender@example.com")
 
         # 6th call should be rate limited
         assert plugin._is_reply_rate_limited("sender@example.com") is True
@@ -2851,9 +2852,9 @@ class TestReplyRateLimiting:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        # Exhaust limit for example.com
+        # Exhaust limit for example.com via recorded replies
         for _ in range(5):
-            plugin._is_reply_rate_limited("a@example.com")
+            plugin._record_reply_sent("a@example.com")
 
         # Same domain, different sender — should be limited
         assert plugin._is_reply_rate_limited("b@example.com") is True
