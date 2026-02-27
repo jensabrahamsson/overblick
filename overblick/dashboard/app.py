@@ -19,7 +19,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from starlette.responses import Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import HTMLResponse, Response
 
 from .auth import AuthMiddleware, SessionManager
 from .config import DashboardConfig, get_config
@@ -32,10 +33,32 @@ _PKG_DIR = Path(__file__).parent
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all responses (defense-in-depth)."""
+    """Add security headers to all responses (defense-in-depth).
+
+    Also serves as the outermost catch-all for unhandled exceptions,
+    rendering the branded error page instead of a raw 500 text.
+    BaseHTTPMiddleware re-raises exceptions from call_next() above
+    Starlette's ExceptionMiddleware, so @app.exception_handler(Exception)
+    never fires for 500s — we must catch them here.
+    """
 
     async def dispatch(self, request, call_next) -> Response:
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            logger.error(
+                "Unhandled exception on %s: %s",
+                request.url.path, exc, exc_info=True,
+            )
+            templates = getattr(request.app.state, "templates", None)
+            if templates:
+                response = templates.TemplateResponse("error.html", {
+                    "request": request,
+                    "status_code": 500,
+                    "detail": "Something went wrong. The error has been logged.",
+                }, status_code=500)
+            else:
+                response = HTMLResponse("Internal Server Error", status_code=500)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -241,5 +264,17 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
     # Register routes
     from .routes import register_routes
     register_routes(app)
+
+    # --- Error handler: branded page for HTTP errors (404, 403, etc.) ---
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request, exc):
+        templates = getattr(app.state, "templates", None)
+        if templates:
+            return templates.TemplateResponse("error.html", {
+                "request": request,
+                "status_code": exc.status_code,
+                "detail": exc.detail or "An error occurred",
+            }, status_code=exc.status_code)
+        return HTMLResponse(f"Error {exc.status_code}", status_code=exc.status_code)
 
     return app

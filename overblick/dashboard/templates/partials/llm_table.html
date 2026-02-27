@@ -33,6 +33,7 @@
             <th scope="col">Time</th>
             <th scope="col">Identity</th>
             <th scope="col">Action</th>
+            <th scope="col">Model</th>
             <th scope="col">Duration</th>
             <th scope="col">Response</th>
             <th scope="col">Status</th>
@@ -45,6 +46,13 @@
             <td class="mono audit-time">{{ entry.timestamp|epoch_to_datetime }}</td>
             <td>{{ entry.identity }}</td>
             <td>{{ entry.action }}</td>
+            <td class="mono text-muted" style="font-size: 0.8rem;">
+                {% if entry.details is mapping and entry.details.model %}
+                {{ entry.details.model }}
+                {% else %}
+                —
+                {% endif %}
+            </td>
             <td class="mono">
                 {% if entry.duration_ms is not none %}
                     {% if entry.duration_ms >= 1000 %}{{ "%.1f"|format(entry.duration_ms / 1000) }}s{% else %}{{ entry.duration_ms|int }}ms{% endif %}
@@ -74,7 +82,7 @@
         </tr>
         {% if entry.error or entry.details %}
         <tr class="audit-detail-row" hidden>
-            <td colspan="7">
+            <td colspan="8">
                 <div class="audit-detail">
                     {% if entry.error %}
                     <div class="audit-detail-error">

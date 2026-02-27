@@ -19,7 +19,9 @@ async def compass_page(request: Request):
     """Render the Compass drift detection page."""
     templates = request.app.state.templates
 
-    baselines, alerts, drift_history, drift_threshold = _load_compass_data(request)
+    baselines, alerts, drift_history, drift_threshold, identity_status = (
+        _load_compass_data(request)
+    )
 
     return templates.TemplateResponse("compass.html", {
         "request": request,
@@ -28,24 +30,35 @@ async def compass_page(request: Request):
         "alerts": alerts,
         "drift_history": drift_history,
         "drift_threshold": drift_threshold,
+        "identity_status": identity_status,
     })
 
 
 def has_data() -> bool:
-    """Return True if any Compass state files exist in data directories."""
-    from pathlib import Path
-    data_root = Path("data")
-    if not data_root.exists():
-        return False
-    return any(
-        (identity_dir / "compass_state.json").exists()
-        for identity_dir in data_root.iterdir()
-        if identity_dir.is_dir()
-    )
+    """Return True if compass plugin is configured for any identity."""
+    from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+    return is_plugin_configured("compass")
+
+
+def _classify_severity(drift_score: float, threshold: float) -> str:
+    """Classify drift severity based on score vs threshold.
+
+    Returns 'critical', 'warning', or 'info'.
+    """
+    if drift_score > 2 * threshold:
+        return "critical"
+    if drift_score > threshold:
+        return "warning"
+    return "info"
 
 
 def _load_compass_data(request: Request) -> tuple:
-    """Load Compass data from data directories."""
+    """Load Compass data from data directories.
+
+    Returns (baselines, alerts, drift_history, drift_threshold, identity_status).
+    Each alert gets a 'severity' field. identity_status maps identity name to
+    latest drift score and severity.
+    """
     import json
     from pathlib import Path
 
@@ -56,7 +69,7 @@ def _load_compass_data(request: Request) -> tuple:
 
     data_root = Path("data")
     if not data_root.exists():
-        return baselines, alerts, drift_history, drift_threshold
+        return baselines, alerts, drift_history, drift_threshold, {}
 
     for identity_dir in data_root.iterdir():
         state_file = identity_dir / "compass_state.json"
@@ -69,6 +82,36 @@ def _load_compass_data(request: Request) -> tuple:
             except Exception as e:
                 logger.warning("Failed to load compass state from %s: %s", state_file, e)
 
-    alerts.sort(key=lambda a: a.get("fired_at", 0), reverse=True)
+    # Add severity to each alert
+    for alert in alerts:
+        alert["severity"] = _classify_severity(
+            alert.get("drift_score", 0), alert.get("threshold", drift_threshold)
+        )
+
+    # Sort alerts: critical first, then warning, then info; within each group by time
+    severity_order = {"critical": 0, "warning": 1, "info": 2}
+    alerts.sort(key=lambda a: (severity_order.get(a.get("severity"), 9), -a.get("fired_at", 0)))
+
     drift_history.sort(key=lambda d: d.get("measured_at", 0), reverse=True)
-    return baselines, alerts[:50], drift_history[:100], drift_threshold
+
+    # Add severity to drift history entries
+    for entry in drift_history:
+        entry["severity"] = _classify_severity(
+            entry.get("drift_score", 0), drift_threshold
+        )
+
+    # Build identity status: latest drift per identity
+    identity_status = {}
+    for entry in drift_history:
+        name = entry.get("identity_name", "")
+        if name and name not in identity_status:
+            identity_status[name] = {
+                "drift_score": entry.get("drift_score", 0),
+                "severity": entry["severity"],
+            }
+    # Include baselines with no drift as 'low' severity
+    for name in baselines:
+        if name not in identity_status:
+            identity_status[name] = {"drift_score": 0, "severity": "low"}
+
+    return baselines, alerts[:50], drift_history[:100], drift_threshold, identity_status

@@ -30,16 +30,9 @@ async def skuggspel_page(request: Request):
 
 
 def has_data() -> bool:
-    """Return True if any Skuggspel state files exist in data directories."""
-    from pathlib import Path
-    data_root = Path("data")
-    if not data_root.exists():
-        return False
-    return any(
-        (identity_dir / "skuggspel_state.json").exists()
-        for identity_dir in data_root.iterdir()
-        if identity_dir.is_dir()
-    )
+    """Return True if skuggspel plugin is configured for any identity."""
+    from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+    return is_plugin_configured("skuggspel")
 
 
 def _load_posts(request: Request) -> list:

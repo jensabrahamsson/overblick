@@ -8,68 +8,188 @@
     <p class="page-subtitle">Identity drift detection — monitoring personality integrity over time</p>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
-    <div class="card">
-        <div class="card-header"><h2 style="margin: 0; font-size: 1rem;">Active Baselines</h2></div>
-        <div style="padding: 1rem;">
-            {% if baselines %}
-            <table style="width: 100%; font-size: 0.85rem;">
-                <thead><tr><th>Identity</th><th>Samples</th><th>Established</th></tr></thead>
-                <tbody>
-                {% for name, bl in baselines.items() %}
-                <tr>
-                    <td><strong>{{ name }}</strong></td>
-                    <td>{{ bl.sample_count }}</td>
-                    <td>{{ bl.established_at|epoch_to_datetime }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p style="color: var(--text-muted);">No baselines established yet.</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card-header">
-            <h2 style="margin: 0; font-size: 1rem;">Recent Alerts</h2>
-            {% if alerts %}<span class="badge" style="background: var(--danger, #c53030); color: white;">{{ alerts|length }}</span>{% endif %}
-        </div>
-        <div style="padding: 1rem;">
-            {% if alerts %}
-            {% for alert in alerts[:10] %}
-            <div style="padding: 0.5rem; margin-bottom: 0.5rem; border-left: 3px solid var(--danger, #c53030); font-size: 0.85rem;">
-                <strong>{{ alert.identity_name }}</strong> — drift {{ "%.2f"|format(alert.drift_score) }} (threshold: {{ alert.threshold }})
-                <br><span style="color: var(--text-muted);">{{ alert.drifted_dimensions|join(', ') }}</span>
-            </div>
+{# ── A. Status Strip ── #}
+<div class="compass-status-strip">
+    <h2 class="card-title">Identity Overview</h2>
+    <div class="identity-dot-row" role="group" aria-label="Identity drift status indicators">
+        {% if baselines %}
+            {% for name, bl in baselines.items() %}
+            {% set status = identity_status.get(name, {}) %}
+            {% set sev = status.get('severity', 'low') %}
+            <span class="status-dot {% if sev == 'high' or sev == 'critical' %}status-error{% elif sev == 'medium' or sev == 'warning' %}status-starting{% else %}status-running{% endif %}"
+                  title="{{ name }}: {{ '%.2f'|format(status.get('drift_score', 0)) }} drift"
+                  aria-label="{{ name }} — {{ sev }} drift level"></span>
             {% endfor %}
-            {% else %}
-            <p style="color: var(--text-muted);">No drift alerts.</p>
-            {% endif %}
-        </div>
+        {% else %}
+            <span class="text-muted">No baselines established</span>
+        {% endif %}
     </div>
 </div>
 
-{% if drift_history %}
-<div class="card">
-    <div class="card-header"><h2 style="margin: 0; font-size: 1rem;">Drift History</h2></div>
-    <div style="padding: 1rem; overflow-x: auto;">
-        <table style="width: 100%; font-size: 0.85rem;">
-            <thead><tr><th>Identity</th><th>Drift Score</th><th>Drifted Dimensions</th><th>Samples</th><th>Time</th></tr></thead>
-            <tbody>
-            {% for dm in drift_history[:30] %}
-            <tr style="{% if dm.drift_score > drift_threshold %}color: var(--danger, #c53030);{% endif %}">
-                <td><strong>{{ dm.identity_name }}</strong></td>
-                <td>{{ "%.2f"|format(dm.drift_score) }}</td>
-                <td>{{ dm.drifted_dimensions|join(', ') or '-' }}</td>
-                <td>{{ dm.sample_count }}</td>
-                <td>{{ dm.measured_at|epoch_to_datetime }}</td>
-            </tr>
+{# ── B. Two-Column Layout ── #}
+<div class="compass-grid">
+    {# ── Left: Baseline Cards ── #}
+    <section>
+        <h2 class="section-title">Active Baselines</h2>
+        {% if baselines %}
+        <div class="detail-grid">
+            {% for name, bl in baselines.items() %}
+            {% set status = identity_status.get(name, {}) %}
+            {% set score = status.get('drift_score', 0) %}
+            {% set sev = status.get('severity', 'low') %}
+            {% set gauge_sev = 'low' if sev in ('low', 'info') else ('medium' if sev == 'warning' else 'high') %}
+            {% set pct = [((score / (drift_threshold * 3)) * 100)|int, 100]|min %}
+            <div class="card">
+                <h3 class="agent-card-name">{{ name }}</h3>
+                <div class="trait-bar">
+                    <span class="trait-name">Drift</span>
+                    <div class="drift-gauge" role="meter"
+                         aria-label="Drift level for {{ name }}"
+                         aria-valuenow="{{ '%.2f'|format(score) }}"
+                         aria-valuemin="0"
+                         aria-valuemax="{{ '%.1f'|format(drift_threshold * 3) }}">
+                        <div class="drift-gauge-fill" data-severity="{{ gauge_sev }}"
+                             style="width: {{ pct }}%;"></div>
+                    </div>
+                    <span class="trait-value">{{ '%.2f'|format(score) }}</span>
+                </div>
+                <div class="agent-card-meta">
+                    <span class="badge-state {% if gauge_sev == 'low' %}badge-state--active{% elif gauge_sev == 'medium' %}badge-state--paused{% else %}badge-state--error{% endif %}">
+                        {{ gauge_sev|upper }}
+                    </span>
+                    <span>{{ bl.sample_count }} samples</span>
+                    <span>{{ bl.established_at|epoch_to_datetime }}</span>
+                </div>
+            </div>
             {% endfor %}
+        </div>
+        {% else %}
+        <div class="card empty-state">
+            <p>No baselines established yet.</p>
+            <p class="text-muted">Baselines are created automatically as identities generate content.</p>
+        </div>
+        {% endif %}
+    </section>
+
+    {# ── Right: Alert Stack ── #}
+    <section>
+        <h2 class="section-title">Drift Alerts</h2>
+        {% if alerts %}
+        <div class="alert-stack" role="log" aria-label="Identity drift alerts">
+            {% for alert in alerts[:10] %}
+            <div class="alert-item alert-item--{{ alert.severity }}" role="status">
+                <div class="detail-title-row">
+                    <strong>{{ alert.identity_name }}</strong>
+                    <span class="badge-state {% if alert.severity == 'critical' %}badge-state--error{% elif alert.severity == 'warning' %}badge-state--paused{% else %}badge-state--active{% endif %}">
+                        {{ alert.severity|upper }}
+                    </span>
+                </div>
+                <p class="text-muted">
+                    Drift {{ '%.2f'|format(alert.drift_score) }} (threshold: {{ alert.threshold }})
+                </p>
+                {% if alert.drifted_dimensions %}
+                <div class="tag-list">
+                    {% for dim in alert.drifted_dimensions %}
+                    <span class="tag tag-sm">{{ dim }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card empty-state">
+            <span class="health-icon health-ok" aria-hidden="true"></span>
+            <p>All identities within drift tolerance</p>
+            <p class="text-muted">No alerts to report — all personality baselines are stable.</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+{# ── C. Drift History ── #}
+{% if drift_history %}
+<section>
+    <div class="section-header">
+        <h2 class="section-title">Drift History</h2>
+        <div class="view-toggle" role="group" aria-label="History view toggle">
+            <button class="btn" aria-pressed="true" onclick="toggleDriftView('timeline', this)">Timeline</button>
+            <button class="btn" aria-pressed="false" onclick="toggleDriftView('table', this)">Table</button>
+        </div>
+    </div>
+
+    {# Timeline view (default) #}
+    <div id="drift-timeline-view" class="card">
+        <div class="drift-timeline">
+            {% for dm in drift_history[:20] %}
+            {% set sev = dm.severity|default('info') %}
+            {% set dot_sev = 'low' if sev == 'info' else ('medium' if sev == 'warning' else 'high') %}
+            <div class="drift-timeline-entry">
+                <div class="drift-timeline-dot" data-severity="{{ dot_sev }}"></div>
+                <div>
+                    <strong>{{ dm.identity_name }}</strong>
+                    <span class="badge-state {% if sev == 'critical' %}badge-state--error{% elif sev == 'warning' %}badge-state--paused{% else %}badge-state--active{% endif %}">
+                        {{ '%.2f'|format(dm.drift_score) }}
+                    </span>
+                    {% if dm.drifted_dimensions %}
+                    <span class="text-muted"> — {{ dm.drifted_dimensions|join(', ') }}</span>
+                    {% endif %}
+                    <div class="text-muted audit-time">{{ dm.measured_at|epoch_to_datetime }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Table view (hidden by default) #}
+    <div id="drift-table-view" class="card" hidden>
+        <table class="audit-table">
+            <thead>
+                <tr>
+                    <th>Identity</th>
+                    <th>Drift Score</th>
+                    <th>Severity</th>
+                    <th>Drifted Dimensions</th>
+                    <th>Samples</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dm in drift_history[:30] %}
+                {% set sev = dm.severity|default('info') %}
+                <tr>
+                    <td><strong>{{ dm.identity_name }}</strong></td>
+                    <td>{{ '%.2f'|format(dm.drift_score) }}</td>
+                    <td>
+                        <span class="badge-state {% if sev == 'critical' %}badge-state--error{% elif sev == 'warning' %}badge-state--paused{% else %}badge-state--active{% endif %}">
+                            {{ sev|upper }}
+                        </span>
+                    </td>
+                    <td>{{ dm.drifted_dimensions|join(', ') or '—' }}</td>
+                    <td>{{ dm.sample_count }}</td>
+                    <td class="audit-time">{{ dm.measured_at|epoch_to_datetime }}</td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
+</section>
 {% endif %}
+
+<script>
+function toggleDriftView(view, btn) {
+    var timeline = document.getElementById('drift-timeline-view');
+    var table = document.getElementById('drift-table-view');
+    var buttons = btn.parentElement.querySelectorAll('.btn');
+    buttons.forEach(function(b) { b.setAttribute('aria-pressed', 'false'); });
+    btn.setAttribute('aria-pressed', 'true');
+    if (view === 'timeline') {
+        timeline.hidden = false;
+        table.hidden = true;
+    } else {
+        timeline.hidden = true;
+        table.hidden = false;
+    }
+}
+</script>
 {% endblock %}

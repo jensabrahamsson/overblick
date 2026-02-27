@@ -31,16 +31,9 @@ async def kontrast_page(request: Request):
 
 
 def has_data() -> bool:
-    """Return True if any Kontrast state files exist in data directories."""
-    from pathlib import Path
-    data_root = Path("data")
-    if not data_root.exists():
-        return False
-    return any(
-        (identity_dir / "kontrast_state.json").exists()
-        for identity_dir in data_root.iterdir()
-        if identity_dir.is_dir()
-    )
+    """Return True if kontrast plugin is configured for any identity."""
+    from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+    return is_plugin_configured("kontrast")
 
 
 def _load_pieces(request: Request) -> list:

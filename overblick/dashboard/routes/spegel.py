@@ -30,16 +30,9 @@ async def spegel_page(request: Request):
 
 
 def has_data() -> bool:
-    """Return True if any Spegel state files exist in data directories."""
-    from pathlib import Path
-    data_root = Path("data")
-    if not data_root.exists():
-        return False
-    return any(
-        (identity_dir / "spegel_state.json").exists()
-        for identity_dir in data_root.iterdir()
-        if identity_dir.is_dir()
-    )
+    """Return True if spegel plugin is configured for any identity."""
+    from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+    return is_plugin_configured("spegel")
 
 
 def _load_pairs(request: Request) -> list:

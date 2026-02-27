@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ status_code }} — Överblick Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=2">
+</head>
+<body class="login-body">
+    <main class="error-page">
+        <div class="error-logo">
+            <img src="/static/img/overblick-logo.svg" alt="Överblick" class="login-logo-img">
+            <h1 class="login-title">Överblick</h1>
+        </div>
+
+        <div class="error-code">{{ status_code }}</div>
+        <p class="error-detail">{{ detail }}</p>
+
+        <div class="error-info">
+            <p>If this is unexpected, please
+                <a href="https://github.com/jensabrahamsson/overblick/issues/new" target="_blank" rel="noopener">
+                    open a GitHub issue
+                </a>
+                with details about what you were doing.
+            </p>
+        </div>
+
+        <a href="/" class="btn btn-primary error-back">Back to Dashboard</a>
+    </main>
+</body>
+</html>

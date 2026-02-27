@@ -121,13 +121,20 @@
                     {{ gw_status }}
                 </span>
             </div>
+            {% for name, info in gateway.get('backends', {}).items() %}
             <div class="system-llm-stat">
-                <span class="system-llm-stat-label">Ollama</span>
-                {% set ollama = gateway.get('ollama', 'unknown') %}
-                <span class="status-badge {% if ollama == 'connected' %}status-running{% else %}status-stopped{% endif %}">
-                    {{ ollama }}
+                <span class="system-llm-stat-label">
+                    {{ name | capitalize }}{% if info.get('default') %} ★{% endif %}
+                </span>
+                {% set bstatus = info.get('status', 'unknown') %}
+                <span class="status-badge {% if bstatus == 'connected' %}status-running{% else %}status-stopped{% endif %}">
+                    {{ bstatus }}
+                </span>
+                <span class="text-muted" style="font-size: 0.75rem; display: block;">
+                    {{ info.get('type', '') }} · {{ info.get('model', '') }}
                 </span>
             </div>
+            {% endfor %}
             <div class="system-llm-stat">
                 <span class="system-llm-stat-label">Queue</span>
                 <span class="system-llm-stat-value">{{ gateway.get('queue_size', 0) }}</span>

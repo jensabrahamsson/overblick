@@ -46,6 +46,31 @@ async def _collect_host_health() -> HostHealth:
         return HostHealth()
 
 
+def _normalize_backends(gateway: dict[str, Any]) -> dict[str, Any]:
+    """Normalize backends to rich dict format.
+
+    Handles both old format (str values like "connected") and new format
+    (dict values with status/type/model/default) so the dashboard works
+    regardless of which gateway version is running.
+    """
+    backends = gateway.get("backends", {})
+    default_name = gateway.get("default_backend", "")
+    normalized = {}
+    for name, info in backends.items():
+        if isinstance(info, str):
+            # Old format: "connected" / "disconnected"
+            normalized[name] = {
+                "status": info,
+                "type": "unknown",
+                "model": "unknown",
+                "default": name == default_name,
+            }
+        else:
+            normalized[name] = info
+    gateway["backends"] = normalized
+    return gateway
+
+
 def _build_metrics_context(
     health: HostHealth,
     gateway: dict[str, Any] | None,
@@ -55,6 +80,9 @@ def _build_metrics_context(
     cpu_percent = 0.0
     if health.cpu.core_count > 0:
         cpu_percent = min(100.0, (health.cpu.load_1m / health.cpu.core_count) * 100)
+
+    if gateway is not None:
+        gateway = _normalize_backends(gateway)
 
     return {
         "health": health,

@@ -43,53 +43,21 @@ async def moltbook_page(request: Request):
 
 def has_data() -> bool:
     """Return True if any identity has the moltbook plugin configured."""
-    identities_dir = Path("overblick/identities")
-    if not identities_dir.exists():
-        return False
-    for d in identities_dir.iterdir():
-        if not d.is_dir():
-            continue
-        if "moltbook" in _collect_plugins(d):
-            return True
-    return False
+    from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+    return is_plugin_configured("moltbook")
 
 
+# Re-export shared helpers for use within this module
 def _safe_load_yaml(path: Path) -> dict:
     """Load a YAML file safely, returning {} on any error."""
-    if not path.exists():
-        return {}
-    try:
-        return yaml.safe_load(path.read_text()) or {}
-    except Exception:
-        return {}
+    from overblick.dashboard.routes._plugin_utils import safe_load_yaml
+    return safe_load_yaml(path)
 
 
 def _collect_plugins(identity_dir: Path) -> set[str]:
-    """Collect plugins from all config sources for an identity.
-
-    Plugins can be defined in three places:
-    1. personality.yaml top-level ``plugins:``
-    2. personality.yaml ``operational.plugins:``
-    3. identity.yaml ``plugins:``
-    """
-    plugins: set[str] = set()
-
-    data = _safe_load_yaml(identity_dir / "personality.yaml")
-    top = data.get("plugins", [])
-    if isinstance(top, list):
-        plugins.update(top)
-    op = data.get("operational", {})
-    if isinstance(op, dict):
-        op_plugins = op.get("plugins", [])
-        if isinstance(op_plugins, list):
-            plugins.update(op_plugins)
-
-    id_data = _safe_load_yaml(identity_dir / "identity.yaml")
-    id_plugins = id_data.get("plugins", [])
-    if isinstance(id_plugins, list):
-        plugins.update(id_plugins)
-
-    return plugins
+    """Collect plugins from all config sources for an identity."""
+    from overblick.dashboard.routes._plugin_utils import collect_plugins
+    return collect_plugins(identity_dir)
 
 
 def _get_moltbook_profiles() -> list[dict]:
