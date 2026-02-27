@@ -566,7 +566,7 @@ operational:
 
   plugins:
     - "email_agent"
-    - "github"
+    - "telegram"
 
   # Email agent plugin configuration (must be under operational for raw_config)
   email_agent:
@@ -596,27 +596,8 @@ operational:
   #   min_examples: 20       # Minimum emails before profile is useful
   #   auto_update: false     # Don't auto-update profile on each email
 
-  # GitHub agent plugin configuration
-  github:
-    repos: ["jensabrahamsson/overblick"]
-    bot_username: "jensabrahamsson"
-    default_branch: "main"
-    max_actions_per_tick: 5
-    tick_interval_minutes: 10
-    dry_run: true    # Start in dry-run mode, enable after validation
-    dependabot:
-      auto_merge_patch: true
-      auto_merge_minor: true
-      auto_merge_major: false
-      require_ci_pass: true
-    issues:
-      respond_to_labels: ["question", "help wanted", "bug"]
-      max_response_age_hours: 168
-    code_context:
-      max_files_per_question: 12
-      max_file_size_bytes: 100000
-      max_context_chars: 100000
-      tree_refresh_minutes: 30
+  # GitHub agent plugin removed — Stål is the email agent, not a code agent.
+  # GitHub config belongs in smed's personality.yaml.
 
 ################################################################################
 # END OF PERSONALITY CONFIGURATION

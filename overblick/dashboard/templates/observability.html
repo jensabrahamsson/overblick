@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Observability{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Observability Command Center</h1>
+
+<!-- Section A: Agent Health Strip -->
+<div class="section">
+    <div id="obs-agents-strip"
+         hx-get="/observability/agents-strip"
+         hx-trigger="load, every 5s"
+         hx-swap="innerHTML settle:200ms"
+         role="status"
+         aria-live="polite"
+         aria-label="Agent health overview">
+        <div class="card"><span class="text-muted">Loading agent status...</span></div>
+    </div>
+</div>
+
+<!-- Sections B + C: Two-column layout -->
+<div class="obs-two-col">
+    <!-- Section B: LLM Gateway -->
+    <div class="section">
+        <h2 class="section-title">LLM Gateway</h2>
+        <div id="obs-gateway"
+             hx-get="/observability/gateway"
+             hx-trigger="load, every 5s"
+             hx-swap="innerHTML settle:200ms"
+             role="status"
+             aria-live="polite">
+            <div class="card"><span class="text-muted">Loading gateway metrics...</span></div>
+        </div>
+    </div>
+
+    <!-- Section C: Agent Fleet -->
+    <div class="section">
+        <h2 class="section-title">Agent Fleet</h2>
+        <div id="obs-fleet"
+             hx-get="/observability/fleet"
+             hx-trigger="load, every 5s"
+             hx-swap="innerHTML settle:200ms"
+             role="status"
+             aria-live="polite">
+            <div class="card"><span class="text-muted">Loading fleet status...</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Sections D + E: Two-column layout -->
+<div class="obs-two-col">
+    <!-- Section D: Audit Activity -->
+    <div class="section">
+        <h2 class="section-title">Audit Activity</h2>
+        <div id="obs-audit-activity"
+             hx-get="/observability/audit-activity"
+             hx-trigger="load, every 5s"
+             hx-swap="innerHTML settle:200ms"
+             role="status"
+             aria-live="polite">
+            <div class="card"><span class="text-muted">Loading audit data...</span></div>
+        </div>
+    </div>
+
+    <!-- Section E: Message Routing -->
+    <div class="section">
+        <h2 class="section-title">Message Routing</h2>
+        <div id="obs-routing"
+             hx-get="/observability/routing"
+             hx-trigger="load, every 5s"
+             hx-swap="innerHTML settle:200ms"
+             role="status"
+             aria-live="polite">
+            <div class="card"><span class="text-muted">Loading routing data...</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Section F: Error Feed -->
+<div class="section">
+    <h2 class="section-title">Error Feed</h2>
+    <div id="obs-errors"
+         hx-get="/observability/errors"
+         hx-trigger="load, every 5s"
+         hx-swap="innerHTML settle:200ms"
+         role="status"
+         aria-live="polite">
+        <div class="card"><span class="text-muted">Loading error feed...</span></div>
+    </div>
+</div>
+{% endblock %}

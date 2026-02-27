@@ -28,6 +28,7 @@
             <a href="/conversations" class="nav-link {% if request.url.path == '/conversations' %}active{% endif %}" {% if request.url.path == '/conversations' %}aria-current="page"{% endif %}>Conversations</a>
             <a href="/llm" class="nav-link {% if request.url.path == '/llm' %}active{% endif %}" {% if request.url.path == '/llm' %}aria-current="page"{% endif %}>LLM</a>
             <a href="/system" class="nav-link {% if request.url.path == '/system' %}active{% endif %}" {% if request.url.path == '/system' %}aria-current="page"{% endif %}>System</a>
+            <a href="/observability" class="nav-link {% if request.url.path == '/observability' %}active{% endif %}" {% if request.url.path == '/observability' %}aria-current="page"{% endif %}>Observability</a>
             {% if irc_enabled() %}<a href="/irc" class="nav-link {% if request.url.path == '/irc' %}active{% endif %}" {% if request.url.path == '/irc' %}aria-current="page"{% endif %}>IRC</a>{% endif %}
             {% if kontrast_enabled() %}<a href="/kontrast" class="nav-link {% if request.url.path == '/kontrast' %}active{% endif %}" {% if request.url.path == '/kontrast' %}aria-current="page"{% endif %}>Kontrast</a>{% endif %}
             {% if spegel_enabled() %}<a href="/spegel" class="nav-link {% if request.url.path == '/spegel' %}active{% endif %}" {% if request.url.path == '/spegel' %}aria-current="page"{% endif %}>Spegel</a>{% endif %}
@@ -64,6 +65,7 @@
     </footer>
 
     <script src="/static/js/radar-chart.js"></script>
+    <script src="/static/js/sparkline-chart.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

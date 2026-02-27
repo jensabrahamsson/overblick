@@ -1,0 +1,23 @@
+{% if errors %}
+<div class="card obs-error-feed" role="log" aria-label="Recent errors">
+    {% for entry in errors %}
+    <div class="obs-error-entry">
+        <div class="obs-error-header">
+            <span class="obs-error-time mono">{{ entry.get('timestamp', 0) | epoch_to_datetime }}</span>
+            <span class="status-badge status-badge-sm status-running">{{ entry.get('identity', '—') }}</span>
+            <span class="obs-error-action">{{ entry.get('action', '—') }}</span>
+        </div>
+        <div class="obs-error-message text-danger">
+            {{ (entry.get('error', '') or 'No error message')[:200] }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="obs-all-clear">
+        <span class="obs-all-clear-icon" aria-hidden="true">&#10003;</span>
+        <span>All clear — no errors in the last 6 hours</span>
+    </div>
+</div>
+{% endif %}

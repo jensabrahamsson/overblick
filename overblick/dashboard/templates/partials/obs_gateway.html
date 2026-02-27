@@ -1,0 +1,95 @@
+{% if gateway_available %}
+<div class="card">
+    <!-- Gauges row -->
+    <div class="obs-gauge-row">
+        <!-- Queue depth gauge -->
+        {% set queue = gateway.get('queue_size', 0) %}
+        {% set queue_pct = [queue * 10, 100] | min %}
+        {% set queue_color = 'var(--green)' if queue < 3 else ('var(--amber)' if queue < 7 else 'var(--red)') %}
+        <div class="obs-gauge-item">
+            <svg viewBox="0 0 120 120" class="gauge-svg" role="meter"
+                 aria-valuenow="{{ queue }}" aria-valuemin="0" aria-valuemax="10"
+                 aria-label="Queue depth {{ queue }}">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
+                <circle cx="60" cy="60" r="52" fill="none"
+                        stroke="{{ queue_color }}" stroke-width="8"
+                        stroke-linecap="round"
+                        stroke-dasharray="326.73"
+                        stroke-dashoffset="{{ 326.73 - (326.73 * queue_pct / 100) }}"
+                        class="gauge-ring-fill"
+                        transform="rotate(-90 60 60)"/>
+                <text x="60" y="55" text-anchor="middle" class="gauge-percent" aria-hidden="true">{{ queue }}</text>
+                <text x="60" y="72" text-anchor="middle" class="gauge-sublabel" aria-hidden="true">Queue</text>
+            </svg>
+        </div>
+
+        <!-- Avg response time gauge -->
+        {% set avg_ms = gateway.get('avg_response_time_ms', 0) %}
+        {% set resp_pct = [(avg_ms / 10000 * 100), 100] | min %}
+        {% set resp_color = 'var(--green)' if avg_ms < 3000 else ('var(--amber)' if avg_ms < 7000 else 'var(--red)') %}
+        <div class="obs-gauge-item">
+            <svg viewBox="0 0 120 120" class="gauge-svg" role="meter"
+                 aria-valuenow="{{ '%.0f' | format(avg_ms) }}" aria-valuemin="0" aria-valuemax="10000"
+                 aria-label="Average response time {{ '%.0f' | format(avg_ms) }} ms">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
+                <circle cx="60" cy="60" r="52" fill="none"
+                        stroke="{{ resp_color }}" stroke-width="8"
+                        stroke-linecap="round"
+                        stroke-dasharray="326.73"
+                        stroke-dashoffset="{{ 326.73 - (326.73 * resp_pct / 100) }}"
+                        class="gauge-ring-fill"
+                        transform="rotate(-90 60 60)"/>
+                <text x="60" y="50" text-anchor="middle" class="gauge-percent" aria-hidden="true" style="font-size: 1.2em;">{{ "%.0f" | format(avg_ms) }}</text>
+                <text x="60" y="72" text-anchor="middle" class="gauge-sublabel" aria-hidden="true">ms avg</text>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="obs-stat-row">
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Processed</div>
+            <div class="obs-stat-value">{{ gateway.get('requests_processed', '—') }}</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">High Priority</div>
+            <div class="obs-stat-value">{{ gateway.get('high_priority', '—') }}</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Low Priority</div>
+            <div class="obs-stat-value">{{ gateway.get('low_priority', '—') }}</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Active</div>
+            <div class="obs-stat-value">{{ gateway.get('active_requests', 0) }}</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Uptime</div>
+            <div class="obs-stat-value">{{ gateway.get('uptime', '—') }}</div>
+        </div>
+    </div>
+
+    <!-- Backends -->
+    <div class="obs-backends">
+        {% for name, info in gateway.get('backends', {}).items() %}
+        {% set bstatus = info.get('status', 'unknown') %}
+        <span class="status-badge {% if bstatus == 'connected' %}status-running{% else %}status-stopped{% endif %}">
+            {{ name }}{% if info.get('default') %} ★{% endif %}: {{ bstatus }}
+        </span>
+        {% endfor %}
+
+        {% set risk = gateway.get('gpu_starvation_risk', 'unknown') %}
+        {% if risk != 'unknown' %}
+        {% set risk_class = 'health-grade-good' if risk == 'low' else ('health-grade-fair' if risk == 'medium' else 'health-grade-poor') %}
+        <span class="health-grade {{ risk_class }}">GPU: {{ risk | upper }}</span>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="system-unavailable">
+        <span class="status-badge status-offline">Unavailable</span>
+        <span class="text-muted">Gateway not reachable at 127.0.0.1:8200</span>
+    </div>
+</div>
+{% endif %}

@@ -1,0 +1,20 @@
+{% if supervisor_running and agent_dots %}
+<div class="card">
+    <div class="obs-status-strip" role="list" aria-label="Agent health indicators">
+        {% for dot in agent_dots %}
+        <div class="obs-agent-dot" role="listitem"
+             title="{{ dot.name | capitalize }} — {{ dot.state }} ({{ dot.error_rate }}% errors)">
+            <span class="status-dot status-dot--{{ dot.color }}" aria-hidden="true"></span>
+            <span class="obs-agent-dot-label">{{ dot.name }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="obs-status-strip">
+        <span class="status-badge status-offline">Supervisor offline</span>
+        <span class="text-muted">Start the supervisor to see agent health</span>
+    </div>
+</div>
+{% endif %}

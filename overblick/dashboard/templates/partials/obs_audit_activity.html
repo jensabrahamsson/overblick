@@ -1,0 +1,47 @@
+<div class="card">
+    <!-- Stat boxes -->
+    <div class="obs-stat-row">
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Total (24h)</div>
+            <div class="obs-stat-value">{{ total_24h }}</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Events/h</div>
+            <div class="obs-stat-value">{{ events_per_hour }}</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Error Rate</div>
+            <div class="obs-stat-value {% if error_rate >= 10 %}text-warning{% elif error_rate >= 25 %}text-danger{% endif %}">{{ error_rate }}%</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">LLM Calls</div>
+            <div class="obs-stat-value">{{ llm_24h }}</div>
+        </div>
+    </div>
+
+    <!-- Sparkline: events per hour (last 12h) -->
+    {% if hourly %}
+    <div style="margin-top: var(--space-md);">
+        <div class="obs-stat-label" style="margin-bottom: var(--space-xs);">Events / hour (12h)</div>
+        <canvas class="sparkline-canvas"
+                data-sparkline='{{ hourly | tojson }}'
+                aria-label="Audit events per hour sparkline chart"></canvas>
+    </div>
+    {% endif %}
+
+    <!-- Category breakdown -->
+    {% if categories %}
+    <div style="margin-top: var(--space-md);">
+        <div class="obs-stat-label" style="margin-bottom: var(--space-sm);">Categories (24h)</div>
+        {% for cat, count in categories.items() | sort(attribute='1', reverse=true) %}
+        <div class="obs-cat-row">
+            <span class="obs-cat-name">{{ cat }}</span>
+            <div class="obs-cat-bar-track">
+                <div class="obs-cat-bar-fill" style="width: {{ (count / max_cat_count * 100) | round }}%; background: var(--accent);"></div>
+            </div>
+            <span class="obs-cat-count mono">{{ count }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

@@ -54,6 +54,7 @@ class PipelineResult(BaseModel):
     raw_response: Optional[dict] = None
     duration_ms: float = 0.0
     stages_passed: list[PipelineStage] = []
+    stage_timings: dict[str, float] = {}
 
     # Deflection text to send back when blocked
     deflection: Optional[str] = None
@@ -151,28 +152,36 @@ class SafeLLMPipeline:
         """
         start = time.monotonic()
         stages: list[PipelineStage] = []
+        stage_timings: dict[str, float] = {}
 
         # Stage 1: Input sanitize
+        t0 = time.monotonic()
         if sanitize_messages:
             messages = self._sanitize_messages(messages)
+        stage_timings["input_sanitize"] = (time.monotonic() - t0) * 1000
         stages.append(PipelineStage.INPUT_SANITIZE)
 
         # Stage 2: Preflight check (on last user message)
+        t0 = time.monotonic()
         if not skip_preflight:
             result = await self._run_preflight(messages, user_id)
             if result:
+                stage_timings["preflight"] = (time.monotonic() - t0) * 1000
                 result.duration_ms = (time.monotonic() - start) * 1000
                 result.stages_passed = stages
+                result.stage_timings = stage_timings
                 self._audit_blocked(result, audit_action, audit_details)
                 return result
         else:
             self._audit_skip("preflight", user_id, audit_action)
+        stage_timings["preflight"] = (time.monotonic() - t0) * 1000
         stages.append(PipelineStage.PREFLIGHT)
 
-        # Stage 3: Rate limit
+        # Stage 3: Rate limit (per-user composite key)
         if self._rate_limiter:
-            if not self._rate_limiter.allow(self._rate_limit_key):
-                wait = self._rate_limiter.retry_after(self._rate_limit_key)
+            rate_key = f"{self._rate_limit_key}:{user_id}"
+            if not self._rate_limiter.allow(rate_key):
+                wait = self._rate_limiter.retry_after(rate_key)
                 result = PipelineResult(
                     blocked=True,
                     block_reason=f"Rate limited, retry after {wait:.1f}s",
@@ -187,6 +196,7 @@ class SafeLLMPipeline:
         stages.append(PipelineStage.RATE_LIMIT)
 
         # Stage 4: LLM call
+        t0 = time.monotonic()
         try:
             raw_response = await self._llm.chat(
                 messages=messages,
@@ -220,9 +230,14 @@ class SafeLLMPipeline:
             return result
 
         content = raw_response.get("content", "")
+        # Safety net: strip any remaining think tokens that the client missed
+        from overblick.core.llm.client import LLMClient
+        content = LLMClient.strip_think_tokens(content)
+        stage_timings["llm_call"] = (time.monotonic() - t0) * 1000
         stages.append(PipelineStage.LLM_CALL)
 
         # Stage 5: Output safety
+        t0 = time.monotonic()
         if not skip_output_safety:
             safety_result = self._run_output_safety(content)
             if safety_result is not None:
@@ -245,6 +260,7 @@ class SafeLLMPipeline:
                     content = safe_text
         else:
             self._audit_skip("output_safety", user_id, audit_action)
+        stage_timings["output_safety"] = (time.monotonic() - t0) * 1000
         stages.append(PipelineStage.OUTPUT_SAFETY)
         stages.append(PipelineStage.COMPLETE)
 
@@ -255,6 +271,11 @@ class SafeLLMPipeline:
             raw_response=raw_response,
             duration_ms=duration,
             stages_passed=stages,
+            stage_timings=stage_timings,
+        )
+        logger.debug(
+            "Pipeline complete in %.1fms — timings: %s",
+            duration, stage_timings,
         )
 
         if self._audit:
@@ -358,6 +379,8 @@ class SafeLLMPipeline:
         d = {**(details or {})}
         d["block_stage"] = result.block_stage.value if result.block_stage else None
         d["block_reason"] = result.block_reason
+        if hasattr(self._llm, "model"):
+            d["model"] = self._llm.model
         self._audit.log(
             action=f"{action}_blocked",
             category="security",
@@ -377,6 +400,8 @@ class SafeLLMPipeline:
             return
         d = {**(details or {})}
         d["stage"] = result.block_stage.value if result.block_stage else None
+        if hasattr(self._llm, "model"):
+            d["model"] = self._llm.model
         self._audit.log(
             action=f"{action}_error",
             category="llm",

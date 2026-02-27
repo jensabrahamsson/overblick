@@ -1,0 +1,55 @@
+{% if supervisor_running and routing %}
+<div class="card">
+    <!-- Stat boxes -->
+    <div class="obs-stat-row">
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Total Routed</div>
+            <div class="obs-stat-value">{{ routing.get('total_routed', 0) }}</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Pending</div>
+            <div class="obs-stat-value">{{ routing.get('pending', 0) }}</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Delivered</div>
+            <div class="obs-stat-value">{{ routing.get('delivered', 0) }}</div>
+        </div>
+        <div class="obs-stat-box">
+            <div class="obs-stat-label">Dead Letters</div>
+            {% set dead = routing.get('dead_letters', 0) %}
+            <div class="obs-stat-value {% if dead > 0 %}text-warning{% endif %}">{{ dead }}</div>
+        </div>
+    </div>
+
+    {% if dead > 0 %}
+    <div class="flash flash-warning" style="margin-top: var(--space-md);" role="alert">
+        {{ dead }} dead letter{{ 's' if dead != 1 else '' }} detected — messages failed to reach target agents
+    </div>
+    {% endif %}
+
+    <!-- Per-agent queue depth -->
+    {% set agents = routing.get('agents', {}) %}
+    {% if agents %}
+    <div style="margin-top: var(--space-md);">
+        <div class="obs-stat-label" style="margin-bottom: var(--space-sm);">Per-agent queue</div>
+        {% for name, info in agents.items() %}
+        <div class="obs-routing-agent">
+            <span class="obs-routing-agent-name">{{ name | capitalize }}</span>
+            <span class="mono">{{ info.get('pending', 0) }} pending</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% elif supervisor_running %}
+<div class="card">
+    <span class="text-muted">No routing data available</span>
+</div>
+{% else %}
+<div class="card">
+    <div class="system-unavailable">
+        <span class="status-badge status-offline">Supervisor offline</span>
+        <span class="text-muted">Start the supervisor to see routing metrics</span>
+    </div>
+</div>
+{% endif %}

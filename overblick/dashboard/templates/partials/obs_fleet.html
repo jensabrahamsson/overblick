@@ -1,0 +1,51 @@
+{% if supervisor_running and fleet_rows %}
+<div class="card" style="overflow-x: auto;">
+    <table class="table" aria-label="Agent fleet status">
+        <thead>
+            <tr>
+                <th>Identity</th>
+                <th>State</th>
+                <th>PID</th>
+                <th>Uptime</th>
+                <th>Restarts</th>
+                <th>Plugins</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in fleet_rows %}
+            <tr>
+                <td><a href="/agent/{{ row.name }}" class="text-link">{{ row.name | capitalize }}</a></td>
+                <td>
+                    <span class="status-badge status-{{ row.state }}">{{ row.state }}</span>
+                </td>
+                <td class="mono">{{ row.pid or '—' }}</td>
+                <td>{{ row.uptime }}</td>
+                <td>
+                    {% if row.restart_count > 0 %}
+                    <span class="text-warning">{{ row.restart_count }}</span>
+                    {% else %}
+                    {{ row.restart_count }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% for p in row.plugins %}
+                    <span class="badge">{{ p }}</span>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif supervisor_running %}
+<div class="card">
+    <span class="text-muted">No agents registered</span>
+</div>
+{% else %}
+<div class="card">
+    <div class="system-unavailable">
+        <span class="status-badge status-offline">Supervisor offline</span>
+        <span class="text-muted">Start the supervisor to see fleet status</span>
+    </div>
+</div>
+{% endif %}
