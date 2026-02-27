@@ -5,17 +5,19 @@
 <div class="identities-page">
     <div class="section-header">
         <h1 class="page-title">Identities</h1>
-        <a href="/onboard" class="btn btn-primary">Create New Agent</a>
+        <button class="btn btn-primary" disabled title="Coming soon">Create New Agent</button>
     </div>
 
     <div class="identity-grid">
         {% for identity in identities %}
         <article class="card identity-card" aria-label="{{ identity.display_name }} identity">
             <div class="identity-card-header">
+                {% if identity.icon %}
+                <span class="identity-card-icon" aria-hidden="true">{{ identity.icon }}</span>
+                {% endif %}
                 <h2 class="identity-card-name">
                     <a href="/agent/{{ identity.name }}">{{ identity.display_name }}</a>
                 </h2>
-                <span class="identity-card-version">v{{ identity.version }}</span>
             </div>
             <p class="identity-card-desc">{{ identity.description }}</p>
 

@@ -31,11 +31,12 @@ class SupervisorService:
         return self._resolved_socket_dir
 
     def _read_auth_token(self, socket_dir: Path) -> str:
-        """Read auth token from supervisor's token file."""
+        """Read and decrypt auth token from supervisor's token file."""
         token_path = socket_dir / "overblick-supervisor.token"
         try:
             if token_path.exists():
-                return token_path.read_text().strip()
+                from overblick.supervisor.ipc import _decrypt_token
+                return _decrypt_token(token_path.read_bytes())
         except Exception as e:
             logger.debug("Failed to read auth token: %s", e)
         return ""

@@ -47,3 +47,12 @@ scripts/test_*
 
 # IPC sockets
 /tmp/overblick/
+
+# Local (untracked) plugins — confidential
+overblick/plugins/_local/
+
+# Project instructions (may contain confidential plugin references)
+CLAUDE.md
+
+# Local Playwright tests (confidential, plugin-specific)
+tests/_local/

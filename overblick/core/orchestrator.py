@@ -6,6 +6,7 @@ Wires together identity, plugins, LLM, security, and scheduling.
 """
 
 import asyncio
+import importlib
 import json
 import logging
 import signal
@@ -71,6 +72,7 @@ class Orchestrator:
         self._event_bus = EventBus()
         self._scheduler = Scheduler()
         self._registry = PluginRegistry()
+        self._register_local_plugins()
         self._audit_log: Optional[AuditLog] = None
         self._secrets: Optional[SecretsManager] = None
         self._quiet_hours: Optional[QuietHoursChecker] = None
@@ -165,6 +167,12 @@ class Orchestrator:
 
         # Use plugins from identity if specified, otherwise fall back to constructor arg
         plugin_names = list(self._identity.plugins) if self._identity.plugins else self._plugin_names
+
+        # Append any local plugins configured for this identity
+        local_plugins = self._load_local_plugin_config()
+        for lp in local_plugins:
+            if lp not in plugin_names:
+                plugin_names.append(lp)
 
         for plugin_name in plugin_names:
             ctx = PluginContext(
@@ -544,6 +552,76 @@ class Orchestrator:
         except Exception as e:
             logger.warning("Failed to create IPC client: %s", e)
             return None
+
+    def _register_local_plugins(self) -> None:
+        """Auto-discover and register plugins from overblick/plugins/_local/.
+
+        Scans each subdirectory for a plugin.py module containing a PluginBase
+        subclass and registers it with the plugin registry. This allows local
+        (git-ignored) plugins to be loaded without modifying tracked files.
+        """
+        local_dir = Path(__file__).parent.parent / "plugins" / "_local"
+        if not local_dir.is_dir():
+            return
+
+        for candidate in sorted(local_dir.iterdir()):
+            plugin_file = candidate / "plugin.py"
+            if not candidate.is_dir() or not plugin_file.exists():
+                continue
+
+            module_path = f"overblick.plugins._local.{candidate.name}.plugin"
+            try:
+                mod = importlib.import_module(module_path)
+            except Exception as e:
+                logger.warning("Failed to import local plugin '%s': %s", candidate.name, e)
+                continue
+
+            # Find the PluginBase subclass in the module
+            cls_name = None
+            for attr_name in dir(mod):
+                attr = getattr(mod, attr_name)
+                if (
+                    isinstance(attr, type)
+                    and issubclass(attr, PluginBase)
+                    and attr is not PluginBase
+                ):
+                    cls_name = attr_name
+                    break
+
+            if cls_name:
+                self._registry.register(candidate.name, module_path, cls_name)
+                logger.info("Local plugin registered: %s -> %s.%s", candidate.name, module_path, cls_name)
+
+    def _load_local_plugin_config(self) -> list[str]:
+        """Read local plugin names for the current identity from config/overblick.yaml.
+
+        Expected YAML structure::
+
+            local_plugins:
+              <identity>:
+                - <plugin_name>
+
+        Returns:
+            List of local plugin names to load for this identity.
+        """
+        config_path = self._base_dir / "config" / "overblick.yaml"
+        if not config_path.exists():
+            return []
+
+        try:
+            import yaml
+            with open(config_path) as f:
+                cfg = yaml.safe_load(f) or {}
+            local_cfg = cfg.get("local_plugins", {})
+            plugins = local_cfg.get(self._identity_name, [])
+            if plugins:
+                logger.info(
+                    "Local plugins for '%s': %s", self._identity_name, plugins,
+                )
+            return list(plugins)
+        except Exception as e:
+            logger.warning("Failed to read local plugin config: %s", e)
+            return []
 
     def _create_output_safety(self) -> Optional[OutputSafety]:
         """Create output safety filter from identity config."""
