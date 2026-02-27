@@ -181,6 +181,13 @@ class BackendRegistry:
     def available_backends(self) -> list[str]:
         return list(self._clients.keys())
 
+    def get_backend_info(self) -> dict[str, dict[str, str]]:
+        """Get metadata (type, model) for all registered backends."""
+        return {
+            name: {"type": bcfg.backend_type, "model": bcfg.model}
+            for name, bcfg in self._backend_configs.items()
+        }
+
     async def health_check_all(self) -> dict[str, bool]:
         """Check health of all registered backends.
 

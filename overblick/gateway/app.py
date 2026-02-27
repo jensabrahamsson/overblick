@@ -144,11 +144,20 @@ async def health_check() -> dict:
         starvation_risk = "high"
 
     stats = qm.get_stats()
+    backend_info = registry.get_backend_info()
 
     return {
         "status": status,
         "gateway": "running" if qm.is_running else "stopped",
-        "backends": {name: "connected" if h else "disconnected" for name, h in backend_health.items()},
+        "backends": {
+            name: {
+                "status": "connected" if h else "disconnected",
+                "type": backend_info.get(name, {}).get("type", "unknown"),
+                "model": backend_info.get(name, {}).get("model", "unknown"),
+                "default": name == registry.default_backend,
+            }
+            for name, h in backend_health.items()
+        },
         "default_backend": registry.default_backend,
         "queue_size": queue_size,
         "gpu_starvation_risk": starvation_risk,

@@ -261,6 +261,9 @@ class SafeLLMPipeline:
             d = {**(audit_details or {})}
             d["duration_ms"] = duration
             d["content_length"] = len(content)
+            # Include model info for LLM call traceability
+            if hasattr(self._llm, "model"):
+                d["model"] = self._llm.model
             self._audit.log(
                 action=audit_action,
                 category="llm",
