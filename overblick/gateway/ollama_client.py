@@ -168,3 +168,49 @@ class OllamaClient:
         except Exception as e:
             logger.error("Unexpected error calling Ollama: %s", e, exc_info=True)
             raise OllamaError(f"Failed to call Ollama: {e}") from e
+
+    async def embed(self, text: str, model: str = "nomic-embed-text") -> list[float]:
+        """
+        Generate an embedding vector via Ollama's /api/embed endpoint.
+
+        Args:
+            text: Text to embed
+            model: Embedding model name (default: nomic-embed-text)
+
+        Returns:
+            List of floats representing the embedding vector
+
+        Raises:
+            OllamaConnectionError: If server is unreachable
+            OllamaError: For other errors
+        """
+        if not text:
+            return []
+
+        try:
+            client = await self._get_client()
+            response = await client.post(
+                "/api/embed",
+                json={"model": model, "input": text},
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            # Ollama returns {"embeddings": [[...float values...]]}
+            embeddings = data.get("embeddings", [])
+            if embeddings and isinstance(embeddings[0], list):
+                return embeddings[0]
+            return []
+
+        except httpx.ConnectError as e:
+            raise OllamaConnectionError(
+                f"Cannot connect to Ollama for embedding: {e}"
+            ) from e
+
+        except httpx.HTTPStatusError as e:
+            raise OllamaError(
+                f"Embedding request failed ({e.response.status_code}): {e.response.text}"
+            ) from e
+
+        except Exception as e:
+            raise OllamaError(f"Failed to generate embedding: {e}") from e

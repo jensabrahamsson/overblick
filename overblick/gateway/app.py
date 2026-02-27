@@ -353,6 +353,36 @@ async def chat_completion(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.post("/v1/embeddings", dependencies=[Depends(verify_api_key)])
+async def create_embedding(
+    text: str = Query(description="Text to embed"),
+    model: str = Query(default="nomic-embed-text", description="Embedding model"),
+) -> dict:
+    """
+    Generate a text embedding via the default backend.
+
+    Uses Ollama's /api/embed endpoint for local embedding generation.
+    """
+    registry = get_backend_registry()
+    client = registry.get_client()  # default backend
+
+    if not hasattr(client, "embed"):
+        raise HTTPException(
+            status_code=501,
+            detail="Default backend does not support embeddings",
+        )
+
+    try:
+        embedding = await client.embed(text, model=model)
+        return {"embedding": embedding, "model": model}
+
+    except OllamaConnectionError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    except OllamaError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(request, exc):
     """Handle unexpected exceptions."""
