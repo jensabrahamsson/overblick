@@ -1006,11 +1006,12 @@ python -m overblick run dusk</pre>
           <div class="step">
             <span class="step-num" aria-hidden="true">1</span>
             <div class="step-body">
-              <h3>Clone and install</h3>
-              <pre class="codeblock"><span class="c"># Requires Python 3.13+</span>
+              <h3>Clone and quickstart</h3>
+              <pre class="codeblock"><span class="c"># One command — checks Python, installs deps, pulls models, starts everything</span>
 git clone https://github.com/jensabrahamsson/overblick.git
-python3.13 -m venv venv &amp;&amp; source venv/bin/activate
-pip install -e ".[dev]"</pre>
+cd overblick
+./scripts/quickstart.sh</pre>
+              <p class="step-note">The quickstart script is idempotent — safe to run multiple times. It checks for Python 3.10+, creates a venv, installs dependencies, verifies Ollama, pulls required models, and opens the setup wizard.</p>
             </div>
           </div>
 
@@ -1026,8 +1027,8 @@ pytest tests/ -v -m "not llm and not e2e"</pre>
           <div class="step">
             <span class="step-num" aria-hidden="true">3</span>
             <div class="step-body">
-              <h3>Start everything</h3>
-              <pre class="codeblock"><span class="c"># Starts gateway + dashboard and opens your browser</span>
+              <h3>Or start manually</h3>
+              <pre class="codeblock"><span class="c"># If you prefer step-by-step over quickstart</span>
 python -m overblick start
 
 <span class="c"># Chat with a personality directly in the terminal</span>

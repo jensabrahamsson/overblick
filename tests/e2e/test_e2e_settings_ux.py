@@ -97,11 +97,11 @@ class TestCharacterCarousel:
     """Test the character selection carousel on step 6."""
 
     def test_carousel_renders(self, dashboard_server, page):
-        """Step 6 should render carousel instances for identity assignment."""
+        """Step 7 should render carousel instances for identity assignment."""
         _login(page, dashboard_server)
 
-        # Set up wizard state so step 6 has use cases to assign
-        page.goto(f"{dashboard_server}/settings/step/6")
+        # Set up wizard state so step 7 has use cases to assign
+        page.goto(f"{dashboard_server}/settings/step/7")
         page.wait_for_load_state("networkidle")
 
         content = page.content()
@@ -115,7 +115,7 @@ class TestCharacterCarousel:
     def test_carousel_has_aria_listbox(self, dashboard_server, page):
         """Carousel track should have role='listbox' (added by JS)."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/settings/step/6")
+        page.goto(f"{dashboard_server}/settings/step/7")
         page.wait_for_load_state("networkidle")
 
         listbox = page.locator("[role='listbox']")
@@ -128,7 +128,7 @@ class TestCharacterCarousel:
     def test_carousel_keyboard_navigation(self, dashboard_server, page):
         """Arrow keys should navigate between carousel cards."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/settings/step/6")
+        page.goto(f"{dashboard_server}/settings/step/7")
         page.wait_for_load_state("networkidle")
 
         listbox = page.locator("[role='listbox']")
@@ -152,7 +152,7 @@ class TestCharacterCarousel:
     def test_carousel_select_with_enter(self, dashboard_server, page):
         """Enter key should select the focused carousel card."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/settings/step/6")
+        page.goto(f"{dashboard_server}/settings/step/7")
         page.wait_for_load_state("networkidle")
 
         listbox = page.locator("[role='listbox']")
@@ -170,7 +170,7 @@ class TestCharacterCarousel:
     def test_carousel_indicator_dots(self, dashboard_server, page):
         """Carousel should have indicator dots matching card count."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/settings/step/6")
+        page.goto(f"{dashboard_server}/settings/step/7")
         page.wait_for_load_state("networkidle")
 
         dots = page.locator(".carousel-dot")
@@ -182,7 +182,7 @@ class TestCharacterCarousel:
     def test_carousel_scroll_snap(self, dashboard_server, page):
         """Carousel track should have scroll-snap-type CSS property."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/settings/step/6")
+        page.goto(f"{dashboard_server}/settings/step/7")
         page.wait_for_load_state("networkidle")
 
         track = page.locator(".carousel-track")
@@ -229,7 +229,7 @@ class TestResponsiveDesign:
         page.set_viewport_size({"width": width, "height": 900})
 
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/settings/step/6")
+        page.goto(f"{dashboard_server}/settings/step/7")
         page.wait_for_load_state("networkidle")
 
         has_overflow = page.evaluate("""

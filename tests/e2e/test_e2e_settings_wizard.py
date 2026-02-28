@@ -1,5 +1,5 @@
 """
-E2E tests for the 8-step settings wizard.
+E2E tests for the 9-step settings wizard.
 
 Covers step rendering, navigation, form validation, ARIA semantics,
 progress bar, and different configuration permutations.
@@ -87,7 +87,7 @@ class TestWizardNavigation:
             assert "/step/2" in page.url
 
     def test_back_navigation_step5_to_step4(self, dashboard_server, page):
-        """Back button on step 5 should return to step 4."""
+        """Back button on step 5 (Security) should return to step 4."""
         _login(page, dashboard_server)
         page.goto(f"{dashboard_server}/settings/step/5")
         page.wait_for_load_state("networkidle")
@@ -97,6 +97,18 @@ class TestWizardNavigation:
             back.first.click()
             page.wait_for_load_state("networkidle")
             assert "/step/4" in page.url
+
+    def test_back_navigation_step6_to_step5(self, dashboard_server, page):
+        """Back button on step 6 (Use Cases) should return to step 5."""
+        _login(page, dashboard_server)
+        page.goto(f"{dashboard_server}/settings/step/6")
+        page.wait_for_load_state("networkidle")
+
+        back = page.locator("a.btn-ghost", has_text="Back")
+        if back.count() > 0:
+            back.first.click()
+            page.wait_for_load_state("networkidle")
+            assert "/step/5" in page.url
 
 
 class TestWizardFormValidation:
@@ -242,32 +254,32 @@ class TestWizardLLMPermutations:
             assert test_btn.first.is_enabled()
 
 
-class TestWizardStep8Completion:
-    """Test the completion page (step 8)."""
+class TestWizardStep9Completion:
+    """Test the completion page (step 9)."""
 
-    def test_step8_shows_checkmark(self, dashboard_server, page):
-        """Step 8 should render a completion checkmark."""
+    def test_step9_shows_checkmark(self, dashboard_server, page):
+        """Step 9 should render a completion checkmark."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/settings/step/8")
+        page.goto(f"{dashboard_server}/settings/step/9")
         page.wait_for_load_state("networkidle")
 
         content = page.content()
         assert "saved" in content.lower() or "complete" in content.lower()
         assert page.locator(".checkmark-circle, .checkmark-svg").count() >= 1
 
-    def test_step8_has_dashboard_link(self, dashboard_server, page):
-        """Step 8 should have a link back to dashboard."""
+    def test_step9_has_dashboard_link(self, dashboard_server, page):
+        """Step 9 should have a link back to dashboard."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/settings/step/8")
+        page.goto(f"{dashboard_server}/settings/step/9")
         page.wait_for_load_state("networkidle")
 
         dashboard_link = page.locator("a[href='/']")
         assert dashboard_link.count() >= 1
 
-    def test_step8_uses_css_classes_not_inline_styles(self, dashboard_server, page):
-        """Step 8 completion page should use CSS classes, not inline styles."""
+    def test_step9_uses_css_classes_not_inline_styles(self, dashboard_server, page):
+        """Step 9 completion page should use CSS classes, not inline styles."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/settings/step/8")
+        page.goto(f"{dashboard_server}/settings/step/9")
         page.wait_for_load_state("networkidle")
 
         completion_page = page.locator(".completion-page")

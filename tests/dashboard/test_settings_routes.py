@@ -2,9 +2,9 @@
 Tests for the integrated settings wizard at /settings/.
 
 Tests that:
-- All 8 GET endpoints render 200 and return HTML
+- All 9 GET endpoints render 200 and return HTML
 - POST steps validate input and redirect to the next step
-- Step 7 POST triggers provisioning and redirects to step 8
+- Step 8 POST triggers provisioning and redirects to step 9
 - Invalid form data renders the step again with an error
 - New backends-format LLM config works correctly
 """
@@ -232,6 +232,8 @@ class TestSettingsStep4:
 
 
 class TestSettingsStep5:
+    """Step 5: Security — dashboard access and password."""
+
     @pytest.mark.asyncio
     async def test_step5_renders(self, client, session_cookie):
         cookie_value, _ = session_cookie
@@ -240,15 +242,16 @@ class TestSettingsStep5:
             cookies={SESSION_COOKIE: cookie_value},
         )
         assert resp.status_code == 200
-        assert "Social Media" in resp.text
+        assert "Security" in resp.text
 
     @pytest.mark.asyncio
-    async def test_step5_valid_selection_redirects(self, client, session_cookie):
+    async def test_step5_skip_redirects(self, client, session_cookie):
+        """Skipping security (no network, no password) redirects to step 6."""
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
             "/settings/step/5",
             headers={"X-CSRF-Token": csrf_token},
-            data={"selected_use_cases": "social_media"},
+            data={},
             cookies={SESSION_COOKIE: cookie_value},
             follow_redirects=False,
         )
@@ -256,11 +259,70 @@ class TestSettingsStep5:
         assert "/settings/step/6" in resp.headers["location"]
 
     @pytest.mark.asyncio
-    async def test_step5_shows_new_use_cases(self, client, session_cookie):
-        """All 14 use cases should render on step 5, including the 6 new ones."""
+    async def test_step5_network_without_password_shows_error(self, client, session_cookie):
+        """Enabling network access without a password should fail."""
+        cookie_value, csrf_token = session_cookie
+        resp = await client.post(
+            "/settings/step/5",
+            headers={"X-CSRF-Token": csrf_token},
+            data={"network_access": "on"},
+            cookies={SESSION_COOKIE: cookie_value},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 200
+        assert "password" in resp.text.lower() or "required" in resp.text.lower()
+
+    @pytest.mark.asyncio
+    async def test_step5_with_password_redirects(self, client, session_cookie):
+        """Providing a valid password with network access redirects."""
+        cookie_value, csrf_token = session_cookie
+        resp = await client.post(
+            "/settings/step/5",
+            headers={"X-CSRF-Token": csrf_token},
+            data={
+                "network_access": "on",
+                "password": "strongpass123",
+                "password_confirm": "strongpass123",
+            },
+            cookies={SESSION_COOKIE: cookie_value},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert "/settings/step/6" in resp.headers["location"]
+
+
+class TestSettingsStep6:
+    """Step 6: Use Cases (was step 5)."""
+
+    @pytest.mark.asyncio
+    async def test_step6_renders(self, client, session_cookie):
         cookie_value, _ = session_cookie
         resp = await client.get(
-            "/settings/step/5",
+            "/settings/step/6",
+            cookies={SESSION_COOKIE: cookie_value},
+        )
+        assert resp.status_code == 200
+        assert "Social Media" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_step6_valid_selection_redirects(self, client, session_cookie):
+        cookie_value, csrf_token = session_cookie
+        resp = await client.post(
+            "/settings/step/6",
+            headers={"X-CSRF-Token": csrf_token},
+            data={"selected_use_cases": "social_media"},
+            cookies={SESSION_COOKIE: cookie_value},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert "/settings/step/7" in resp.headers["location"]
+
+    @pytest.mark.asyncio
+    async def test_step6_shows_new_use_cases(self, client, session_cookie):
+        """All 14 use cases should render on step 6, including the 6 new ones."""
+        cookie_value, _ = session_cookie
+        resp = await client.get(
+            "/settings/step/6",
             cookies={SESSION_COOKIE: cookie_value},
         )
         assert resp.status_code == 200
@@ -272,10 +334,10 @@ class TestSettingsStep5:
         assert "Dev Automation" in resp.text
 
     @pytest.mark.asyncio
-    async def test_step5_empty_selection_shows_error(self, client, session_cookie):
+    async def test_step6_empty_selection_shows_error(self, client, session_cookie):
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
-            "/settings/step/5",
+            "/settings/step/6",
             headers={"X-CSRF-Token": csrf_token},
             data={},
             cookies={SESSION_COOKIE: cookie_value},
@@ -285,29 +347,31 @@ class TestSettingsStep5:
         assert "least one" in resp.text or "select" in resp.text.lower()
 
 
-class TestSettingsStep6:
+class TestSettingsStep7:
+    """Step 7: Identity Assignment (was step 6)."""
+
     @pytest.mark.asyncio
-    async def test_step6_renders(self, client, session_cookie, app):
+    async def test_step7_renders(self, client, session_cookie, app):
         from overblick.setup.wizard import _get_state
         state = _get_state(app)
         state["selected_use_cases"] = ["social_media"]
 
         cookie_value, _ = session_cookie
         resp = await client.get(
-            "/settings/step/6",
+            "/settings/step/7",
             cookies={SESSION_COOKIE: cookie_value},
         )
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_step6_post_redirects_to_review(self, client, session_cookie, app):
+    async def test_step7_post_redirects_to_review(self, client, session_cookie, app):
         from overblick.setup.wizard import _get_state
         state = _get_state(app)
         state["selected_use_cases"] = ["social_media"]
 
         cookie_value, csrf_token = session_cookie
         resp = await client.post(
-            "/settings/step/6",
+            "/settings/step/7",
             headers={"X-CSRF-Token": csrf_token},
             data={
                 "social_media_personality": "cherry",
@@ -320,12 +384,14 @@ class TestSettingsStep6:
             follow_redirects=False,
         )
         assert resp.status_code == 303
-        assert "/settings/step/7" in resp.headers["location"]
+        assert "/settings/step/8" in resp.headers["location"]
 
 
-class TestSettingsStep7:
+class TestSettingsStep8:
+    """Step 8: Review (was step 7)."""
+
     @pytest.mark.asyncio
-    async def test_step7_renders(self, client, session_cookie, app):
+    async def test_step8_renders(self, client, session_cookie, app):
         from overblick.setup.wizard import _get_state
         state = _get_state(app)
         state["selected_use_cases"] = ["social_media"]
@@ -336,14 +402,14 @@ class TestSettingsStep7:
 
         cookie_value, _ = session_cookie
         resp = await client.get(
-            "/settings/step/7",
+            "/settings/step/8",
             cookies={SESSION_COOKIE: cookie_value},
         )
         assert resp.status_code == 200
         assert "Review" in resp.text
 
     @pytest.mark.asyncio
-    async def test_step7_post_provisions_and_redirects(self, client, session_cookie, app, tmp_path):
+    async def test_step8_post_provisions_and_redirects(self, client, session_cookie, app, tmp_path):
         from overblick.setup.wizard import _get_state, _derive_provisioner_state
         state = _get_state(app)
         state["principal"] = {"principal_name": "Alice", "principal_email": "",
@@ -378,20 +444,20 @@ class TestSettingsStep7:
         with patch("overblick.setup.provisioner.provision") as mock_prov:
             mock_prov.return_value = {"created_files": ["config/overblick.yaml"]}
             resp = await client.post(
-                "/settings/step/7",
+                "/settings/step/8",
                 headers={"X-CSRF-Token": csrf_token},
                 cookies={SESSION_COOKIE: cookie_value},
                 follow_redirects=False,
             )
 
         assert resp.status_code == 303
-        assert "/settings/step/8" in resp.headers["location"]
+        assert "/settings/step/9" in resp.headers["location"]
         mock_prov.assert_called_once()
         # setup_needed should be cleared
         assert app.state.setup_needed is False
 
     @pytest.mark.asyncio
-    async def test_step7_provisioning_failure_shows_error(self, client, session_cookie, app):
+    async def test_step8_provisioning_failure_shows_error(self, client, session_cookie, app):
         from overblick.setup.wizard import _get_state, _derive_provisioner_state
         state = _get_state(app)
         state["selected_use_cases"] = ["social_media"]
@@ -406,7 +472,7 @@ class TestSettingsStep7:
         with patch("overblick.setup.provisioner.provision",
                    side_effect=RuntimeError("Disk full")):
             resp = await client.post(
-                "/settings/step/7",
+                "/settings/step/8",
                 headers={"X-CSRF-Token": csrf_token},
                 cookies={SESSION_COOKIE: cookie_value},
                 follow_redirects=False,
@@ -416,12 +482,14 @@ class TestSettingsStep7:
         assert "Disk full" in resp.text or "failed" in resp.text.lower()
 
 
-class TestSettingsStep8:
+class TestSettingsStep9:
+    """Step 9: Complete (was step 8)."""
+
     @pytest.mark.asyncio
-    async def test_step8_renders(self, client, session_cookie):
+    async def test_step9_renders(self, client, session_cookie):
         cookie_value, _ = session_cookie
         resp = await client.get(
-            "/settings/step/8",
+            "/settings/step/9",
             cookies={SESSION_COOKIE: cookie_value},
         )
         assert resp.status_code == 200
