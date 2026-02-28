@@ -10,30 +10,28 @@ Security-focused multi-identity agent framework. Python 3.13+. GPL v3.
 
 ## Quick Start
 
+**One command** — checks Python, creates venv, installs deps, pulls Ollama models, starts everything:
+
 ```bash
 git clone https://github.com/jensabrahamsson/overblick.git
 cd overblick
+./scripts/quickstart.sh
+```
+
+Or step by step:
+
+```bash
 python3.13 -m venv venv
 source venv/bin/activate
 
-# Option A: Install as editable package (recommended for development)
+# Install as editable package (recommended for development)
 pip install -e ".[dev]"
-
-# Option B: Install dependencies only
-pip install -r requirements.txt        # core only
-pip install -r requirements-dev.txt    # core + test/dev tools
 
 # Run tests (3500+ unit + scenario tests, no LLM/browser required)
 pytest tests/ -v -m "not llm and not e2e"
 
-# Run LLM personality tests (requires Ollama with qwen3:8b)
-pytest tests/ -v -m llm --timeout=300
-
 # Start the dashboard — first run auto-opens setup wizard
 python -m overblick dashboard
-
-# (Optional) LAN access — accessible from other devices on your network
-python -m overblick dashboard --host 0.0.0.0
 
 # Run a specific identity
 python -m overblick run anomal
