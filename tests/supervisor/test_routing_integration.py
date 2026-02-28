@@ -537,7 +537,7 @@ class TestEndToEndRouting:
             payload={
                 "target": "blixt",
                 "message_type": "pr_created",
-                "data": {"repo": "jensabrahamsson/overblick", "pr_number": 42},
+                "data": {"repo": "example-org/example-repo", "pr_number": 42},
             },
         )
         route_response = await sup._handle_route_message(route_msg)

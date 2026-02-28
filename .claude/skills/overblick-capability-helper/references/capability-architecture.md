@@ -215,13 +215,14 @@ class CapabilityRegistry:
 
 ### Registration Tables
 
-**`CAPABILITY_REGISTRY`** — name-to-class mapping (20 capabilities):
+**`CAPABILITY_REGISTRY`** — name-to-class mapping (21 capabilities):
 ```python
 CAPABILITY_REGISTRY = {
     # psychology (DEPRECATED — use personality.yaml instead)
     "dream_system": DreamCapability,
     "therapy_system": TherapyCapability,
     "emotional_state": EmotionalCapability,
+    "mood_cycle": MoodCycleCapability,
     # knowledge
     "safe_learning": LearningCapability,
     "knowledge_loader": KnowledgeCapability,
@@ -243,6 +244,7 @@ CAPABILITY_REGISTRY = {
     "boss_request": BossRequestCapability,
     "email": EmailCapability,
     "gmail": GmailCapability,
+    "style_trainer": StyleTrainerCapability,
     "telegram_notifier": TelegramNotifier,
     # monitoring
     "host_inspection": HostInspectionCapability,
@@ -257,7 +259,7 @@ CAPABILITY_REGISTRY = {
 ```python
 CAPABILITY_BUNDLES = {
     "system": ["system_clock"],
-    "psychology": ["dream_system", "therapy_system", "emotional_state"],  # DEPRECATED
+    "psychology": ["dream_system", "therapy_system", "emotional_state", "mood_cycle"],  # DEPRECATED
     "knowledge": ["safe_learning", "knowledge_loader"],
     "social": ["openings"],
     "engagement": ["analyzer", "composer"],
@@ -265,7 +267,7 @@ CAPABILITY_BUNDLES = {
     "content": ["summarizer"],
     "speech": ["stt", "tts"],
     "vision": ["vision"],
-    "communication": ["boss_request", "email", "gmail", "telegram_notifier"],
+    "communication": ["boss_request", "email", "gmail", "style_trainer", "telegram_notifier"],
     "consulting": ["personality_consultant"],
     "monitoring": ["host_inspection"],
 }

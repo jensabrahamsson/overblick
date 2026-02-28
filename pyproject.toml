@@ -29,6 +29,7 @@ dashboard = [
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
     "itsdangerous>=2.1",
+    "bcrypt>=4.0",
 ]
 dev = [
     "pytest>=8.0",
@@ -36,6 +37,11 @@ dev = [
     "pytest-cov>=5.0",
     "aiosqlite>=0.20",
 ]
+
+[project.urls]
+"Homepage" = "https://overblick.dev"
+"Repository" = "https://github.com/jensabrahamsson/overblick"
+"Bug Tracker" = "https://github.com/jensabrahamsson/overblick/issues"
 
 [project.scripts]
 overblick = "overblick.__main__:main"

@@ -5,8 +5,7 @@
 - **Live URL**: https://website-ten-henna-67.vercel.app
 - **Alias URL**: https://website-fr9k7i9yz-jensabrahamssons-projects.vercel.app
 - **Vercel project**: `jensabrahamssons-projects/website`
-- **Serving**: `coming-soon.html` at `/` (via rewrite in `vercel.json`)
-- **Full site**: `index.html` preserved at `/index.html`
+- **Serving**: `index.html` at `/` (via rewrite in `vercel.json`)
 
 ---
 

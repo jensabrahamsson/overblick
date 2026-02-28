@@ -34,7 +34,7 @@ def stal_identity():
         raw_config={
             "email_agent": {
                 "filter_mode": "opt_in",
-                "allowed_senders": ["jens@example.com", "test@example.com"],
+                "allowed_senders": ["alice@example.com", "test@example.com"],
                 "blocked_senders": [],
                 "reputation": {
                     "sender_ignore_rate": 0.9,

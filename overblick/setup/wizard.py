@@ -817,7 +817,8 @@ def register_routes(app: FastAPI) -> None:
 
         try:
             body = await request.json()
-        except Exception:
+        except Exception as e:
+            logger.debug("Invalid JSON in wizard chat request: %s", e)
             return JSONResponse(
                 {"success": False, "error": "Invalid JSON body."},
                 status_code=400,

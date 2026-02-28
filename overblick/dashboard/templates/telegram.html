@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Telegram{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Telegram</h1>
+    <p class="page-subtitle">Notification history and feedback tracking</p>
+</div>
+
+{% if data_errors %}
+<div class="card">
+    {% for err in data_errors %}
+    <p class="text-muted">{{ err }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if stats and stats.sent > 0 %}
+<div class="detail-grid">
+    <div class="card">
+        <h3>Notifications Sent</h3>
+        <p class="stat-value">{{ stats.sent }}</p>
+    </div>
+    <div class="card">
+        <h3>Feedback Received</h3>
+        <p class="stat-value">{{ stats.feedback_received }}</p>
+    </div>
+    <div class="card">
+        <h3>Active Identities</h3>
+        <p class="stat-value">{{ stats.identities }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if notifications %}
+<div class="card">
+    <h2>Recent Notifications</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Identity</th>
+                <th>Message</th>
+                <th>Type</th>
+                <th>Feedback</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for n in notifications %}
+            <tr>
+                <td><span class="badge">{{ n.identity }}</span></td>
+                <td>{{ n.text[:80] }}{% if n.text|length > 80 %}&hellip;{% endif %}</td>
+                <td>{% if n.is_draft %}<span class="badge badge-info">draft reply</span>{% else %}<span class="badge">notification</span>{% endif %}</td>
+                <td>
+                    {% if n.feedback %}<span class="badge badge-success">yes</span>
+                    {% else %}<span class="badge badge-warning">pending</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if has_more %}
+<div class="load-more">
+    <a href="/telegram?page={{ page + 1 }}" class="btn">Load More</a>
+</div>
+{% endif %}
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <p>No Telegram notifications sent yet.</p>
+        <p class="text-muted">Notifications will appear here once agents start sending messages via Telegram.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

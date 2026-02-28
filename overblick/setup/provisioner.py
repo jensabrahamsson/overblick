@@ -163,6 +163,20 @@ def _build_global_config(state: dict[str, Any]) -> dict[str, Any]:
         "llm": _build_llm_config(llm),
     }
 
+    # Dashboard security settings (from wizard step 5)
+    security = state.get("security", {})
+    if security:
+        dashboard_cfg: dict[str, Any] = {
+            "network_access": security.get("network_access", False),
+        }
+        password_hash = security.get("password_hash", "")
+        if password_hash:
+            dashboard_cfg["password_hash"] = password_hash
+        session_hours = security.get("session_hours")
+        if session_hours and session_hours != 8:
+            dashboard_cfg["session_hours"] = session_hours
+        config["dashboard"] = dashboard_cfg
+
     return config
 
 

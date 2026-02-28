@@ -140,19 +140,26 @@ Security-first plugin discovery. Only loads from `_DEFAULT_PLUGINS` whitelist.
 ```python
 _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
-    "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
+    "compass": ("overblick.plugins.compass.plugin", "CompassPlugin"),
+    "dev_agent": ("overblick.plugins.dev_agent.plugin", "DevAgentPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
+    "github": ("overblick.plugins.github.plugin", "GitHubAgentPlugin"),
     "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
-    "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
+    "irc": ("overblick.plugins.irc.plugin", "IRCPlugin"),
+    "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
+    "log_agent": ("overblick.plugins.log_agent.plugin", "LogAgentPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
+    "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
+    "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
+    "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
     "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
 }
 
-# Module-level alias for backward compatibility
+# Module-level alias for backward compatibility (tests import this)
 _KNOWN_PLUGINS = _DEFAULT_PLUGINS
 ```
+
+**Agentic plugins** (`dev_agent`, `github`, `log_agent`) extend `AgenticPluginBase` instead of `PluginBase`. They use the OBSERVE/THINK/PLAN/ACT/REFLECT loop with goal tracking, action planning, and reflection.
 
 **Note:** Each PluginRegistry instance gets its own copy of `_DEFAULT_PLUGINS` in `__init__` to prevent cross-instance pollution during testing.
 

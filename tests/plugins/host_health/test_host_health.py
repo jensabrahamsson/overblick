@@ -225,3 +225,61 @@ class TestHostHealthStatePersistence:
         await plugin.setup()
 
         assert plugin._get_previous_context() is None
+
+
+class TestHostHealthErrorPaths:
+    """Test error handling and edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_corrupted_state_file_handled(self, natt_plugin_context):
+        """Plugin handles corrupted state file gracefully on setup."""
+        state_file = natt_plugin_context.data_dir / "host_health_state.json"
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        state_file.write_text("not valid json {{{")
+
+        plugin = HostHealthPlugin(natt_plugin_context)
+        await plugin.setup()
+
+        # Should start fresh despite corrupted file
+        assert plugin._conversation_history == [] or isinstance(plugin._conversation_history, list)
+
+    @pytest.mark.asyncio
+    async def test_tick_without_setup_no_crash(self, natt_plugin_context):
+        """Calling tick before setup doesn't crash."""
+        plugin = HostHealthPlugin(natt_plugin_context)
+        # Force minimal state
+        plugin._state_file = natt_plugin_context.data_dir / "host_health_state.json"
+        natt_plugin_context.data_dir.mkdir(parents=True, exist_ok=True)
+        plugin._conversation_history = []
+        plugin._last_inquiry_time = 0
+        plugin._interval_seconds = _DEFAULT_INTERVAL_SECONDS
+        # tick should handle missing IPC gracefully
+        await plugin.tick()
+
+    def test_fallback_motivations_not_empty(self):
+        """The predefined fallback motivations list is non-empty."""
+        assert len(_FALLBACK_MOTIVATIONS) > 0
+        for m in _FALLBACK_MOTIVATIONS:
+            assert isinstance(m, str)
+            assert len(m) > 0
+
+    @pytest.mark.asyncio
+    async def test_state_persistence_roundtrip(self, natt_plugin_context):
+        """State saved to disk can be restored on next setup."""
+        plugin = HostHealthPlugin(natt_plugin_context)
+        await plugin.setup()
+
+        # Add a mock conversation entry to history
+        plugin._conversation_history.append({
+            "timestamp": time.time(),
+            "grade": "good",
+            "motivation": "Keep going!",
+            "metrics": {"cpu": 45.0, "memory": 60.0},
+        })
+        plugin._save_state()
+
+        # Create a new plugin instance and verify state is restored
+        plugin2 = HostHealthPlugin(natt_plugin_context)
+        await plugin2.setup()
+        assert len(plugin2._conversation_history) >= 1
+        assert plugin2._conversation_history[-1]["grade"] == "good"

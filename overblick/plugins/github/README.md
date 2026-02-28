@@ -172,11 +172,12 @@ For a single repository:
 - **Quiet hours** — respects the framework's quiet hours configuration
 - **Audit trail** — all actions logged to the agentic database
 
-## TODO
+## Roadmap
 
-- [ ] Battle-test in live mode (disable dry_run)
-- [ ] Owner command handling (Telegram → agent actions)
-- [ ] PR diff analysis for smarter review comments
-- [ ] Webhook-based observation (instead of polling)
-- [ ] Dashboard integration for GitHub agent status
-- [ ] Multi-identity support (different agents for different repos)
+The following enhancements are planned for future releases:
+
+- **Owner command channel** — route Telegram commands to the agent for manual overrides
+- **PR diff analysis** — deeper code review via LLM-powered diff summaries
+- **Webhook-based observation** — replace polling with GitHub webhook events for real-time reactivity
+- **Dashboard integration** — dedicated dashboard tab showing agent status, goals, and action history
+- **Multi-identity support** — allow different identities to manage different repositories

@@ -283,7 +283,7 @@ llm:
     cloud:
       enabled: true
       type: "lmstudio"
-      host: "10.8.0.24"
+      host: "<your-lmstudio-host>"
       port: 1234
       model: "devstral-2-123b-iq5"
 

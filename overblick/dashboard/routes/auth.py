@@ -1,5 +1,9 @@
 """
 Authentication routes — login and logout.
+
+Supports two password modes:
+- Legacy plaintext (OVERBLICK_DASH_PASSWORD env var) — hmac comparison
+- bcrypt hash (dashboard.password_hash in YAML) — bcrypt.checkpw()
 """
 
 import hmac
@@ -16,6 +20,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _verify_password(password: str, config) -> bool:
+    """Verify password against configured hash or plaintext.
+
+    Checks bcrypt hash first (preferred), then falls back to
+    plaintext comparison for backward compatibility.
+    """
+    if config.password_hash:
+        try:
+            import bcrypt
+            return bcrypt.checkpw(
+                password.encode("utf-8"),
+                config.password_hash.encode("utf-8"),
+            )
+        except Exception:
+            logger.warning("bcrypt verification failed, denying access")
+            return False
+
+    if config.password:
+        return hmac.compare_digest(password, config.password)
+
+    return False
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Render login page."""
@@ -23,7 +50,7 @@ async def login_page(request: Request):
     templates = request.app.state.templates
 
     # If no password configured, auto-login (always create fresh session)
-    if not config.password:
+    if not config.auth_enabled:
         session_mgr: SessionManager = request.app.state.session_manager
         cookie_value, csrf_token = session_mgr.create_session()
         response = RedirectResponse("/", status_code=302)
@@ -89,8 +116,8 @@ async def login_submit(request: Request):
             "error": "Invalid form submission. Please try again.",
         }, status_code=403)
 
-    # Validate password (constant-time comparison to prevent timing attacks)
-    if not hmac.compare_digest(password, config.password):
+    # Validate password (bcrypt hash or legacy plaintext)
+    if not _verify_password(password, config):
         logger.warning("Failed login attempt from %s", client_ip)
         return templates.TemplateResponse("login.html", {
             "request": request,

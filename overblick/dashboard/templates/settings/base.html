@@ -17,13 +17,13 @@
         </a>
 
         <!-- Progress bar -->
-        {% if state.current_step >= 1 and state.current_step <= 8 %}
+        {% if state.current_step >= 1 and state.current_step <= 9 %}
         <nav class="progress-bar" role="progressbar"
-             aria-valuenow="{{ state.current_step }}" aria-valuemin="1" aria-valuemax="8"
-             aria-label="Setup progress: step {{ state.current_step }} of 8"
-             style="--progress-pct: {{ ((state.current_step - 1) / 7 * 100) | round }}%">
-            {% set step_names = {1: 'Welcome', 2: 'Identity', 3: 'AI Engine', 4: 'Channels', 5: 'Use Cases', 6: 'Assign', 7: 'Review', 8: 'Complete'} %}
-            {% for step in range(1, 9) %}
+             aria-valuenow="{{ state.current_step }}" aria-valuemin="1" aria-valuemax="9"
+             aria-label="Setup progress: step {{ state.current_step }} of 9"
+             style="--progress-pct: {{ ((state.current_step - 1) / 8 * 100) | round }}%">
+            {% set step_names = {1: 'Welcome', 2: 'Identity', 3: 'AI Engine', 4: 'Channels', 5: 'Security', 6: 'Use Cases', 7: 'Assign', 8: 'Review', 9: 'Complete'} %}
+            {% for step in range(1, 10) %}
             <div class="progress-step {% if step == state.current_step %}active{% elif step < state.current_step %}completed{% endif %}"
                  aria-label="Step {{ step }}: {{ step_names[step] }}{% if step == state.current_step %} (current){% elif step < state.current_step %} (completed){% endif %}"
                  aria-current="{{ 'step' if step == state.current_step else 'false' }}"
@@ -115,7 +115,7 @@
 
         // On final step submission, clear all wizard state
         form.addEventListener('submit', function() {
-            var isLastStep = window.location.pathname.indexOf('/step/7') !== -1;
+            var isLastStep = window.location.pathname.indexOf('/step/8') !== -1;
             if (isLastStep) {
                 try {
                     Object.keys(sessionStorage).forEach(function(key) {

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Log Agent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Log Agent</h1>
+    <p class="page-subtitle">Autonomous log analysis — anomaly detection and alerting</p>
+</div>
+
+{% if data_errors %}
+<div class="card">
+    {% for err in data_errors %}
+    <p class="text-muted">{{ err }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if stats and stats.total_ticks > 0 %}
+<div class="detail-grid">
+    <div class="card">
+        <h3>Scan Cycles</h3>
+        <p class="stat-value">{{ stats.total_ticks }}</p>
+    </div>
+    <div class="card">
+        <h3>Actions Taken</h3>
+        <p class="stat-value">{{ stats.actions_taken }}</p>
+    </div>
+    <div class="card">
+        <h3>Alerts Sent</h3>
+        <p class="stat-value">{{ stats.alerts_sent }}</p>
+    </div>
+    <div class="card">
+        <h3>Learnings</h3>
+        <p class="stat-value">{{ stats.learnings }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if goals %}
+<div class="card">
+    <h2>Active Goals</h2>
+    {% for goal in goals %}
+    <div class="goal-item">
+        <div class="goal-header">
+            <strong>{{ goal.name }}</strong>
+            <span class="badge {% if goal.status == 'active' %}badge-success{% elif goal.status == 'paused' %}badge-warning{% else %}badge-info{% endif %}">{{ goal.status }}</span>
+            <span class="badge">P{{ goal.priority }}</span>
+        </div>
+        <p class="text-muted">{{ goal.description }}</p>
+        {% if goal.progress is not none %}
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ (goal.progress * 100)|int }}%"></div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if ticks %}
+<div class="card">
+    <h2>Recent Scan Cycles</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Identity</th>
+                <th>Tick</th>
+                <th>Observations</th>
+                <th>Actions</th>
+                <th>Succeeded</th>
+                <th>Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tick in ticks %}
+            <tr>
+                <td><span class="badge">{{ tick.identity }}</span></td>
+                <td>#{{ tick.tick }}</td>
+                <td>{{ tick.observations }}</td>
+                <td>{{ tick.executed }}/{{ tick.planned }}</td>
+                <td>{% if tick.succeeded == tick.executed %}<span class="badge badge-success">{{ tick.succeeded }}</span>{% else %}<span class="badge badge-warning">{{ tick.succeeded }}</span>{% endif %}</td>
+                <td>{% if tick.duration_ms %}{{ "%.0f"|format(tick.duration_ms) }}ms{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if actions %}
+<div class="card">
+    <h2>Recent Actions</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Identity</th>
+                <th>Type</th>
+                <th>Target</th>
+                <th>Result</th>
+                <th>Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for action in actions %}
+            <tr>
+                <td><span class="badge">{{ action.identity }}</span></td>
+                <td>{{ action.action_type }}</td>
+                <td>{{ action.target or "" }}</td>
+                <td>{% if action.success %}<span class="badge badge-success">OK</span>{% else %}<span class="badge badge-danger">FAIL</span>{% endif %}</td>
+                <td>{% if action.duration_ms %}{{ "%.0f"|format(action.duration_ms) }}ms{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if has_more %}
+<div class="load-more">
+    <a href="/logs?page={{ page + 1 }}" class="btn">Load More</a>
+</div>
+{% endif %}
+{% elif not goals and not ticks and (not stats or stats.total_ticks == 0) %}
+<div class="card">
+    <div class="empty-state">
+        <p>No log agent activity yet.</p>
+        <p class="text-muted">Scan results will appear here once the log agent starts analyzing log files.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -276,7 +276,8 @@ class MoltbookClient:
                                 error_msg = f"{error_msg} -- {hint}"
                         except SuspensionError:
                             raise
-                        except Exception:
+                        except Exception as e:
+                            logger.warning("Failed to parse auth error response: %s", e)
                             error_msg = f"Auth error: {raw_body[:500]}"
                             self._update_account_status("auth_error", error_msg)
                         raise AuthenticationError(error_msg)

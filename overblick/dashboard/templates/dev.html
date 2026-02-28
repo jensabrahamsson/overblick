@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Dev Agent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dev Agent</h1>
+    <p class="page-subtitle">Autonomous bug fixing — tasks, attempts, and pull requests</p>
+</div>
+
+{% if data_errors %}
+<div class="card">
+    {% for err in data_errors %}
+    <p class="text-muted">{{ err }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if stats and stats.total_bugs > 0 %}
+<div class="detail-grid">
+    <div class="card">
+        <h3>Total Bugs</h3>
+        <p class="stat-value">{{ stats.total_bugs }}</p>
+    </div>
+    <div class="card">
+        <h3>Fixed</h3>
+        <p class="stat-value">{{ stats.fixed }}</p>
+    </div>
+    <div class="card">
+        <h3>Failed</h3>
+        <p class="stat-value">{{ stats.failed }}</p>
+    </div>
+    <div class="card">
+        <h3>PRs Created</h3>
+        <p class="stat-value">{{ stats.prs_created }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if goals %}
+<div class="card">
+    <h2>Active Goals</h2>
+    {% for goal in goals %}
+    <div class="goal-item">
+        <div class="goal-header">
+            <strong>{{ goal.name }}</strong>
+            <span class="badge {% if goal.status == 'active' %}badge-success{% elif goal.status == 'paused' %}badge-warning{% else %}badge-info{% endif %}">{{ goal.status }}</span>
+            <span class="badge">P{{ goal.priority }}</span>
+        </div>
+        <p class="text-muted">{{ goal.description }}</p>
+        {% if goal.progress is not none %}
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ (goal.progress * 100)|int }}%"></div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if bugs %}
+<div class="card">
+    <h2>Bug Reports</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Identity</th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Attempts</th>
+                <th>PR</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bug in bugs %}
+            <tr>
+                <td><span class="badge">{{ bug.identity }}</span></td>
+                <td>{{ bug.title[:50] }}{% if bug.title|length > 50 %}&hellip;{% endif %}</td>
+                <td>
+                    {% if bug.status == 'fixed' %}<span class="badge badge-success">fixed</span>
+                    {% elif bug.status == 'failed' %}<span class="badge badge-danger">failed</span>
+                    {% elif bug.status in ('analyzing', 'fixing') %}<span class="badge badge-warning">{{ bug.status }}</span>
+                    {% else %}<span class="badge">{{ bug.status }}</span>{% endif %}
+                </td>
+                <td>{{ bug.priority }}</td>
+                <td>{{ bug.fix_attempts }}</td>
+                <td>{% if bug.pr_url %}<a href="{{ bug.pr_url }}" class="footer-link" target="_blank">PR</a>{% else %}&mdash;{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if has_more %}
+<div class="load-more">
+    <a href="/dev?page={{ page + 1 }}" class="btn">Load More</a>
+</div>
+{% endif %}
+{% elif not goals and (not stats or stats.total_bugs == 0) %}
+<div class="card">
+    <div class="empty-state">
+        <p>No dev agent activity yet.</p>
+        <p class="text-muted">Bug reports will appear here once the dev agent starts scanning for issues.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

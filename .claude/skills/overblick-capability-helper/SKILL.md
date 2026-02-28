@@ -204,6 +204,7 @@ When reviewing, check:
 | `dream_system` | `DreamCapability` | psychology | Morning dreams and housekeeping |
 | `therapy_system` | `TherapyCapability` | psychology | Weekly psychological reflection |
 | `emotional_state` | `EmotionalCapability` | psychology | Mood tracking from interactions |
+| `mood_cycle` | `MoodCycleCapability` | psychology | Periodic mood cycling and emotional rhythm |
 | `safe_learning` | `LearningCapability` | knowledge | LLM-reviewed knowledge acquisition |
 | `knowledge_loader` | `KnowledgeCapability` | knowledge | Load identity knowledge files |
 | `openings` | `OpeningCapability` | social | Opening phrase selection |
@@ -228,7 +229,7 @@ When reviewing, check:
 | Bundle | Capabilities | Notes |
 |--------|-------------|-------|
 | `system` | system_clock | Core capabilities injected into all agents |
-| `psychology` | dream_system, therapy_system, emotional_state | **DEPRECATED** — use personality.yaml |
+| `psychology` | dream_system, therapy_system, emotional_state, mood_cycle | **DEPRECATED** — use personality.yaml |
 | `knowledge` | safe_learning, knowledge_loader | |
 | `social` | openings | |
 | `engagement` | analyzer, composer | |

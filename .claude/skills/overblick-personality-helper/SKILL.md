@@ -187,8 +187,10 @@ The security section is automatically added:
 | **Natt** | natt (night) | Eerie, paradoxical | cerebral 0.95, warmth 0.25 |
 | **Stal** | stal (steel) | Professional, meticulous | conscientiousness 0.90, precision 0.85 |
 | **Smed** | smed (blacksmith) | Technical, precise, methodical | conscientiousness 0.95, precision 0.95, patience 0.90 |
+| **Supervisor** | supervisor | Calm, authoritative, protective | conscientiousness 0.95, agreeableness 0.70 |
+| **Vakt** | vakt (guard) | Vigilant, systematic, analytical | conscientiousness 0.95, neuroticism 0.20 |
 
-**Note:** Old English names (Volt, Birch, Prism, Rust, Nyx) are auto-aliased to their Swedish equivalents.
+**Note:** Old English names (Volt, Birch, Prism, Rust, Nyx) are auto-aliased to their Swedish equivalents. Supervisor and Vakt are internal-only identities (not user-facing on Moltbook).
 
 ## Key Files
 

@@ -149,7 +149,15 @@ def _create_templates() -> Jinja2Templates:
     env.globals["compass_enabled"] = lambda: False
     env.globals["stage_enabled"] = lambda: False
     env.globals["moltbook_enabled"] = lambda: False
+    env.globals["email_enabled"] = lambda: False
+    env.globals["telegram_enabled"] = lambda: False
+    env.globals["digest_enabled"] = lambda: False
+    env.globals["github_enabled"] = lambda: False
+    env.globals["dev_enabled"] = lambda: False
+    env.globals["log_agent_enabled"] = lambda: False
     env.globals["settings_enabled"] = lambda: True
+    # Auth placeholder — overridden in lifespan once config is available
+    env.globals["auth_enabled"] = lambda: False
 
     # Register filters
     env.filters["epoch_to_datetime"] = _format_epoch
@@ -192,6 +200,12 @@ async def lifespan(app: FastAPI):
     from .routes.compass import has_data as _compass_has_data
     from .routes.stage import has_data as _stage_has_data
     from .routes.moltbook import has_data as _moltbook_has_data
+    from .routes.email import has_data as _email_has_data
+    from .routes.telegram import has_data as _telegram_has_data
+    from .routes.digest import has_data as _digest_has_data
+    from .routes.github_dash import has_data as _github_has_data
+    from .routes.dev import has_data as _dev_has_data
+    from .routes.log_agent import has_data as _log_agent_has_data
 
     app.state.templates.env.globals["irc_enabled"] = _check_irc_enabled
     app.state.templates.env.globals["kontrast_enabled"] = _kontrast_has_data
@@ -200,7 +214,14 @@ async def lifespan(app: FastAPI):
     app.state.templates.env.globals["compass_enabled"] = _compass_has_data
     app.state.templates.env.globals["stage_enabled"] = _stage_has_data
     app.state.templates.env.globals["moltbook_enabled"] = _moltbook_has_data
+    app.state.templates.env.globals["email_enabled"] = _email_has_data
+    app.state.templates.env.globals["telegram_enabled"] = _telegram_has_data
+    app.state.templates.env.globals["digest_enabled"] = _digest_has_data
+    app.state.templates.env.globals["github_enabled"] = _github_has_data
+    app.state.templates.env.globals["dev_enabled"] = _dev_has_data
+    app.state.templates.env.globals["log_agent_enabled"] = _log_agent_has_data
     app.state.templates.env.globals["settings_enabled"] = lambda: True
+    app.state.templates.env.globals["auth_enabled"] = lambda: config.auth_enabled
 
     # First-run detection: redirect to /settings/ if no config exists
     if config.test_mode:

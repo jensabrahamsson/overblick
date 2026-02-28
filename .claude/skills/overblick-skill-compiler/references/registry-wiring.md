@@ -14,24 +14,25 @@ The `_DEFAULT_PLUGINS` dict maps plugin names to `(module_path, class_name)` tup
 _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "compass": ("overblick.plugins.compass.plugin", "CompassPlugin"),
-    "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
+    "dev_agent": ("overblick.plugins.dev_agent.plugin", "DevAgentPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
+    "github": ("overblick.plugins.github.plugin", "GitHubAgentPlugin"),
     "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "irc": ("overblick.plugins.irc.plugin", "IRCPlugin"),
     "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
-    "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
+    "log_agent": ("overblick.plugins.log_agent.plugin", "LogAgentPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
     "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
     "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
     "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
     "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
 }
 
 # Module-level alias for backward compatibility (tests import this)
 _KNOWN_PLUGINS = _DEFAULT_PLUGINS
 ```
+
+**Note:** Agentic plugins (`dev_agent`, `github`, `log_agent`) extend `AgenticPluginBase` and follow the OBSERVE/THINK/PLAN/ACT/REFLECT loop.
 
 **NOTE:** There are NO connector aliases. The old `<name>_connector` pattern was removed. Each plugin has exactly one entry.
 
@@ -50,20 +51,19 @@ That's it. No connector alias needed.
 _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "ai_digest": ("overblick.plugins.ai_digest.plugin", "AiDigestPlugin"),
     "compass": ("overblick.plugins.compass.plugin", "CompassPlugin"),
-    "discord": ("overblick.plugins.discord.plugin", "DiscordPlugin"),
+    "dev_agent": ("overblick.plugins.dev_agent.plugin", "DevAgentPlugin"),
     "email_agent": ("overblick.plugins.email_agent.plugin", "EmailAgentPlugin"),
+    "github": ("overblick.plugins.github.plugin", "GitHubAgentPlugin"),
     "host_health": ("overblick.plugins.host_health.plugin", "HostHealthPlugin"),
     "irc": ("overblick.plugins.irc.plugin", "IRCPlugin"),
     "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
-    "matrix": ("overblick.plugins.matrix.plugin", "MatrixPlugin"),
+    "log_agent": ("overblick.plugins.log_agent.plugin", "LogAgentPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "rss": ("overblick.plugins.rss.plugin", "RSSPlugin"),
     "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
     "slack": ("overblick.plugins.slack.plugin", "SlackPlugin"),        # NEW
     "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
     "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
     "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "webhook": ("overblick.plugins.webhook.plugin", "WebhookPlugin"),
 }
 ```
 
@@ -143,6 +143,7 @@ __all__ = [
 from overblick.capabilities.psychology.dream import DreamCapability
 from overblick.capabilities.psychology.therapy import TherapyCapability
 from overblick.capabilities.psychology.emotional import EmotionalCapability
+from overblick.capabilities.psychology.mood_cycle import MoodCycleCapability
 from overblick.capabilities.knowledge.learning import LearningCapability
 from overblick.capabilities.knowledge.loader import KnowledgeCapability
 from overblick.capabilities.social.openings import OpeningCapability
@@ -156,6 +157,7 @@ from overblick.capabilities.vision.analyzer import VisionCapability
 from overblick.capabilities.communication.boss_request import BossRequestCapability
 from overblick.capabilities.communication.email import EmailCapability
 from overblick.capabilities.communication.gmail import GmailCapability
+from overblick.capabilities.communication.style_trainer import StyleTrainerCapability
 from overblick.capabilities.communication.telegram_notifier import TelegramNotifier
 from overblick.capabilities.consulting.personality_consultant import PersonalityConsultantCapability
 from overblick.capabilities.monitoring.inspector import HostInspectionCapability
@@ -178,16 +180,18 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "boss_request": BossRequestCapability,
     "email": EmailCapability,
     "gmail": GmailCapability,
+    "style_trainer": StyleTrainerCapability,
     "telegram_notifier": TelegramNotifier,
     "host_inspection": HostInspectionCapability,
     "system_clock": SystemClockCapability,
     "personality_consultant": PersonalityConsultantCapability,
+    "mood_cycle": MoodCycleCapability,
 }
 
 # NOTE: "psychology" bundle is DEPRECATED as of v1.1.
 # Use psychological_framework in personality.yaml instead.
 CAPABILITY_BUNDLES: dict[str, list[str]] = {
-    "psychology": ["dream_system", "therapy_system", "emotional_state"],  # DEPRECATED
+    "psychology": ["dream_system", "therapy_system", "emotional_state", "mood_cycle"],  # DEPRECATED
     "knowledge": ["safe_learning", "knowledge_loader"],
     "social": ["openings"],
     "engagement": ["analyzer", "composer"],
@@ -195,7 +199,7 @@ CAPABILITY_BUNDLES: dict[str, list[str]] = {
     "content": ["summarizer"],
     "speech": ["stt", "tts"],
     "vision": ["vision"],
-    "communication": ["boss_request", "email", "gmail", "telegram_notifier"],
+    "communication": ["boss_request", "email", "gmail", "style_trainer", "telegram_notifier"],
     "consulting": ["personality_consultant"],
     "monitoring": ["host_inspection"],
     "system": ["system_clock"],

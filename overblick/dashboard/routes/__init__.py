@@ -28,6 +28,12 @@ def register_routes(app: FastAPI) -> None:
     from .moltbook import router as moltbook_router
     from .settings import router as settings_router
     from .observability import router as observability_router
+    from .email import router as email_router
+    from .telegram import router as telegram_router
+    from .digest import router as digest_router
+    from .github_dash import router as github_dash_router
+    from .dev import router as dev_router
+    from .log_agent import router as log_agent_router
 
     app.include_router(auth_router)
     app.include_router(dashboard_router)
@@ -45,6 +51,12 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(compass_router)
     app.include_router(stage_router)
     app.include_router(moltbook_router)
+    app.include_router(email_router)
+    app.include_router(telegram_router)
+    app.include_router(digest_router)
+    app.include_router(github_dash_router)
+    app.include_router(dev_router)
+    app.include_router(log_agent_router)
     app.include_router(settings_router)
     app.include_router(observability_router)
     app.include_router(api_router)

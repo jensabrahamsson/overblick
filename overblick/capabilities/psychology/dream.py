@@ -174,8 +174,8 @@ class DreamCapability(CapabilityBase):
         if self.ctx.engagement_db:
             try:
                 recent_db_dreams = await self.ctx.engagement_db.get_recent_dreams(days=3)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to load recent dreams from DB: %s", e)
 
         return await self._dream_system.generate_morning_dream(
             llm_pipeline=self.ctx.llm_pipeline,

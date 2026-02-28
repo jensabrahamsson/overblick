@@ -31,7 +31,7 @@ llm:
     cloud:
       enabled: false
       type: "lmstudio"
-      host: "192.168.1.100"
+      host: "<your-lmstudio-host>"
       port: 1234
       model: "your-model-name"
     deepseek:
@@ -47,6 +47,12 @@ moltbook:
   post_interval_minutes: 30
   comment_interval_seconds: 20
   max_comments_per_day: 50
+
+# Dashboard (optional — defaults to localhost-only, no auth)
+# dashboard:
+#   network_access: false
+#   password_hash: ""  # Set via Settings wizard
+#   session_hours: 8
 
 # Paths
 paths:

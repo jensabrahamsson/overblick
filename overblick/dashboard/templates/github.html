@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}GitHub Agent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>GitHub Agent</h1>
+    <p class="page-subtitle">Autonomous issue/PR management — events, actions, and goals</p>
+</div>
+
+{% if data_errors %}
+<div class="card">
+    {% for err in data_errors %}
+    <p class="text-muted">{{ err }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if stats and stats.events > 0 %}
+<div class="detail-grid">
+    <div class="card">
+        <h3>Events Observed</h3>
+        <p class="stat-value">{{ stats.events }}</p>
+    </div>
+    <div class="card">
+        <h3>Actions Taken</h3>
+        <p class="stat-value">{{ stats.actions_taken }}</p>
+    </div>
+    <div class="card">
+        <h3>Comments Posted</h3>
+        <p class="stat-value">{{ stats.comments_posted }}</p>
+    </div>
+    <div class="card">
+        <h3>PRs Tracked</h3>
+        <p class="stat-value">{{ stats.prs_tracked }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if goals %}
+<div class="card">
+    <h2>Active Goals</h2>
+    {% for goal in goals %}
+    <div class="goal-item">
+        <div class="goal-header">
+            <strong>{{ goal.name }}</strong>
+            <span class="badge {% if goal.status == 'active' %}badge-success{% elif goal.status == 'paused' %}badge-warning{% else %}badge-info{% endif %}">{{ goal.status }}</span>
+            <span class="badge">P{{ goal.priority }}</span>
+        </div>
+        <p class="text-muted">{{ goal.description }}</p>
+        {% if goal.progress is not none %}
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ (goal.progress * 100)|int }}%"></div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if prs %}
+<div class="card">
+    <h2>Tracked Pull Requests</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Repo</th>
+                <th>#</th>
+                <th>Title</th>
+                <th>Author</th>
+                <th>CI</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pr in prs %}
+            <tr>
+                <td>{{ pr.repo }}</td>
+                <td>{{ pr.pr_number }}</td>
+                <td>{{ pr.title[:50] }}{% if pr.title|length > 50 %}&hellip;{% endif %}</td>
+                <td>{{ pr.author }}{% if pr.is_dependabot %} <span class="badge badge-info">bot</span>{% endif %}</td>
+                <td>{{ pr.ci_status or "unknown" }}</td>
+                <td>
+                    {% if pr.merged %}<span class="badge badge-success">{% if pr.auto_merged %}auto-{% endif %}merged</span>
+                    {% else %}<span class="badge">open</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if actions %}
+<div class="card">
+    <h2>Recent Actions</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Identity</th>
+                <th>Type</th>
+                <th>Target</th>
+                <th>Result</th>
+                <th>Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for action in actions %}
+            <tr>
+                <td><span class="badge">{{ action.identity }}</span></td>
+                <td>{{ action.action_type }}</td>
+                <td>{{ action.target or "" }}{% if action.repo %} ({{ action.repo }}){% endif %}</td>
+                <td>{% if action.success %}<span class="badge badge-success">OK</span>{% else %}<span class="badge badge-danger">FAIL</span>{% endif %}</td>
+                <td>{% if action.duration_ms %}{{ "%.0f"|format(action.duration_ms) }}ms{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if has_more %}
+<div class="load-more">
+    <a href="/github?page={{ page + 1 }}" class="btn">Load More</a>
+</div>
+{% endif %}
+{% elif not goals and not prs and (not stats or stats.events == 0) %}
+<div class="card">
+    <div class="empty-state">
+        <p>No GitHub agent activity yet.</p>
+        <p class="text-muted">Activity will appear here once the GitHub agent starts observing repositories.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

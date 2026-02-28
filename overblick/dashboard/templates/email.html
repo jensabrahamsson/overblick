@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Email Agent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Email Agent</h1>
+    <p class="page-subtitle">Email classification, reply queue, and sender reputation</p>
+</div>
+
+{% if data_errors %}
+<div class="card">
+    {% for err in data_errors %}
+    <p class="text-muted">{{ err }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if stats and stats.processed > 0 %}
+<div class="detail-grid">
+    <div class="card">
+        <h3>Processed</h3>
+        <p class="stat-value">{{ stats.processed }}</p>
+    </div>
+    <div class="card">
+        <h3>Replied</h3>
+        <p class="stat-value">{{ stats.replied }}</p>
+    </div>
+    <div class="card">
+        <h3>Notified</h3>
+        <p class="stat-value">{{ stats.notified }}</p>
+    </div>
+    <div class="card">
+        <h3>Ignored</h3>
+        <p class="stat-value">{{ stats.ignored }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if emails %}
+<div class="card">
+    <h2>Recent Emails</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Identity</th>
+                <th>Sender</th>
+                <th>Subject</th>
+                <th>Intent</th>
+                <th>Confidence</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for email in emails %}
+            <tr>
+                <td><span class="badge">{{ email.identity }}</span></td>
+                <td>{{ email.sender }}</td>
+                <td>{{ email.subject[:60] }}{% if email.subject|length > 60 %}&hellip;{% endif %}</td>
+                <td>
+                    {% if email.intent == 'reply' %}<span class="badge badge-success">reply</span>
+                    {% elif email.intent == 'notify' %}<span class="badge badge-info">notify</span>
+                    {% elif email.intent == 'ignore' %}<span class="badge badge-warning">ignore</span>
+                    {% elif email.intent == 'ask_boss' %}<span class="badge badge-danger">ask boss</span>
+                    {% else %}<span class="badge">{{ email.intent }}</span>{% endif %}
+                </td>
+                <td>{{ "%.0f%%"|format(email.confidence * 100) }}</td>
+                <td>{{ email.action or "pending" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if has_more %}
+<div class="load-more">
+    <a href="/email?page={{ page + 1 }}" class="btn">Load More</a>
+</div>
+{% endif %}
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <p>No emails processed yet.</p>
+        <p class="text-muted">Emails will appear here once the email agent starts classifying incoming messages.</p>
+    </div>
+</div>
+{% endif %}
+
+{% if reputation %}
+<div class="card">
+    <h2>Sender Reputation</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Identity</th>
+                <th>Domain</th>
+                <th>Ignored</th>
+                <th>Notified</th>
+                <th>Replied</th>
+                <th>Auto-Ignore</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rep in reputation %}
+            <tr>
+                <td><span class="badge">{{ rep.identity }}</span></td>
+                <td>{{ rep.domain }}</td>
+                <td>{{ rep.ignore_count }}</td>
+                <td>{{ rep.notify_count }}</td>
+                <td>{{ rep.reply_count }}</td>
+                <td>{% if rep.auto_ignore %}<span class="badge badge-warning">yes</span>{% else %}no{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

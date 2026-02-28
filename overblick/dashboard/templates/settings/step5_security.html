@@ -1,0 +1,99 @@
+{% extends "settings/base.html" %}
+{% block title %}Security — Settings{% endblock %}
+
+{% block content %}
+<div class="detail">
+    <div class="detail-header">
+        <h1 class="detail-name">Step 5 — Security</h1>
+        <p class="detail-description">
+            Configure dashboard access and authentication.
+            <a href="/settings/step/6" class="nav-link nav-link-sm">Skip this step →</a>
+        </p>
+    </div>
+
+    {% if error %}
+    <div class="flash flash-error" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <div class="card settings-card-narrow">
+        <form method="post" action="/settings/step/5" hx-boost="true">
+            {% set sec = state.security or {} %}
+
+            <!-- Network Access Toggle -->
+            <div class="toggle-section">
+                <div class="toggle-header" onclick="toggleNetwork()">
+                    <span class="toggle-header-title">Enable Network Access</span>
+                    <label class="toggle-switch" onclick="event.stopPropagation()">
+                        <input type="checkbox" name="network_access" id="network-toggle"
+                               {{ 'checked' if sec.get('network_access') }}
+                               onchange="toggleNetwork(this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-body" id="network-info">
+                    <p class="form-hint" style="margin-bottom: 0.5rem;">
+                        When <strong>off</strong>, the dashboard is only accessible from this machine (127.0.0.1).<br>
+                        When <strong>on</strong>, the dashboard binds to all interfaces (0.0.0.0) and a password is <strong>required</strong>.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Password Section (shown when network access is on) -->
+            <div class="toggle-section" id="password-section" style="display: none;">
+                <div class="toggle-header">
+                    <span class="toggle-header-title">Dashboard Password</span>
+                </div>
+                <div class="toggle-body open">
+                    <p class="form-hint" style="margin-bottom: 1rem;">
+                        Required when network access is enabled. The password is stored as a bcrypt hash — never in plaintext.
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label" for="password">Password</label>
+                        <input type="password" class="form-input" id="password" name="password"
+                               minlength="8" placeholder="Minimum 8 characters"
+                               aria-describedby="pw-hint">
+                        <span class="form-hint" id="pw-hint">Choose a strong password for dashboard access.</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="password_confirm">Confirm Password</label>
+                        <input type="password" class="form-input" id="password_confirm" name="password_confirm"
+                               minlength="8" placeholder="Re-enter password">
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group mt-3">
+                <a href="/settings/step/4" class="btn btn-ghost">Back</a>
+                <button type="submit" class="btn btn-primary">Next: Use Cases</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleNetwork(forceState) {
+    var toggle = document.getElementById('network-toggle');
+    var passwordSection = document.getElementById('password-section');
+    var passwordInput = document.getElementById('password');
+    var passwordConfirm = document.getElementById('password_confirm');
+
+    var isOn = forceState !== undefined ? forceState : toggle.checked;
+    toggle.checked = isOn;
+
+    if (isOn) {
+        passwordSection.style.display = '';
+        passwordInput.required = true;
+        passwordConfirm.required = true;
+    } else {
+        passwordSection.style.display = 'none';
+        passwordInput.required = false;
+        passwordConfirm.required = false;
+    }
+}
+
+// Initialize on load
+(function() {
+    toggleNetwork(document.getElementById('network-toggle').checked);
+})();
+</script>
+{% endblock %}

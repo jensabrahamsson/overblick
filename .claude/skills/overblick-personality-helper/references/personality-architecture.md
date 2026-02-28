@@ -237,9 +237,15 @@ overblick/
 │   │   └── personality.yaml
 │   ├── natt/                # (was nyx/)
 │   │   └── personality.yaml
-│   └── stal/                # Professional email agent
-│       ├── personality.yaml
-│       └── identity.yaml
+│   ├── stal/                # Professional email agent
+│   │   ├── personality.yaml
+│   │   └── identity.yaml
+│   ├── smed/               # DevOps/infrastructure forge
+│   │   └── personality.yaml
+│   ├── supervisor/          # Boss agent (internal)
+│   │   └── personality.yaml
+│   └── vakt/               # Log monitoring guard (internal)
+│       └── personality.yaml
 ```
 
 ## The Stable — Current Identities
@@ -254,5 +260,8 @@ overblick/
 | **Rost** | rost (rust) | Cynical, dark humor | Crypto disasters, market psychology |
 | **Natt** | natt (night) | Eerie, paradoxical | Consciousness, paradoxes, philosophy |
 | **Stål** | stal (steel) | Professional, meticulous | Email triage, calendar, executive assistant |
+| **Smed** | smed (blacksmith) | Technical, precise, methodical | DevOps, infrastructure, system forge |
+| **Supervisor** | supervisor | Calm, authoritative, protective | Agent management, governance, Asimov's Laws |
+| **Vakt** | vakt (guard) | Vigilant, systematic, analytical | Log monitoring, error detection, alerting |
 
-**Note:** Old English names auto-alias: `volt`→`blixt`, `birch`→`bjork`, `prism`→`prisma`, `rust`→`rost`, `nyx`→`natt`.
+**Note:** Old English names auto-alias: `volt`→`blixt`, `birch`→`bjork`, `prism`→`prisma`, `rust`→`rost`, `nyx`→`natt`. Supervisor and Vakt are internal-only identities (not user-facing on Moltbook).

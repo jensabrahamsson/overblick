@@ -1,5 +1,9 @@
 # Överblick
 
+[![Tests](https://github.com/jensabrahamsson/overblick/actions/workflows/test.yml/badge.svg)](https://github.com/jensabrahamsson/overblick/actions/workflows/test.yml)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 Security-focused multi-identity agent framework. Python 3.13+. GPL v3.
 
 Överblick consolidates multiple AI agent identities into a single codebase with a plugin architecture. Each identity operates with a distinct **personality** — voice, interests, traits, and behavioral constraints — all driven by YAML configuration. The framework emphasizes security at every layer: a 6-stage LLM pipeline, encrypted secrets, structured audit logging, prompt injection boundaries, and default-deny permissions.
@@ -431,6 +435,8 @@ Template files (`*.yaml.example`) are checked into the repo.
 Each skill includes reference documentation covering the full API, real examples, and checklists. The **skill compiler** automates end-to-end component generation; the helpers provide interactive guidance. Skills are loaded automatically by Claude Code when matching triggers are detected.
 
 ## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, code standards, and the PR process.
 
 **Good first contributions:**
 - Create a new personality for the identity stable

@@ -119,8 +119,32 @@ class CommunicationData(BaseModel):
         return v
 
 
+class SecurityData(BaseModel):
+    """Step 5: Dashboard security settings."""
+    network_access: bool = False
+    password: str = ""
+    password_confirm: str = ""
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if not v:
+            return v
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+    @field_validator("password_confirm")
+    @classmethod
+    def passwords_match(cls, v: str, info) -> str:
+        password = info.data.get("password", "")
+        if password and v != password:
+            raise ValueError("Passwords do not match")
+        return v
+
+
 class UseCaseSelection(BaseModel):
-    """Step 5: Use case selection."""
+    """Step 6: Use case selection."""
     selected_use_cases: list[str]
 
     @field_validator("selected_use_cases")

@@ -66,7 +66,7 @@ class TestEmailAgentSetup:
         await plugin.setup()
 
         assert plugin._filter_mode == "opt_in"
-        assert "jens@example.com" in plugin._allowed_senders
+        assert "alice@example.com" in plugin._allowed_senders
 
     @pytest.mark.asyncio
     async def test_setup_builds_system_prompt(self, stal_plugin_context):
@@ -86,7 +86,7 @@ class TestEmailAgentFiltering:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        assert plugin._is_allowed_sender("jens@example.com") is True
+        assert plugin._is_allowed_sender("alice@example.com") is True
 
     @pytest.mark.asyncio
     async def test_opt_in_blocks_unknown(self, stal_plugin_context):
@@ -866,7 +866,7 @@ class TestDeduplicationAndMarkRead:
         ))
 
         email = {
-            "sender": "jens@example.com",
+            "sender": "alice@example.com",
             "subject": "Important Update",
             "body": "Please review this carefully.",
             "snippet": "Please review",
@@ -2513,7 +2513,7 @@ class TestDraftApproveToSend:
             "id": 1,
             "email_record_id": 10,
             "draft_reply_body": "Dear colleague, sounds good.",
-            "email_from": "jens@example.com",  # In allowed_senders
+            "email_from": "alice@example.com",  # In allowed_senders
             "email_subject": "Meeting",
             "original_email_thread_id": "thread-001",
             "gmail_message_id": "msg-001",
@@ -2524,7 +2524,7 @@ class TestDraftApproveToSend:
 
         mock_gmail_capability.send_reply.assert_called_once()
         call_kwargs = mock_gmail_capability.send_reply.call_args.kwargs
-        assert call_kwargs["to"] == "jens@example.com"
+        assert call_kwargs["to"] == "alice@example.com"
         assert call_kwargs["subject"] == "Re: Meeting"
         assert call_kwargs["body"] == "Dear colleague, sounds good."
         assert call_kwargs["thread_id"] == "thread-001"
@@ -2575,7 +2575,7 @@ class TestDraftApproveToSend:
             "id": 1,
             "email_record_id": 10,
             "draft_reply_body": "",  # Empty!
-            "email_from": "jens@example.com",
+            "email_from": "alice@example.com",
             "email_subject": "Test",
         }
 
@@ -2599,7 +2599,7 @@ class TestDraftApproveToSend:
             "id": 1,
             "email_record_id": 10,
             "draft_reply_body": "Reply text.",
-            "email_from": "jens@example.com",
+            "email_from": "alice@example.com",
             "email_subject": "Test",
             "original_email_thread_id": "thread-001",
             "gmail_message_id": "msg-001",
@@ -2622,7 +2622,7 @@ class TestDraftApproveToSend:
         # Insert an email record
         record_id = await plugin._db.record_email(EmailRecord(
             gmail_message_id="gmail-001",
-            email_from="jens@example.com",
+            email_from="alice@example.com",
             email_subject="Meeting next week?",
             classified_intent="notify",
             confidence=0.9,
@@ -2654,7 +2654,7 @@ class TestDraftApproveToSend:
         # Gmail should have been called to send the reply
         mock_gmail_capability.send_reply.assert_called_once()
         call_kwargs = mock_gmail_capability.send_reply.call_args.kwargs
-        assert call_kwargs["to"] == "jens@example.com"
+        assert call_kwargs["to"] == "alice@example.com"
         assert call_kwargs["subject"] == "Re: Meeting next week?"
         assert call_kwargs["body"] == "Dear Jens, I'll check the calendar."
         assert call_kwargs["thread_id"] == "thread-meeting-001"
@@ -2677,7 +2677,7 @@ class TestDraftApproveToSend:
         # Insert record + draft tracking
         record_id = await plugin._db.record_email(EmailRecord(
             gmail_message_id="gmail-002",
-            email_from="jens@example.com",
+            email_from="alice@example.com",
             email_subject="Test",
             classified_intent="notify",
             confidence=0.9,
@@ -2896,7 +2896,7 @@ class TestReplyRateLimiting:
         plugin._reply_timestamps["example.com"] = [time.time()] * 5
 
         email = {
-            "sender": "jens@example.com",
+            "sender": "alice@example.com",
             "subject": "Another meeting",
             "body": "Can we meet again?",
             "snippet": "Can we meet again?",

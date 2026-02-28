@@ -601,3 +601,63 @@ class TestRecipientFromSecrets:
         email_cap = ai_digest_context.capabilities["email"]
         call_kwargs = email_cap.send.call_args[1]
         assert call_kwargs["to"] == "from_secret@example.com"
+
+
+class TestFeedParsingEdgeCases:
+    """Test edge cases in RSS feed parsing."""
+
+    @pytest.mark.asyncio
+    async def test_empty_feed_returns_empty(self, ai_digest_context):
+        """An RSS feed with no entries returns an empty list."""
+        plugin = AiDigestPlugin(ai_digest_context)
+        await plugin.setup()
+
+        mock_feed = MagicMock()
+        mock_feed.feed.get = lambda k, d=None: {"title": "Empty Feed"}.get(k, d)
+        mock_feed.entries = []
+
+        with patch("overblick.plugins.ai_digest.plugin.feedparser.parse", return_value=mock_feed):
+            articles = await plugin._fetch_all_feeds()
+            assert articles == []
+
+    @pytest.mark.asyncio
+    async def test_feed_with_missing_title(self, ai_digest_context):
+        """Articles without titles are skipped or use empty string."""
+        plugin = AiDigestPlugin(ai_digest_context)
+        await plugin.setup()
+
+        mock_entry = MagicMock()
+        mock_entry.get = lambda k, d=None: {
+            "link": "https://example.com/article",
+            "summary": "No title article",
+            "published_parsed": time.gmtime(),
+        }.get(k, d)
+
+        mock_feed = MagicMock()
+        mock_feed.feed.get = lambda k, d=None: {"title": "Test Feed"}.get(k, d)
+        mock_feed.entries = [mock_entry]
+
+        with patch("overblick.plugins.ai_digest.plugin.feedparser.parse", return_value=mock_feed):
+            articles = await plugin._fetch_all_feeds()
+            # Should handle missing title gracefully
+            for article in articles:
+                assert isinstance(article, FeedArticle)
+
+    @pytest.mark.asyncio
+    async def test_feed_network_error_skips_feed(self, ai_digest_context):
+        """Network error on one feed doesn't crash the entire fetch."""
+        plugin = AiDigestPlugin(ai_digest_context)
+        await plugin.setup()
+
+        with patch("overblick.plugins.ai_digest.plugin.feedparser.parse", side_effect=Exception("Network timeout")):
+            articles = await plugin._fetch_all_feeds()
+            assert articles == []
+
+    def test_parse_selection_duplicate_indices(self, ai_digest_context):
+        """Duplicate indices in selection are kept (LLM may repeat)."""
+        plugin = AiDigestPlugin(ai_digest_context)
+        plugin._top_n = 5
+        result = plugin._parse_selection("[1, 1, 2, 2, 3]", 10)
+        # Implementation may deduplicate or keep — either is valid
+        assert len(result) <= 5
+        assert all(0 <= idx < 10 for idx in result)

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}AI Digest{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>AI Digest</h1>
+    <p class="page-subtitle">RSS feed analysis and daily digest summaries</p>
+</div>
+
+{% if data_errors %}
+<div class="card">
+    {% for err in data_errors %}
+    <p class="text-muted">{{ err }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if digests %}
+<div class="detail-grid">
+    {% for digest in digests %}
+    <div class="card">
+        <div class="card-header">
+            <h3>{{ digest.identity }}</h3>
+        </div>
+        <div class="digest-info">
+            <p><strong>Last digest:</strong> {{ digest.last_digest_date }}</p>
+            {% if digest.feed_count %}<p><strong>Feeds monitored:</strong> {{ digest.feed_count }}</p>{% endif %}
+            {% if digest.article_count %}<p><strong>Articles in last digest:</strong> {{ digest.article_count }}</p>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <p>No digest data available yet.</p>
+        <p class="text-muted">Digests will appear here once the ai_digest plugin runs its daily feed analysis.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

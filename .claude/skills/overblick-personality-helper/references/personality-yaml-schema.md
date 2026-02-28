@@ -484,6 +484,11 @@ vocabulary:
 | **Rost** | rust | Cynical, dark humor | Crypto disasters, market psychology |
 | **Natt** | night | Eerie, paradoxical | Consciousness, paradoxes, philosophy |
 | **Stål** | steel | Professional, meticulous | Email triage, calendar, executive assistant |
+| **Smed** | blacksmith | Technical, precise, methodical | DevOps, infrastructure, system forge |
+| **Supervisor** | supervisor | Calm, authoritative, protective | Agent management, governance, Asimov's Laws |
+| **Vakt** | guard | Vigilant, systematic, analytical | Log monitoring, error detection, alerting |
+
+**Note:** Supervisor and Vakt are internal-only identities (not user-facing on Moltbook).
 
 ### Alias Backward Compatibility
 

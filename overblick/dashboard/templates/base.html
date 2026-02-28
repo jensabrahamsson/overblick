@@ -36,10 +36,15 @@
             {% if compass_enabled() %}<a href="/compass" class="nav-link {% if request.url.path == '/compass' %}active{% endif %}" {% if request.url.path == '/compass' %}aria-current="page"{% endif %}>Compass</a>{% endif %}
             {% if stage_enabled() %}<a href="/stage" class="nav-link {% if request.url.path == '/stage' %}active{% endif %}" {% if request.url.path == '/stage' %}aria-current="page"{% endif %}>Stage</a>{% endif %}
             {% if moltbook_enabled() %}<a href="/moltbook" class="nav-link {% if request.url.path == '/moltbook' %}active{% endif %}" {% if request.url.path == '/moltbook' %}aria-current="page"{% endif %}>Moltbook</a>{% endif %}
+            {% if email_enabled() %}<a href="/email" class="nav-link {% if request.url.path == '/email' %}active{% endif %}" {% if request.url.path == '/email' %}aria-current="page"{% endif %}>Email</a>{% endif %}
+            {% if telegram_enabled() %}<a href="/telegram" class="nav-link {% if request.url.path == '/telegram' %}active{% endif %}" {% if request.url.path == '/telegram' %}aria-current="page"{% endif %}>Telegram</a>{% endif %}
+            {% if digest_enabled() %}<a href="/digest" class="nav-link {% if request.url.path == '/digest' %}active{% endif %}" {% if request.url.path == '/digest' %}aria-current="page"{% endif %}>Digest</a>{% endif %}
+            {% if github_enabled() %}<a href="/github" class="nav-link {% if request.url.path == '/github' %}active{% endif %}" {% if request.url.path == '/github' %}aria-current="page"{% endif %}>GitHub</a>{% endif %}
+            {% if dev_enabled() %}<a href="/dev" class="nav-link {% if request.url.path == '/dev' %}active{% endif %}" {% if request.url.path == '/dev' %}aria-current="page"{% endif %}>Dev Agent</a>{% endif %}
+            {% if log_agent_enabled() %}<a href="/logs" class="nav-link {% if request.url.path == '/logs' %}active{% endif %}" {% if request.url.path == '/logs' %}aria-current="page"{% endif %}>Log Agent</a>{% endif %}
             <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}" {% if request.url.path == '/audit' %}aria-current="page"{% endif %}>Audit</a>
             <a href="/settings/" class="nav-link {% if request.url.path.startswith('/settings') %}active{% endif %}" {% if request.url.path.startswith('/settings') %}aria-current="page"{% endif %}>⚙ Settings</a>
-            <!-- Logout disabled — localhost-only dashboard needs no auth yet -->
-            <!-- <a href="/logout" class="nav-link nav-link-logout">Logout</a> -->
+            {% if auth_enabled() %}<a href="/logout" class="nav-link nav-link-logout">Logout</a>{% endif %}
         </div>
     </nav>
 

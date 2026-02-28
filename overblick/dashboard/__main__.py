@@ -45,13 +45,22 @@ def main() -> None:
     if args.test:
         config.test_mode = True
         config.password = ""
+        config.password_hash = ""
         config.secret_key = "test-mode-deterministic-key-do-not-use-in-production"
         print("TEST MODE ACTIVE")
 
     from .app import create_app
     app = create_app(config)
 
-    config.host = args.host
+    # Determine host: CLI flag > config network_access > default
+    if args.host != "127.0.0.1":
+        # Explicit CLI flag — use as-is
+        config.host = args.host
+    elif config.network_access:
+        # YAML config says network access is enabled
+        config.host = "0.0.0.0"
+    else:
+        config.host = args.host
 
     import uvicorn
     uvicorn.run(

@@ -188,8 +188,8 @@ class MoltbookPlugin(PluginBase):
             status_file = data_dir / "moltbook_status.json"
             status_file.parent.mkdir(parents=True, exist_ok=True)
             status_file.write_text(json.dumps(self._client.get_account_status()))
-        except Exception:
-            pass  # Non-critical: dashboard status persistence is best-effort
+        except Exception as e:
+            logger.debug("Failed to persist moltbook status: %s", e)
 
     def _persist_dream_date(self) -> None:
         """Save dream journal posted date to disk to prevent duplicate posts after restart."""
@@ -204,8 +204,8 @@ class MoltbookPlugin(PluginBase):
             state_file.write_text(json.dumps({
                 "dream_journal_posted_date": self._dream_journal_posted_date.isoformat(),
             }))
-        except Exception:
-            pass  # Non-critical: worst case is a duplicate dream post
+        except Exception as e:
+            logger.debug("Failed to persist dream date: %s", e)
 
     def _load_dream_date(self) -> None:
         """Load dream journal posted date from disk."""
@@ -220,8 +220,8 @@ class MoltbookPlugin(PluginBase):
             date_str = data.get("dream_journal_posted_date")
             if date_str:
                 self._dream_journal_posted_date = date.fromisoformat(date_str)
-        except Exception:
-            pass  # Non-critical: fresh start if state is corrupted
+        except Exception as e:
+            logger.debug("Failed to load dream date state: %s", e)
 
     async def tick(self) -> None:
         """

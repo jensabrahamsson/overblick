@@ -4,7 +4,7 @@
 {% block content %}
 <div class="detail">
     <div class="detail-header">
-        <h1 class="detail-name">Step 5 — Use Cases</h1>
+        <h1 class="detail-name">Step 6 — Use Cases</h1>
         <p class="detail-description">
             Select the capabilities you need. In the next step, you'll assign a personality to each one.
         </p>
@@ -15,7 +15,7 @@
     {% endif %}
 
     <div class="card">
-        <form method="post" action="/settings/step/5" hx-boost="true">
+        <form method="post" action="/settings/step/6" hx-boost="true">
 
             <div class="use-case-grid">
                 {% for uc in use_cases %}
@@ -53,7 +53,7 @@
             </div>
 
             <div class="btn-group mt-3">
-                <a href="/settings/step/4" class="btn btn-ghost">Back</a>
+                <a href="/settings/step/5" class="btn btn-ghost">Back</a>
                 <button type="submit" class="btn btn-primary">Next: Assign Agents</button>
             </div>
         </form>

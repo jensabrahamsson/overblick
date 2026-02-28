@@ -238,7 +238,7 @@ class TestSenderFiltering:
         await plugin.setup()
 
         assert plugin._is_allowed_sender("random@nobody.com") is False
-        assert plugin._is_allowed_sender("jens@example.com") is True
+        assert plugin._is_allowed_sender("alice@example.com") is True
         assert plugin._is_allowed_sender("test@example.com") is True
 
 

@@ -100,8 +100,8 @@ class AiDigestPlugin(PluginBase):
         recipient_from_secrets: Optional[str] = None
         try:
             recipient_from_secrets = self.ctx.get_secret("ai_digest_recipient")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Could not read ai_digest_recipient from secrets: %s", e)
         self._recipient = recipient_from_secrets or digest_config.get("recipient", "")
 
         if not self._recipient:

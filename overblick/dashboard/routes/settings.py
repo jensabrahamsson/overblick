@@ -1,5 +1,5 @@
 """
-Settings wizard routes — integrated 8-step configuration wizard.
+Settings wizard routes — integrated 9-step configuration wizard.
 
 Replaces the standalone python -m overblick.setup process. Reuses all
 validator and provisioner logic from overblick.setup unchanged. Wizard
@@ -13,10 +13,11 @@ Steps:
 2. Principal (name, email, timezone)
 3. LLM backends (local, cloud, openai — all through gateway)
 4. Communication (Gmail, Telegram)
-5. Use cases
-6. Identity assignment
-7. Review
-8. Complete
+5. Security (dashboard access, password)
+6. Use cases
+7. Identity assignment
+8. Review
+9. Complete
 """
 
 import html
@@ -37,6 +38,7 @@ from overblick.setup.validators import (
     LLMData,
     OpenAIConfig,
     PrincipalData,
+    SecurityData,
     UseCaseSelection,
 )
 from overblick.setup.wizard import (
@@ -556,23 +558,75 @@ async def step4_post(
         return _render("step4_communication.html", request, error=_friendly_error(e))
 
 
-# --- Step 5: Use Cases ---
+# --- Step 5: Security ---
 
 @router.get("/step/5", response_class=HTMLResponse)
 async def step5_get(request: Request):
     state = _get_state(request.app)
     state["current_step"] = 5
+    return _render("step5_security.html", request)
+
+
+@router.post("/step/5", response_class=HTMLResponse)
+async def step5_post(request: Request):
+    form = await request.form()
+    state = _get_state(request.app)
+
+    network_access = form.get("network_access", "off") == "on"
+    password = form.get("password", "")
+    password_confirm = form.get("password_confirm", "")
+
+    try:
+        # Validate: password required when network access is enabled
+        if network_access and not password:
+            raise ValueError("A password is required when network access is enabled")
+
+        if password:
+            data = SecurityData(
+                network_access=network_access,
+                password=password,
+                password_confirm=password_confirm,
+            )
+        else:
+            data = SecurityData(network_access=network_access)
+
+        security_state: dict = {
+            "network_access": data.network_access,
+        }
+
+        # Hash the password with bcrypt if provided
+        if data.password:
+            import bcrypt
+            password_hash = bcrypt.hashpw(
+                data.password.encode("utf-8"),
+                bcrypt.gensalt(),
+            ).decode("utf-8")
+            security_state["password_hash"] = password_hash
+
+        state["security"] = security_state
+        _save_wizard_state(state)
+        return RedirectResponse("/settings/step/6", status_code=303)
+    except Exception as e:
+        return _render("step5_security.html", request, error=_friendly_error(e))
+
+
+# --- Step 6: Use Cases ---
+
+@router.get("/step/6", response_class=HTMLResponse)
+async def step6_get(request: Request):
+    state = _get_state(request.app)
+    state["current_step"] = 6
     comm = state.get("communication", {})
     return _render(
-        "step5_usecases.html", request,
+        "step6_usecases.html", request,
         use_cases=USE_CASES,
         gmail_enabled=comm.get("gmail_enabled", False),
         telegram_enabled=comm.get("telegram_enabled", False),
     )
 
 
-@router.post("/step/5", response_class=HTMLResponse)
-async def step5_post(request: Request):
+@router.post("/step/6", response_class=HTMLResponse)
+async def step6_post(request: Request):
     form = await request.form()
     selected = form.getlist("selected_use_cases")
     state = _get_state(request.app)
@@ -580,11 +634,11 @@ async def step5_post(request: Request):
         data = UseCaseSelection(selected_use_cases=selected)
         state["selected_use_cases"] = data.selected_use_cases
         _save_wizard_state(state)
-        return RedirectResponse("/settings/step/6", status_code=303)
+        return RedirectResponse("/settings/step/7", status_code=303)
     except Exception as e:
         comm = state.get("communication", {})
         return _render(
-            "step5_usecases.html", request,
+            "step6_usecases.html", request,
             use_cases=USE_CASES,
             gmail_enabled=comm.get("gmail_enabled", False),
             telegram_enabled=comm.get("telegram_enabled", False),
@@ -592,12 +646,12 @@ async def step5_post(request: Request):
         )
 
 
-# --- Step 6: Identity Assignment ---
+# --- Step 7: Identity Assignment ---
 
-@router.get("/step/6", response_class=HTMLResponse)
-async def step6_get(request: Request):
+@router.get("/step/7", response_class=HTMLResponse)
+async def step7_get(request: Request):
     state = _get_state(request.app)
-    state["current_step"] = 6
+    state["current_step"] = 7
     base_dir = _get_base_dir(request)
     characters = _load_identity_data(base_dir)
     assignment_data = _build_assignment_data(
@@ -605,11 +659,11 @@ async def step6_get(request: Request):
         characters,
         state,
     )
-    return _render("step6_assignment.html", request, assignment_data=assignment_data)
+    return _render("step7_assignment.html", request, assignment_data=assignment_data)
 
 
-@router.post("/step/6", response_class=HTMLResponse)
-async def step6_post(request: Request):
+@router.post("/step/7", response_class=HTMLResponse)
+async def step7_post(request: Request):
     form = await request.form()
     state = _get_state(request.app)
 
@@ -633,15 +687,15 @@ async def step6_post(request: Request):
     state["assignments"] = assignments
     _derive_provisioner_state(state)
     _save_wizard_state(state)
-    return RedirectResponse("/settings/step/7", status_code=303)
+    return RedirectResponse("/settings/step/8", status_code=303)
 
 
-# --- Step 7: Review ---
+# --- Step 8: Review ---
 
-@router.get("/step/7", response_class=HTMLResponse)
-async def step7_get(request: Request):
+@router.get("/step/8", response_class=HTMLResponse)
+async def step8_get(request: Request):
     state = _get_state(request.app)
-    state["current_step"] = 7
+    state["current_step"] = 8
     base_dir = _get_base_dir(request)
     characters = _load_identity_data(base_dir)
     char_by_name = {c["name"]: c for c in characters}
@@ -663,11 +717,11 @@ async def step7_get(request: Request):
             "personality_role": char_data.get("role", ""),
         })
 
-    return _render("step7_review.html", request, review_assignments=review_assignments)
+    return _render("step8_review.html", request, review_assignments=review_assignments)
 
 
-@router.post("/step/7", response_class=HTMLResponse)
-async def step7_post(request: Request):
+@router.post("/step/8", response_class=HTMLResponse)
+async def step8_post(request: Request):
     """Execute provisioning and redirect to complete."""
     state = _get_state(request.app)
     base_dir = _get_base_dir(request)
@@ -679,7 +733,7 @@ async def step7_post(request: Request):
         state["completed"] = True
         # Clear first-run flag now that config exists
         request.app.state.setup_needed = False
-        return RedirectResponse("/settings/step/8", status_code=303)
+        return RedirectResponse("/settings/step/9", status_code=303)
     except Exception as e:
         logger.error("Provisioning failed: %s", e, exc_info=True)
         base_dir = _get_base_dir(request)
@@ -702,19 +756,19 @@ async def step7_post(request: Request):
                 "personality_role": char_data.get("role", ""),
             })
         return _render(
-            "step7_review.html", request,
+            "step8_review.html", request,
             review_assignments=review_assignments,
             error=f"Setup failed: {e}",
         )
 
 
-# --- Step 8: Complete ---
+# --- Step 9: Complete ---
 
-@router.get("/step/8", response_class=HTMLResponse)
-async def step8_complete(request: Request):
+@router.get("/step/9", response_class=HTMLResponse)
+async def step9_complete(request: Request):
     state = _get_state(request.app)
-    state["current_step"] = 8
-    return _render("step8_complete.html", request)
+    state["current_step"] = 9
+    return _render("step9_complete.html", request)
 
 
 # --- Test endpoints ---

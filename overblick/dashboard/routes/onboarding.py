@@ -251,7 +251,8 @@ async def onboard_chat(request: Request):
 
     try:
         body = await request.json()
-    except Exception:
+    except Exception as e:
+        logger.debug("Invalid JSON in chat request: %s", e)
         return JSONResponse(
             {"success": False, "error": "Invalid JSON body."},
             status_code=400,
