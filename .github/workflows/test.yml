@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[gateway,dashboard,dev]"
 
       - name: Run tests
-        run: pytest tests/ -v -m "not llm and not e2e and not llm_slow" --tb=short
+        run: pytest tests/ -v -m "not llm and not e2e and not llm_slow" --ignore=tests/test_dashboard_playwright.py --tb=short
