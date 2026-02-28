@@ -1,7 +1,7 @@
 """
 Wizard state machine and route handlers for the setup flow.
 
-Manages an 8-step wizard where state persists in app.state (single-user,
+Manages an 9-step wizard where state persists in app.state (single-user,
 ephemeral server — no need for sessions or databases).
 
 Steps:

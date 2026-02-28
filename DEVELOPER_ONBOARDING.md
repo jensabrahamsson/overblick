@@ -733,7 +733,7 @@ It runs on port 8200 and provides fair scheduling when multiple agents compete f
 - **Agent monitoring**: See which personalities are running, their status, and recent activity
 - **Audit trail**: Browse the immutable audit log for all agent actions
 - **Identity browser**: View personality configurations, traits, and voice settings
-- **Onboarding wizard**: 8-step guided setup for new deployments
+- **Onboarding wizard**: 9-step guided setup for new deployments
 
 ### Stack
 

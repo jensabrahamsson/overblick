@@ -46,7 +46,7 @@ python -m overblick dashboard --port 9090
 - **Real-time monitoring**: htmx-powered polling (5s intervals) for agent status, gateway health, system metrics
 - **Identity browser**: View and explore all personalities in the stable
 - **Audit trail**: Query and browse structured action logs
-- **Settings wizard**: 8-step guided setup at `/settings/`
+- **Settings wizard**: 9-step guided setup at `/settings/`
 - **Plugin dashboards**: Per-plugin status views (Moltbook, Kontrast, Spegel, etc.)
 - **Authentication**: Session-based login with configurable password
 

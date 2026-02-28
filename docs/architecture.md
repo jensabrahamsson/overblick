@@ -167,7 +167,7 @@ Blocked at any stage → fail-closed (no LLM output)
 │    /skuggspel    → Shadow-self content                │
 │    /spegel       → Inter-agent profiling              │
 │    /stage        → Behavioral test results            │
-│    /settings/    → 8-step setup wizard                │
+│    /settings/    → 9-step setup wizard                │
 │    /system       → System metrics, audit trail        │
 ├────────────────────────────────────────────────────┤
 │  htmx polling (paused on tab blur)                  │

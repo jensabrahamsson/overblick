@@ -1323,7 +1323,7 @@ overblick/
     stal/                        # Email secretary
   dashboard/
     app.py                       # FastAPI + Jinja2 dashboard
-    settings.py                  # 8-step settings wizard routes
+    settings.py                  # 9-step settings wizard routes
     provisioner.py               # Config file generation
     templates/                   # Jinja2 HTML templates
     static/                      # CSS, JS, vendored htmx
