@@ -1,0 +1,59 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of what the bug is.
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this behavior?
+      placeholder: |
+        1. Run `python -m overblick ...`
+        2. Navigate to ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your setup details.
+      placeholder: |
+        - OS: macOS 15.3 / Ubuntu 24.04 / ...
+        - Python: 3.13
+        - Ollama version: ...
+        - Överblick version/commit: ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any error messages or log output here.
+      render: shell
+    validations:
+      required: false
