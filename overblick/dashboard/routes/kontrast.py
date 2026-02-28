@@ -65,7 +65,7 @@ def _load_pieces(request: Request) -> list:
         return pieces
 
     for identity_dir in data_root.iterdir():
-        state_file = identity_dir / "kontrast_state.json"
+        state_file = identity_dir / "kontrast" / "kontrast_state.json"
         if state_file.exists():
             try:
                 data = json.loads(state_file.read_text())

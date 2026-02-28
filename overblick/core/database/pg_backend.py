@@ -59,24 +59,28 @@ class PostgreSQLBackend(DatabaseBackend):
             f"/{self._config.pg_database}"
         )
 
-        self._pool = await asyncpg.create_pool(
-            dsn,
-            min_size=self._config.pool_min_size,
-            max_size=self._config.pool_max_size,
-        )
-
-        # Set schema if not public
-        if self._config.pg_schema != "public":
-            schema = self._config.pg_schema
+        # Validate schema name before use in init callback
+        schema = self._config.pg_schema
+        if schema != "public":
             if not _SAFE_IDENTIFIER_RE.match(schema):
                 raise ValueError(
                     f"Unsafe PostgreSQL schema name: {schema!r}. "
                     "Schema names must be alphanumeric identifiers (a-z, 0-9, _)."
                 )
-            async with self._pool.acquire() as conn:
+
+        async def _init_conn(conn):
+            """Set search_path for every new pool connection."""
+            if schema != "public":
                 await conn.execute(
                     f"SET search_path TO {schema}, public"
                 )
+
+        self._pool = await asyncpg.create_pool(
+            dsn,
+            min_size=self._config.pool_min_size,
+            max_size=self._config.pool_max_size,
+            init=_init_conn,
+        )
 
         self._connected = True
         logger.info(

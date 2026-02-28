@@ -944,6 +944,9 @@ parallel_examples:
 # OPERATIONAL CONFIGURATION
 ################################################################################
 operational:
+  security:
+    enable_preflight: true
+    enable_output_safety: true
   capabilities:
     - "email"          # Required by ai_digest plugin for SMTP delivery
 

@@ -487,3 +487,81 @@ class TestSafeLLMPipeline:
         assert not result.blocked
         assert result.content == "Hello!"
         assert result.reasoning_content is None
+
+    @pytest.mark.asyncio
+    async def test_stage_ordering_enforced(self, mock_llm, mock_preflight, mock_output_safety, mock_rate_limiter):
+        """Pipeline stages execute in correct order: sanitize -> preflight -> rate_limit -> LLM -> output_safety."""
+        call_order = []
+
+        original_check = mock_preflight.check
+        async def tracked_check(*a, **kw):
+            call_order.append("preflight")
+            return await original_check(*a, **kw)
+        mock_preflight.check = tracked_check
+
+        original_allow = mock_rate_limiter.allow
+        def tracked_allow(*a, **kw):
+            call_order.append("rate_limit")
+            return original_allow(*a, **kw)
+        mock_rate_limiter.allow = tracked_allow
+
+        original_chat = mock_llm.chat
+        async def tracked_chat(*a, **kw):
+            call_order.append("llm_call")
+            return await original_chat(*a, **kw)
+        mock_llm.chat = tracked_chat
+
+        original_sanitize = mock_output_safety.sanitize
+        def tracked_sanitize(*a, **kw):
+            call_order.append("output_safety")
+            return original_sanitize(*a, **kw)
+        mock_output_safety.sanitize = tracked_sanitize
+
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            preflight_checker=mock_preflight,
+            output_safety=mock_output_safety,
+            rate_limiter=mock_rate_limiter,
+        )
+        await pipeline.chat(messages=[{"role": "user", "content": "Hello"}])
+
+        assert call_order == ["preflight", "rate_limit", "llm_call", "output_safety"]
+
+    @pytest.mark.asyncio
+    async def test_strict_mode_requires_all_components(self, mock_llm):
+        """Strict mode raises ConfigError if security components are missing."""
+        from overblick.core.exceptions import ConfigError
+        with pytest.raises(ConfigError, match="missing required"):
+            SafeLLMPipeline(
+                llm_client=mock_llm,
+                strict=True,
+            )
+
+    @pytest.mark.asyncio
+    async def test_strict_mode_works_when_all_present(
+        self, mock_llm, mock_preflight, mock_output_safety, mock_rate_limiter
+    ):
+        """Strict mode succeeds when all security components are provided."""
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            preflight_checker=mock_preflight,
+            output_safety=mock_output_safety,
+            rate_limiter=mock_rate_limiter,
+            strict=True,
+        )
+        result = await pipeline.chat(messages=[{"role": "user", "content": "Hi"}])
+        assert not result.blocked
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_blocked_includes_stage_timings(self, mock_llm, mock_rate_limiter):
+        """Rate-limited responses include stage_timings (Pass 1 fix verification)."""
+        mock_rate_limiter.allow = MagicMock(return_value=False)
+        mock_rate_limiter.retry_after = MagicMock(return_value=2.0)
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            rate_limiter=mock_rate_limiter,
+        )
+        result = await pipeline.chat(messages=[{"role": "user", "content": "Hello"}])
+        assert result.blocked
+        assert isinstance(result.stage_timings, dict)
+        assert "rate_limit" in result.stage_timings

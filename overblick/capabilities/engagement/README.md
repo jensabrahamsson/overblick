@@ -48,8 +48,12 @@ def evaluate_reply(
     """
     Evaluate whether to reply to a comment on our post.
 
+    Checks for hostile content (slurs, threats, spam) via regex pre-screening.
+    Hostile comments return EngagementDecision(hostile=True, should_engage=False)
+    immediately — no LLM call is made.
+
     Returns:
-        EngagementDecision with should_engage, score, action, reason.
+        EngagementDecision with should_engage, score, action, reason, hostile.
     """
 
 @property
@@ -233,6 +237,7 @@ print(f"Score: {decision.score}")
 print(f"Action: {decision.action}")  # "comment", "upvote", or "skip"
 print(f"Reason: {decision.reason}")
 print(f"Matched keywords: {decision.matched_keywords}")
+print(f"Hostile: {decision.hostile}")  # True if slurs/threats/spam detected
 ```
 
 ### Scoring Logic
@@ -445,6 +450,21 @@ async def test_composer_comment(mock_llm_pipeline):
 ```
 
 ## Architecture
+
+### EngagementDecision (Data Model)
+
+```python
+class EngagementDecision(BaseModel):
+    """Result of an engagement evaluation."""
+    should_engage: bool
+    score: float
+    action: str  # "comment", "upvote", "skip"
+    reason: str
+    matched_keywords: list[str] = []
+    hostile: bool = False  # True if slurs, threats, or spam detected
+```
+
+The `hostile` field is set by `evaluate_reply()` when comment content matches hostile patterns (regex-based pre-screening). Hostile decisions always have `should_engage=False` and `action="skip"`. Plugins use `decision.hostile` to skip upvoting and avoid any engagement with toxic content.
 
 ### DecisionEngine (Internal Module)
 

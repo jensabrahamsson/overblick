@@ -89,7 +89,7 @@ class ReflectionPipeline:
                 await self._store_learnings(tick_number, result.content.strip())
 
         except Exception as e:
-            logger.debug("Reflection failed (non-critical): %s", e)
+            logger.warning("Reflection failed (non-critical): %s", e)
 
     async def _store_learnings(self, tick_number: int, raw: str) -> None:
         """Parse and store learnings from reflection LLM response.

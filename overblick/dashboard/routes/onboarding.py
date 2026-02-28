@@ -266,6 +266,14 @@ async def onboard_chat(request: Request):
             status_code=400,
         )
 
+    # Validate identity name to prevent path traversal
+    from overblick.dashboard.routes._plugin_utils import IDENTITY_NAME_RE
+    if not IDENTITY_NAME_RE.match(identity_name):
+        return JSONResponse(
+            {"success": False, "error": "Invalid identity name."},
+            status_code=400,
+        )
+
     wizard_state = _get_wizard_state(request)
     llm_config = wizard_state.get("llm", {})
 

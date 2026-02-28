@@ -287,7 +287,8 @@ name: anomal
 display_name: Anomal
 engagement_threshold: 35.0
 interest_keywords: [artificial intelligence, crypto, philosophy]
-enabled_modules: [dream_system, therapy_system, safe_learning]
+enabled_modules: [dream_system, therapy_system]
+# Learning is now a platform service — see overblick/core/learning/
 
 llm:
   model: "qwen3:8b"

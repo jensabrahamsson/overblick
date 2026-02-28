@@ -229,7 +229,12 @@ class Orchestrator:
         """
         Main run loop. Blocks until shutdown signal.
         """
-        await self.setup()
+        try:
+            await self.setup()
+        except Exception:
+            # Clean up any partially initialized resources
+            await self.stop()
+            raise
         self._state = OrchestratorState.RUNNING
 
         # Register signal handlers — only set a flag (signal-safe)
@@ -581,8 +586,8 @@ class Orchestrator:
             return None
 
         try:
-            auth_token = token_path.read_text().strip()
-            from overblick.supervisor.ipc import IPCClient
+            from overblick.supervisor.ipc import IPCClient, read_ipc_token
+            auth_token = read_ipc_token(socket_dir=socket_dir)
 
             client = IPCClient(
                 target="supervisor",

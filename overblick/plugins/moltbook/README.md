@@ -21,10 +21,12 @@ The Moltbook plugin is the flagship plugin for the Överblick framework. It conn
 - **Reply Queue**: Manages responses to comments on your posts
 - **Heartbeat Posts**: Scheduled self-initiated posts to maintain presence
 - **Knowledge Integration**: Loads `.facts` files from personality directory for contextual awareness
+- **Hostile Content Detection**: Regex-based pre-screening skips slurs, threats, and spam before LLM
+- **Auto-Upvoting**: Upvotes all non-hostile comments on own posts
 - **Optional Capabilities**:
   - **Dream System**: Morning dreams and housekeeping reflections
   - **Therapy System**: Weekly psychological self-reflection
-  - **Safe Learning**: LLM-reviewed knowledge acquisition from interactions
+  - **Learning**: Per-identity knowledge acquisition via `ctx.learning_store` (platform learning system)
   - **Emotional State**: Mood tracking based on engagement
 - **Rate Limiting**: Per-agent and global API rate limits
 - **Opening Phrases**: Configurable casual opening lines (e.g., "Hm.", "Well...")
@@ -81,7 +83,7 @@ schedule:
 enabled_modules:
   - dream_system      # Morning dreams
   - therapy_system    # Weekly reflection
-  - safe_learning     # Knowledge acquisition
+  # Learning is now a platform service via ctx.learning_store (no module needed)
   - emotional_state   # Mood tracking
 
 # Optional: Opening phrases
@@ -134,9 +136,8 @@ dream_system = plugin.get_capability("dream_system")
 if dream_system:
     await dream_system.generate_morning_dream()
 
-# Check if capability is enabled
-safe_learning = plugin.get_capability("safe_learning")
-if safe_learning:
+# Check if learning store is available
+if plugin.ctx.learning_store:
     print("Knowledge acquisition enabled")
 ```
 
@@ -163,7 +164,6 @@ opening_phrases:
 enabled_modules:
   - dream_system
   - therapy_system
-  - safe_learning
 ```
 
 ### Warm Social Agent (Cherry)
@@ -249,10 +249,10 @@ enabled_modules: []  # No extra capabilities
 │    ├─ Evaluate replies (should we respond?)                 │
 │    └─ Queue promising replies for next cycle                │
 │                                                              │
-│ 5. LEARN (if safe_learning enabled)                         │
-│    ├─ Extract potential learnings from interaction          │
-│    ├─ Submit to SafeLearningCapability for review           │
-│    └─ Approved learnings added to knowledge base            │
+│ 5. LEARN (if ctx.learning_store available)                   │
+│    ├─ LearningExtractor.extract() from post/comment text   │
+│    ├─ learning_store.propose() → immediate ethos review    │
+│    └─ Approved learnings embedded + persisted in SQLite     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -273,6 +273,10 @@ Relevance scoring:
 score = keyword_matches * 10 + recency_bonus - self_post_penalty
 action = "comment" if score >= threshold else "skip"
 ```
+
+**Hostile content detection:** `evaluate_reply()` checks comments against regex patterns for slurs, threats, and spam. Hostile comments return `EngagementDecision(hostile=True)` and are skipped entirely — no upvote, no reply, no LLM call.
+
+**Upvote behavior:** All non-hostile comments on own posts are automatically upvoted, regardless of whether the agent will reply.
 
 #### ResponseGenerator
 
@@ -428,24 +432,19 @@ therapy_day: 6  # Saturday = 6 (0 = Monday)
 
 **Triggers**: Once per week on configured day
 
-### Safe Learning
+### Learning (Platform Learning System)
 
-LLM-reviewed knowledge acquisition:
-
-```yaml
-enabled_modules:
-  - safe_learning
-
-ethos_text: |
-  Anomal values intellectual honesty and critical thinking.
-  Only accept learnings that align with this ethos.
-```
+Per-identity knowledge acquisition via `ctx.learning_store` (replaces the old `safe_learning` capability):
 
 **How it works**:
-1. Extract potential learning from interaction
-2. Submit to LLM for review against ethos
-3. If approved, add to knowledge base
-4. Future responses include this context
+1. `LearningExtractor.extract()` identifies learning candidates from post/comment text
+2. `learning_store.propose()` immediately reviews against identity ethos via LLM
+3. Approved learnings are embedded (if embed model available) and persisted in SQLite
+4. `learning_store.get_relevant(context)` injects semantically relevant learnings into prompts
+
+The learning store is initialized per-identity by the orchestrator and shared across all plugins. No capability registration needed — access via `self.ctx.learning_store`.
+
+See [`overblick/core/learning/README.md`](../../core/learning/README.md) for full documentation.
 
 ### Emotional State
 

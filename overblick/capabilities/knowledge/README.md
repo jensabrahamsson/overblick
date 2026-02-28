@@ -14,9 +14,13 @@ Wraps the KnowledgeLoader module to load identity-specific `knowledge_*.yaml` fi
 
 **Registry name:** `knowledge_loader`
 
-### LearningCapability
+### LearningCapability ⚠️ DEPRECATED
 
-Wraps the SafeLearningModule to enable LLM-reviewed knowledge acquisition with ethical review gates. Proposed learnings are evaluated against the agent's ethos before being accepted, ensuring new knowledge aligns with the agent's values and identity.
+> **Deprecated.** The `safe_learning` capability and its underlying `SafeLearningModule` are replaced by the **platform learning system** at `overblick/core/learning/`. The new system provides per-identity SQLite persistence, immediate ethos review at propose time, and embedding-based semantic retrieval. See [`overblick/core/learning/README.md`](../../core/learning/README.md) for full documentation.
+>
+> **Migration:** Replace `ctx.capabilities.get("safe_learning")` with `ctx.learning_store` (injected by the orchestrator into every PluginContext). The `safe_learning` capability remains registered for backward compatibility but should not be used in new code.
+
+Wraps the SafeLearningModule to enable LLM-reviewed knowledge acquisition with ethical review gates.
 
 **Registry name:** `safe_learning`
 
@@ -576,6 +580,20 @@ def format_for_prompt(self, max_items: int = 10) -> str:
 ```
 
 This context is prepended to system prompts to ground the agent's responses in their knowledge base.
+
+## Platform Learning System (Replacement)
+
+The `safe_learning` capability is superseded by the **platform learning system** (`overblick/core/learning/`). Key differences:
+
+| Aspect | Old (SafeLearningModule) | New (LearningStore) |
+|--------|--------------------------|---------------------|
+| Scope | Per-plugin (in-memory) | Per-identity (SQLite) |
+| Review | Batch (`review_all_pending`) | Immediate at propose time |
+| Storage | In-memory lists | SQLite with persistence |
+| Retrieval | All approved (no ranking) | Embedding-based similarity |
+| Integration | Via capability registry | Via `PluginContext.learning_store` |
+
+Plugins should use `ctx.learning_store` for all new learning integration. See [`overblick/core/learning/README.md`](../../core/learning/README.md).
 
 ## Related Bundles
 

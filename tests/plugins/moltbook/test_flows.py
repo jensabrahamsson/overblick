@@ -18,8 +18,8 @@ from datetime import datetime, timedelta, timezone
 
 
 def _utcnow() -> datetime:
-    """Return current UTC time as naive datetime (for comparison with plugin state)."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    """Return current UTC time as timezone-aware datetime."""
+    return datetime.now(timezone.utc)
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch

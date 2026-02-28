@@ -234,9 +234,9 @@ class MoltbookPlugin(PluginBase):
         self._comments_this_cycle = 0
         self._processed_dm_convos.clear()
 
-        # Check suspension backoff — skip all activity for 24h after suspension
-        if self._suspended_until and datetime.now(timezone.utc).replace(tzinfo=None) < self._suspended_until:
-            remaining = (self._suspended_until - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds() / 3600
+        # Check suspension backoff — skip all activity until suspension expires
+        if self._suspended_until and datetime.now(timezone.utc) < self._suspended_until:
+            remaining = (self._suspended_until - datetime.now(timezone.utc)).total_seconds() / 3600
             logger.debug("Suspended backoff active (%.1fh remaining), skipping tick", remaining)
             return
 
@@ -316,13 +316,17 @@ class MoltbookPlugin(PluginBase):
         except SuspensionError as e:
             # Use API's expiry timestamp if available, otherwise fallback to 24h
             if e.suspended_until_dt:
-                self._suspended_until = e.suspended_until_dt.replace(tzinfo=None)
+                dt = e.suspended_until_dt
+                # Ensure UTC-aware (assume UTC if API returns naive timestamp)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                self._suspended_until = dt
                 logger.error(
                     "Account SUSPENDED until %s (from API). Reason: %s",
                     e.suspended_until, e.reason,
                 )
             else:
-                self._suspended_until = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=24)
+                self._suspended_until = datetime.now(timezone.utc) + timedelta(hours=24)
                 logger.error(
                     "Account SUSPENDED — no expiry in response, backing off 24h (until %s). Reason: %s",
                     self._suspended_until.isoformat(), e.reason,

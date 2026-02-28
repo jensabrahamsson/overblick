@@ -55,7 +55,10 @@ class GatewayClient(LLMClient):
         self._session: Optional[aiohttp.ClientSession] = None
         self._session_lock = asyncio.Lock()
 
-        logger.info(f"GatewayClient: {base_url}, default_priority={default_priority}, model={model}")
+        logger.info(
+            "GatewayClient: %s, default_priority=%s, model=%s",
+            base_url, default_priority, model,
+        )
 
     async def _ensure_session(self) -> None:
         if self._session is None or self._session.closed:
@@ -126,7 +129,7 @@ class GatewayClient(LLMClient):
                     elapsed, len(reasoning), len(content),
                 )
             else:
-                logger.info(f"Gateway: Response in {elapsed:.1f}s ({len(content)} chars)")
+                logger.info("Gateway: Response in %.1fs (%d chars)", elapsed, len(content))
 
             result = {
                 "content": content,
@@ -139,15 +142,15 @@ class GatewayClient(LLMClient):
             return result
 
         except asyncio.TimeoutError:
-            logger.error(f"Gateway: Timeout ({self.timeout_seconds}s)", exc_info=True)
+            logger.error("Gateway: Timeout (%ds)", self.timeout_seconds, exc_info=True)
             raise LLMTimeoutError(f"Gateway request timeout ({self.timeout_seconds}s)")
         except aiohttp.ClientError as e:
-            logger.error(f"Gateway: Connection error: {e}", exc_info=True)
+            logger.error("Gateway: Connection error: %s", e, exc_info=True)
             raise LLMConnectionError(f"Gateway connection error: {e}") from e
         except (LLMTimeoutError, LLMConnectionError):
             raise
         except Exception as e:
-            logger.error(f"Gateway: Unexpected error: {e}", exc_info=True)
+            logger.error("Gateway: Unexpected error: %s", e, exc_info=True)
             raise LLMConnectionError(f"Gateway unexpected error: {e}") from e
 
     async def health_check(self) -> bool:
@@ -162,11 +165,11 @@ class GatewayClient(LLMClient):
             ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    logger.info(f"Gateway: Health OK — {data}")
+                    logger.info("Gateway: Health OK — %s", data)
                     return True
                 return False
         except Exception as e:
-            logger.warning(f"Gateway: Health check failed: {e}")
+            logger.warning("Gateway: Health check failed: %s", e)
             return False
 
     async def embed(self, text: str, model: str = "nomic-embed-text") -> list[float]:
@@ -175,7 +178,8 @@ class GatewayClient(LLMClient):
             return []
 
         await self._ensure_session()
-        url = f"{self.base_url}/v1/embeddings?text={text}&model={model}"
+        from urllib.parse import urlencode
+        url = f"{self.base_url}/v1/embeddings?{urlencode({'text': text, 'model': model})}"
 
         try:
             async with self._session.post(
@@ -189,6 +193,8 @@ class GatewayClient(LLMClient):
                 data = await response.json()
                 return data.get("embedding", [])
 
+        except asyncio.TimeoutError as e:
+            raise LLMConnectionError(f"Embedding request timed out: {e}") from e
         except aiohttp.ClientError as e:
             raise LLMConnectionError(f"Embedding connection error: {e}") from e
 

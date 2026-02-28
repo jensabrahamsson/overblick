@@ -181,10 +181,12 @@ class SafeLLMPipeline:
         stages.append(PipelineStage.PREFLIGHT)
 
         # Stage 3: Rate limit (per-user composite key)
+        t0 = time.monotonic()
         if self._rate_limiter:
             rate_key = f"{self._rate_limit_key}:{user_id}"
             if not self._rate_limiter.allow(rate_key):
                 wait = self._rate_limiter.retry_after(rate_key)
+                stage_timings["rate_limit"] = (time.monotonic() - t0) * 1000
                 result = PipelineResult(
                     blocked=True,
                     block_reason=f"Rate limited, retry after {wait:.1f}s",
@@ -192,10 +194,12 @@ class SafeLLMPipeline:
                     duration_ms=(time.monotonic() - start) * 1000,
                     stages_passed=stages,
                 )
+                result.stage_timings = stage_timings
                 self._audit_blocked(result, audit_action, audit_details)
                 return result
         else:
             self._warn_missing("rate_limiter")
+        stage_timings["rate_limit"] = (time.monotonic() - t0) * 1000
         stages.append(PipelineStage.RATE_LIMIT)
 
         # Stage 4: LLM call

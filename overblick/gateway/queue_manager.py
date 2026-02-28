@@ -58,7 +58,7 @@ class QueueManager:
             "total_response_time_ms": 0.0,
         }
         self._start_time = time.time()
-        self._is_processing = False
+        self._processing_count = 0
 
         # Recent response times for averaging (last 100)
         self._response_times: deque[float] = deque(maxlen=100)
@@ -183,7 +183,7 @@ class QueueManager:
             return
 
         start_time = time.time()
-        self._is_processing = True
+        self._processing_count += 1
 
         try:
             async with self._semaphore:
@@ -216,7 +216,7 @@ class QueueManager:
                 queued.future.set_exception(e)
 
         finally:
-            self._is_processing = False
+            self._processing_count -= 1
             self._queue.task_done()
 
     def _get_client_for_request(self, queued: QueuedRequest) -> Any:
@@ -250,7 +250,7 @@ class QueueManager:
             requests_high_priority=self._stats["requests_high"],
             requests_low_priority=self._stats["requests_low"],
             avg_response_time_ms=avg_time,
-            is_processing=self._is_processing,
+            is_processing=self._processing_count > 0,
             uptime_seconds=time.time() - self._start_time,
         )
 

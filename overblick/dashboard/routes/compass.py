@@ -85,7 +85,7 @@ def _load_compass_data(request: Request) -> tuple:
         return baselines, alerts, drift_history, drift_threshold, {}
 
     for identity_dir in data_root.iterdir():
-        state_file = identity_dir / "compass_state.json"
+        state_file = identity_dir / "compass" / "compass_state.json"
         if state_file.exists():
             try:
                 data = json.loads(state_file.read_text())

@@ -387,7 +387,7 @@ class TestDreamCapabilityLastDream:
         with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
             from datetime import datetime
             from zoneinfo import ZoneInfo
-            mock_now = datetime(2026, 2, 24, 8, 0, tzinfo=ZoneInfo("Europe/Stockholm"))
+            mock_now = datetime(2026, 2, 24, 6, 30, tzinfo=ZoneInfo("Europe/Stockholm"))
             mock_dt.now.return_value = mock_now
 
             await cap.tick()

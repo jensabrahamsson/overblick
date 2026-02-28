@@ -19,7 +19,7 @@ import os
 import secrets
 import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Optional
 
@@ -96,26 +96,25 @@ class _IPCRateLimiter:
             self._counters[sender] = []
 
         # Prune old entries
-        timestamps = self._counters[sender]
-        self._counters[sender] = [t for t in timestamps if t > cutoff]
+        self._counters[sender] = [t for t in self._counters[sender] if t > cutoff]
 
-        # Remove empty sender entries to prevent memory leak
-        if not self._counters[sender] and sender in self._counters:
-            del self._counters[sender]
-            self._counters[sender] = []
-
-        # Evict oldest senders if over limit
-        if len(self._counters) > self._MAX_TRACKED_SENDERS:
-            oldest = min(
-                self._counters,
-                key=lambda s: self._counters[s][-1] if self._counters[s] else 0,
-            )
-            del self._counters[oldest]
-
-        if len(self._counters.get(sender, [])) >= self._max_per_minute:
+        # Rate check (before modifying the dict further)
+        if len(self._counters[sender]) >= self._max_per_minute:
             return False
 
-        self._counters.setdefault(sender, []).append(now)
+        # Record this request
+        self._counters[sender].append(now)
+
+        # Evict least-recently-active senders if over limit
+        if len(self._counters) > self._MAX_TRACKED_SENDERS:
+            least_recent = min(
+                (s for s in self._counters if s != sender),
+                key=lambda s: max(self._counters[s]) if self._counters[s] else 0,
+                default=None,
+            )
+            if least_recent:
+                del self._counters[least_recent]
+
         return True
 
 
@@ -133,7 +132,7 @@ class IPCMessage(BaseModel):
     msg_type: str
     payload: dict[str, Any] = {}
     sender: str = ""
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     request_id: str = ""
     auth_token: str = ""
 

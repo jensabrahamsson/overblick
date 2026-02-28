@@ -63,7 +63,7 @@ def _load_posts(request: Request) -> list:
         return posts
 
     for identity_dir in data_root.iterdir():
-        state_file = identity_dir / "skuggspel_state.json"
+        state_file = identity_dir / "skuggspel" / "skuggspel_state.json"
         if state_file.exists():
             try:
                 data = json.loads(state_file.read_text())

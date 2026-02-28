@@ -112,12 +112,17 @@ class Supervisor:
 
         self._audit_log.log("supervisor_starting", category="lifecycle")
 
-        # Start IPC server
-        await self._ipc.start()
+        try:
+            # Start IPC server
+            await self._ipc.start()
 
-        # Start all agents
-        for identity in self._identities:
-            await self.start_agent(identity)
+            # Start all agents
+            for identity in self._identities:
+                await self.start_agent(identity)
+        except Exception:
+            logger.error("Supervisor startup failed, cleaning up", exc_info=True)
+            await self.stop()
+            raise
 
         self._state = SupervisorState.RUNNING
         logger.info("Supervisor running: %d agents active", len(self._agents))
@@ -146,8 +151,11 @@ class Supervisor:
                 ident = load_identity(identity)
                 if ident and ident.plugins:
                     agent.plugins = list(ident.plugins)
-            except Exception:
-                pass  # Keep default if identity load fails
+            except Exception as e:
+                logger.warning(
+                    "Could not load identity config for '%s': %s — using default plugins",
+                    identity, e,
+                )
 
         success = await agent.start()
         if success:
@@ -187,16 +195,24 @@ class Supervisor:
         self._state = SupervisorState.STOPPING
         logger.info("Supervisor stopping...")
 
-        # Stop all agents (reverse order)
+        # Stop all agents (reverse order) — isolate per-agent errors
         for identity in reversed(list(self._agents.keys())):
-            await self.stop_agent(identity)
+            try:
+                await self.stop_agent(identity)
+            except Exception as e:
+                logger.error("Error stopping agent '%s': %s", identity, e, exc_info=True)
 
         # Stop IPC server
         await self._ipc.stop()
 
-        # Cancel any remaining monitor tasks
+        # Cancel and await remaining monitor tasks
         for task in self._monitor_tasks.values():
             task.cancel()
+        for task in self._monitor_tasks.values():
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
         self._monitor_tasks.clear()
 
         # Close audit log

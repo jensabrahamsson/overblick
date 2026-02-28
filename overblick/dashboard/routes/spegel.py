@@ -63,7 +63,7 @@ def _load_pairs(request: Request) -> list:
         return pairs
 
     for identity_dir in data_root.iterdir():
-        state_file = identity_dir / "spegel_state.json"
+        state_file = identity_dir / "spegel" / "spegel_state.json"
         if state_file.exists():
             try:
                 data = json.loads(state_file.read_text())

@@ -99,7 +99,9 @@ class Scheduler:
             await self.stop()
 
     async def stop(self) -> None:
-        """Stop all scheduled tasks."""
+        """Stop all scheduled tasks (idempotent — safe to call multiple times)."""
+        if not self._running:
+            return
         self._running = False
         for st in list(self._tasks.values()):
             if st._task and not st._task.done():

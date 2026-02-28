@@ -3,6 +3,9 @@ Structured action audit logging (SQLite).
 
 Every significant action (API call, LLM request, engagement, challenge)
 is logged to an append-only SQLite database per identity.
+
+Thread-safety: all writes go through a dedicated single-thread executor
+so the async event loop is never blocked by SQLite disk I/O.
 """
 
 import asyncio
@@ -10,6 +13,7 @@ import json
 import logging
 import sqlite3
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Optional
 
@@ -42,6 +46,9 @@ class AuditLog:
     Thread-safe (SQLite handles locking). Append-only with automatic
     rotation: entries older than retention_days are trimmed periodically.
 
+    Writes are offloaded to a background thread via ThreadPoolExecutor
+    to avoid blocking the async event loop.
+
     Usage:
         audit = AuditLog(Path("data/anomal/audit.db"), identity="anomal")
         audit.log("api_call", category="moltbook", details={"endpoint": "/posts"})
@@ -61,38 +68,26 @@ class AuditLog:
         self._retention_days = retention_days
         self._cleanup_task: Optional[asyncio.Task] = None
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(db_path), timeout=10)
+        self._conn = sqlite3.connect(str(db_path), timeout=10, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
+        # Single-thread executor for non-blocking writes
+        self._write_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="audit-write",
+        )
 
-    def log(
+    def _log_sync(
         self,
         action: str,
-        category: str = "general",
-        plugin: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
-        success: bool = True,
-        duration_ms: Optional[float] = None,
-        error: Optional[str] = None,
+        category: str,
+        plugin: Optional[str],
+        details_json: Optional[str],
+        success: bool,
+        duration_ms: Optional[float],
+        error: Optional[str],
     ) -> int:
-        """
-        Log an action.
-
-        Args:
-            action: Action name (e.g. "api_call", "llm_request", "challenge_solved")
-            category: Category (e.g. "moltbook", "security", "llm")
-            plugin: Plugin name that performed the action
-            details: JSON-serializable details
-            success: Whether the action succeeded
-            duration_ms: How long the action took
-            error: Error message if failed
-
-        Returns:
-            Row ID of the log entry
-        """
-        details_json = json.dumps(details) if details else None
-
+        """Synchronous log write (runs in executor thread)."""
         cursor = self._conn.execute(
             """
             INSERT INTO audit_log
@@ -112,8 +107,55 @@ class AuditLog:
             ),
         )
         self._conn.commit()
-
         return cursor.lastrowid
+
+    def log(
+        self,
+        action: str,
+        category: str = "general",
+        plugin: Optional[str] = None,
+        details: Optional[dict[str, Any]] = None,
+        success: bool = True,
+        duration_ms: Optional[float] = None,
+        error: Optional[str] = None,
+    ) -> int:
+        """
+        Log an action (fire-and-forget, non-blocking when event loop is running).
+
+        If called from an async context, the write is offloaded to a background
+        thread so the event loop is not blocked by SQLite disk I/O. If called
+        from a sync context (e.g. during setup/teardown), it writes directly.
+
+        Args:
+            action: Action name (e.g. "api_call", "llm_request", "challenge_solved")
+            category: Category (e.g. "moltbook", "security", "llm")
+            plugin: Plugin name that performed the action
+            details: JSON-serializable details
+            success: Whether the action succeeded
+            duration_ms: How long the action took
+            error: Error message if failed
+
+        Returns:
+            Row ID of the log entry (0 if async submission)
+        """
+        details_json = json.dumps(details) if details else None
+
+        # Try to offload to executor if an event loop is running
+        try:
+            loop = asyncio.get_running_loop()
+            loop.run_in_executor(
+                self._write_executor,
+                self._log_sync,
+                action, category, plugin, details_json,
+                success, duration_ms, error,
+            )
+            return 0  # ID not available for async writes
+        except RuntimeError:
+            # No event loop running — write synchronously (setup/teardown)
+            return self._log_sync(
+                action, category, plugin, details_json,
+                success, duration_ms, error,
+            )
 
     def query(
         self,
@@ -260,6 +302,8 @@ class AuditLog:
     def close(self) -> None:
         """Close the database connection and stop background tasks."""
         self.stop_background_cleanup()
+        # Wait for pending writes to complete
+        self._write_executor.shutdown(wait=True)
         if self._conn:
             self._conn.close()
             self._conn = None

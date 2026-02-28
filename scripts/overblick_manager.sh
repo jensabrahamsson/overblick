@@ -27,7 +27,7 @@ VENV="$PROJECT_DIR/venv"
 PID_DIR="$PROJECT_DIR/data"
 LOG_DIR="$PROJECT_DIR/logs"
 
-DEFAULT_IDENTITIES="anomal cherry natt stal"
+DEFAULT_IDENTITIES="anomal cherry natt stal vakt"
 DEFAULT_DASHBOARD_PORT=8080
 
 if [ ! -f "$VENV/bin/python" ]; then
