@@ -232,20 +232,4 @@
         </form>
     </div>
 </div>
-
-<script>
-function toggleSection(sectionId, show) {
-    document.getElementById(sectionId).style.display = show ? 'block' : 'none';
-}
-
-function updateLocalPort(type) {
-    var portInput = document.getElementById('local_port');
-    if (!portInput) return;
-    if (type === 'lmstudio' && portInput.value === '11434') {
-        portInput.value = '1234';
-    } else if (type === 'ollama' && portInput.value === '1234') {
-        portInput.value = '11434';
-    }
-}
-</script>
 {% endblock %}

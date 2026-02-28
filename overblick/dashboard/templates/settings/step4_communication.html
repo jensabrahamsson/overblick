@@ -103,20 +103,4 @@
         </form>
     </div>
 </div>
-
-<script>
-function toggleSection(name, forceState) {
-    var body = document.getElementById(name + '-body');
-    var toggle = document.getElementById(name + '-toggle');
-    if (!body) return;
-    var shouldOpen = forceState !== undefined ? forceState : !body.classList.contains('open');
-    if (shouldOpen) {
-        body.classList.add('open');
-        if (toggle) toggle.checked = true;
-    } else {
-        body.classList.remove('open');
-        if (toggle) toggle.checked = false;
-    }
-}
-</script>
 {% endblock %}

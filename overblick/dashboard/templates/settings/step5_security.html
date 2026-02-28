@@ -68,36 +68,3 @@
 </div>
 
 {% endblock %}
-
-{% block scripts %}
-<script>
-function toggleNetwork(forceState) {
-    var toggle = document.getElementById('network-toggle');
-    var passwordSection = document.getElementById('password-section');
-    var passwordInput = document.getElementById('password');
-    var passwordConfirm = document.getElementById('password_confirm');
-    if (!toggle || !passwordSection) return;
-
-    var isOn = forceState !== undefined ? forceState : toggle.checked;
-    toggle.checked = isOn;
-
-    if (isOn) {
-        passwordSection.style.display = '';
-        if (passwordInput) passwordInput.required = true;
-        if (passwordConfirm) passwordConfirm.required = true;
-    } else {
-        passwordSection.style.display = 'none';
-        if (passwordInput) passwordInput.required = false;
-        if (passwordConfirm) passwordConfirm.required = false;
-    }
-}
-
-// Initialize on load and after htmx swap
-function initSecurityToggle() {
-    var toggle = document.getElementById('network-toggle');
-    if (toggle) toggleNetwork(toggle.checked);
-}
-initSecurityToggle();
-document.body.addEventListener('htmx:afterSettle', initSecurityToggle);
-</script>
-{% endblock %}
