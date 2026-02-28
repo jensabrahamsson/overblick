@@ -1,14 +1,23 @@
 {% if gateway_available %}
 <div class="card">
+    <!-- Gateway status badge -->
+    {% set gw_status = gateway.get('gateway_status', 'unknown') %}
+    <div class="obs-gateway-header">
+        <span class="health-grade {% if gw_status == 'healthy' %}health-grade-good{% elif gw_status == 'degraded' %}health-grade-poor{% else %}health-grade-fair{% endif %}">
+            {{ gw_status | capitalize }}
+        </span>
+    </div>
+
     <!-- Gauges row -->
     <div class="obs-gauge-row">
         <!-- Queue depth gauge -->
         {% set queue = gateway.get('queue_size', 0) %}
-        {% set queue_pct = [queue * 10, 100] | min %}
+        {% set max_queue = gateway.get('max_queue_size', 100) %}
+        {% set queue_pct = [(queue / max_queue * 100) | int, 100] | min if max_queue > 0 else 0 %}
         {% set queue_color = 'var(--green)' if queue < 3 else ('var(--amber)' if queue < 7 else 'var(--red)') %}
         <div class="obs-gauge-item">
             <svg viewBox="0 0 120 120" class="gauge-svg" role="meter"
-                 aria-valuenow="{{ queue }}" aria-valuemin="0" aria-valuemax="10"
+                 aria-valuenow="{{ queue }}" aria-valuemin="0" aria-valuemax="{{ max_queue }}"
                  aria-label="Queue depth {{ queue }}">
                 <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
                 <circle cx="60" cy="60" r="52" fill="none"
@@ -73,7 +82,7 @@
     <div class="obs-backends">
         {% for name, info in gateway.get('backends', {}).items() %}
         {% set bstatus = info.get('status', 'unknown') %}
-        <span class="status-badge {% if bstatus == 'connected' %}status-running{% else %}status-stopped{% endif %}">
+        <span class="status-badge {% if bstatus in ['connected', 'cloud_configured'] %}status-running{% else %}status-stopped{% endif %}">
             {{ name }}{% if info.get('default') %} ★{% endif %}: {{ bstatus }}
         </span>
         {% endfor %}

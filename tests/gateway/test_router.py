@@ -38,10 +38,16 @@ class TestExplicitBackend:
         router = RequestRouter(_make_registry(["local", "deepseek"]))
         assert router.resolve_backend(explicit_backend="deepseek") == "deepseek"
 
-    def test_explicit_backend_not_available_falls_back(self):
-        """If explicit backend doesn't exist, fall back to default."""
+    def test_explicit_backend_not_configured_raises(self):
+        """If explicit backend doesn't exist, raise ValueError."""
         router = RequestRouter(_make_registry(["local"], default="local"))
-        assert router.resolve_backend(explicit_backend="cloud") == "local"
+        with pytest.raises(ValueError, match="Backend 'cloud' not configured"):
+            router.resolve_backend(explicit_backend="cloud")
+
+    def test_explicit_backend_excluded_falls_back(self):
+        """If explicit backend exists but is excluded (unhealthy), fall back."""
+        router = RequestRouter(_make_registry(["local", "cloud"], default="local"))
+        assert router.resolve_backend(explicit_backend="cloud", exclude={"cloud"}) == "local"
 
     def test_explicit_backend_overrides_complexity(self):
         """Explicit backend wins even when complexity is specified."""

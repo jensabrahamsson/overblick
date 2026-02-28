@@ -25,6 +25,33 @@ _GATEWAY_HEALTH_URL = "http://127.0.0.1:8200/health"
 _GATEWAY_STATS_URL = "http://127.0.0.1:8200/stats"
 _GATEWAY_TIMEOUT = 3.0
 
+# Cache for local plugin map (loaded once from config/overblick.yaml)
+_local_plugin_cache: dict[str, list[str]] | None = None
+
+
+def _load_local_plugin_map() -> dict[str, list[str]]:
+    """Load identity→local_plugins mapping from config/overblick.yaml."""
+    global _local_plugin_cache
+    if _local_plugin_cache is not None:
+        return _local_plugin_cache
+
+    from pathlib import Path
+    config_path = Path(__file__).parent.parent.parent.parent / "config" / "overblick.yaml"
+    if not config_path.exists():
+        _local_plugin_cache = {}
+        return _local_plugin_cache
+
+    try:
+        import yaml
+        data = yaml.safe_load(config_path.read_text()) or {}
+        lp = data.get("local_plugins", {})
+        _local_plugin_cache = {k: list(v) for k, v in lp.items()} if lp else {}
+    except Exception as e:
+        logger.debug("Failed to load local_plugins from config: %s", e)
+        _local_plugin_cache = {}
+
+    return _local_plugin_cache
+
 
 async def _fetch_gateway(url: str) -> dict[str, Any] | None:
     """Fetch a Gateway endpoint. Returns None on failure."""
@@ -128,6 +155,7 @@ async def gateway_partial(request: Request):
 
     if health:
         combined.update(health)
+        combined["gateway_status"] = health.get("status", "unknown")
         # Normalize backends
         backends = health.get("backends", {})
         default_name = health.get("default_backend", "")
@@ -146,9 +174,9 @@ async def gateway_partial(request: Request):
 
     if stats:
         combined["requests_processed"] = stats.get("requests_processed", 0)
-        combined["high_priority"] = stats.get("high_priority", 0)
-        combined["low_priority"] = stats.get("low_priority", 0)
-        combined["uptime"] = stats.get("uptime", "")
+        combined["high_priority"] = stats.get("requests_high_priority", 0)
+        combined["low_priority"] = stats.get("requests_low_priority", 0)
+        combined["uptime"] = _format_uptime(stats.get("uptime_seconds", 0))
 
     return templates.TemplateResponse("partials/obs_gateway.html", {
         "request": request,
@@ -168,16 +196,25 @@ async def fleet_partial(request: Request):
     agents = await supervisor_svc.get_agents()
     supervisor_status = await supervisor_svc.get_status()
 
+    # Load local plugins from config to supplement plugin lists
+    local_plugins = _load_local_plugin_map()
+
     fleet_rows = []
     for agent in agents:
         uptime_sec = agent.get("uptime", agent.get("uptime_seconds", 0))
+        name = agent.get("name", "")
+        plugins = list(agent.get("plugins", []))
+        # Merge local plugins that aren't already listed
+        for lp in local_plugins.get(name, []):
+            if lp not in plugins:
+                plugins.append(lp)
         fleet_rows.append({
-            "name": agent.get("name", ""),
+            "name": name,
             "state": agent.get("state", "offline"),
             "pid": agent.get("pid"),
             "uptime": _format_uptime(uptime_sec),
             "restart_count": agent.get("restart_count", 0),
-            "plugins": agent.get("plugins", []),
+            "plugins": plugins,
         })
 
     return templates.TemplateResponse("partials/obs_fleet.html", {

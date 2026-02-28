@@ -163,8 +163,8 @@ class TestExplicitBackendOverride:
         )
         assert result == "local"
 
-    def test_explicit_nonexistent_falls_back(self, multi_config):
+    def test_explicit_nonexistent_raises(self, multi_config):
         registry = BackendRegistry(multi_config)
         router = RequestRouter(registry)
-        result = router.resolve_backend(explicit_backend="openai")
-        assert result == "local"  # Falls back to default
+        with pytest.raises(ValueError, match="Backend 'openai' not configured"):
+            router.resolve_backend(explicit_backend="openai")

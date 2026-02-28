@@ -15,7 +15,7 @@
             <div class="obs-stat-value">{{ routing.get('delivered', 0) }}</div>
         </div>
         <div class="obs-stat-box">
-            <div class="obs-stat-label">Dead Letters</div>
+            <div class="obs-stat-label">Failed Messages</div>
             {% set dead = routing.get('dead_letters', 0) %}
             <div class="obs-stat-value {% if dead > 0 %}text-warning{% endif %}">{{ dead }}</div>
         </div>
@@ -23,7 +23,7 @@
 
     {% if dead > 0 %}
     <div class="flash flash-warning" style="margin-top: var(--space-md);" role="alert">
-        {{ dead }} dead letter{{ 's' if dead != 1 else '' }} detected — messages failed to reach target agents
+        {{ dead }} failed message{{ 's' if dead != 1 else '' }} detected — messages could not reach target agents
     </div>
     {% endif %}
 

@@ -147,6 +147,7 @@ class DeepseekClient:
                 ],
                 "max_tokens": request.max_tokens,
                 "temperature": request.temperature,
+                "top_p": request.top_p,
                 "stream": False,
             }
 

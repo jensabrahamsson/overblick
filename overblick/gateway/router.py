@@ -68,8 +68,15 @@ class RequestRouter:
                     "Router: explicit backend '%s'", explicit_backend
                 )
                 return explicit_backend
+            all_backends = set(self._registry.available_backends)
+            if explicit_backend not in all_backends:
+                raise ValueError(
+                    f"Backend '{explicit_backend}' not configured. "
+                    f"Available: {', '.join(sorted(all_backends))}"
+                )
+            # Backend exists but is excluded (unhealthy) — fall back
             logger.warning(
-                "Router: explicit backend '%s' not available, "
+                "Router: explicit backend '%s' excluded (unhealthy), "
                 "falling back to default",
                 explicit_backend,
             )

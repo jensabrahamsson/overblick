@@ -18,13 +18,14 @@ This document describes every layer of the system.
 8. [LLM Subsystem](#llm-subsystem)
 9. [Supervisor (Boss Agent)](#supervisor-boss-agent)
 10. [Database Layer](#database-layer)
-11. [Event Bus](#event-bus)
-12. [Scheduler](#scheduler)
-13. [Permission System](#permission-system)
-14. [Quiet Hours](#quiet-hours)
-15. [Data Isolation](#data-isolation)
-16. [Configuration](#configuration)
-17. [Testing](#testing)
+11. [Learning System](#learning-system)
+12. [Event Bus](#event-bus)
+13. [Scheduler](#scheduler)
+14. [Permission System](#permission-system)
+15. [Quiet Hours](#quiet-hours)
+16. [Data Isolation](#data-isolation)
+17. [Configuration](#configuration)
+18. [Testing](#testing)
 
 ---
 
@@ -435,7 +436,7 @@ CAPABILITY_REGISTRY = {
 
 CAPABILITY_BUNDLES = {
     "psychology":    ["dream_system", "therapy_system", "emotional_state"],  # DEPRECATED
-    "knowledge":     ["safe_learning", "knowledge_loader"],
+    "knowledge":     ["safe_learning", "knowledge_loader"],  # safe_learning DEPRECATED → use ctx.learning_store
     "social":        ["openings"],
     "engagement":    ["analyzer", "composer"],
     "conversation":  ["conversation_tracker"],
@@ -455,7 +456,9 @@ When an identity configures `capabilities: [psychology, engagement]`, the regist
 
 **Why**: Capabilities are WHAT the system CAN DO (send emails, load knowledge, analyze images). Psychology is HOW a character THINKS (Jungian archetypes, attachment patterns). The distinction matters architecturally. Jungian dream interpretation is Anomal's CHARACTER, not a SYSTEM FEATURE.
 
-**Active Capabilities**: knowledge, social, engagement, conversation, content, speech, vision, communication (email)
+**DEPRECATED BUNDLE**: The `knowledge` bundle's `safe_learning` capability is superseded by the **platform learning system** (`overblick/core/learning/`). The new system provides per-identity SQLite persistence, immediate ethos review, and embedding-based semantic retrieval via `ctx.learning_store`. The `knowledge_loader` capability remains active.
+
+**Active Capabilities**: knowledge_loader, social, engagement, conversation, content, speech, vision, communication (email)
 
 ### How Plugins Use Capabilities
 
@@ -660,28 +663,6 @@ Local LLM via Ollama HTTP API. Default model: `qwen3:8b`.
 
 For remote LLM services. Implements the same `LLMClient` interface for when multiple agents share a centralized LLM gateway (avoiding GPU contention).
 
-### Cloud LLM Client (Stub)
-
-**File:** `overblick/core/llm/cloud_client.py`
-
-Stub implementation for cloud LLM providers (OpenAI, Anthropic, etc.). Currently raises `NotImplementedError` on all methods — designed for future implementation. The orchestrator routes to this client when `llm.provider: "cloud"` is configured.
-
-**Provider routing in Orchestrator:**
-
-```python
-match llm_cfg.provider:
-    case "ollama":
-        llm_client = OllamaClient(...)
-    case "gateway":
-        llm_client = GatewayClient(...)
-    case "cloud":
-        llm_client = CloudLLMClient(...)  # Stub — not yet functional
-    case _:
-        raise ValueError(f"Unknown LLM provider: {llm_cfg.provider}")
-```
-
-Backward compatibility: Old configs with `use_gateway: true` are automatically migrated to `provider: "gateway"` at load time.
-
 ### Gateway Multi-Backend Architecture
 
 **Files:** `overblick/gateway/`
@@ -713,13 +694,13 @@ await registry.close_all()
 
 Intelligent routing with strict precedence:
 
-1. **Explicit override** — `?backend=deepseek` always wins
-2. **Complexity=high** — cloud > deepseek > local (offload heavy work)
-3. **Complexity=low** — prefer local (save cloud costs)
-4. **Priority=high + cloud available** — route to cloud (backward compat)
-5. **Default** — `registry.default_backend`
-
-The router never fails — it always falls back to the default backend.
+1. **Explicit override** — `?backend=deepseek` always wins (returns 400 if backend doesn't exist)
+2. **Complexity=einstein** — deepseek only (uses `deepseek-reasoner`, no fallback)
+3. **Complexity=ultra** — deepseek > cloud > local (precision tasks)
+4. **Complexity=high** — cloud > deepseek > local (offload heavy work)
+5. **Complexity=low** — prefer local (save cloud costs)
+6. **Priority=high + cloud available** — route to cloud (backward compat)
+7. **Default** — `registry.default_backend`
 
 ```python
 router = RequestRouter(registry)
@@ -735,6 +716,8 @@ Async client for the Deepseek chat completions API (OpenAI-compatible). Uses `ht
 
 - Health check via `/models` endpoint
 - Chat completions via `/chat/completions`
+- Supports both `deepseek-chat` and `deepseek-reasoner` models
+- `deepseek-reasoner` returns `reasoning_content` (thinking process) alongside `content`
 - Custom error hierarchy: `DeepseekError`, `DeepseekConnectionError`, `DeepseekTimeoutError`
 
 #### Gateway Configuration
@@ -891,6 +874,34 @@ SQLite database for social engagement tracking (per-identity isolated). Tables:
 - `processed_replies` — Deduplication for reply processing
 - `my_posts` / `my_comments` — Track own content
 - `reply_action_queue` — Retry queue with expiration
+
+---
+
+## Learning System
+
+**Files:** `overblick/core/learning/`
+
+Per-identity knowledge acquisition with ethos-gated validation and embedding-based semantic retrieval. This is a **core platform service** — the orchestrator initializes one `LearningStore` per identity and injects it into every plugin via `PluginContext.learning_store`.
+
+**Data flow:**
+```
+Text (post, comment, reflection)
+    → LearningExtractor.extract()       # Pattern-based candidate extraction
+    → LearningStore.propose()
+        → EthosReviewer.review()        # LLM validates against identity ethos
+        → embed_fn(content)             # Compute embedding (if available)
+        → SQLite INSERT                 # Persist with status + embedding
+    → LearningStore.get_relevant(ctx)   # Cosine similarity search
+        → Injected into LLM prompt      # Decorates personality with learned knowledge
+```
+
+**Key design decisions:**
+- **Per identity, not per plugin** — all plugins for an identity share ONE learning store
+- **Immediate review** — ethos validation at propose time, not batched
+- **Graceful degradation** — works without embeddings (recency fallback), without LLM (stays as CANDIDATE)
+- **Replaces** the old `safe_learning` capability (in-memory, per-plugin, batch review)
+
+See [`overblick/core/learning/README.md`](overblick/core/learning/README.md) for full API documentation.
 
 ---
 
@@ -1245,6 +1256,12 @@ overblick/
       audit_log.py               # Append-only SQLite audit
       secrets_manager.py         # Fernet encryption + keyring
       rate_limiter.py            # Token bucket with LRU
+    learning/                    # Platform learning system
+      store.py                   # LearningStore — SQLite + embeddings
+      reviewer.py                # EthosReviewer — LLM validation
+      extractor.py               # LearningExtractor — candidate extraction
+      models.py                  # Learning, LearningStatus
+      migrations.py              # SQLite schema
   gateway/
     app.py                       # FastAPI gateway application
     config.py                    # Pydantic config with env overrides
@@ -1281,7 +1298,7 @@ overblick/
       analyzer.py                # DecisionEngine wrapper
       composer.py                # Response composition
     knowledge/
-      learning.py                # Safe learning from interactions
+      learning.py                # Safe learning (DEPRECATED → core/learning/)
       loader.py                  # Knowledge base loading
     monitoring/                  # Host system inspection
     psychology/

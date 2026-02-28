@@ -7,9 +7,15 @@
             <span class="status-badge status-badge-sm status-running">{{ entry.get('identity', '—') }}</span>
             <span class="obs-error-action">{{ entry.get('action', '—') }}</span>
         </div>
-        <div class="obs-error-message text-danger">
-            {{ (entry.get('error', '') or 'No error message')[:200] }}
-        </div>
+        {% set errmsg = entry.get('error', '') or 'No error message' %}
+        {% if errmsg | length > 200 %}
+        <details class="obs-error-message text-danger">
+            <summary>{{ errmsg[:200] }}...</summary>
+            <div class="obs-error-full">{{ errmsg }}</div>
+        </details>
+        {% else %}
+        <div class="obs-error-message text-danger">{{ errmsg }}</div>
+        {% endif %}
     </div>
     {% endfor %}
 </div>

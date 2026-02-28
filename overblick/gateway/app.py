@@ -21,10 +21,10 @@ from fastapi.security import APIKeyHeader
 
 from .backend_registry import BackendRegistry
 from .config import get_config
-from .deepseek_client import DeepseekError, DeepseekConnectionError
+from .deepseek_client import DeepseekError, DeepseekConnectionError, DeepseekTimeoutError
 from .models import ChatRequest, ChatResponse, Priority, GatewayStats
 from .queue_manager import QueueManager
-from .ollama_client import OllamaError, OllamaConnectionError
+from .ollama_client import OllamaError, OllamaConnectionError, OllamaTimeoutError
 from .router import RequestRouter
 
 logging.basicConfig(
@@ -190,12 +190,14 @@ async def health_check() -> dict:
             "default": name == registry.default_backend,
         }
 
+    config = get_config()
     return {
         "status": status,
         "gateway": "running" if qm.is_running else "stopped",
         "backends": backends_out,
         "default_backend": registry.default_backend,
         "queue_size": queue_size,
+        "max_queue_size": config.max_queue_size,
         "gpu_starvation_risk": starvation_risk,
         "avg_response_time_ms": stats.avg_response_time_ms,
         "active_requests": 1 if stats.is_processing else 0,
@@ -237,7 +239,8 @@ async def list_models(
         models = await client.list_models()
         return {"backend": backend or registry.default_backend, "models": models}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("Invalid backend in list_models: %s", e)
+        raise HTTPException(status_code=400, detail="Invalid backend name.")
     except OllamaConnectionError as e:
         logger.error("Backend connection error in list_models: %s", e, exc_info=True)
         raise HTTPException(
@@ -313,27 +316,35 @@ async def chat_completion(
     )
 
     try:
-        response = await qm.submit(request, prio, backend=resolved_backend)
-        return response
+        # Inner try: catch connection errors for fallback retry
+        try:
+            response = await qm.submit(request, prio, backend=resolved_backend)
+            return response
 
-    except (DeepseekConnectionError, DeepseekError) as e:
-        # Backend-specific failure — retry with fallback backend if router
-        # can find an alternative (exclude the failed backend).
-        if resolved_backend and _router:
-            fallback = _router.resolve_backend(
-                priority=priority.lower() if priority else "low",
-                complexity=complexity,
-                exclude={resolved_backend},
-            )
-            if fallback != resolved_backend:
-                logger.warning(
-                    "Backend '%s' failed (%s), retrying with '%s'",
-                    resolved_backend, type(e).__name__, fallback,
+        except (OllamaConnectionError, DeepseekConnectionError) as e:
+            # Backend-specific connection failure — retry with fallback backend
+            # if router can find an alternative (exclude the failed backend).
+            if resolved_backend and _router:
+                fallback = _router.resolve_backend(
+                    priority=priority.lower() if priority else "low",
+                    complexity=complexity,
+                    exclude={resolved_backend},
                 )
-                fb_backend = None if fallback == _backend_registry.default_backend else fallback
-                response = await qm.submit(request, prio, backend=fb_backend)
-                return response
-        raise  # No fallback available — propagate original error
+                if fallback != resolved_backend:
+                    logger.warning(
+                        "Backend '%s' failed (%s), retrying with '%s'",
+                        resolved_backend, type(e).__name__, fallback,
+                    )
+                    try:
+                        fb_backend = None if fallback == _backend_registry.default_backend else fallback
+                        response = await qm.submit(request, prio, backend=fb_backend)
+                        return response
+                    except Exception as retry_err:
+                        logger.warning(
+                            "Fallback backend '%s' also failed: %s",
+                            fallback, retry_err,
+                        )
+            raise  # No fallback available — propagate to outer handler
 
     except asyncio.QueueFull:
         logger.warning("Queue full, request rejected")
@@ -356,6 +367,13 @@ async def chat_completion(
             detail="Cannot connect to LLM backend. Check gateway logs for details.",
         )
 
+    except (OllamaTimeoutError, DeepseekTimeoutError) as e:
+        logger.error("Backend timed out: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=504,
+            detail="LLM backend timed out. Try again later.",
+        )
+
     except (OllamaError, DeepseekError) as e:
         logger.error("LLM error: %s", e, exc_info=True)
         raise HTTPException(
@@ -364,6 +382,7 @@ async def chat_completion(
         )
 
     except ValueError as e:
+        logger.warning("Invalid request in chat: %s", e)
         raise HTTPException(status_code=400, detail=str(e))
 
 

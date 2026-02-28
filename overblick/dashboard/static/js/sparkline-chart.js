@@ -90,4 +90,11 @@ function initSparklines(root) {
 }
 
 document.addEventListener('DOMContentLoaded', () => initSparklines());
-document.addEventListener('htmx:afterSettle', (event) => initSparklines(event.detail.elt));
+document.addEventListener('htmx:afterSettle', (event) => {
+    // Reset rendered flags on swapped canvases so fresh data gets rendered
+    const root = event.detail.elt || document;
+    root.querySelectorAll('canvas[data-sparkline]').forEach(c => {
+        c._sparklineRendered = false;
+    });
+    initSparklines(root);
+});

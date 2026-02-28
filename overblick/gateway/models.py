@@ -7,6 +7,7 @@ for the priority-based request queuing system.
 
 from asyncio import Future
 from dataclasses import dataclass, field
+import time as _time
 from datetime import datetime
 from enum import Enum, IntEnum
 from typing import Optional
@@ -50,6 +51,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(..., description="Conversation messages")
     max_tokens: int = Field(default=2000, ge=1, le=8192, description="Max tokens to generate")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
+    top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Nucleus sampling threshold")
 
     model_config = {"json_schema_extra": {
         "example": {
@@ -82,7 +84,7 @@ class ChatResponse(BaseModel):
     """OpenAI-compatible chat completion response."""
     id: str = Field(default_factory=lambda: f"chatcmpl-{uuid4().hex[:12]}")
     object: str = Field(default="chat.completion")
-    created: int = Field(default_factory=lambda: int(datetime.now().timestamp()))
+    created: int = Field(default_factory=lambda: int(_time.time()))
     model: str
     choices: list[ChatResponseChoice]
     usage: ChatResponseUsage = Field(default_factory=ChatResponseUsage)

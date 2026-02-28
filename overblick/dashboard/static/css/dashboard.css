@@ -2308,6 +2308,11 @@ button:focus-visible,
     gap: var(--space-lg);
     margin-bottom: var(--space-lg);
 }
+.obs-gateway-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 var(--space-sm) 0 0;
+}
 .obs-gauge-row {
     display: flex;
     gap: var(--space-lg);
@@ -2420,6 +2425,21 @@ button:focus-visible,
     font-size: 0.85rem;
     line-height: 1.4;
     word-break: break-word;
+}
+details.obs-error-message summary {
+    cursor: pointer;
+    list-style: none;
+}
+details.obs-error-message summary::marker { display: none; }
+details.obs-error-message summary::-webkit-details-marker { display: none; }
+details.obs-error-message[open] .obs-error-full {
+    margin-top: var(--space-xs);
+    padding: var(--space-sm);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    white-space: pre-wrap;
 }
 .status-badge-sm {
     font-size: 0.65rem;

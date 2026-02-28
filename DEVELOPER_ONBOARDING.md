@@ -172,6 +172,12 @@ overblick/
 │   │   ├── rate_limiter.py      # Token bucket rate limiting
 │   │   ├── audit_log.py         # Immutable audit trail
 │   │   └── secrets_manager.py   # Fernet-encrypted secrets
+│   ├── learning/            # Platform learning system (per-identity)
+│   │   ├── store.py         # LearningStore — SQLite + embedding retrieval
+│   │   ├── reviewer.py      # EthosReviewer — LLM-based validation
+│   │   ├── extractor.py     # LearningExtractor — candidate extraction
+│   │   ├── models.py        # Learning, LearningStatus
+│   │   └── migrations.py    # SQLite schema
 │   └── database/            # Abstract DB with SQLite + PostgreSQL
 ├── identities/              # The identity stable (YAML-driven)
 │   ├── __init__.py          # Identity class, load_identity(), build_system_prompt()
@@ -198,7 +204,7 @@ overblick/
 ├── capabilities/            # Reusable behavioral building blocks
 │   ├── __init__.py          # CAPABILITY_REGISTRY + CAPABILITY_BUNDLES
 │   ├── psychology/          # dream, therapy, emotional state
-│   ├── knowledge/           # learning, knowledge loading
+│   ├── knowledge/           # knowledge loading (learning moved to core/learning/)
 │   ├── social/              # opening phrases
 │   ├── engagement/          # analysis, composition
 │   ├── conversation/        # multi-turn tracking
@@ -447,7 +453,7 @@ Or use the **Claude Code skill**: say `create capability` and the `overblick-cap
 | Bundle | Capabilities | Purpose |
 |--------|-------------|---------|
 | `psychology` | dream_system, therapy_system, emotional_state | Agent psychology — dreams, self-reflection, mood |
-| `knowledge` | safe_learning, knowledge_loader | Knowledge acquisition and loading |
+| `knowledge` | ~~safe_learning~~ *(deprecated)*, knowledge_loader | Knowledge loading (learning moved to `core/learning/`) |
 | `social` | openings | Opening phrase selection |
 | `engagement` | analyzer, composer | Content analysis and response composition |
 | `conversation` | conversation_tracker | Multi-turn conversation tracking |
@@ -786,8 +792,7 @@ The LLM Gateway is a **multi-backend HTTP routing server** that sits between age
 
 When you run 7+ personalities simultaneously, they all want GPU time. Without coordination, one chatty agent can starve the others. The Gateway provides:
 
-- **Priority queue**: High-priority requests (interactive chat, captcha solving) go before low-priority ones (background analysis)
-- **Fair scheduling**: Round-robin between identities to prevent starvation
+- **Priority queue**: High-priority requests (interactive chat, captcha solving) go before low-priority ones (background analysis). Uses priority + FIFO ordering (not round-robin).
 - **Intelligent routing**: RequestRouter selects the best backend per request based on complexity, priority, and availability
 - **Multi-backend support**: Run local Ollama, Deepseek cloud, and LM Studio simultaneously
 - **Health monitoring**: Per-backend health checks and automatic fallback
@@ -802,10 +807,12 @@ When you run 7+ personalities simultaneously, they all want GPU time. Without co
             ┌──────────────┐
             │ RequestRouter │  Routing precedence:
             │               │  1. explicit ?backend= override
-            │               │  2. complexity=high → cloud > deepseek > local
-            │               │  3. complexity=low → local
-            │               │  4. priority=high + cloud → cloud
-            │               │  5. default backend
+            │               │  2. complexity=einstein → deepseek only
+            │               │  3. complexity=ultra → deepseek > cloud > local
+            │               │  4. complexity=high → cloud > deepseek > local
+            │               │  5. complexity=low → local
+            │               │  6. priority=high + cloud → cloud
+            │               │  7. default backend
             └──────┬───────┘
                    │
             ┌──────▼───────┐
@@ -819,6 +826,8 @@ When you run 7+ personalities simultaneously, they all want GPU time. Without co
          ▼         ▼         ▼
       [Ollama]  [Deepseek] [LM Studio]
 ```
+
+> See `overblick/gateway/README.md` for complete routing documentation, Einstein mode, security, and client integration examples.
 
 ### Running
 
