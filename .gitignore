@@ -52,6 +52,9 @@ scripts/test_*
 # IPC sockets
 /tmp/overblick/
 
+# Claude Code agent team (private dev team definitions)
+.claude/agents/
+
 # Local (untracked) plugins — confidential
 overblick/plugins/_local/
 
