@@ -4,7 +4,9 @@ import asyncio
 import sys
 from pathlib import Path
 
-sys.path.insert(0, '/Users/jens/kod/blick')
+import pytest
+
+pytestmark = pytest.mark.llm
 
 from overblick.core.event_bus import EventBus
 from overblick.core.plugin_base import PluginContext
@@ -25,7 +27,7 @@ async def test_full_digest():
     print("⚠️  Using reasoning=ON for deep thinking\n")
     
     # Load Anomal personality YAML directly to get raw_config
-    personality_file = Path("/Users/jens/kod/blick/overblick/identities/anomal/personality.yaml")
+    personality_file = Path(__file__).resolve().parents[2] / "overblick/identities/anomal/personality.yaml"
     with open(personality_file) as f:
         personality_data = yaml.safe_load(f)
     
