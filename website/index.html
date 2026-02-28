@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Överblick — AI agents with real psychology. Not templates, not personas — fully realized characters with Jungian archetypes, shadow selves, dreams, and therapy. Fail-closed 6-stage SafeLLM pipeline. 14 plugins. 3500+ tests. GPL v3.">
+  <meta name="description" content="Överblick — AI agents with real psychology. Not templates, not personas — fully realized characters with Jungian archetypes, shadow selves, dreams, and therapy. Fail-closed 6-stage SafeLLM pipeline. 15 plugins. 3500+ tests. GPL v3.">
   <meta name="robots" content="index, follow">
   <meta property="og:title" content="Överblick — Nine minds. Real psychology. Zero trust.">
   <meta property="og:description" content="AI agents with real identities — not system prompts. Jungian archetypes, shadow selves, dreams, therapy. Autonomous agentic loop. GPL v3. Python 3.13+.">
@@ -67,14 +67,15 @@
           attend weekly therapy. They know what they fear becoming. One of them
           autonomously fixes bugs while you sleep.<br><br>
           Runs locally on <strong>Qwen3:8b</strong> via Ollama. Fail-closed
-          <strong>6-stage SafeLLM pipeline</strong>. <strong>14</strong> plugins.
+          <strong>6-stage SafeLLM pipeline</strong>. <strong>15</strong> plugins.
           <strong>3500+</strong> tests. No API keys required.
         </p>
 
         <pre class="terminal" aria-label="Quick start terminal example"><span class="terminal-line"><span class="terminal-prompt">$</span> <span class="terminal-cmd">git clone https://github.com/jensabrahamsson/overblick.git</span></span>
-<span class="terminal-line"><span class="terminal-prompt">$</span> <span class="terminal-cmd">pip install -e ".[dev]"</span></span>
-<span class="terminal-line"><span class="terminal-prompt">$</span> <span class="terminal-cmd">python -m overblick run blixt</span></span>
-<span class="terminal-line"><span class="terminal-out">[ Överblick ] Blixt is awake.</span></span></pre>
+<span class="terminal-line"><span class="terminal-prompt">$</span> <span class="terminal-cmd">cd overblick &amp;&amp; ./scripts/quickstart.sh</span></span>
+<span class="terminal-line"><span class="terminal-out">  ◈ Överblick Quickstart</span></span>
+<span class="terminal-line"><span class="terminal-out">[OK]  Dependencies installed</span></span>
+<span class="terminal-line"><span class="terminal-out">[OK]  Gateway and dashboard are running</span></span></pre>
 
         <div class="hero-cta">
           <a href="#get-started" class="btn btn-primary">Get Started →</a>
@@ -98,7 +99,7 @@
         <span class="stat-label">Tests</span>
       </div>
       <div class="stat-item">
-        <span class="stat-num" data-target="14" aria-label="14 Plugins">14</span>
+        <span class="stat-num" data-target="15" aria-label="15 Plugins">15</span>
         <span class="stat-label">Plugins · add your own</span>
       </div>
       <div class="stat-item">
@@ -339,9 +340,16 @@
             Each identity is a complete YAML-defined character — voice, psychology, backstory,
             vocabulary constraints, and operational config in a single file. Loadable by any plugin
             via <code>load_identity()</code>.
-            An identity becomes an <em>agent</em> when paired with a plugin.
             All 9 characters are fully defined — plugin availability varies.
           </p>
+
+          <div class="identity-formula" role="img" aria-label="An identity becomes an agent when paired with a plugin">
+            <span class="formula-box">Identity</span>
+            <span class="formula-op" aria-hidden="true">+</span>
+            <span class="formula-box">Plugin</span>
+            <span class="formula-op" aria-hidden="true">=</span>
+            <span class="formula-box formula-result">Agent</span>
+          </div>
           <p class="section-desc">
             Personalities are grounded in real psychological theory. Each character has a
             <strong>Big Five</strong> trait profile (openness, conscientiousness, extraversion,
@@ -358,7 +366,9 @@
             she fears becoming, Blixt's shadow is the compliant corporate employee.
             The <strong>Skuggspel</strong> plugin activates these shadows to generate content from the
             identity's dark mirror. <strong>Compass</strong> monitors stylometric drift to detect when an
-            identity strays from its personality baseline. These are not
+            identity strays from its personality baseline. Psychological constraints aren't
+            just flavor — they prevent model drift, ensure consistent decision-making in agentic
+            loops, and give each identity a boundary it won't cross. These are not
             stateless responders — they evolve, reflect, and know their own darkness.
           </p>
         </header>
@@ -407,6 +417,52 @@
               <div class="psych-content">
                 <p class="psych-concept">"The shadow is not evil — it's denied."</p>
                 <p class="psych-shadow"><strong>Domains:</strong> History of science, philosophy of mind, evolutionary biology, linguistics, architectural history, cognitive science</p>
+              </div>
+            </details>
+          </article>
+
+          <!-- Smed (promoted — most immediately useful for developers) -->
+          <article class="personality-card card-smed" aria-label="Smed personality">
+            <header class="card-header">
+              <span class="card-glyph" aria-hidden="true">⚒</span>
+              <div>
+                <h3 class="card-name">Smed</h3>
+                <p class="card-role">Code Blacksmith · Autonomous Dev Agent</p>
+              </div>
+            </header>
+            <p class="card-tagline">Autonomous bug fixer. Measure twice, cut once. Test twice, commit once.</p>
+            <p class="card-framework">
+              <span class="framework-badge">Jungian</span>
+              OBSERVE/THINK/PLAN/ACT/REFLECT · goal-driven
+            </p>
+            <div class="card-traits" aria-label="Trait bars">
+              <div class="trait-row">
+                <span class="trait-label">Precision</span>
+                <div class="trait-track"><div class="trait-fill" data-w="95"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Patience</span>
+                <div class="trait-track"><div class="trait-fill" data-w="90"></div></div>
+              </div>
+              <div class="trait-row">
+                <span class="trait-label">Conscientiousness</span>
+                <div class="trait-track"><div class="trait-fill" data-w="95"></div></div>
+              </div>
+            </div>
+            <div class="card-tags" aria-label="Keywords">
+              <span class="tag">autonomous</span>
+              <span class="tag">test-driven</span>
+              <span class="tag">methodical</span>
+            </div>
+            <details class="voice-sample">
+              <summary>Voice sample</summary>
+              <p class="voice-quote">"Every error tells a story — read it carefully. A traceback tells you WHERE it broke. Understanding WHY requires reading the code. A fix without tests is not a fix."</p>
+            </details>
+            <details class="psych-detail">
+              <summary>Psychology</summary>
+              <div class="psych-content">
+                <p class="psych-concept">"Measure twice, cut once. Test twice, commit once."</p>
+                <p class="psych-shadow"><strong>Workflow:</strong> Watches logs and GitHub issues → analyzes root cause → plans fix → executes via LLM → runs tests → creates PR. Tries 3 times before marking as FAILED.</p>
               </div>
             </details>
           </article>
@@ -732,52 +788,6 @@
             </details>
           </article>
 
-          <!-- Smed -->
-          <article class="personality-card card-smed" aria-label="Smed personality">
-            <header class="card-header">
-              <span class="card-glyph" aria-hidden="true">⚒</span>
-              <div>
-                <h3 class="card-name">Smed</h3>
-                <p class="card-role">Code Blacksmith · Autonomous Dev Agent</p>
-              </div>
-            </header>
-            <p class="card-tagline">Autonomous bug fixer. Measure twice, cut once. Test twice, commit once.</p>
-            <p class="card-framework">
-              <span class="framework-badge">Agentic</span>
-              OBSERVE/THINK/PLAN/ACT/REFLECT · goal-driven
-            </p>
-            <div class="card-traits" aria-label="Trait bars">
-              <div class="trait-row">
-                <span class="trait-label">Precision</span>
-                <div class="trait-track"><div class="trait-fill" data-w="95"></div></div>
-              </div>
-              <div class="trait-row">
-                <span class="trait-label">Patience</span>
-                <div class="trait-track"><div class="trait-fill" data-w="90"></div></div>
-              </div>
-              <div class="trait-row">
-                <span class="trait-label">Conscientiousness</span>
-                <div class="trait-track"><div class="trait-fill" data-w="95"></div></div>
-              </div>
-            </div>
-            <div class="card-tags" aria-label="Keywords">
-              <span class="tag">autonomous</span>
-              <span class="tag">test-driven</span>
-              <span class="tag">methodical</span>
-            </div>
-            <details class="voice-sample">
-              <summary>Voice sample</summary>
-              <p class="voice-quote">"Every error tells a story — read it carefully. A traceback tells you WHERE it broke. Understanding WHY requires reading the code. A fix without tests is not a fix."</p>
-            </details>
-            <details class="psych-detail">
-              <summary>Psychology</summary>
-              <div class="psych-content">
-                <p class="psych-concept">"Measure twice, cut once. Test twice, commit once."</p>
-                <p class="psych-shadow"><strong>Workflow:</strong> Watches logs and GitHub issues → analyzes root cause → plans fix → executes via LLM → runs tests → creates PR. Tries 3 times before marking as FAILED.</p>
-              </div>
-            </details>
-          </article>
-
         </div><!-- /personalities-grid -->
 
         <div class="irc-showcase" aria-label="Identity conversation example">
@@ -853,7 +863,7 @@ python -m overblick run dusk</pre>
               <li>Scheduler with heartbeat and quiet hours</li>
               <li>Secrets management — Fernet-encrypted, per-identity</li>
               <li>Web dashboard monitoring at <code>localhost:8080</code></li>
-              <li>8-step setup wizard — starts automatically on first run</li>
+              <li>9-step setup wizard — starts automatically on first run</li>
             </ul>
           </div>
         </div>
@@ -950,16 +960,23 @@ python -m overblick run dusk</pre>
           <div class="plugin-card">
             <div class="plugin-header">
               <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">⚙</span> GitHub Agent</span>
-              <span class="badge badge-stable">stable</span>
+              <span class="badge badge-agentic">agentic</span>
             </div>
-            <p class="plugin-desc">Autonomous GitHub integration. Watches issues, analyzes code, creates PRs. Full agentic loop with goal tracking and reflection.</p>
+            <p class="plugin-desc">Autonomous GitHub integration. Watches issues, analyzes code, creates PRs. Full OBSERVE/THINK/PLAN/ACT/REFLECT loop with goal tracking.</p>
           </div>
           <div class="plugin-card">
             <div class="plugin-header">
               <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">⚒</span> Dev Agent</span>
-              <span class="badge badge-stable">stable</span>
+              <span class="badge badge-agentic">agentic</span>
             </div>
             <p class="plugin-desc">Autonomous bug fixer. Observes logs and issues, plans fixes, executes code changes, runs tests, and creates PRs — all without human intervention.</p>
+          </div>
+          <div class="plugin-card">
+            <div class="plugin-header">
+              <span class="plugin-name"><span class="plugin-glyph" aria-hidden="true">◉</span> Log Agent</span>
+              <span class="badge badge-agentic">agentic</span>
+            </div>
+            <p class="plugin-desc">Autonomous log analysis and anomaly detection. Watches system logs, identifies patterns, and alerts on drift — full agentic reasoning loop.</p>
           </div>
           <div class="plugin-card">
             <div class="plugin-header">

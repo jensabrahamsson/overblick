@@ -367,6 +367,61 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   line-height: 1.7;
 }
 
+/* ── Identity Formula ── */
+.identity-formula {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.05rem;
+  opacity: 0;
+}
+.identity-formula.revealed { opacity: 1; }
+.identity-formula .formula-box,
+.identity-formula .formula-op {
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  animation: formulaPop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-play-state: paused;
+}
+.identity-formula.revealed .formula-box,
+.identity-formula.revealed .formula-op {
+  animation-play-state: running;
+}
+.identity-formula > :nth-child(1) { animation-delay: 0.08s; }
+.identity-formula > :nth-child(2) { animation-delay: 0.18s; }
+.identity-formula > :nth-child(3) { animation-delay: 0.28s; }
+.identity-formula > :nth-child(4) { animation-delay: 0.38s; }
+.identity-formula > :nth-child(5) { animation-delay: 0.48s; }
+
+@keyframes formulaPop {
+  from { opacity: 0; transform: translateY(8px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.formula-box {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card, #161b22);
+  color: var(--text-primary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.formula-result {
+  border-color: var(--green, #3fb950);
+  color: var(--green, #3fb950);
+  font-weight: 700;
+}
+
+.formula-op {
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  font-weight: 300;
+}
+
 /* ── Personality Cards ── */
 .personalities-grid {
   display: grid;
@@ -481,11 +536,10 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 .trait-fill {
   height: 100%;
+  width: 0%;
   background: var(--card-accent);
   border-radius: 2px;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   opacity: 0.85;
 }
 
@@ -527,6 +581,10 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-right: 0.4rem;
+}
+.framework-badge--agentic {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--green);
 }
 
 /* Voice sample */
@@ -783,6 +841,11 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   letter-spacing: 0.04em;
 }
 .badge-stable {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+}
+.badge-agentic {
   background: rgba(63, 185, 80, 0.15);
   color: var(--green);
   border: 1px solid rgba(63, 185, 80, 0.3);
@@ -1111,6 +1174,11 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .plugin-card:nth-child(11) { animation-delay: 0.22s; }
 .plugin-card:nth-child(12) { animation-delay: 0.24s; }
 .plugin-card:nth-child(13) { animation-delay: 0.26s; }
+.plugin-card:nth-child(14) { animation-delay: 0.28s; }
+.plugin-card:nth-child(15) { animation-delay: 0.30s; }
+.plugin-card:nth-child(16) { animation-delay: 0.32s; }
+.plugin-card:nth-child(17) { animation-delay: 0.34s; }
+.plugin-card:nth-child(18) { animation-delay: 0.36s; }
 
 /* Pipeline SVG stages light up left-to-right */
 .pipeline-svg .pipe-box {

@@ -46,19 +46,17 @@
     });
   }
 
-  /* ── 2. Trait bar animation (IntersectionObserver) ── */
-  var fills = document.querySelectorAll('.trait-fill');
-  if (fills.length && 'IntersectionObserver' in window) {
-    var traitObs = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          var el = entry.target;
-          el.style.transform = 'scaleX(' + (el.dataset.w / 100) + ')';
-          traitObs.unobserve(el);
-        }
-      });
-    }, { threshold: 0.2 });
-    fills.forEach(function (el) { traitObs.observe(el); });
+  /* ── 2. Trait bar animation (triggered by card reveal) ── */
+  function animateTraitBars(card) {
+    card.querySelectorAll('.trait-fill').forEach(function (fill, i) {
+      if (reducedMotion) {
+        fill.style.width = fill.dataset.w + '%';
+      } else {
+        setTimeout(function () {
+          fill.style.width = fill.dataset.w + '%';
+        }, 300 + i * 80);
+      }
+    });
   }
 
   /* ── 3. Stat counter animation ── */
@@ -130,6 +128,9 @@
             entry.target.style.transform = 'none';
           }
           entry.target.classList.add('revealed');
+          if (entry.target.classList.contains('personality-card')) {
+            animateTraitBars(entry.target);
+          }
           revealObs.unobserve(entry.target);
         }
       });
@@ -138,7 +139,11 @@
     /* Reveal section headers */
     document.querySelectorAll('.section-header').forEach(function (el) { revealObs.observe(el); });
 
-    /* Reveal personality cards */
+    /* Reveal identity formula */
+    var formula = document.querySelector('.identity-formula');
+    if (formula) revealObs.observe(formula);
+
+    /* Reveal personality cards (+ animate trait bars) */
     document.querySelectorAll('.personality-card').forEach(function (el) { revealObs.observe(el); });
 
     /* Reveal plugin cards */
