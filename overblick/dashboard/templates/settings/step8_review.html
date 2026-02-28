@@ -155,9 +155,11 @@
         </form>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-(function() {
+function initProvisionForm() {
     var form = document.getElementById('provision-form');
     var btn = document.getElementById('provision-btn');
     if (!form || !btn) return;
@@ -165,6 +167,8 @@
         btn.disabled = true;
         btn.textContent = 'Saving...';
     });
-})();
+}
+initProvisionForm();
+document.body.addEventListener('htmx:afterSettle', initProvisionForm);
 </script>
 {% endblock %}

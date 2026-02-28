@@ -56,20 +56,25 @@
         </form>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-(function() {
+function initUseCaseCounter() {
     var checkboxes = document.querySelectorAll('.use-case-card input[type="checkbox"]');
     var countEl = document.getElementById('selection-count');
     var labelEl = document.getElementById('selection-label');
+    if (!countEl || !labelEl) return;
     function updateCounter() {
         var count = 0;
         checkboxes.forEach(function(cb) { if (cb.checked) count++; });
-        if (countEl) countEl.textContent = count;
-        if (labelEl) labelEl.textContent = 'use case' + (count !== 1 ? 's' : '') + ' selected';
+        countEl.textContent = count;
+        labelEl.textContent = 'use case' + (count !== 1 ? 's' : '') + ' selected';
     }
     checkboxes.forEach(function(cb) { cb.addEventListener('change', updateCounter); });
     updateCounter();
-})();
+}
+initUseCaseCounter();
+document.body.addEventListener('htmx:afterSettle', initUseCaseCounter);
 </script>
 {% endblock %}
