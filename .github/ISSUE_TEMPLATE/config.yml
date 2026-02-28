@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Documentation
-    url: https://overblick.se
+    url: https://overblick.vercel.app
     about: Visit the Överblick website for documentation and guides.
