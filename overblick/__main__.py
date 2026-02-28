@@ -126,8 +126,8 @@ def cmd_start(args: argparse.Namespace) -> None:
     host = args.host
 
     # Start gateway in background
-    gateway_log = open(log_dir / "gateway" / "gateway.log", "a")
     (log_dir / "gateway").mkdir(parents=True, exist_ok=True)
+    gateway_log = open(log_dir / "gateway" / "gateway.log", "a")
     gateway_proc = subprocess.Popen(
         [sys.executable, "-m", "overblick.gateway"],
         stdout=gateway_log,

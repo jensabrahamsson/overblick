@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.responses import Response
 
 from overblick.dashboard.routes._plugin_utils import (
@@ -338,6 +338,24 @@ def _build_plugin_cards(
     return cards
 
 
+_PLUGIN_ROUTE_MAP: dict[str, str] = {
+    "spegel": "/spegel",
+    "kontrast": "/kontrast",
+    "skuggspel": "/skuggspel",
+    "compass": "/compass",
+    "stage": "/stage",
+    "moltbook": "/moltbook",
+    "email_agent": "/email",
+    "telegram": "/telegram",
+    "ai_digest": "/digest",
+    "github": "/github",
+    "dev_agent": "/dev",
+    "log_agent": "/logs",
+    "irc": "/irc",
+    "host_health": "/system",
+}
+
+
 def _build_agent_status_rows(
     identities: list[dict], agents: list[dict], audit_svc=None,
     base_dir: Path | None = None,
@@ -392,6 +410,7 @@ def _build_agent_status_rows(
             rows.append({
                 "agent_name": _plugin_display_name(plugin),
                 "plugin": plugin,
+                "plugin_url": _PLUGIN_ROUTE_MAP.get(plugin, ""),
                 "identity_name": identity.get("display_name", ident_name.capitalize()),
                 "identity_ref": ident_name,
                 "state": state,
