@@ -450,7 +450,9 @@ def _extract_word_numbers(text: str) -> list[int]:
 
     while i < len(tokens):
         # Try tens + ones combo (e.g. "twenty three" → 23)
-        if i + 1 < len(tokens):
+        # Skip fuzzy _TENS if the token is an exact _ONES word
+        # (prevents "eight" from fuzzy-matching to "eighty" → 80)
+        if i + 1 < len(tokens) and tokens[i] not in _ONES:
             tens_match = _fuzzy_match(tokens[i], _TENS)
             if tens_match:
                 ones_match = _fuzzy_match(tokens[i + 1], _ONES)
@@ -463,14 +465,21 @@ def _extract_word_numbers(text: str) -> list[int]:
                 i += 1
                 continue
 
-        # Try single token
+        # Try single token — prefer exact _ONES match over fuzzy _TENS
+        # (prevents "eight" from fuzzy-matching to "eighty" → 80)
+        ones_match = _fuzzy_match(tokens[i], _ONES)
+        if ones_match and ones_match[0] == tokens[i]:
+            # Exact ones match — use it directly
+            numbers.append(ones_match[1])
+            i += 1
+            continue
+
         tens_match = _fuzzy_match(tokens[i], _TENS)
         if tens_match:
             numbers.append(tens_match[1])
             i += 1
             continue
 
-        ones_match = _fuzzy_match(tokens[i], _ONES)
         if ones_match:
             numbers.append(ones_match[1])
             i += 1
@@ -836,12 +845,16 @@ class PerContentChallengeHandler:
             if answer:
                 solver = "local_llm"
 
-        # Validate LLM answers against arithmetic solver for math challenges
+        # Cross-validate LLM vs arithmetic for math challenges.
+        # Arithmetic is deterministic but word-number parsing can be wrong with
+        # obfuscated text. LLM has better contextual understanding but can
+        # miscalculate. Use arithmetic only when its result looks trustworthy
+        # (non-negative — negative results often signal parsing errors).
         if answer and solver and solver.endswith("_llm"):
             arithmetic_answer = solve_arithmetic(clean_question)
-            if arithmetic_answer:
-                # If answers differ, prefer the arithmetic solution (more reliable for math)
-                if self._answers_differ(answer, arithmetic_answer):
+            if arithmetic_answer and self._answers_differ(answer, arithmetic_answer):
+                arith_val = float(arithmetic_answer)
+                if arith_val >= 0:
                     logger.warning(
                         "CHALLENGE: LLM answer '%s' differs from arithmetic '%s', using arithmetic",
                         answer,
@@ -849,6 +862,13 @@ class PerContentChallengeHandler:
                     )
                     answer = arithmetic_answer
                     solver = "arithmetic_fallback"
+                else:
+                    logger.warning(
+                        "CHALLENGE: LLM answer '%s' differs from arithmetic '%s' "
+                        "(negative — likely parse error), trusting LLM",
+                        answer,
+                        arithmetic_answer,
+                    )
 
         if not answer:
             answer = solve_arithmetic(clean_question)
