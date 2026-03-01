@@ -1,10 +1,10 @@
 {% if agent_rows %}
 <div class="agent-grid">
     {% for agent in agent_rows %}
-    <a href="/agent/{{ agent.identity_ref }}" class="agent-card agent-card-link">
+    <div class="agent-card agent-card-link" onclick="window.location='/agent/{{ agent.identity_ref }}'" role="link" tabindex="0" aria-label="{{ agent.agent_name }}">
         <div class="agent-card-header">
             <span class="status-dot status-{{ agent.state }}" aria-hidden="true"></span>
-            <span class="agent-card-name">{{ agent.agent_name }}</span>
+            <a href="/agent/{{ agent.identity_ref }}" class="agent-card-name">{{ agent.agent_name }}</a>
             {% if agent.restart_count > 0 %}
             <span class="restart-badge">{{ agent.restart_count }}x</span>
             {% endif %}
@@ -38,13 +38,12 @@
         </div>
         {% endif %}
         {% if supervisor_running is defined and supervisor_running %}
-        <div class="agent-card-actions">
+        <div class="agent-card-actions" onclick="event.stopPropagation()">
             {% if agent.can_start %}
             <button class="btn btn-agent-start btn-sm"
                     hx-post="/agent/{{ agent.identity_ref }}/{{ agent.plugin }}/start"
                     hx-target="#agent-status-container"
                     hx-swap="innerHTML"
-                    onclick="event.preventDefault();event.stopPropagation()"
                     aria-label="Start {{ agent.agent_name }}">Start</button>
             {% endif %}
             {% if agent.can_stop %}
@@ -53,12 +52,11 @@
                     hx-target="#agent-status-container"
                     hx-swap="innerHTML"
                     hx-confirm="Stop {{ agent.agent_name }} ({{ agent.identity_name }})?"
-                    onclick="event.preventDefault();event.stopPropagation()"
                     aria-label="Stop {{ agent.agent_name }}">Stop</button>
             {% endif %}
         </div>
         {% endif %}
-    </a>
+    </div>
     {% endfor %}
 </div>
 {% elif supervisor_running is defined and not supervisor_running %}

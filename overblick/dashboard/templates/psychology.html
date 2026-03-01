@@ -10,7 +10,11 @@
 
     <div class="psych-grid">
         {% for plugin in plugins %}
-        <a href="{{ plugin.url }}" class="psych-card {% if not plugin.enabled %}psych-card-disabled{% endif %}">
+        {% if plugin.enabled %}
+        <a href="{{ plugin.url }}" class="psych-card">
+        {% else %}
+        <div class="psych-card psych-card-disabled">
+        {% endif %}
             <div class="psych-card-icon">{{ plugin.icon }}</div>
             <div class="psych-card-body">
                 <h3 class="psych-card-name">{{ plugin.display_name }}</h3>
@@ -20,7 +24,11 @@
             {% if not plugin.enabled %}
             <span class="psych-card-badge">Not configured</span>
             {% endif %}
+        {% if plugin.enabled %}
         </a>
+        {% else %}
+        </div>
+        {% endif %}
         {% endfor %}
     </div>
 </div>

@@ -124,29 +124,30 @@ def cmd_start(args: argparse.Namespace) -> None:
 
     port = args.port
 
-    # If --host wasn't explicitly set, check YAML config for network_access
+    # If --host wasn't explicitly set, derive from DashboardConfig (YAML + env)
     host = args.host
     if host == "127.0.0.1":
         try:
-            import yaml
-            cfg_file_check = base_dir / "config" / "overblick.yaml"
-            if cfg_file_check.exists():
-                with open(cfg_file_check) as f:
-                    cfg = yaml.safe_load(f) or {}
-                if cfg.get("dashboard", {}).get("network_access"):
-                    host = "0.0.0.0"
+            from overblick.dashboard.config import DashboardConfig
+            dash_cfg = DashboardConfig.from_env()
+            host = dash_cfg.bind_host
         except Exception:
             pass
 
     # Start gateway in background
     (log_dir / "gateway").mkdir(parents=True, exist_ok=True)
     gateway_log = open(log_dir / "gateway" / "gateway.log", "a")
-    gateway_proc = subprocess.Popen(
-        [sys.executable, "-m", "overblick.gateway"],
-        stdout=gateway_log,
-        stderr=subprocess.STDOUT,
-    )
-    print(f"LLM Gateway started (pid {gateway_proc.pid})")
+    gateway_proc = None
+    try:
+        gateway_proc = subprocess.Popen(
+            [sys.executable, "-m", "overblick.gateway"],
+            stdout=gateway_log,
+            stderr=subprocess.STDOUT,
+        )
+        print(f"LLM Gateway started (pid {gateway_proc.pid})")
+    except OSError as e:
+        print(f"Warning: Failed to start LLM Gateway: {e}")
+        gateway_log.close()
 
     # Check if this is first run (no config = wizard will auto-launch)
     cfg_file = base_dir / "config" / "overblick.yaml"
@@ -176,8 +177,9 @@ def cmd_start(args: argparse.Namespace) -> None:
     except KeyboardInterrupt:
         pass
     finally:
-        gateway_proc.terminate()
-        gateway_log.close()
+        if gateway_proc is not None:
+            gateway_proc.terminate()
+            gateway_log.close()
         print("\nStopped.")
 
 

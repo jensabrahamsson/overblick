@@ -135,8 +135,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
             # Auto-login for localhost when network_access mode is active
             # (password only required from remote clients)
             config = request.app.state.config
-            client_ip = request.client.host if request.client else ""
-            if config.auth_enabled and client_ip in ("127.0.0.1", "::1"):
+            client_ip = request.client.host if request.client else "unknown"
+            if (
+                config.network_access
+                and config.auth_enabled
+                and client_ip in ("127.0.0.1", "::1")
+            ):
                 session_mgr: SessionManager = request.app.state.session_manager
                 cookie_value, csrf_token = session_mgr.create_session()
                 response = RedirectResponse(path, status_code=302)
@@ -144,7 +148,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     SESSION_COOKIE,
                     cookie_value,
                     httponly=True,
-                    samesite="strict",
+                    samesite="lax",
                     max_age=config.session_hours * 3600,
                 )
                 logger.info("Auto-login for localhost client %s", client_ip)

@@ -260,7 +260,9 @@ button:focus-visible,
     transition: all 0.2s;
 }
 .agent-card:hover { border-color: var(--accent); box-shadow: var(--shadow-hover); }
-a.agent-card-link { text-decoration: none; color: inherit; display: block; cursor: pointer; }
+.agent-card-link { text-decoration: none; color: inherit; display: block; cursor: pointer; }
+.agent-card-link .agent-card-name { color: inherit; text-decoration: none; }
+.agent-card-link .agent-card-name:hover { color: var(--accent); }
 
 .agent-card-header {
     display: flex;
@@ -2513,6 +2515,11 @@ details.obs-error-message[open] .obs-error-full {
 }
 .psych-card-disabled {
     opacity: 0.5;
+    cursor: default;
+}
+.psych-card-disabled:hover {
+    border-color: var(--border);
+    transform: none;
 }
 .psych-card-icon {
     font-size: 2rem;

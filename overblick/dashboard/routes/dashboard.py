@@ -240,9 +240,10 @@ async def identity_stop(name: str, request: Request):
 
 _ACRONYMS = {"ai", "llm", "rss", "api", "ipc"}
 
-# Plugins that are capabilities/services, not standalone agents.
-# These should not appear as agent cards on the dashboard.
-_CAPABILITY_PLUGINS = {"telegram", "email_agent", "host_health"}
+# Plugins that are background capabilities, not standalone agent entries.
+# These should not appear as individual agent cards on the dashboard.
+# Note: telegram and email_agent ARE agents (Cherry, Stål) — keep them.
+_CAPABILITY_PLUGINS = {"host_health"}
 
 
 # -- Plugin control file helpers (per-agent stop/start) ----------------------

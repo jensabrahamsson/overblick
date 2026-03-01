@@ -55,6 +55,9 @@ scripts/test_*
 # Claude Code agent team (private dev team definitions)
 .claude/agents/
 
+# Team activator skill (private)
+.claude/skills/team-activator/
+
 # Local (untracked) plugins — confidential
 overblick/plugins/_local/
 

@@ -91,6 +91,17 @@ class DashboardConfig(BaseModel):
         """Whether authentication is required (password or hash configured)."""
         return bool(self.password or self.password_hash)
 
+    @property
+    def bind_host(self) -> str:
+        """Effective host to bind. Refuses 0.0.0.0 without a password."""
+        if self.network_access and not self.auth_enabled:
+            logger.warning(
+                "network_access=true but no password configured — "
+                "falling back to 127.0.0.1 for safety"
+            )
+            return "127.0.0.1"
+        return "0.0.0.0" if self.network_access else "127.0.0.1"
+
     @classmethod
     def from_env(cls) -> "DashboardConfig":
         """Create config from environment variables + YAML (env wins)."""

@@ -52,20 +52,17 @@ def main() -> None:
     from .app import create_app
     app = create_app(config)
 
-    # Determine host: CLI flag > config network_access > default
+    # Determine host: CLI flag > config bind_host (with safety guard) > default
     if args.host != "127.0.0.1":
         # Explicit CLI flag — use as-is
         config.host = args.host
-    elif config.network_access:
-        # YAML config says network access is enabled
-        config.host = "0.0.0.0"
     else:
-        config.host = args.host
+        config.host = config.bind_host
 
     import uvicorn
     uvicorn.run(
         app,
-        host=args.host,
+        host=config.host,
         port=config.port,
         log_level="debug" if args.verbose else "info",
     )
