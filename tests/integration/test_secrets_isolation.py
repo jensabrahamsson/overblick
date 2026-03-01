@@ -206,8 +206,21 @@ class TestSecretsBulkImport:
 class TestSecretsKeyringFailure:
     """Keyring unavailability is handled safely."""
 
-    def test_keyring_error_with_no_file_raises(self, tmp_path):
-        """If keyring throws AND no fallback file exists, raise RuntimeError.
+    def test_keyring_error_fresh_install_generates_key(self, tmp_path):
+        """If keyring throws AND no secrets files exist (fresh install),
+        generate a new master key and store it as a file fallback."""
+        from unittest.mock import patch
+
+        secrets_dir = tmp_path / "secrets"
+        sm = SecretsManager(secrets_dir=secrets_dir)
+        with patch("keyring.get_password", side_effect=Exception("no keyring")):
+            key = sm._get_or_create_master_key()
+
+        assert key is not None
+        assert (secrets_dir / ".master_key").exists()
+
+    def test_keyring_error_with_existing_secrets_raises(self, tmp_path):
+        """If keyring throws AND secrets files exist, raise RuntimeError.
 
         This prevents silently generating a new master key that would render
         all existing secrets (encrypted with the old keyring-stored key)
@@ -215,7 +228,12 @@ class TestSecretsKeyringFailure:
         """
         from unittest.mock import patch
 
-        sm = SecretsManager(secrets_dir=tmp_path / "secrets")
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir(parents=True)
+        # Create a dummy secrets file to simulate existing install
+        (secrets_dir / "anomal.yaml").write_text("api_key: encrypted_value\n")
+
+        sm = SecretsManager(secrets_dir=secrets_dir)
         with patch("keyring.get_password", side_effect=Exception("no keyring")):
             with pytest.raises(RuntimeError, match="Keyring is unavailable"):
                 sm._get_or_create_master_key()

@@ -23,9 +23,7 @@ class TestAgentDetail:
             "/agent/nonexistent",
             cookies={SESSION_COOKIE: cookie_value},
         )
-        # Unknown agent now redirects to dashboard with an error message
-        assert resp.status_code == 302
-        assert "not+found" in resp.headers.get("location", "") or "/" in resp.headers.get("location", "")
+        assert resp.status_code == 404
 
     @pytest.mark.asyncio
     async def test_agent_detail_shows_plugins(self, client, session_cookie):

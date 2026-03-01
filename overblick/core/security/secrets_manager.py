@@ -78,13 +78,17 @@ class SecretsManager:
 
         # If keyring threw an exception AND no file backup exists, do not
         # generate a new key — existing secrets encrypted with the old key
-        # would become permanently unreadable.
+        # would become permanently unreadable.  Exception: fresh installs
+        # with no secrets files yet can safely generate a new key.
         if keyring_failed:
-            raise RuntimeError(
-                "Keyring is unavailable and no fallback key file exists. "
-                "Existing secrets may be encrypted with a keyring-stored key. "
-                "Restore keyring access or provide the .master_key file."
-            )
+            existing_secrets = list(self._secrets_dir.glob("*.yaml"))
+            if existing_secrets:
+                raise RuntimeError(
+                    "Keyring is unavailable and no fallback key file exists. "
+                    "Existing secrets may be encrypted with a keyring-stored key. "
+                    "Restore keyring access or provide the .master_key file."
+                )
+            logger.info("Fresh install detected (no secrets files), generating new master key")
 
         # First-time setup only: generate and store new key
         from cryptography.fernet import Fernet

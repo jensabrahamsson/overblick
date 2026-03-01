@@ -5,8 +5,8 @@ Agent detail routes.
 import logging
 import re
 
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse
 
 from .dashboard import _PLUGIN_ROUTE_MAP
 
@@ -23,7 +23,7 @@ async def agent_detail(request: Request, name: str):
     # Validate name to prevent path traversal (e.g. ../../../etc/passwd)
     if not _SAFE_NAME_RE.match(name):
         logger.warning("Rejected agent detail request with invalid name: %r", name)
-        return RedirectResponse("/?error=Invalid+agent+name", status_code=302)
+        raise HTTPException(status_code=404, detail="Agent not found")
 
     templates = request.app.state.templates
 
@@ -36,12 +36,8 @@ async def agent_detail(request: Request, name: str):
     # Load identity
     identity = identity_svc.get_identity(name)
     if not identity:
-        logger.debug("Agent '%s' not found, redirecting to dashboard", name)
-        from urllib.parse import quote
-        return RedirectResponse(
-            f"/?error=Agent+%27{quote(name)}%27+not+found",
-            status_code=302,
-        )
+        logger.debug("Agent '%s' not found", name)
+        raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
 
     # Load personality (character data)
     personality = personality_svc.get_personality(identity.get("identity_ref", name))

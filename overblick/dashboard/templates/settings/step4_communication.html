@@ -20,12 +20,11 @@
 
             <!-- Gmail Section -->
             <div class="toggle-section">
-                <div class="toggle-header" onclick="toggleSection('gmail')">
+                <div class="toggle-header">
                     <span class="toggle-header-title">Gmail Integration</span>
-                    <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <label class="toggle-switch">
                         <input type="checkbox" name="gmail_enabled" id="gmail-toggle"
-                               {{ 'checked' if comm.get('gmail_enabled') }}
-                               onchange="toggleSection('gmail', this.checked)">
+                               {{ 'checked' if comm.get('gmail_enabled') }}>
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
@@ -59,12 +58,11 @@
 
             <!-- Telegram Section -->
             <div class="toggle-section">
-                <div class="toggle-header" onclick="toggleSection('telegram')">
+                <div class="toggle-header">
                     <span class="toggle-header-title">Telegram Notifications</span>
-                    <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <label class="toggle-switch">
                         <input type="checkbox" name="telegram_enabled" id="telegram-toggle"
-                               {{ 'checked' if comm.get('telegram_enabled') }}
-                               onchange="toggleSection('telegram', this.checked)">
+                               {{ 'checked' if comm.get('telegram_enabled') }}>
                         <span class="toggle-slider"></span>
                     </label>
                 </div>

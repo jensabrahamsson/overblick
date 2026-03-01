@@ -10,7 +10,7 @@ Backends (local, cloud, openai) are the actual inference targets.
 
 Steps:
 1. Welcome / overview
-2. Principal (name, email, timezone)
+2. Owner (name, email, timezone)
 3. LLM backends (local, cloud, openai — all through gateway)
 4. Communication (Gmail, Telegram)
 5. Security (dashboard access, password)
@@ -357,7 +357,7 @@ async def step1_post(request: Request):
     return RedirectResponse("/settings/step/2", status_code=303)
 
 
-# --- Step 2: Principal ---
+# --- Step 2: Owner ---
 
 @router.get("/step/2", response_class=HTMLResponse)
 async def step2_get(request: Request):
@@ -736,7 +736,17 @@ async def step8_post(request: Request):
         return RedirectResponse("/settings/step/9", status_code=303)
     except Exception as e:
         logger.error("Provisioning failed: %s", e, exc_info=True)
-        base_dir = _get_base_dir(request)
+
+        # If config file was created despite the error (e.g. secrets
+        # storage failed after config was written), treat as partial
+        # success — don't trap the user in a wizard loop.
+        config_file = base_dir / "config" / "overblick.yaml"
+        if config_file.exists():
+            logger.warning("Config file exists despite error — treating as partial success")
+            state["completed"] = True
+            request.app.state.setup_needed = False
+            return RedirectResponse("/settings/step/9", status_code=303)
+
         characters = _load_identity_data(base_dir)
         char_by_name = {c["name"]: c for c in characters}
         review_assignments = []

@@ -48,8 +48,7 @@
             <div class="form-group settings-backend-panel">
                 <label class="settings-checkbox-label">
                     <input type="checkbox" name="local_enabled" value="on"
-                           {{ 'checked' if local.get('enabled', true) else '' }}
-                           onchange="toggleSection('local-config', this.checked)">
+                           {{ 'checked' if local.get('enabled', true) else '' }}>
                     <strong>Local Inference</strong>
                     <span class="form-hint form-hint-inline">(Ollama / LM Studio)</span>
                 </label>
@@ -58,8 +57,7 @@
                     <div class="settings-grid-4col">
                         <div>
                             <label class="form-label">Type</label>
-                            <select class="form-select" name="local_type" id="local_type"
-                                    onchange="updateLocalPort(this.value)">
+                            <select class="form-select" name="local_type" id="local_type">
                                 <option value="ollama" {{ 'selected' if local.get('backend_type', 'ollama') == 'ollama' else '' }}>Ollama</option>
                                 <option value="lmstudio" {{ 'selected' if local.get('backend_type') == 'lmstudio' else '' }}>LM Studio</option>
                             </select>
@@ -103,8 +101,7 @@
             <div class="form-group settings-backend-panel">
                 <label class="settings-checkbox-label">
                     <input type="checkbox" name="cloud_enabled" value="on"
-                           {{ 'checked' if cloud.get('enabled', false) else '' }}
-                           onchange="toggleSection('cloud-config', this.checked)">
+                           {{ 'checked' if cloud.get('enabled', false) else '' }}>
                     <strong>Cloud Remote</strong>
                     <span class="form-hint form-hint-inline">(Ollama / LM Studio on remote server)</span>
                 </label>
@@ -150,8 +147,7 @@
             <div class="form-group settings-backend-panel">
                 <label class="settings-checkbox-label">
                     <input type="checkbox" name="deepseek_enabled" value="on"
-                           {{ 'checked' if deepseek.get('enabled', false) else '' }}
-                           onchange="toggleSection('deepseek-config', this.checked)">
+                           {{ 'checked' if deepseek.get('enabled', false) else '' }}>
                     <strong>Deepseek</strong>
                     <span class="form-hint form-hint-inline">(Cloud API — deepseek-chat)</span>
                 </label>
@@ -213,7 +209,6 @@
                 <span class="form-hint" id="temp_hint">Lower = more focused, Higher = more creative (0.0–2.0)</span>
                 <input type="range" class="form-range" id="default_temperature" name="default_temperature"
                        min="0" max="2" step="0.1" value="{{ llm.get('default_temperature', 0.7) }}"
-                       oninput="document.getElementById('temp-value').textContent = this.value"
                        aria-describedby="temp_hint">
             </div>
 

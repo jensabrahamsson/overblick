@@ -1450,6 +1450,17 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
     cursor: pointer;
 }
 
+/* Mobile: move music pill to top-right to avoid overlapping action buttons */
+@media (max-width: 480px) {
+    .music-pill {
+        bottom: auto;
+        top: var(--space-sm);
+        right: var(--space-sm);
+        transform: scale(0.85);
+        transform-origin: top right;
+    }
+}
+
 /* ================================================
    Welcome Animations
    ================================================ */

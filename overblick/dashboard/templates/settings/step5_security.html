@@ -18,12 +18,11 @@
 
             <!-- Network Access Toggle -->
             <div class="toggle-section">
-                <div class="toggle-header" onclick="toggleNetwork()">
+                <div class="toggle-header">
                     <span class="toggle-header-title">Enable Network Access</span>
-                    <label class="toggle-switch" onclick="event.stopPropagation()">
+                    <label class="toggle-switch">
                         <input type="checkbox" name="network_access" id="network-toggle"
-                               {{ 'checked' if sec.get('network_access') }}
-                               onchange="toggleNetwork(this.checked)">
+                               {{ 'checked' if sec.get('network_access') }}>
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
