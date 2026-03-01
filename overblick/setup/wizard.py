@@ -6,7 +6,7 @@ ephemeral server — no need for sessions or databases).
 
 Steps:
 1. Welcome
-2. Principal Identity
+2. Owner
 3. LLM Configuration
 4. Communication Channels
 5. Use Cases — What should your agents do?
@@ -458,7 +458,7 @@ def register_routes(app: FastAPI) -> None:
         state["current_step"] = 1
         return _render("step1_welcome.html", request)
 
-    # --- Step 2: Principal Identity ---
+    # --- Step 2: Owner ---
 
     @app.get("/step/2", response_class=HTMLResponse)
     async def step2_get(request: Request):
