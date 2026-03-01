@@ -37,7 +37,7 @@ async def agent_detail(request: Request, name: str):
     identity = identity_svc.get_identity(name)
     if not identity:
         logger.debug("Agent '%s' not found", name)
-        raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
+        raise HTTPException(status_code=404, detail="Agent not found")
 
     # Load personality (character data)
     personality = personality_svc.get_personality(identity.get("identity_ref", name))

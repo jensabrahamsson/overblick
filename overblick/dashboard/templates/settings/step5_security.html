@@ -35,7 +35,8 @@
             </div>
 
             <!-- Password Section (shown when network access is on) -->
-            <div class="toggle-section" id="password-section" style="display: none;">
+            <div class="toggle-section" id="password-section"
+                 style="{{ '' if sec.get('network_access') else 'display: none;' }}">
                 <div class="toggle-header">
                     <span class="toggle-header-title">Dashboard Password</span>
                 </div>

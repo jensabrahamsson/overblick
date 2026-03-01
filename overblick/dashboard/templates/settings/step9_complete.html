@@ -13,6 +13,14 @@
         </div>
 
         <h1 class="detail-name">Settings saved!</h1>
+
+        {% if state.partial_failure %}
+        <div class="flash-error" role="alert">
+            <strong>Warning:</strong> Configuration was saved but secrets provisioning
+            encountered an error: {{ state.partial_failure }}.
+            Some agents may need secrets configured manually.
+        </div>
+        {% endif %}
         <p class="detail-description completion-subtitle">
             {% if state.selected_characters %}
             {{ state.selected_characters | length }} agent{{ 's' if state.selected_characters | length != 1 }}

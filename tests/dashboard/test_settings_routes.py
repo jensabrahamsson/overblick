@@ -512,20 +512,6 @@ class TestSettingsTestEndpoints:
         assert "badge" in resp.text or "span" in resp.text
 
     @pytest.mark.asyncio
-    async def test_api_models_endpoint(self, client, session_cookie):
-        """POST /settings/api/models returns HTML (may fail if Ollama not running)."""
-        cookie_value, csrf_token = session_cookie
-        resp = await client.post(
-            "/settings/api/models",
-            headers={"X-CSRF-Token": csrf_token},
-            data={"host": "127.0.0.1", "port": "11434"},
-            cookies={SESSION_COOKIE: cookie_value},
-        )
-        assert resp.status_code == 200
-        # Should return select options or error badge
-        assert "select" in resp.text or "badge" in resp.text or "Error" in resp.text
-
-    @pytest.mark.asyncio
     async def test_test_gateway_endpoint(self, client, session_cookie):
         """POST /settings/test/gateway returns HTML snippet."""
         cookie_value, csrf_token = session_cookie

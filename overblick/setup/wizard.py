@@ -464,7 +464,7 @@ def register_routes(app: FastAPI) -> None:
     async def step2_get(request: Request):
         state = _get_state(request.app)
         state["current_step"] = 2
-        return _render("step2_principal.html", request)
+        return _render("step2_owner.html", request)
 
     @app.post("/step/2", response_class=HTMLResponse)
     async def step2_post(
@@ -486,7 +486,7 @@ def register_routes(app: FastAPI) -> None:
             return RedirectResponse("/step/3", status_code=303)
         except Exception as e:
             return _render(
-                "step2_principal.html", request,
+                "step2_owner.html", request,
                 error=_friendly_error(e),
                 form_data={
                     "principal_name": principal_name,

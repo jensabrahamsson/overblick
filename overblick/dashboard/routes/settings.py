@@ -24,6 +24,7 @@ import html
 import logging
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 from fastapi import APIRouter, Form, Request
@@ -55,6 +56,33 @@ from overblick.setup.wizard import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Hosts blocked to prevent SSRF against cloud metadata services
+_BLOCKED_HOSTS = frozenset({
+    "169.254.169.254", "metadata.google.internal",
+    "fd00::ec2", "100.100.100.200",
+})
+
+
+def _validate_test_host(host: str, port: str) -> tuple[str, int]:
+    """Validate host/port for test connection endpoints (SSRF guard)."""
+    if host in _BLOCKED_HOSTS:
+        raise ValueError("Blocked host")
+    port_int = int(port)
+    if not 1 <= port_int <= 65535:
+        raise ValueError("Invalid port")
+    return host, port_int
+
+
+def _validate_test_url(url: str) -> str:
+    """Validate URL for test connection endpoints (SSRF guard)."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("Only http/https URLs are allowed")
+    if parsed.hostname in _BLOCKED_HOSTS:
+        raise ValueError("Blocked host")
+    return url
+
 
 router = APIRouter(prefix="/settings")
 
@@ -120,7 +148,8 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
         secrets_dir = base_dir / "config" / "secrets"
         if secrets_dir.exists():
             sensitive_keys = ("gmail_app_password", "telegram_bot_token",
-                              "deepseek_api_key", "moltbook_api_key")
+                              "deepseek_api_key", "moltbook_api_key",
+                              "principal_name")
             readable_keys = ("gmail_address", "telegram_chat_id",
                              "principal_name", "principal_email")
             try:
@@ -373,7 +402,7 @@ async def step2_get(request: Request):
             if "principal" in prefill:
                 state["principal"] = prefill["principal"]
 
-    return _render("step2_principal.html", request)
+    return _render("step2_owner.html", request)
 
 
 @router.post("/step/2", response_class=HTMLResponse)
@@ -409,7 +438,7 @@ async def step2_post(
         return RedirectResponse("/settings/step/3", status_code=303)
     except Exception as e:
         return _render(
-            "step2_principal.html", request,
+            "step2_owner.html", request,
             error=_friendly_error(e),
             form_data={
                 "principal_name": principal_name,
@@ -744,6 +773,7 @@ async def step8_post(request: Request):
         if config_file.exists():
             logger.warning("Config file exists despite error — treating as partial success")
             state["completed"] = True
+            state["partial_failure"] = str(e)
             request.app.state.setup_needed = False
             return RedirectResponse("/settings/step/9", status_code=303)
 
@@ -792,9 +822,10 @@ async def test_ollama(request: Request):
     port = (form.get("port") or form.get("ollama_port")
             or form.get("local_port") or form.get("cloud_port") or "11434")
     try:
+        host, port_int = _validate_test_host(host, port)
         import httpx
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"http://{host}:{port}/api/tags")
+            resp = await client.get(f"http://{host}:{port_int}/api/tags")
             resp.raise_for_status()
             data = resp.json()
             models = [m["name"] for m in data.get("models", [])]
@@ -815,40 +846,13 @@ async def test_ollama(request: Request):
         )
 
 
-@router.post("/api/models", response_class=HTMLResponse)
-async def fetch_models(request: Request):
-    """Fetch available models from an Ollama/LM Studio instance.
-
-    Returns <select> HTML options for populating a model dropdown via HTMX.
-    """
-    form = await request.form()
-    host = form.get("host", "127.0.0.1")
-    port = form.get("port", "11434")
-    current_model = form.get("current_model", "")
-    try:
-        import httpx
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"http://{host}:{port}/api/tags")
-            resp.raise_for_status()
-            models = [m["name"] for m in resp.json().get("models", [])]
-        if models:
-            options = ""
-            for m in models:
-                m_esc = html.escape(m)
-                selected = ' selected' if m == current_model else ''
-                options += f'<option value="{m_esc}"{selected}>{m_esc}</option>'
-            return HTMLResponse(f'<select class="form-select" name="{{{{field_name}}}}">{options}</select>')
-        return HTMLResponse('<span class="badge badge-amber">No models found</span>')
-    except Exception as e:
-        return HTMLResponse(f'<span class="badge badge-red">Error: {html.escape(str(e))}</span>')
-
-
 @router.post("/test/gateway", response_class=HTMLResponse)
 async def test_gateway(request: Request):
     """Test Gateway connection."""
     form = await request.form()
     url = form.get("gateway_url", "http://127.0.0.1:8200")
     try:
+        url = _validate_test_url(url)
         import httpx
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{url}/health")

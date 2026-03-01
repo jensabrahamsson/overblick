@@ -246,7 +246,7 @@ function initFormPersistence() {
 
     // On final step submission, clear all wizard state
     form.addEventListener('submit', function() {
-        var isLastStep = window.location.pathname.indexOf('/step/8') !== -1;
+        var isLastStep = /\/step\/8$/.test(window.location.pathname);
         if (isLastStep) {
             try {
                 Object.keys(sessionStorage).forEach(function(key) {
