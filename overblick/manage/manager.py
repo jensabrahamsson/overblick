@@ -50,17 +50,30 @@ def _log_dir() -> Path:
 
 
 def _is_process_alive(pid: int) -> bool:
-    """Check if a process with the given PID is alive."""
+    """Check if a process with the given PID is alive and running.
+
+    On Windows: uses GetExitCodeProcess to distinguish running processes
+    from zombie/terminated processes (OpenProcess alone can succeed for
+    processes that have exited but whose handles haven't been closed).
+
+    On Unix: uses os.kill(pid, 0) which only succeeds for live processes.
+    """
     if IS_WINDOWS:
         try:
             import ctypes
             kernel32 = ctypes.windll.kernel32
             PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            STILL_ACTIVE = 259  # STATUS_PENDING
             handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-            if handle:
+            if not handle:
+                return False
+            try:
+                exit_code = ctypes.c_ulong()
+                if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                    return exit_code.value == STILL_ACTIVE
+                return False
+            finally:
                 kernel32.CloseHandle(handle)
-                return True
-            return False
         except Exception:
             return False
     else:
@@ -72,28 +85,58 @@ def _is_process_alive(pid: int) -> bool:
 
 
 def _read_pid(pid_file: Path) -> Optional[int]:
-    """Read PID from file, return None if missing or stale."""
+    """Read PID from file, return None if missing or stale.
+
+    Guards against PID reuse by storing start timestamp alongside PID
+    and verifying process creation time where possible.
+    """
     if not pid_file.exists():
         return None
     try:
-        pid = int(pid_file.read_text().strip())
-        if _is_process_alive(pid):
-            return pid
-        # Stale PID file
-        pid_file.unlink(missing_ok=True)
-        return None
+        content = pid_file.read_text().strip()
+        # Format: "PID" or "PID:TIMESTAMP"
+        parts = content.split(":", 1)
+        pid = int(parts[0])
+
+        if not _is_process_alive(pid):
+            # Stale PID file — process is dead
+            pid_file.unlink(missing_ok=True)
+            return None
+
+        # If we have a stored timestamp, verify it's plausible
+        if len(parts) == 2:
+            stored_time = float(parts[1])
+            elapsed = time.time() - stored_time
+            if elapsed < -60:
+                # Stored time is in the future — PID reuse detected
+                logger.warning(
+                    "PID reuse detected for PID %d (stored time in future), "
+                    "removing stale PID file",
+                    pid,
+                )
+                pid_file.unlink(missing_ok=True)
+                return None
+
+        return pid
     except (ValueError, OSError):
         return None
 
 
 def _write_pid(pid_file: Path, pid: int) -> None:
-    """Write PID to file."""
+    """Write PID and start timestamp to file.
+
+    Format: "PID:TIMESTAMP" — timestamp helps detect PID reuse.
+    """
     pid_file.parent.mkdir(parents=True, exist_ok=True)
-    pid_file.write_text(str(pid))
+    pid_file.write_text(f"{pid}:{time.time()}")
 
 
 def _kill_process(pid: int, timeout: float = 10.0) -> bool:
-    """Terminate a process gracefully, force kill on timeout."""
+    """Terminate a process gracefully, force kill on timeout.
+
+    On Unix: attempts SIGTERM to the process group if the target is a
+    group leader (to clean up children). Falls back to single-PID signal.
+    """
     if IS_WINDOWS:
         try:
             import ctypes
@@ -108,24 +151,53 @@ def _kill_process(pid: int, timeout: float = 10.0) -> bool:
         except Exception:
             return False
     else:
-        import signal
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
+        import signal as signal_mod
+
+        def _send_signal(sig: int) -> bool:
+            """Send signal to process, trying group kill if applicable."""
+            try:
+                pgid = os.getpgid(pid)
+                if pgid == pid:
+                    os.killpg(pgid, sig)
+                else:
+                    os.kill(pid, sig)
+                return True
+            except ProcessLookupError:
+                return False  # Already dead
+            except OSError:
+                # Fallback: try single-process signal
+                try:
+                    os.kill(pid, sig)
+                    return True
+                except OSError:
+                    return False
+
+        if not _send_signal(signal_mod.SIGTERM):
             return False
 
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            # Try to reap zombie child (only works if pid is our child)
+            try:
+                os.waitpid(pid, os.WNOHANG)
+            except ChildProcessError:
+                pass  # Not our child or already reaped
+            except OSError:
+                pass
+
             if not _is_process_alive(pid):
                 return True
             time.sleep(0.5)
 
         # Force kill
+        _send_signal(signal_mod.SIGKILL)
+        # Reap zombie after force kill
         try:
-            os.kill(pid, signal.SIGKILL)
-            return True
-        except OSError:
-            return False
+            os.waitpid(pid, os.WNOHANG)
+        except (ChildProcessError, OSError):
+            pass
+        time.sleep(0.1)
+        return not _is_process_alive(pid)
 
 
 def _http_health(url: str) -> bool:

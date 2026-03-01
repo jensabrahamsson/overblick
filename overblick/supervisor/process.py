@@ -127,6 +127,10 @@ class AgentProcess(BaseModel):
         Wait for process to exit. Returns exit code.
 
         Should be called as a background task to detect crashes.
+        Handles three exit scenarios:
+        - STOPPING state: expected shutdown → STOPPED
+        - Exit code 0: clean exit (e.g. no work to do) → STOPPED
+        - Non-zero exit: crash → CRASHED
         """
         if not self._process:
             return None
@@ -134,8 +138,16 @@ class AgentProcess(BaseModel):
         returncode = await self._process.wait()
 
         if self.state == ProcessState.STOPPING:
+            # Expected shutdown via stop()
             self.state = ProcessState.STOPPED
-        elif returncode != 0:
+        elif returncode == 0:
+            # Clean exit without explicit stop — process finished normally
+            self.state = ProcessState.STOPPED
+            logger.info(
+                "Agent '%s' exited cleanly (exit=0)",
+                self.identity,
+            )
+        else:
             self.state = ProcessState.CRASHED
             logger.warning(
                 "Agent '%s' crashed (exit=%d, restarts=%d/%d)",

@@ -108,6 +108,63 @@ class TestAgentProcess:
         agent = AgentProcess(identity="anomal")
         assert agent.ipc_socket_dir is None
 
+    @pytest.mark.asyncio
+    async def test_monitor_clean_exit_sets_stopped(self):
+        """monitor() sets state to STOPPED when process exits with code 0."""
+        agent = AgentProcess(identity="test_clean")
+        agent.state = ProcessState.RUNNING
+
+        # Create a mock process that exits cleanly
+        from unittest.mock import AsyncMock, MagicMock
+        mock_proc = MagicMock()
+        mock_proc.wait = AsyncMock(return_value=0)
+        mock_proc.returncode = 0
+        agent._process = mock_proc
+
+        returncode = await agent.monitor()
+        assert returncode == 0
+        assert agent.state == ProcessState.STOPPED
+        assert agent.stopped_at is not None
+
+    @pytest.mark.asyncio
+    async def test_monitor_crash_sets_crashed(self):
+        """monitor() sets state to CRASHED when process exits with non-zero."""
+        agent = AgentProcess(identity="test_crash")
+        agent.state = ProcessState.RUNNING
+
+        from unittest.mock import AsyncMock, MagicMock
+        mock_proc = MagicMock()
+        mock_proc.wait = AsyncMock(return_value=1)
+        mock_proc.returncode = 1
+        agent._process = mock_proc
+
+        returncode = await agent.monitor()
+        assert returncode == 1
+        assert agent.state == ProcessState.CRASHED
+
+    @pytest.mark.asyncio
+    async def test_monitor_stopping_state_preserved(self):
+        """monitor() respects STOPPING state (explicit stop in progress)."""
+        agent = AgentProcess(identity="test_stop")
+        agent.state = ProcessState.STOPPING
+
+        from unittest.mock import AsyncMock, MagicMock
+        mock_proc = MagicMock()
+        mock_proc.wait = AsyncMock(return_value=0)
+        mock_proc.returncode = 0
+        agent._process = mock_proc
+
+        returncode = await agent.monitor()
+        assert returncode == 0
+        assert agent.state == ProcessState.STOPPED
+
+    @pytest.mark.asyncio
+    async def test_monitor_no_process_returns_none(self):
+        """monitor() returns None when no process is set."""
+        agent = AgentProcess(identity="test_none")
+        result = await agent.monitor()
+        assert result is None
+
 
 # ---------------------------------------------------------------------------
 # IPCServer + IPCClient

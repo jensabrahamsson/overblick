@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import secrets
+import socket
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -144,7 +145,7 @@ def _read_conn_file(conn_path: Path) -> Optional[dict]:
     except ImportError:
         pass
     except Exception as e:
-        logger.debug("Failed to decrypt conn file: %s", e)
+        logger.warning("Failed to decrypt conn file %s: %s", conn_path, e)
 
     # Fallback: try plaintext JSON
     try:
@@ -303,9 +304,16 @@ class IPCServer:
         Unix: creates a Unix domain socket at socket_path.
         Windows: binds TCP on 127.0.0.1:0 (OS-assigned port), writes
         connection info to .conn file.
+
+        Cleans up stale connection/socket files before starting.
         """
         self._socket_dir.mkdir(parents=True, exist_ok=True)
         set_restrictive_dir_permissions(self._socket_dir)
+
+        # Cleanup stale .conn file from previous runs
+        if self._conn_path.exists():
+            logger.debug("Removing stale conn file: %s", self._conn_path)
+            self._conn_path.unlink(missing_ok=True)
 
         if IS_WINDOWS:
             await self._start_tcp()
@@ -333,18 +341,37 @@ class IPCServer:
         logger.info("IPC server listening on %s", self._socket_path)
 
     async def _start_tcp(self) -> None:
-        """Start TCP localhost server (Windows fallback)."""
-        # Write auth token + port to connection file
+        """Start TCP localhost server (Windows fallback).
+
+        Uses SO_EXCLUSIVEADDRUSE on Windows to prevent port hijacking.
+        """
+
+        def _apply_socket_options(sock: socket.socket) -> None:
+            """Apply security options to the TCP server socket."""
+            # SO_EXCLUSIVEADDRUSE only exists on actual Windows (not mocked)
+            if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                # Prevents other processes from binding to the same port
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            elif IS_WINDOWS:
+                # Fallback: try the known Windows constant value
+                try:
+                    SO_EXCLUSIVEADDRUSE = ~socket.SO_REUSEADDR
+                    sock.setsockopt(socket.SOL_SOCKET, SO_EXCLUSIVEADDRUSE, 1)
+                except OSError:
+                    logger.debug("SO_EXCLUSIVEADDRUSE not supported")
+
+        # Bind to OS-assigned port on loopback only
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        _apply_socket_options(server_sock)
+        server_sock.bind(("127.0.0.1", 0))
+        server_sock.setblocking(False)
+        self._tcp_port = server_sock.getsockname()[1]
+
         self._server = await asyncio.start_server(
             self._handle_connection,
-            host="127.0.0.1",
-            port=0,  # OS assigns a free port
+            sock=server_sock,
             limit=_MAX_MESSAGE_SIZE,
         )
-
-        # Retrieve the assigned port
-        addr = self._server.sockets[0].getsockname()
-        self._tcp_port = addr[1]
 
         # Write connection info: Fernet key + encrypted JSON with port and token
         self._write_conn_file()
@@ -372,26 +399,34 @@ class IPCServer:
 
         Format: <fernet_key>\\n<encrypted_json>
         where JSON = {"port": N, "token": "<hex>"}
+
+        The port is always written (required for client connection).
+        The token may be empty if auth is disabled.
+
+        Uses atomic write (write to temp, then rename) to prevent
+        readers from seeing partial data.
         """
-        if not self._auth_token or self._tcp_port is None:
+        if self._tcp_port is None:
             return
+
+        conn_data = json.dumps({
+            "port": self._tcp_port,
+            "token": self._auth_token,
+        })
+
+        # Write atomically: temp file → rename
+        tmp_path = self._conn_path.with_suffix(".tmp")
         try:
             from cryptography.fernet import Fernet
             key = Fernet.generate_key()
             f = Fernet(key)
-            conn_data = json.dumps({
-                "port": self._tcp_port,
-                "token": self._auth_token,
-            })
             encrypted = f.encrypt(conn_data.encode())
-            self._conn_path.write_bytes(key + b"\n" + encrypted)
+            tmp_path.write_bytes(key + b"\n" + encrypted)
         except ImportError:
             # Fallback: plaintext JSON (not recommended for production)
-            conn_data = json.dumps({
-                "port": self._tcp_port,
-                "token": self._auth_token,
-            })
-            self._conn_path.write_text(conn_data)
+            tmp_path.write_text(conn_data)
+
+        tmp_path.replace(self._conn_path)
 
     async def stop(self) -> None:
         """Stop the server and cleanup socket/token/conn files."""
