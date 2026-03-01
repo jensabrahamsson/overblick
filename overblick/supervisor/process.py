@@ -8,7 +8,6 @@ AgentProcess tracks process state, PID, and provides lifecycle methods.
 import asyncio
 import logging
 import os
-import signal
 import sys
 import time
 from enum import Enum
@@ -60,10 +59,9 @@ class AgentProcess(BaseModel):
 
         try:
             # Use venv Python if available (fallback to sys.executable)
-            # This ensures agents run with the same Python/packages as supervisor
-            import sysconfig
-            venv_python = os.path.join(sysconfig.get_path("scripts"), "python3")
-            python_exe = venv_python if os.path.exists(venv_python) else sys.executable
+            # Cross-platform: resolves python3 on Unix, python.exe on Windows
+            from overblick.shared.platform import get_python_executable
+            python_exe = get_python_executable()
 
             # Note: plugins are loaded from identity.yaml config, not CLI args
             cmd = [python_exe, "-m", "overblick", "run", self.identity]
@@ -103,8 +101,8 @@ class AgentProcess(BaseModel):
         logger.info("Stopping agent '%s' (pid=%s)...", self.identity, self.pid)
 
         try:
-            # Send SIGTERM for graceful shutdown
-            self._process.send_signal(signal.SIGTERM)
+            # Graceful shutdown: SIGTERM on Unix, TerminateProcess on Windows
+            self._process.terminate()
 
             try:
                 await asyncio.wait_for(self._process.wait(), timeout=timeout)

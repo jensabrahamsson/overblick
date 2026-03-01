@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Unix/macOS only. Cross-platform alternative: python -m overblick setup
+#
 # ============================================================================
 # Överblick Setup — First-time onboarding wizard
 #

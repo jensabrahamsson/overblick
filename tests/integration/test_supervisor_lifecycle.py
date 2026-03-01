@@ -7,6 +7,7 @@ Uses real IPC server/client (no mocks) with short temp paths.
 
 import asyncio
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
@@ -20,11 +21,19 @@ from overblick.supervisor.ipc import (
     generate_ipc_token,
 )
 
+# Skip marker for Unix-only tests
+unix_only = pytest.mark.skipif(
+    sys.platform == "win32", reason="Unix file permissions not available on Windows"
+)
+
 
 @pytest.fixture
 def ipc_dir():
-    """Short temp dir for Unix sockets."""
-    d = Path(tempfile.mkdtemp(prefix="ipc", dir="/tmp"))
+    """Short temp dir for IPC sockets/connections.
+
+    Uses platform-default temp dir for cross-platform compatibility.
+    """
+    d = Path(tempfile.mkdtemp(prefix="ipc"))
     yield d
     shutil.rmtree(d, ignore_errors=True)
 
@@ -65,9 +74,10 @@ class TestSupervisorIPCLifecycle:
         finally:
             await server.stop()
 
-        # Verify cleanup
-        assert not server.socket_path.exists()
-        assert not server.token_path.exists()
+        # Verify cleanup (socket files are Unix-only)
+        if sys.platform != "win32":
+            assert not server.socket_path.exists()
+            assert not server.token_path.exists()
 
     @pytest.mark.asyncio
     async def test_multiple_clients(self, ipc_dir):

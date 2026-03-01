@@ -37,7 +37,7 @@ This document describes every layer of the system.
                         │    (Boss Agent)      │
                         │                     │
                         │  Process lifecycle   │
-                        │  IPC (Unix sockets)  │
+                        │  IPC (Unix/TCP)      │
                         │  Permission grants   │
                         │  Agent audit         │
                         └──────────┬──────────┘
@@ -782,19 +782,26 @@ await supervisor.stop()   # Graceful shutdown
 
 **File:** `overblick/supervisor/ipc.py`
 
-Unix domain sockets with JSON protocol:
+Unix domain sockets (macOS/Linux) or TCP localhost (Windows) with JSON protocol:
 
 ```
-overblick-supervisor.sock   (socket, mode 0o600)
+# macOS/Linux
+overblick-supervisor.sock   (Unix socket, mode 0o600)
 overblick-supervisor.token  (auth token file, mode 0o600)
+
+# Windows (TCP fallback)
+localhost:<dynamic-port>    (TCP socket, loopback only)
+overblick-supervisor.token  (auth token file)
 ```
+
+Transport selection is handled automatically by `overblick/shared/platform.py`.
 
 **Security:**
 - HMAC authentication — all messages include an auth token
-- Token shared via file (mode `0o600`), never environment variables
+- Token shared via file (mode `0o600` on Unix), never environment variables
 - Constant-time comparison (`hmac.compare_digest`)
 - 1 MB message size limit (OOM prevention)
-- Socket permissions restricted to owner
+- Socket permissions restricted to owner (Unix); loopback-only binding (Windows)
 
 **Message types:**
 
@@ -1329,7 +1336,7 @@ overblick/
     static/                      # CSS, JS, vendored htmx
   supervisor/
     supervisor.py                # Multi-process manager
-    ipc.py                       # Unix socket IPC + HMAC auth
+    ipc.py                       # IPC (Unix sockets / TCP localhost) + HMAC auth
     process.py                   # AgentProcess wrapper
     audit.py                     # Agent fleet auditing
 config/

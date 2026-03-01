@@ -183,6 +183,12 @@ def cmd_start(args: argparse.Namespace) -> None:
         print("\nStopped.")
 
 
+def cmd_manage(args: argparse.Namespace) -> None:
+    """Delegate to the cross-platform service manager CLI."""
+    from overblick.manage.__main__ import main as manage_main
+    manage_main(args.manage_args)
+
+
 def cmd_supervisor(args: argparse.Namespace) -> None:
     """Start the supervisor (boss agent) managing multiple identities."""
     from overblick.supervisor.supervisor import Supervisor
@@ -266,6 +272,15 @@ def main() -> None:
     sup_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
     sup_parser.add_argument("--no-restart", action="store_true", help="Disable auto-restart")
     sup_parser.set_defaults(func=cmd_supervisor)
+
+    # manage (cross-platform service manager — delegates to overblick.manage)
+    manage_parser = subparsers.add_parser(
+        "manage",
+        help="Cross-platform service manager (replaces bash scripts)",
+        add_help=False,
+    )
+    manage_parser.add_argument("manage_args", nargs=argparse.REMAINDER)
+    manage_parser.set_defaults(func=cmd_manage)
 
     args = parser.parse_args()
     args.func(args)

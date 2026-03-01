@@ -16,7 +16,7 @@ Security-focused multi-identity agent framework.
 git clone https://github.com/jensabrahamsson/overblick.git
 cd overblick
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -e ".[dashboard]"
 
 # Pull an LLM model
@@ -25,6 +25,43 @@ ollama pull qwen3:8b
 # Run the setup wizard
 python -m overblick setup
 ```
+
+### Platform-Specific Notes
+
+**Windows:**
+```powershell
+python -m venv venv
+venv\Scripts\activate
+pip install -e ".[dashboard]"
+```
+Install Ollama from [ollama.com/download](https://ollama.com/download) (Windows installer). After installation, `ollama` is available in your PATH.
+
+**Linux (Debian/Ubuntu):**
+```bash
+sudo apt update && sudo apt install python3.13 python3.13-venv
+python3.13 -m venv venv
+source venv/bin/activate
+pip install -e ".[dashboard]"
+```
+Install Ollama: `curl -fsSL https://ollama.com/install.sh | sh`
+
+**Linux (Fedora/RHEL):**
+```bash
+sudo dnf install python3.13
+python3.13 -m venv venv
+source venv/bin/activate
+pip install -e ".[dashboard]"
+```
+
+**macOS:**
+```bash
+# Python 3.13 via Homebrew
+brew install python@3.13
+python3.13 -m venv venv
+source venv/bin/activate
+pip install -e ".[dashboard]"
+```
+Install Ollama: `brew install ollama` or download from [ollama.com/download](https://ollama.com/download).
 
 ## Core Concepts
 

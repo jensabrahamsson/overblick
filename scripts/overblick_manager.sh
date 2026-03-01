@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Unix/macOS only. Cross-platform alternative: python -m overblick manage
+#
 # Överblick Manager — unified management for the entire Överblick platform
 #
 # Usage:

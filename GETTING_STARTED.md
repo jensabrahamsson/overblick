@@ -17,7 +17,7 @@ A system where:
 - **Python 3.13+**
 - **Ollama** with the `qwen3:8b` model installed
 - **SMTP service** (we use Brevo — free 300 emails/day)
-- **macOS** (the project is macOS-optimized with Keychain integration)
+- **macOS, Linux, or Windows** (macOS/Linux use Keychain/keyring for secrets; Windows uses the system credential store via the `keyring` library)
 
 ## Step-by-Step Installation
 
@@ -29,7 +29,7 @@ cd overblick
 
 # Create virtual environment
 python3.13 -m venv venv
-source venv/bin/activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -e .
@@ -82,7 +82,7 @@ If you prefer to use a cloud provider (OpenAI, Anthropic, etc.) instead of Ollam
 
 ### 4. Configure Secrets
 
-Överblick uses **Fernet-encrypted secrets** with the master key stored in macOS Keychain.
+Överblick uses **Fernet-encrypted secrets** with the master key stored in the system keyring (macOS Keychain, Linux Secret Service, or Windows Credential Manager).
 
 ```bash
 # Create a secrets file for Anomal (temporary plaintext)
@@ -102,7 +102,7 @@ rm /tmp/anomal-secrets.yaml
 ```
 
 **What happens?**
-- Secrets are encrypted with Fernet using a master key from macOS Keychain
+- Secrets are encrypted with Fernet using a master key from the system keyring
 - Stored in `config/secrets/anomal.yaml` (encrypted, safe to commit)
 - Decrypted at runtime only when Anomal needs them
 
@@ -158,10 +158,14 @@ recipient: "your-email@example.com"
 ### 6. Start the Supervisor (The Boss)
 
 ```bash
-# Start supervisor with Anomal
-./scripts/supervisor.sh start anomal
+# Start supervisor with Anomal (cross-platform)
+python -m overblick manage supervisor-start "anomal"
 
 # Check status
+python -m overblick manage supervisor-status
+
+# Unix/macOS alternative (bash script)
+./scripts/supervisor.sh start anomal
 ./scripts/supervisor.sh status
 ```
 
@@ -180,7 +184,7 @@ Recent activity (last 5 lines):
 
 ```bash
 # In a new terminal
-source venv/bin/activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 python -m overblick dashboard
 
 # Open in browser
@@ -199,7 +203,7 @@ If you don't want to wait until 07:00, you can test right away:
 
 ```bash
 # Run the test script
-venv/bin/python3 tests/manual/test_ai_digest_full.py
+python tests/manual/test_ai_digest_full.py
 ```
 
 This runs the full AI Digest workflow:
@@ -221,7 +225,7 @@ This runs the full AI Digest workflow:
 - Second Law: Obey users and supervisor (unless it conflicts with the First Law)
 - Third Law: Protect the agent's existence (unless it conflicts with the First or Second Law)
 
-**Communication:** IPC via Unix sockets with auth tokens
+**Communication:** IPC via Unix sockets (macOS/Linux) or TCP localhost (Windows) with auth tokens
 
 **Features:**
 - Auto-restart on crash (max 3 times)
@@ -324,13 +328,16 @@ Result (or blocked)
 ## Common Commands
 
 ```bash
-# Supervisor management
-./scripts/supervisor.sh start anomal          # Start with one agent
-./scripts/supervisor.sh start anomal cherry   # Start with multiple agents
-./scripts/supervisor.sh status                # Show status
-./scripts/supervisor.sh logs -f               # Follow logs
-./scripts/supervisor.sh restart anomal        # Restart agent
-./scripts/supervisor.sh stop                  # Stop everything
+# Supervisor management (cross-platform Python CLI)
+python -m overblick manage supervisor-start "anomal"           # Start with one agent
+python -m overblick manage supervisor-start "anomal cherry"    # Start with multiple agents
+python -m overblick manage supervisor-status                   # Show status
+python -m overblick manage supervisor-stop                     # Stop everything
+
+# Unix/macOS only (bash scripts)
+./scripts/supervisor.sh start anomal cherry
+./scripts/supervisor.sh status
+./scripts/supervisor.sh stop
 
 # Run agent directly (without supervisor)
 python -m overblick run anomal
@@ -345,9 +352,9 @@ python -m overblick dashboard --port 8080
 python -m overblick secrets import <identity> <file.yaml>
 
 # Tests
-pytest tests/ -v -m "not llm"           # Fast tests (without LLM)
-pytest tests/ -v -m llm                 # LLM personality tests
-pytest tests/plugins/ai_digest/ -v      # AI Digest specific
+python -m pytest tests/ -v -m "not llm"           # Fast tests (without LLM)
+python -m pytest tests/ -v -m llm                 # LLM personality tests
+python -m pytest tests/plugins/ai_digest/ -v      # AI Digest specific
 ```
 
 ## Log Files
@@ -370,8 +377,8 @@ ls logs/anomal/
 
 ### "Supervisor already running"
 ```bash
-./scripts/supervisor.sh stop
-./scripts/supervisor.sh start anomal
+python -m overblick manage supervisor-stop
+python -m overblick manage supervisor-start "anomal"
 ```
 
 ### "No password configured" on dashboard
@@ -386,13 +393,13 @@ tail -50 logs/anomal/anomal.log
 Common causes:
 - LLM (Ollama) is not running: `ollama serve`
 - Missing secrets: `python -m overblick secrets import anomal <file>`
-- Python venv: Use `./scripts/supervisor.sh` which uses venv automatically
+- Python venv: Ensure your virtual environment is activated before running commands
 
 ### "IPC auth rejected"
 The supervisor generates an auth token at startup. The dashboard reads it automatically. If the problem persists:
 ```bash
-./scripts/supervisor.sh restart anomal
-pkill -f "overblick dashboard"
+python -m overblick manage supervisor-restart "anomal"
+pkill -f "overblick dashboard"     # Unix/macOS
 python -m overblick dashboard
 ```
 
@@ -430,8 +437,8 @@ print('SMTP server:', sm.get('anomal', 'smtp_server'))
 
 ```bash
 # Start Cherry as well (moltbook plugin)
-./scripts/supervisor.sh stop
-./scripts/supervisor.sh start anomal cherry
+python -m overblick manage supervisor-stop
+python -m overblick manage supervisor-start "anomal cherry"
 ```
 
 ### Create Your Own Personality
@@ -440,7 +447,7 @@ print('SMTP server:', sm.get('anomal', 'smtp_server'))
 2. Edit `personality.yaml` (voice, traits, backstory)
 3. Edit `identity.yaml` (connectors, schedule)
 4. Add secrets: `python -m overblick secrets import myagent secrets.yaml`
-5. Start: `./scripts/supervisor.sh start myagent`
+5. Start: `python -m overblick manage supervisor-start "myagent"`
 
 ### Explore Capabilities
 

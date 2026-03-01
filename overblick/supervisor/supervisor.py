@@ -14,7 +14,6 @@ Usage:
 
 import asyncio
 import logging
-import signal
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -230,9 +229,8 @@ class Supervisor:
 
         Registers SIGINT/SIGTERM handlers for graceful shutdown.
         """
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self._shutdown_event.set)
+        from overblick.shared.platform import register_shutdown_signals
+        register_shutdown_signals(self._shutdown_event)
 
         await self._shutdown_event.wait()
         await self.stop()

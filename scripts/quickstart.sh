@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Unix/macOS only. Cross-platform alternative: python -m overblick manage
+#
 # quickstart.sh — One-command setup for Överblick
 #
 # Idempotent: safe to run multiple times. Skips steps that are already done.

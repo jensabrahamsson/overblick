@@ -101,8 +101,9 @@ class SecretsManager:
             logger.info("Master key stored in system keyring")
         except Exception:
             # Fallback to file
+            from overblick.shared.platform import set_restrictive_permissions
             key_file.write_bytes(new_key)
-            key_file.chmod(0o600)
+            set_restrictive_permissions(key_file)
             logger.info("Master key stored in file (keyring unavailable)")
 
         return new_key
@@ -158,7 +159,8 @@ class SecretsManager:
         secrets_path = self._secrets_dir / f"{identity}.yaml"
         with open(secrets_path, "w") as f:
             yaml.safe_dump(secrets, f)
-        secrets_path.chmod(0o600)
+        from overblick.shared.platform import set_restrictive_permissions
+        set_restrictive_permissions(secrets_path)
 
         # Update cache
         self._cache.setdefault(identity, {})[key] = value

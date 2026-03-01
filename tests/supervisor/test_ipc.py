@@ -13,6 +13,7 @@ import asyncio
 import json
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -30,11 +31,20 @@ from overblick.supervisor.ipc import (
     _MAX_MESSAGE_SIZE,
 )
 
+# Skip marker for Unix-only tests (file permissions, socket existence checks)
+unix_only = pytest.mark.skipif(
+    sys.platform == "win32", reason="Unix file permissions not available on Windows"
+)
+
 
 @pytest.fixture
 def ipc_dir(request):
-    """Short temp dir for Unix sockets (macOS AF_UNIX path limit ~104 chars)."""
-    d = Path(tempfile.mkdtemp(prefix="ipc", dir="/tmp"))
+    """Short temp dir for IPC sockets/connections.
+
+    Uses short paths to stay within macOS AF_UNIX path limit (~104 chars).
+    Uses platform-default temp dir for cross-platform compatibility.
+    """
+    d = Path(tempfile.mkdtemp(prefix="ipc"))
     yield d
     shutil.rmtree(d, ignore_errors=True)
 
@@ -132,6 +142,7 @@ class TestIPCServer:
         yield srv, token
         await srv.stop()
 
+    @unix_only
     @pytest.mark.asyncio
     async def test_start_creates_socket(self, ipc_dir):
         srv = IPCServer(name="test", socket_dir=ipc_dir, auth_token="tok")
@@ -139,6 +150,7 @@ class TestIPCServer:
         assert srv.socket_path.exists()
         await srv.stop()
 
+    @unix_only
     @pytest.mark.asyncio
     async def test_stop_removes_socket(self, ipc_dir):
         srv = IPCServer(name="test", socket_dir=ipc_dir, auth_token="tok")
@@ -147,6 +159,7 @@ class TestIPCServer:
         await srv.stop()
         assert not socket_path.exists()
 
+    @unix_only
     @pytest.mark.asyncio
     async def test_token_file_created_with_secure_permissions(self, ipc_dir):
         from overblick.supervisor.ipc import read_ipc_token
@@ -176,6 +189,7 @@ class TestIPCServer:
         assert not srv.token_path.exists()
         await srv.stop()
 
+    @unix_only
     @pytest.mark.asyncio
     async def test_stale_socket_removed_on_start(self, ipc_dir):
         socket_path = ipc_dir / "overblick-test.sock"

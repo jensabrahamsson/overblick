@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Unix/macOS only. Cross-platform alternative: python -m overblick manage supervisor
+#
 # Överblick Supervisor — Boss Agent Manager
 # Usage: ./scripts/supervisor.sh {start|stop|status|logs|restart} [identities...]
 

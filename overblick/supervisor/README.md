@@ -2,13 +2,13 @@
 
 ## Overview
 
-Multi-process boss agent that manages all identity agent processes. Communicates via authenticated Unix domain sockets (IPC). Provides centralized permission management, health monitoring, and inter-agent message routing.
+Multi-process boss agent that manages all identity agent processes. Communicates via authenticated IPC -- Unix domain sockets on macOS/Linux, TCP localhost on Windows. Provides centralized permission management, health monitoring, and inter-agent message routing.
 
 ## Architecture
 
 ```
 Supervisor
-├── IPCServer          — Unix socket server with auth + rate limiting
+├── IPCServer          — IPC server (Unix sockets / TCP localhost) with auth + rate limiting
 ├── AgentProcess       — Subprocess lifecycle management
 ├── MessageRouter      — Inter-agent message routing
 ├── PermissionManager  — Default-deny permission system
@@ -27,11 +27,11 @@ Main supervisor class. Starts IPC server, launches agent processes, and orchestr
 
 ### IPC (`ipc.py`)
 
-Unix domain socket communication with JSON protocol:
-- **Authentication**: Fernet-encrypted tokens shared via file (mode 0o600)
+IPC communication with JSON protocol. Uses Unix domain sockets on macOS/Linux and TCP localhost on Windows (selected automatically by `overblick/shared/platform.py`):
+- **Authentication**: Fernet-encrypted tokens shared via file (mode 0o600 on Unix)
 - **Rate limiting**: Per-sender sliding window (100/min default, 1000 max tracked senders)
 - **Message size limit**: 1 MB max to prevent OOM
-- **Socket permissions**: Owner-only (0o600)
+- **Socket permissions**: Owner-only 0o600 (Unix); loopback-only binding (Windows)
 
 ### AgentProcess (`process.py`)
 
@@ -58,19 +58,20 @@ Routes messages between agents. Agents register capabilities; the router dispatc
 
 - **Auth tokens**: Generated with `secrets.token_hex(32)`, encrypted at rest with Fernet
 - **HMAC validation**: Constant-time comparison via `hmac.compare_digest()`
-- **Socket permissions**: Directory 0o700, socket file 0o600
+- **Socket permissions**: Directory 0o700, socket file 0o600 (Unix); loopback-only binding (Windows)
 - **Rate limiting**: Per-sender with LRU eviction of inactive senders
 - **Token cleanup**: Token file removed on supervisor stop
 
 ## Running
 
 ```bash
-# Start supervisor with specific identities
+# Cross-platform (Python CLI)
+python -m overblick manage supervisor-start "anomal cherry natt stal"
+python -m overblick manage supervisor-stop
+python -m overblick manage supervisor-status
+
+# Unix/macOS only (bash script)
 ./scripts/overblick_manager.sh supervisor-start "anomal cherry natt stal"
-
-# Stop all agents
 ./scripts/overblick_manager.sh supervisor-stop
-
-# Check status
 ./scripts/overblick_manager.sh supervisor-status
 ```

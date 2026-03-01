@@ -1,13 +1,14 @@
 """
 IPC — Inter-Process Communication for agent supervisor.
 
-Uses Unix domain sockets for communication between the Supervisor
-and managed agent processes. JSON-based message protocol.
+Uses Unix domain sockets (macOS/Linux) or TCP localhost (Windows)
+for communication between the Supervisor and managed agent processes.
+JSON-based message protocol.
 
 SECURITY: Messages include an auth_token field. The server validates
 the token before processing any message. Tokens are generated at
 supervisor startup and shared with child processes via a token file
-(mode 0o600) in the socket directory — never via environment variables.
+(mode 0o600 on Unix) in the socket directory — never via environment variables.
 """
 
 import asyncio
@@ -24,6 +25,12 @@ from pathlib import Path
 from typing import Any, Callable, Coroutine, Optional
 
 from pydantic import BaseModel, Field
+
+from overblick.shared.platform import (
+    IS_WINDOWS,
+    set_restrictive_dir_permissions,
+    set_restrictive_permissions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +125,51 @@ class _IPCRateLimiter:
         return True
 
 
+def _read_conn_file(conn_path: Path) -> Optional[dict]:
+    """Read and decrypt connection info from .conn file (Windows TCP mode).
+
+    Returns dict with 'port' and 'token' keys, or None on failure.
+    """
+    if not conn_path.exists():
+        return None
+    data = conn_path.read_bytes()
+    try:
+        from cryptography.fernet import Fernet
+        parts = data.split(b"\n", 1)
+        if len(parts) == 2:
+            key, encrypted = parts
+            f = Fernet(key)
+            decrypted = f.decrypt(encrypted).decode()
+            return json.loads(decrypted)
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.debug("Failed to decrypt conn file: %s", e)
+
+    # Fallback: try plaintext JSON
+    try:
+        return json.loads(data.decode())
+    except Exception:
+        return None
+
+
 def read_ipc_token(name: str = "supervisor", socket_dir: Optional[Path] = None) -> str:
-    """Read and decrypt IPC token from file (for child processes)."""
+    """Read and decrypt IPC token from file (for child processes).
+
+    On Unix: reads from .token file (Fernet-encrypted token).
+    On Windows: reads from .conn file (Fernet-encrypted JSON with port + token).
+    Falls back to .token if .conn is not found.
+    """
     sd = socket_dir or _SOCKET_DIR
+
+    # Try .conn file first (Windows TCP mode, or if it exists)
+    conn_path = sd / f"overblick-{name}.conn"
+    if conn_path.exists():
+        conn_info = _read_conn_file(conn_path)
+        if conn_info and "token" in conn_info:
+            return conn_info["token"]
+
+    # Standard .token file (Unix mode)
     token_path = sd / f"overblick-{name}.token"
     if not token_path.exists():
         return ""
@@ -197,8 +246,9 @@ MessageHandler = Callable[[IPCMessage], Coroutine[Any, Any, Optional[IPCMessage]
 
 class IPCServer:
     """
-    Unix domain socket server for the Supervisor.
+    IPC server for the Supervisor.
 
+    Uses Unix domain sockets on macOS/Linux, TCP localhost on Windows.
     Listens for connections from agent processes and dispatches
     messages to registered handlers.
 
@@ -216,12 +266,14 @@ class IPCServer:
         self._name = name
         self._socket_dir = socket_dir or _SOCKET_DIR
         self._socket_path = self._socket_dir / f"overblick-{name}.sock"
+        self._conn_path = self._socket_dir / f"overblick-{name}.conn"
         self._server: Optional[asyncio.AbstractServer] = None
         self._handlers: dict[str, MessageHandler] = {}
         self._auth_token = auth_token
         self._rejected_count = 0
         self._rate_limiter = _IPCRateLimiter(max_per_minute=rate_limit_per_minute)
         self._rate_limited_count = 0
+        self._tcp_port: Optional[int] = None
 
     @property
     def socket_path(self) -> Path:
@@ -240,21 +292,34 @@ class IPCServer:
         """Path to the auth token file (for sharing with child processes)."""
         return self._socket_dir / f"overblick-{self._name}.token"
 
-    async def start(self) -> None:
-        """Start listening for connections."""
-        self._socket_dir.mkdir(parents=True, exist_ok=True)
-        os.chmod(str(self._socket_dir), 0o700)  # Owner-only directory access
+    @property
+    def tcp_port(self) -> Optional[int]:
+        """TCP port used on Windows (None on Unix)."""
+        return self._tcp_port
 
+    async def start(self) -> None:
+        """Start listening for connections.
+
+        Unix: creates a Unix domain socket at socket_path.
+        Windows: binds TCP on 127.0.0.1:0 (OS-assigned port), writes
+        connection info to .conn file.
+        """
+        self._socket_dir.mkdir(parents=True, exist_ok=True)
+        set_restrictive_dir_permissions(self._socket_dir)
+
+        if IS_WINDOWS:
+            await self._start_tcp()
+        else:
+            await self._start_unix()
+
+    async def _start_unix(self) -> None:
+        """Start Unix domain socket server."""
         # Remove stale socket
         if self._socket_path.exists():
             self._socket_path.unlink()
 
-        # Write auth token to encrypted file for child processes (mode 0o600)
-        if self._auth_token:
-            encrypted_data = _encrypt_token(self._auth_token)
-            fd = os.open(str(self.token_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with os.fdopen(fd, "wb") as f:
-                f.write(encrypted_data)
+        # Write auth token to encrypted file for child processes
+        self._write_token_file()
 
         self._server = await asyncio.start_unix_server(
             self._handle_connection,
@@ -263,23 +328,90 @@ class IPCServer:
         )
 
         # Restrict socket permissions (owner only)
-        os.chmod(str(self._socket_path), 0o600)
+        set_restrictive_permissions(self._socket_path)
 
         logger.info("IPC server listening on %s", self._socket_path)
 
+    async def _start_tcp(self) -> None:
+        """Start TCP localhost server (Windows fallback)."""
+        # Write auth token + port to connection file
+        self._server = await asyncio.start_server(
+            self._handle_connection,
+            host="127.0.0.1",
+            port=0,  # OS assigns a free port
+            limit=_MAX_MESSAGE_SIZE,
+        )
+
+        # Retrieve the assigned port
+        addr = self._server.sockets[0].getsockname()
+        self._tcp_port = addr[1]
+
+        # Write connection info: Fernet key + encrypted JSON with port and token
+        self._write_conn_file()
+
+        logger.info("IPC server listening on 127.0.0.1:%d", self._tcp_port)
+
+    def _write_token_file(self) -> None:
+        """Write encrypted auth token to file (Unix)."""
+        if not self._auth_token:
+            return
+        encrypted_data = _encrypt_token(self._auth_token)
+        if IS_WINDOWS:
+            self.token_path.write_bytes(encrypted_data)
+        else:
+            fd = os.open(
+                str(self.token_path),
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                0o600,
+            )
+            with os.fdopen(fd, "wb") as f:
+                f.write(encrypted_data)
+
+    def _write_conn_file(self) -> None:
+        """Write connection info file (Windows TCP mode).
+
+        Format: <fernet_key>\\n<encrypted_json>
+        where JSON = {"port": N, "token": "<hex>"}
+        """
+        if not self._auth_token or self._tcp_port is None:
+            return
+        try:
+            from cryptography.fernet import Fernet
+            key = Fernet.generate_key()
+            f = Fernet(key)
+            conn_data = json.dumps({
+                "port": self._tcp_port,
+                "token": self._auth_token,
+            })
+            encrypted = f.encrypt(conn_data.encode())
+            self._conn_path.write_bytes(key + b"\n" + encrypted)
+        except ImportError:
+            # Fallback: plaintext JSON (not recommended for production)
+            conn_data = json.dumps({
+                "port": self._tcp_port,
+                "token": self._auth_token,
+            })
+            self._conn_path.write_text(conn_data)
+
     async def stop(self) -> None:
-        """Stop the server and cleanup socket + token file."""
+        """Stop the server and cleanup socket/token/conn files."""
         if self._server:
             self._server.close()
             await self._server.wait_closed()
 
+        # Cleanup Unix socket
         if self._socket_path.exists():
             self._socket_path.unlink()
 
-        # Clean up token file
+        # Cleanup token file (Unix)
         if self.token_path.exists():
             self.token_path.unlink()
 
+        # Cleanup conn file (Windows)
+        if self._conn_path.exists():
+            self._conn_path.unlink()
+
+        self._tcp_port = None
         logger.info("IPC server stopped")
 
     def _validate_auth(self, msg: IPCMessage) -> bool:
@@ -347,10 +479,10 @@ class IPCServer:
 
 class IPCClient:
     """
-    Unix domain socket client for agent processes.
+    IPC client for agent processes.
 
-    Connects to the Supervisor's socket to send messages
-    and receive responses.
+    Connects to the Supervisor via Unix domain socket (macOS/Linux)
+    or TCP localhost (Windows) to send messages and receive responses.
 
     If auth_token is set, it is included in all outgoing messages.
     """
@@ -360,10 +492,48 @@ class IPCClient:
         target: str = "supervisor",
         socket_dir: Optional[Path] = None,
         auth_token: str = "",
+        tcp_port: Optional[int] = None,
     ):
         self._socket_dir = socket_dir or _SOCKET_DIR
+        self._target = target
         self._socket_path = self._socket_dir / f"overblick-{target}.sock"
+        self._conn_path = self._socket_dir / f"overblick-{target}.conn"
         self._auth_token = auth_token
+        self._tcp_port = tcp_port
+
+    async def _open_connection(self, timeout: float) -> tuple:
+        """Open a connection using the appropriate transport.
+
+        Returns (reader, writer) pair.
+        """
+        if IS_WINDOWS or self._tcp_port is not None:
+            port = self._tcp_port or self._read_tcp_port()
+            if port is None:
+                raise FileNotFoundError(f"No connection file found: {self._conn_path}")
+            return await asyncio.wait_for(
+                asyncio.open_connection("127.0.0.1", port),
+                timeout=timeout,
+            )
+        else:
+            return await asyncio.wait_for(
+                asyncio.open_unix_connection(str(self._socket_path)),
+                timeout=timeout,
+            )
+
+    def _read_tcp_port(self) -> Optional[int]:
+        """Read TCP port from .conn file (Windows mode)."""
+        if not self._conn_path.exists():
+            return None
+        try:
+            conn_info = _read_conn_file(self._conn_path)
+            if conn_info:
+                # Also update auth token if not set
+                if not self._auth_token and "token" in conn_info:
+                    self._auth_token = conn_info["token"]
+                return conn_info.get("port")
+        except Exception as e:
+            logger.debug("Failed to read conn file: %s", e)
+        return None
 
     async def send(self, message: IPCMessage, timeout: float = 5.0) -> Optional[IPCMessage]:
         """
@@ -377,10 +547,7 @@ class IPCClient:
             message = message.model_copy(update={"auth_token": self._auth_token})
 
         try:
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_unix_connection(str(self._socket_path)),
-                timeout=timeout,
-            )
+            reader, writer = await self._open_connection(timeout)
 
             try:
                 writer.write((message.to_json() + "\n").encode())
@@ -398,7 +565,7 @@ class IPCClient:
                 await writer.wait_closed()
 
         except FileNotFoundError:
-            logger.debug("IPC socket not found: %s", self._socket_path)
+            logger.debug("IPC socket/conn not found: %s", self._socket_path)
         except ConnectionRefusedError:
             logger.debug("IPC connection refused: %s", self._socket_path)
         except asyncio.TimeoutError:

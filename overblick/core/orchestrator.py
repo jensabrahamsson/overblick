@@ -9,7 +9,6 @@ import asyncio
 import importlib
 import json
 import logging
-import signal
 import sys
 from enum import Enum
 from pathlib import Path
@@ -237,10 +236,9 @@ class Orchestrator:
             raise
         self._state = OrchestratorState.RUNNING
 
-        # Register signal handlers — only set a flag (signal-safe)
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self._shutdown_event.set)
+        # Register signal handlers — cross-platform (Unix signals / Windows signal.signal)
+        from overblick.shared.platform import register_shutdown_signals
+        register_shutdown_signals(self._shutdown_event)
 
         self._audit_log.log("orchestrator_started", category="lifecycle")
         self._audit_log.start_background_cleanup()

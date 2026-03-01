@@ -1,7 +1,8 @@
 """
 Supervisor service — read-only agent status via IPC.
 
-Connects to the Supervisor's Unix socket to request agent status.
+Connects to the Supervisor via Unix socket (macOS/Linux) or TCP
+localhost (Windows) to request agent status.
 Falls back gracefully if supervisor is not running.
 """
 
@@ -31,12 +32,10 @@ class SupervisorService:
         return self._resolved_socket_dir
 
     def _read_auth_token(self, socket_dir: Path) -> str:
-        """Read and decrypt auth token from supervisor's token file."""
-        token_path = socket_dir / "overblick-supervisor.token"
+        """Read and decrypt auth token from supervisor's token or conn file."""
         try:
-            if token_path.exists():
-                from overblick.supervisor.ipc import _decrypt_token
-                return _decrypt_token(token_path.read_bytes())
+            from overblick.supervisor.ipc import read_ipc_token
+            return read_ipc_token("supervisor", socket_dir=socket_dir)
         except Exception as e:
             logger.debug("Failed to read auth token: %s", e)
         return ""
@@ -44,19 +43,31 @@ class SupervisorService:
     def _get_client(self):
         """Create a fresh IPC client with current auth token.
 
-        Re-reads the token file each time to handle supervisor restarts
-        that generate new tokens.
+        Re-reads the token/conn file each time to handle supervisor
+        restarts that generate new tokens.
         """
         try:
-            from overblick.supervisor.ipc import IPCClient
+            from overblick.supervisor.ipc import IPCClient, _read_conn_file
+            from overblick.shared.platform import IS_WINDOWS
 
             socket_dir = self._resolve_socket_dir()
             auth_token = self._read_auth_token(socket_dir)
+
+            # On Windows (or if .conn file exists), pass TCP port
+            tcp_port = None
+            conn_path = socket_dir / "overblick-supervisor.conn"
+            if IS_WINDOWS or conn_path.exists():
+                conn_info = _read_conn_file(conn_path)
+                if conn_info:
+                    tcp_port = conn_info.get("port")
+                    if not auth_token and "token" in conn_info:
+                        auth_token = conn_info["token"]
 
             return IPCClient(
                 target="supervisor",
                 socket_dir=socket_dir,
                 auth_token=auth_token,
+                tcp_port=tcp_port,
             )
         except Exception as e:
             logger.debug("IPC client not available: %s", e)

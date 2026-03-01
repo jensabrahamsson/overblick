@@ -6,6 +6,16 @@
 
 Security-focused multi-identity agent framework. Python 3.13+. GPL v3.
 
+## Platform Support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **macOS** | Full support | Primary development platform. Unix sockets for IPC, macOS Keychain for secrets. |
+| **Linux** | Full support | Unix sockets for IPC, keyring for secrets. |
+| **Windows** | Supported | TCP localhost fallback for IPC (no Unix sockets), keyring for secrets. Use `python -m overblick manage` instead of bash scripts. |
+
+Cross-platform helpers live in `overblick/shared/platform.py`. The Python CLI manager (`python -m overblick manage`) works on all platforms; the bash scripts in `scripts/` are Unix/macOS only.
+
 Överblick consolidates multiple AI agent identities into a single codebase with a plugin architecture. Each identity operates with a distinct **personality** — voice, interests, traits, and behavioral constraints — all driven by YAML configuration. The framework emphasizes security at every layer: a 6-stage LLM pipeline, encrypted secrets, structured audit logging, prompt injection boundaries, and default-deny permissions.
 
 ## Quick Start
@@ -22,13 +32,13 @@ Or step by step:
 
 ```bash
 python3.13 -m venv venv
-source venv/bin/activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 
 # Install as editable package (recommended for development)
 pip install -e ".[dev]"
 
 # Run tests (3500+ unit + scenario tests, no LLM/browser required)
-pytest tests/ -v -m "not llm and not e2e"
+python -m pytest tests/ -v -m "not llm and not e2e"
 
 # Start the dashboard — first run auto-opens setup wizard
 python -m overblick dashboard
@@ -44,7 +54,7 @@ python -m overblick run anomal
                      │  Supervisor   │  Boss agent: process management,
                      │  (Boss Agent) │  audit, permission decisions
                      └──────┬────────┘
-                            │ IPC (Unix sockets, HMAC auth)
+                            │ IPC (Unix sockets / TCP localhost on Windows, HMAC auth)
               ┌─────────────┼─────────────┐
               │             │             │
         ┌─────▼──────┐ ┌───▼─────┐ ┌────▼──────┐
@@ -102,7 +112,7 @@ Personalities define WHO the agent IS — separate from operational config. Each
 
 ```bash
 # Add your personality to the test parametrize lists
-pytest tests/personalities/test_personality_llm.py -v -s -m llm --timeout=300
+python -m pytest tests/personalities/test_personality_llm.py -v -s -m llm --timeout=300
 ```
 
 **Personality YAML structure:**
@@ -208,7 +218,7 @@ await supervisor.run()     # Block until shutdown
 
 **Features:**
 - Process lifecycle management (start, stop, auto-restart with backoff)
-- IPC via Unix domain sockets with HMAC authentication
+- IPC via Unix domain sockets (macOS/Linux) or TCP localhost (Windows) with HMAC authentication
 - Agent audit system (health, performance, safety, rate limit monitoring)
 - Permission request handling (auto-approve in stage 1)
 - Trend analysis across audit history
@@ -320,24 +330,24 @@ Both backends share the same migration system and API.
 
 ```bash
 # All unit + scenario tests (3500+)
-pytest tests/ -v -m "not e2e"
+python -m pytest tests/ -v -m "not e2e"
 
 # LLM personality tests (requires Ollama + qwen3:8b)
-pytest tests/ -v -m llm --timeout=300
+python -m pytest tests/ -v -m llm --timeout=300
 
 # Specific plugin
-pytest tests/plugins/telegram/ -v
-pytest tests/plugins/email_agent/ -v
-pytest tests/plugins/moltbook/ -v
+python -m pytest tests/plugins/telegram/ -v
+python -m pytest tests/plugins/email_agent/ -v
+python -m pytest tests/plugins/moltbook/ -v
 
 # Supervisor tests
-pytest tests/supervisor/ -v
+python -m pytest tests/supervisor/ -v
 
 # Personality tests (non-LLM)
-pytest tests/personalities/ -v --ignore=tests/personalities/test_personality_llm.py
+python -m pytest tests/personalities/ -v --ignore=tests/personalities/test_personality_llm.py
 
 # With coverage
-pytest tests/ --cov=overblick
+python -m pytest tests/ --cov=overblick
 ```
 
 ## Directory Structure

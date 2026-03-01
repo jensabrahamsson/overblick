@@ -1,11 +1,22 @@
 # Överblick Manager
 
+**NOTE: The bash scripts in this directory are Unix/macOS only.** For cross-platform usage (Windows, Linux, macOS), use the Python CLI manager instead:
+
+```bash
+python -m overblick manage <command>
+```
+
+The Python CLI (`overblick/manage/`) provides the same commands and works on all platforms. See examples below for both variants.
+
+---
+
 Unified management script for the entire Överblick platform. Controls the LLM Gateway, web dashboard, and multi-agent supervisor from a single interface.
 
 ## Location
 
 ```
-scripts/overblick_manager.sh
+scripts/overblick_manager.sh          # Unix/macOS only
+python -m overblick manage            # Cross-platform (Windows, Linux, macOS)
 ```
 
 ## Prerequisites
@@ -96,7 +107,7 @@ Web-based monitoring UI (FastAPI + htmx).
 
 ### Supervisor
 
-The supervisor manages multiple agent identities as child processes, with IPC via authenticated Unix sockets.
+The supervisor manages multiple agent identities as child processes, with IPC via authenticated Unix sockets (macOS/Linux) or TCP localhost (Windows).
 
 ```bash
 ./scripts/overblick_manager.sh supervisor-start "anomal cherry natt stal"
