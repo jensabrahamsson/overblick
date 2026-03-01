@@ -84,6 +84,25 @@ class TherapyCapability(CapabilityBase):
             )
         return await self._therapy_system.run_session(**kwargs)
 
+    def get_prompt_context(self) -> str:
+        """Inject the most recent therapy session insight into prompts."""
+        if not self._therapy_system:
+            return ""
+
+        if isinstance(self._therapy_system, CherryTherapySystem):
+            sessions = self._therapy_system.recent_sessions
+            if sessions:
+                summary = sessions[-1].session_summary
+                if summary:
+                    return f"\n[Therapy insight: {summary}]\n"
+        else:
+            # TherapySystem (Anomal / generic)
+            summary = self._therapy_system.last_session_summary
+            if summary:
+                return f"\n[Therapy insight: {summary}]\n"
+
+        return ""
+
     @property
     def inner(self) -> Optional[_AnyTherapySystem]:
         """Access the underlying therapy system (for tests)."""

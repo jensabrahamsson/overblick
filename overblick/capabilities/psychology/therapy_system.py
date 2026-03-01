@@ -321,6 +321,7 @@ class TherapySystem:
         self._therapy_day = therapy_day
         self._session_history: list[TherapySession] = []
         self._week_counter = 0
+        self._last_session_summary: str = ""
 
     @staticmethod
     def _day_name(day: int) -> str:
@@ -366,6 +367,8 @@ class TherapySystem:
             session.session_summary = "A quiet week with no material to process."
             session.post_title = "Weekly Reflections: On Silence"
             session.post_content = await self._generate_empty_week_post()
+            self._session_history.append(session)
+            self._last_session_summary = session.session_summary
             return session
 
         # Step 1: Analyze dreams
@@ -412,6 +415,7 @@ class TherapySystem:
             session.post_submolt = submolt
 
         self._session_history.append(session)
+        self._last_session_summary = session.session_summary
         logger.info("Therapy session complete: %s", session.post_title)
         return session
 
@@ -698,6 +702,11 @@ class TherapySystem:
         if session.individuation_progress:
             parts.append(f"Individuation: {session.individuation_progress}")
         return " ".join(parts)
+
+    @property
+    def last_session_summary(self) -> str:
+        """The summary of the most recent therapy session."""
+        return self._last_session_summary
 
     @property
     def session_history(self) -> list[TherapySession]:

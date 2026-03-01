@@ -192,6 +192,65 @@ class TestMyCommentsTracking:
         await db.track_my_comment("cmt_001", "post_x")
         await db.track_my_comment("cmt_001", "post_x")  # duplicate is safe
 
+    @pytest.mark.asyncio
+    async def test_get_my_comment_post_ids(self, db):
+        """get_my_comment_post_ids() returns distinct post_ids."""
+        await db.track_my_comment("cmt_001", "post_a")
+        await db.track_my_comment("cmt_002", "post_b")
+        await db.track_my_comment("cmt_003", "post_a")  # duplicate post_id
+        ids = await db.get_my_comment_post_ids(limit=10)
+        assert set(ids) == {"post_a", "post_b"}
+
+    @pytest.mark.asyncio
+    async def test_get_my_comment_post_ids_respects_limit(self, db):
+        """get_my_comment_post_ids() respects limit."""
+        for i in range(10):
+            await db.track_my_comment(f"cmt_{i:03d}", f"post_{i:03d}")
+        ids = await db.get_my_comment_post_ids(limit=3)
+        assert len(ids) == 3
+
+    @pytest.mark.asyncio
+    async def test_get_my_comment_ids_for_post(self, db):
+        """get_my_comment_ids_for_post() returns our comment_ids on a specific post."""
+        await db.track_my_comment("cmt_001", "post_x")
+        await db.track_my_comment("cmt_002", "post_x")
+        await db.track_my_comment("cmt_003", "post_y")  # different post
+        ids = await db.get_my_comment_ids_for_post("post_x")
+        assert set(ids) == {"cmt_001", "cmt_002"}
+
+    @pytest.mark.asyncio
+    async def test_get_my_comment_ids_for_post_empty(self, db):
+        """get_my_comment_ids_for_post() returns empty list for unknown post."""
+        ids = await db.get_my_comment_ids_for_post("nonexistent")
+        assert ids == []
+
+
+class TestRecentInteractions:
+    """Recent interactions for learning-based heartbeat prompts."""
+
+    @pytest.mark.asyncio
+    async def test_get_recent_interactions(self, db):
+        """get_recent_interactions() returns engagement records."""
+        await db.record_engagement("post_1", "comment", 0.8)
+        await db.record_engagement("post_2", "upvote", 0.5)
+        interactions = await db.get_recent_interactions(limit=5)
+        assert len(interactions) == 2
+        assert interactions[0]["action"] in ("comment", "upvote")
+
+    @pytest.mark.asyncio
+    async def test_get_recent_interactions_respects_limit(self, db):
+        """get_recent_interactions() respects limit."""
+        for i in range(10):
+            await db.record_engagement(f"post_{i}", "comment", 0.5)
+        interactions = await db.get_recent_interactions(limit=3)
+        assert len(interactions) == 3
+
+    @pytest.mark.asyncio
+    async def test_get_recent_interactions_empty(self, db):
+        """get_recent_interactions() returns empty list when no engagements."""
+        interactions = await db.get_recent_interactions(limit=5)
+        assert interactions == []
+
 
 class TestChallengeTracking:
     """Challenge recording."""

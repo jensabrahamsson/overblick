@@ -162,6 +162,7 @@ class ResponseGenerator:
         comment_content: str,
         commenter_name: str,
         prompt_template: str,
+        extra_context: str = "",
         priority: str = "low",
     ) -> Optional[str]:
         """Generate a reply to a comment on our post."""
@@ -174,6 +175,9 @@ class ResponseGenerator:
             comment=safe_comment,
             commenter=safe_commenter,
         )
+
+        if extra_context:
+            prompt = f"{extra_context}\n\n{prompt}"
 
         return await self._call_llm(prompt, audit_action="reply_generation", priority=priority)
 

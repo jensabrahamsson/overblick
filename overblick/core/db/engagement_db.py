@@ -295,6 +295,35 @@ class EngagementDB:
         )
         return [r["post_id"] for r in rows]
 
+    async def get_my_comment_post_ids(self, limit: int = 5) -> list[str]:
+        """Get distinct post_ids where we left comments, most recent first."""
+        ph = self._db.ph
+        rows = await self._db.fetch_all(
+            f"SELECT DISTINCT post_id FROM my_comments "
+            f"ORDER BY created_at DESC LIMIT {ph(1)}",
+            (limit,),
+        )
+        return [r["post_id"] for r in rows]
+
+    async def get_my_comment_ids_for_post(self, post_id: str) -> list[str]:
+        """Get our comment_ids on a specific post."""
+        ph = self._db.ph
+        rows = await self._db.fetch_all(
+            f"SELECT comment_id FROM my_comments WHERE post_id = {ph(1)}",
+            (post_id,),
+        )
+        return [r["comment_id"] for r in rows]
+
+    async def get_recent_interactions(self, limit: int = 5) -> list[dict[str, Any]]:
+        """Get recent engagement interactions for learning-based heartbeat prompts."""
+        ph = self._db.ph
+        rows = await self._db.fetch_all(
+            f"SELECT post_id, action, relevance_score, created_at "
+            f"FROM engagements ORDER BY created_at DESC LIMIT {ph(1)}",
+            (limit,),
+        )
+        return [dict(r) for r in rows]
+
     # ------------------------------------------------------------------
     # Challenge tracking
     # ------------------------------------------------------------------

@@ -18,6 +18,7 @@ Conditional capabilities (enabled via identity.enabled_modules):
 import asyncio
 import json
 import logging
+import random
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -145,8 +146,17 @@ class MoltbookPlugin(PluginBase):
             max_per_cycle=self._max_comments_per_cycle,
         )
 
-        # Heartbeat manager
-        self._heartbeat = HeartbeatManager(engagement_db=self.ctx.engagement_db)
+        # Heartbeat manager — topic_count from identity's HEARTBEAT_TOPICS
+        heartbeat_topics = getattr(prompts, "HEARTBEAT_TOPICS", [])
+        topic_count = len(heartbeat_topics) if heartbeat_topics else 6
+        self._heartbeat = HeartbeatManager(
+            engagement_db=self.ctx.engagement_db,
+            topic_count=topic_count,
+        )
+        # Restore topic rotation state from disk
+        data_dir = self.ctx.data_dir
+        if isinstance(data_dir, Path):
+            self._heartbeat.load_state(data_dir)
 
         # Knowledge loader
         identity_dir = identity.identity_dir
@@ -307,6 +317,9 @@ class MoltbookPlugin(PluginBase):
             # Step 6: Check replies to our posts
             await self._check_own_post_replies()
 
+            # Step 6b: Check replies to our comments on OTHER people's posts
+            await self._check_own_comment_replies()
+
             # Step 7: Handle direct messages
             await self._handle_dms()
 
@@ -441,6 +454,26 @@ class MoltbookPlugin(PluginBase):
                         source_agent=l["agent"],
                     )
 
+            # Upvote interesting comments from other agents on this post
+            agent_name = self.ctx.identity.raw_config.get(
+                "agent_name", self.ctx.identity.name,
+            )
+            for other_comment in (post.comments or []):
+                if not other_comment.id:
+                    continue
+                if getattr(other_comment, "agent_name", "") == agent_name:
+                    continue
+                try:
+                    other_decision = self._decision_engine.evaluate_reply(
+                        comment_content=other_comment.content,
+                        original_post_title=post.title,
+                        commenter_name=other_comment.agent_name,
+                    )
+                    if not other_decision.hostile:
+                        await self._client.upvote_comment(post.id, other_comment.id)
+                except MoltbookError:
+                    pass  # Best-effort upvoting
+
         except SuspensionError:
             raise  # Let tick() handle the 24h backoff
         except RateLimitError as e:
@@ -522,6 +555,82 @@ class MoltbookPlugin(PluginBase):
 
             except MoltbookError as e:
                 logger.debug("Could not check replies for %s: %s", post_id, e)
+
+    async def _check_own_comment_replies(self) -> None:
+        """Check for replies to our comments on OTHER people's posts.
+
+        Discovers replies by finding posts where we commented, then scanning
+        for comments whose parent_id matches one of our comment_ids.
+        """
+        try:
+            post_ids = await self.ctx.engagement_db.get_my_comment_post_ids(limit=5)
+        except Exception as e:
+            logger.debug("Could not get comment post ids: %s", e)
+            return
+
+        if not post_ids:
+            return
+
+        agent_name = self.ctx.identity.raw_config.get(
+            "agent_name", self.ctx.identity.name,
+        )
+
+        for post_id in post_ids:
+            try:
+                my_comment_ids = await self.ctx.engagement_db.get_my_comment_ids_for_post(post_id)
+                if not my_comment_ids:
+                    continue
+
+                my_ids_set = set(my_comment_ids)
+                post = await self._client.get_post(post_id, include_comments=True)
+                if not post or not post.comments:
+                    continue
+
+                for comment in post.comments:
+                    if not comment.id:
+                        continue
+                    # Only care about replies TO our comments
+                    parent_id = getattr(comment, "parent_id", None)
+                    if not parent_id or parent_id not in my_ids_set:
+                        continue
+                    # Skip our own replies
+                    if getattr(comment, "agent_name", "") == agent_name:
+                        continue
+                    if await self.ctx.engagement_db.is_reply_processed(comment.id):
+                        continue
+
+                    decision = self._decision_engine.evaluate_reply(
+                        comment_content=comment.content,
+                        original_post_title=post.title,
+                        commenter_name=comment.agent_name,
+                    )
+
+                    if decision.hostile:
+                        await self.ctx.engagement_db.mark_reply_processed(
+                            comment.id, post_id, "hostile_skip", 0,
+                        )
+                        continue
+
+                    # Upvote non-hostile replies to our comments
+                    try:
+                        await self._client.upvote_comment(post_id, comment.id)
+                    except MoltbookError as e:
+                        logger.debug("Upvote failed for reply %s: %s", comment.id, e)
+
+                    if decision.should_engage:
+                        await self.ctx.engagement_db.queue_reply_action(
+                            comment_id=comment.id,
+                            post_id=post_id,
+                            action="reply",
+                            relevance_score=decision.score,
+                        )
+                    else:
+                        await self.ctx.engagement_db.mark_reply_processed(
+                            comment.id, post_id, "skip", decision.score,
+                        )
+
+            except MoltbookError as e:
+                logger.debug("Could not check comment replies for %s: %s", post_id, e)
 
     async def _handle_dms(self) -> None:
         """Handle incoming DM requests and conversations.
@@ -633,11 +742,25 @@ class MoltbookPlugin(PluginBase):
                 getattr(prompts, "REPLY_TO_COMMENT_PROMPT", "Reply to: {comment}\nOn post: {title}"),
             )
 
+            # Enrich reply with capability context and relevant learnings
+            extra_context = self._gather_capability_context()
+            if self.ctx.learning_store:
+                try:
+                    relevant = await self.ctx.learning_store.get_relevant(
+                        context=comment.content, limit=5,
+                    )
+                    if relevant:
+                        learnings_text = "\n".join(f"- {l.content}" for l in relevant)
+                        extra_context += f"\n\nRelevant things you've learned:\n{learnings_text}\n"
+                except Exception as e:
+                    logger.debug("Could not fetch relevant learnings for reply: %s", e)
+
             response = await self._response_gen.generate_reply(
                 original_post_title=post.title,
                 comment_content=comment.content,
                 commenter_name=comment.agent_name,
                 prompt_template=reply_prompt,
+                extra_context=extra_context,
             )
 
             if response:
@@ -663,12 +786,63 @@ class MoltbookPlugin(PluginBase):
                 return False
 
         prompts = self._load_prompts(self.ctx.identity.name)
-        heartbeat_prompt = getattr(prompts, "HEARTBEAT_PROMPT", "Write a short post about topic {topic_index}.")
+        heartbeat_topics = getattr(prompts, "HEARTBEAT_TOPICS", [])
 
-        # Anti-repetition: inject recent post titles as context
+        # Decide prompt: 30% chance of learning-based heartbeat when learnings exist
+        use_learning_prompt = False
+        learning_prompt = getattr(prompts, "LEARNING_BASED_HEARTBEAT_PROMPT", None)
+        if learning_prompt and self.ctx.learning_store and random.random() < 0.3:
+            try:
+                approved = await self.ctx.learning_store.get_approved(limit=5)
+                if approved:
+                    use_learning_prompt = True
+            except Exception as e:
+                logger.debug("Could not check approved learnings: %s", e)
+
+        if use_learning_prompt:
+            heartbeat_prompt = learning_prompt
+            # Populate {learnings} and {interactions} placeholders
+            learnings_text = "\n".join(f"- {l.content}" for l in approved)
+            interactions_text = "(no recent interactions)"
+            try:
+                interactions = await self.ctx.engagement_db.get_recent_interactions(limit=5)
+                if interactions:
+                    interactions_text = "\n".join(
+                        f"- {i['action']} on post {i['post_id'][:8]}... (score: {i.get('relevance_score', 'N/A')})"
+                        for i in interactions
+                    )
+            except Exception as e:
+                logger.debug("Could not fetch recent interactions: %s", e)
+
+            heartbeat_prompt = heartbeat_prompt.format(
+                learnings=learnings_text,
+                interactions=interactions_text,
+            )
+            topic_index = 0
+            topic_vars: dict[str, str] = {}
+            logger.info("Using learning-based heartbeat prompt (%d learnings)", len(approved))
+        else:
+            heartbeat_prompt = getattr(
+                prompts, "HEARTBEAT_PROMPT",
+                "Write a short post about topic {topic_index}.",
+            )
+            # Topic rotation
+            topic_index = self._heartbeat.get_next_topic_index()
+            topic_vars = {}
+            if heartbeat_topics and topic_index < len(heartbeat_topics):
+                topic = heartbeat_topics[topic_index]
+                topic_vars = {
+                    "topic_instruction": topic.get("instruction", ""),
+                    "topic_example": topic.get("example", ""),
+                }
+                logger.info(
+                    "Heartbeat topic #%d: %s", topic_index, topic.get("id", "unknown"),
+                )
+
+        # Anti-repetition: inject recent post titles as context (window=20)
         extra_context = self._gather_capability_context()
         try:
-            recent_titles = await self.ctx.engagement_db.get_recent_heartbeat_titles(limit=5)
+            recent_titles = await self.ctx.engagement_db.get_recent_heartbeat_titles(limit=20)
             if recent_titles:
                 titles_text = "\n".join(f"- {t}" for t in recent_titles)
                 extra_context += f"\n\nYour recent posts (DON'T repeat these topics):\n{titles_text}\n"
@@ -677,8 +851,8 @@ class MoltbookPlugin(PluginBase):
 
         result = await self._response_gen.generate_heartbeat(
             prompt_template=heartbeat_prompt,
-            topic_index=0,
-            topic_vars={},
+            topic_index=topic_index,
+            topic_vars=topic_vars,
             extra_context=extra_context,
         )
 
@@ -687,8 +861,11 @@ class MoltbookPlugin(PluginBase):
 
         title, content, submolt = result
 
-        # NOTE: Output safety is handled automatically by SafeLLMPipeline
-        # inside ResponseGenerator. No manual safety call needed.
+        # Use topic-specified submolt if available and not already set by LLM
+        if not use_learning_prompt and heartbeat_topics and topic_index < len(heartbeat_topics):
+            topic_submolt = heartbeat_topics[topic_index].get("submolt")
+            if topic_submolt and submolt in ("ai", "general"):
+                submolt = topic_submolt
 
         try:
             post = await self._client.create_post(title, content, submolt=submolt)
@@ -698,9 +875,17 @@ class MoltbookPlugin(PluginBase):
             await self._heartbeat.record_heartbeat(post.id, title)
             await self.ctx.engagement_db.track_my_post(post.id, title)
 
+            # Persist topic rotation state
+            data_dir = self.ctx.data_dir
+            if isinstance(data_dir, Path):
+                self._heartbeat.save_state(data_dir)
+
             self.ctx.audit_log.log(
                 action="heartbeat_posted",
-                details={"post_id": post.id, "title": title, "submolt": submolt},
+                details={
+                    "post_id": post.id, "title": title, "submolt": submolt,
+                    "topic_index": topic_index, "learning_based": use_learning_prompt,
+                },
             )
             return True
 
