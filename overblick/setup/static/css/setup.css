@@ -1188,6 +1188,10 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
     padding: var(--space-md) 0;
 }
 
+.plugin-config { margin-top: 0.5rem; border-left: 2px solid var(--border); padding-left: 1rem; }
+
+.review-detail { display: inline; font-size: 0.85rem; color: var(--text-muted); margin-left: 6px; }
+
 /* ================================================
    Success / Celebration (Step 8)
    ================================================ */

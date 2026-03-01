@@ -52,6 +52,7 @@ from overblick.setup.wizard import (
     _get_state,
     _load_identity_data,
     _save_wizard_state,
+    _uc_to_plugin_key,
     plugin_name,
 )
 
@@ -82,6 +83,46 @@ def _validate_test_url(url: str) -> str:
     if parsed.hostname in _BLOCKED_HOSTS:
         raise ValueError("Blocked host")
     return url
+
+
+def _parse_textarea_lines(text: str) -> list[str]:
+    """Split textarea text into cleaned non-empty lines."""
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def _parse_plugin_config(uc_id: str, form) -> dict[str, Any]:
+    """Extract plugin-specific config fields from form data for a use case."""
+    cfg: dict[str, Any] = {}
+
+    if uc_id == "email":
+        cfg["email_filter_mode"] = form.get("email_filter_mode", "opt_in")
+        allowed_text = form.get("email_allowed_senders", "")
+        blocked_text = form.get("email_blocked_senders", "")
+        cfg["email_allowed_senders"] = "\n".join(_parse_textarea_lines(allowed_text))
+        cfg["email_blocked_senders"] = "\n".join(_parse_textarea_lines(blocked_text))
+        cfg["email_dry_run"] = form.get("email_dry_run", "off") == "on"
+        cfg["email_show_draft_replies"] = form.get("email_show_draft_replies", "off") == "on"
+        cfg["email_max_email_age_hours"] = int(form.get("email_max_email_age_hours", "48"))
+
+    elif uc_id == "github_monitor":
+        repos_text = form.get("github_repos", "")
+        cfg["github_repos"] = "\n".join(_parse_textarea_lines(repos_text))
+        cfg["github_dry_run"] = form.get("github_dry_run", "off") == "on"
+        cfg["github_bot_username"] = form.get("github_bot_username", "")
+        cfg["github_tick_interval_minutes"] = int(form.get("github_tick_interval_minutes", "15"))
+        cfg["github_auto_merge_patch"] = form.get("github_auto_merge_patch", "off") == "on"
+        cfg["github_auto_merge_minor"] = form.get("github_auto_merge_minor", "off") == "on"
+        cfg["github_auto_merge_major"] = form.get("github_auto_merge_major", "off") == "on"
+
+    elif uc_id == "dev_automation":
+        cfg["dev_repo_url"] = form.get("dev_repo_url", "")
+        cfg["dev_workspace_dir"] = form.get("dev_workspace_dir", "")
+        cfg["dev_dry_run"] = form.get("dev_dry_run", "off") == "on"
+        cfg["dev_tick_interval_minutes"] = int(form.get("dev_tick_interval_minutes", "30"))
+        cfg["dev_opencode_model"] = form.get("dev_opencode_model", "")
+        cfg["dev_log_watcher_enabled"] = form.get("dev_log_watcher_enabled", "off") == "on"
+
+    return cfg
 
 
 router = APIRouter(prefix="/settings")
@@ -245,7 +286,73 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
     if detected_use_cases:
         state_update["selected_use_cases"] = detected_use_cases
 
+    # Pre-populate plugin configs from existing config/<identity>/plugins.yaml
+    if base_dir and detected_use_cases:
+        _prepopulate_plugin_configs(state_update, base_dir)
+
     return state_update
+
+
+def _prepopulate_plugin_configs(
+    state_update: dict[str, Any], base_dir: Path,
+) -> None:
+    """Read existing plugins.yaml files and inject into wizard assignments."""
+    assignments = state_update.get("assignments", {})
+    config_dir = base_dir / "config"
+
+    # Build reverse map: plugin_key -> uc_id
+    plugin_to_uc = {"email_agent": "email", "github": "github_monitor", "dev_agent": "dev_automation"}
+
+    for identity_dir in config_dir.iterdir() if config_dir.exists() else []:
+        plugins_file = identity_dir / "plugins.yaml"
+        if not identity_dir.is_dir() or not plugins_file.exists():
+            continue
+        try:
+            with open(plugins_file) as f:
+                plugins_data = yaml.safe_load(f) or {}
+        except Exception:
+            continue
+
+        for plugin_key, uc_id in plugin_to_uc.items():
+            if plugin_key not in plugins_data:
+                continue
+            pcfg = plugins_data[plugin_key]
+
+            # Convert structured YAML back to flat wizard form fields
+            flat: dict[str, Any] = {}
+            if plugin_key == "email_agent":
+                flat["email_filter_mode"] = pcfg.get("filter_mode", "opt_in")
+                senders = pcfg.get("senders", {})
+                flat["email_allowed_senders"] = "\n".join(senders.get("allowed", []))
+                flat["email_blocked_senders"] = "\n".join(senders.get("blocked", []))
+                flat["email_dry_run"] = pcfg.get("dry_run", True)
+                flat["email_show_draft_replies"] = pcfg.get("show_draft_replies", False)
+                flat["email_max_email_age_hours"] = pcfg.get("max_email_age_hours", 48)
+            elif plugin_key == "github":
+                flat["github_repos"] = "\n".join(pcfg.get("repos", []))
+                flat["github_dry_run"] = pcfg.get("dry_run", True)
+                flat["github_bot_username"] = pcfg.get("bot_username", "")
+                flat["github_tick_interval_minutes"] = pcfg.get("tick_interval_minutes", 15)
+                depbot = pcfg.get("dependabot", {})
+                flat["github_auto_merge_patch"] = depbot.get("auto_merge_patch", False)
+                flat["github_auto_merge_minor"] = depbot.get("auto_merge_minor", False)
+                flat["github_auto_merge_major"] = depbot.get("auto_merge_major", False)
+            elif plugin_key == "dev_agent":
+                flat["dev_repo_url"] = pcfg.get("repo_url", "")
+                flat["dev_workspace_dir"] = pcfg.get("workspace_dir", "")
+                flat["dev_dry_run"] = pcfg.get("dry_run", True)
+                flat["dev_tick_interval_minutes"] = pcfg.get("tick_interval_minutes", 30)
+                opencode = pcfg.get("opencode", {})
+                flat["dev_opencode_model"] = opencode.get("model", "")
+                flat["dev_log_watcher_enabled"] = pcfg.get("log_watcher", {}).get("enabled", False)
+
+            if flat:
+                if uc_id not in assignments:
+                    assignments[uc_id] = {}
+                assignments[uc_id]["plugin_config"] = flat
+
+    if assignments:
+        state_update["assignments"] = assignments
 
 
 def _parse_new_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
@@ -705,13 +812,21 @@ async def step7_post(request: Request):
         allowed = uc["compatible_personalities"]
         if personality not in allowed:
             personality = uc["recommended"]
-        assignments[uc_id] = {
+
+        assignment: dict[str, Any] = {
             "personality": personality,
             "temperature": float(form.get(f"{uc_id}_temperature", 0.7)),
             "max_tokens": int(form.get(f"{uc_id}_max_tokens", 2000)),
             "heartbeat_hours": int(form.get(f"{uc_id}_heartbeat_hours", 4)),
             "quiet_hours": form.get(f"{uc_id}_quiet_hours", "off") == "on",
         }
+
+        # Parse plugin-specific config for supported use cases
+        plugin_config = _parse_plugin_config(uc_id, form)
+        if plugin_config:
+            assignment["plugin_config"] = plugin_config
+
+        assignments[uc_id] = assignment
 
     state["assignments"] = assignments
     _derive_provisioner_state(state)
@@ -737,6 +852,7 @@ async def step8_get(request: Request):
         char_data = char_by_name.get(personality_name, {})
         review_assignments.append({
             "use_case": uc.get("name", uc_id),
+            "use_case_id": uc_id,
             "use_case_icon": uc.get("icon", ""),
             "plugins": uc.get("plugins", []),
             "personality_name": personality_name,
@@ -744,6 +860,7 @@ async def step8_get(request: Request):
                 "display_name", personality_name.capitalize()
             ),
             "personality_role": char_data.get("role", ""),
+            "plugin_config": assignment.get("plugin_config", {}),
         })
 
     return _render("step8_review.html", request, review_assignments=review_assignments)
@@ -787,6 +904,7 @@ async def step8_post(request: Request):
             char_data = char_by_name.get(personality_name, {})
             review_assignments.append({
                 "use_case": uc.get("name", uc_id),
+                "use_case_id": uc_id,
                 "use_case_icon": uc.get("icon", ""),
                 "plugins": uc.get("plugins", []),
                 "personality_name": personality_name,
@@ -794,6 +912,7 @@ async def step8_post(request: Request):
                     "display_name", personality_name.capitalize()
                 ),
                 "personality_role": char_data.get("role", ""),
+                "plugin_config": assignment.get("plugin_config", {}),
             })
         return _render(
             "step8_review.html", request,

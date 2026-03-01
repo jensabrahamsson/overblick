@@ -123,8 +123,32 @@
                 <span class="review-value">
                     <strong>{{ a.personality_display }}</strong>
                     {% for plugin in a.plugins %}
-                    <span class="badge badge-purple" class="review-badge-ml">{{ plugin_name(plugin) }}</span>
+                    <span class="badge badge-purple review-badge-ml">{{ plugin_name(plugin) }}</span>
                     {% endfor %}
+                    {% set pc = a.get('plugin_config', {}) %}
+                    {% if pc %}
+                    {# Dry run / Live badge #}
+                    {% set is_dry = pc.get('email_dry_run', pc.get('github_dry_run', pc.get('dev_dry_run'))) %}
+                    {% if is_dry is not none %}
+                        {% if is_dry %}
+                        <span class="badge badge-amber review-badge-ml">Dry Run</span>
+                        {% else %}
+                        <span class="badge badge-green review-badge-ml">Live</span>
+                        {% endif %}
+                    {% endif %}
+                    {# Email-specific #}
+                    {% if pc.get('email_filter_mode') %}
+                    <span class="review-detail">Filter: {{ pc.email_filter_mode }}</span>
+                    {% endif %}
+                    {# GitHub repos #}
+                    {% if pc.get('github_repos') %}
+                    <span class="review-detail">Repos: {{ pc.github_repos.split('\n') | length }}</span>
+                    {% endif %}
+                    {# Dev Agent repo #}
+                    {% if pc.get('dev_repo_url') %}
+                    <span class="review-detail mono">{{ pc.dev_repo_url }}</span>
+                    {% endif %}
+                    {% endif %}
                 </span>
             </div>
             {% endfor %}

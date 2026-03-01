@@ -366,9 +366,19 @@ def _build_assignment_data(
             "max_tokens": prev.get("max_tokens"),
             "heartbeat_hours": prev.get("heartbeat_hours"),
             "quiet_hours": prev.get("quiet_hours", True),
+            "plugin_config": prev.get("plugin_config", {}),
         })
 
     return result
+
+
+def _uc_to_plugin_key(uc_id: str) -> str:
+    """Map use-case ID to the plugin config key used in plugins.yaml."""
+    return {
+        "email": "email_agent",
+        "github_monitor": "github",
+        "dev_automation": "dev_agent",
+    }.get(uc_id, "")
 
 
 def _derive_provisioner_state(state: dict[str, Any]) -> None:
@@ -383,6 +393,7 @@ def _derive_provisioner_state(state: dict[str, Any]) -> None:
     # Group by personality
     personality_plugins: dict[str, list[str]] = {}
     personality_config: dict[str, dict[str, Any]] = {}
+    personality_plugin_configs: dict[str, dict[str, Any]] = {}
 
     for uc_id, assignment in assignments.items():
         uc = _USE_CASE_MAP.get(uc_id)
@@ -407,6 +418,14 @@ def _derive_provisioner_state(state: dict[str, Any]) -> None:
                 "quiet_hours": assignment.get("quiet_hours", True),
             }
 
+        # Collect plugin configs per personality (keyed by plugin name)
+        plugin_config = assignment.get("plugin_config", {})
+        plugin_key = _uc_to_plugin_key(uc_id)
+        if plugin_config and plugin_key:
+            if personality not in personality_plugin_configs:
+                personality_plugin_configs[personality] = {}
+            personality_plugin_configs[personality][plugin_key] = plugin_config
+
     # Deduplicate and build provisioner-compatible format
     selected_characters = list(personality_plugins.keys())
     agent_configs = {}
@@ -414,6 +433,8 @@ def _derive_provisioner_state(state: dict[str, Any]) -> None:
         cfg = dict(personality_config.get(p_name, {}))
         cfg["plugins"] = list(set(personality_plugins.get(p_name, [])))
         cfg["capabilities"] = []
+        if p_name in personality_plugin_configs:
+            cfg["plugin_configs"] = personality_plugin_configs[p_name]
         agent_configs[p_name] = cfg
 
     state["selected_characters"] = selected_characters

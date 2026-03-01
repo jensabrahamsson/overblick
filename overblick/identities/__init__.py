@@ -350,6 +350,21 @@ Personality = Identity
 # YAML loading
 # ---------------------------------------------------------------------------
 
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge *override* into *base* (new dict, no mutation).
+
+    - Dicts are merged recursively.
+    - Lists, scalars, and other types are replaced wholesale.
+    """
+    merged = dict(base)
+    for key, value in override.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def _load_yaml(path: Path) -> dict:
     """Load YAML file, returning empty dict if missing."""
     if not path.exists():
@@ -827,6 +842,14 @@ def _build_identity(name: str, data: dict, base_dir: Optional[Path] = None) -> I
     # Also include operational section
     if operational:
         raw_config.update(operational)
+
+    # Deep-merge wizard-generated plugin config (config/<name>/plugins.yaml)
+    project_root = _IDENTITIES_DIR.parent.parent
+    plugins_yaml = project_root / "config" / name / "plugins.yaml"
+    if plugins_yaml.exists():
+        plugins_config = _load_yaml(plugins_yaml)
+        if plugins_config:
+            raw_config = _deep_merge(raw_config, plugins_config)
 
     ident = Identity(
         name=name,

@@ -128,7 +128,20 @@ def provision(base_dir: Path, state: dict[str, Any]) -> dict[str, Any]:
             _write_yaml(identity_yaml, identity_data)
             created_files.append(str(identity_yaml.relative_to(base_dir)))
 
-    # --- 5. Per-agent config overrides (if non-default) ---
+    # --- 5. Plugin configs (config/<identity>/plugins.yaml) ---
+    for char_name, cfg in agent_configs.items():
+        if char_name not in selected:
+            continue
+        plugin_configs = cfg.get("plugin_configs", {})
+        if plugin_configs:
+            plugins_data = _build_plugin_configs(plugin_configs)
+            if plugins_data:
+                plugins_path = config_dir / char_name / "plugins.yaml"
+                plugins_path.parent.mkdir(parents=True, exist_ok=True)
+                _write_yaml(plugins_path, plugins_data)
+                created_files.append(str(plugins_path.relative_to(base_dir)))
+
+    # --- 6. Per-agent config overrides (if non-default) ---
     for char_name, cfg in agent_configs.items():
         if char_name not in selected:
             continue
@@ -311,6 +324,102 @@ def _build_agent_override(cfg: dict[str, Any], state: dict[str, Any]) -> dict[st
         override["quiet_hours"] = {"enabled": False}
 
     return override
+
+
+def _build_plugin_configs(wizard_configs: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Transform flat wizard plugin config into nested YAML structure.
+
+    Args:
+        wizard_configs: Dict keyed by plugin name (email_agent, github, dev_agent),
+            each containing flat wizard form fields.
+
+    Returns:
+        Nested dict ready to write as plugins.yaml.
+    """
+    result: dict[str, Any] = {}
+
+    if "email_agent" in wizard_configs:
+        wc = wizard_configs["email_agent"]
+        email_cfg: dict[str, Any] = {}
+        email_cfg["filter_mode"] = wc.get("email_filter_mode", "opt_in")
+
+        allowed_text = wc.get("email_allowed_senders", "")
+        blocked_text = wc.get("email_blocked_senders", "")
+        allowed = [s.strip() for s in allowed_text.splitlines() if s.strip()] if allowed_text else []
+        blocked = [s.strip() for s in blocked_text.splitlines() if s.strip()] if blocked_text else []
+        senders: dict[str, list[str]] = {}
+        if allowed:
+            senders["allowed"] = allowed
+        if blocked:
+            senders["blocked"] = blocked
+        if senders:
+            email_cfg["senders"] = senders
+
+        email_cfg["dry_run"] = wc.get("email_dry_run", True)
+        if wc.get("email_show_draft_replies"):
+            email_cfg["show_draft_replies"] = True
+        age = wc.get("email_max_email_age_hours", 48)
+        if age != 48:
+            email_cfg["max_email_age_hours"] = age
+
+        result["email_agent"] = email_cfg
+
+    if "github" in wizard_configs:
+        wc = wizard_configs["github"]
+        gh_cfg: dict[str, Any] = {}
+
+        repos_text = wc.get("github_repos", "")
+        repos = [r.strip() for r in repos_text.splitlines() if r.strip()] if repos_text else []
+        if repos:
+            gh_cfg["repos"] = repos
+
+        gh_cfg["dry_run"] = wc.get("github_dry_run", True)
+        bot = wc.get("github_bot_username", "")
+        if bot:
+            gh_cfg["bot_username"] = bot
+        tick = wc.get("github_tick_interval_minutes", 15)
+        if tick != 15:
+            gh_cfg["tick_interval_minutes"] = tick
+
+        # Dependabot auto-merge settings
+        depbot: dict[str, bool] = {}
+        if wc.get("github_auto_merge_patch"):
+            depbot["auto_merge_patch"] = True
+        if wc.get("github_auto_merge_minor"):
+            depbot["auto_merge_minor"] = True
+        if wc.get("github_auto_merge_major"):
+            depbot["auto_merge_major"] = True
+        if depbot:
+            gh_cfg["dependabot"] = depbot
+
+        result["github"] = gh_cfg
+
+    if "dev_agent" in wizard_configs:
+        wc = wizard_configs["dev_agent"]
+        dev_cfg: dict[str, Any] = {}
+
+        repo_url = wc.get("dev_repo_url", "")
+        if repo_url:
+            dev_cfg["repo_url"] = repo_url
+        workspace = wc.get("dev_workspace_dir", "")
+        if workspace:
+            dev_cfg["workspace_dir"] = workspace
+
+        dev_cfg["dry_run"] = wc.get("dev_dry_run", True)
+        tick = wc.get("dev_tick_interval_minutes", 30)
+        if tick != 30:
+            dev_cfg["tick_interval_minutes"] = tick
+
+        model = wc.get("dev_opencode_model", "")
+        if model:
+            dev_cfg["opencode"] = {"model": model}
+
+        if wc.get("dev_log_watcher_enabled"):
+            dev_cfg["log_watcher"] = {"enabled": True}
+
+        result["dev_agent"] = dev_cfg
+
+    return result
 
 
 def _write_yaml(path: Path, data: dict) -> None:

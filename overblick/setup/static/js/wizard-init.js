@@ -172,6 +172,26 @@ function initCommunicationToggles() {
     });
 }
 
+/* ── Step 7: Plugin config toggles ─────────────────────── */
+
+function initPluginConfigToggles() {
+    var filterSelect = document.getElementById('email_filter_mode');
+    if (!filterSelect) return;
+
+    var allowedSection = document.getElementById('email-allowed-section');
+    var blockedSection = document.getElementById('email-blocked-section');
+    if (!allowedSection || !blockedSection) return;
+
+    function updateVisibility() {
+        var isOptIn = filterSelect.value === 'opt_in';
+        allowedSection.style.display = isOptIn ? '' : 'none';
+        blockedSection.style.display = isOptIn ? 'none' : '';
+    }
+
+    _bindOnce(filterSelect, 'change', updateVisibility);
+    updateVisibility();
+}
+
 /* ── Step 7: Assignment temperature ranges ────────────── */
 
 function initAssignmentRanges() {
@@ -292,8 +312,9 @@ function wizardInit() {
     // Step 6: Use case counter
     if (document.getElementById('selection-count')) initUseCaseCounter();
 
-    // Step 7: Assignment temperature ranges
+    // Step 7: Assignment temperature ranges + plugin config toggles
     initAssignmentRanges();
+    initPluginConfigToggles();
 
     // Step 8: Provision form
     if (document.getElementById('provision-form')) initProvisionForm();

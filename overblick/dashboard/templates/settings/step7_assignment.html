@@ -88,6 +88,166 @@
                         </div>
                     </div>
                 </details>
+
+                {# ── Plugin-specific settings (conditional per use case) ── #}
+
+                {% if uc.id == 'email' %}
+                <details class="assignment-config plugin-config">
+                    <summary class="assignment-config-summary">Plugin settings — Email Agent</summary>
+                    <div class="assignment-config-body">
+                        <div class="form-group">
+                            <label class="form-label" for="email_filter_mode">Filter Mode</label>
+                            <span class="form-hint">Opt-in: only process emails from allowed senders. Opt-out: process all except blocked senders.</span>
+                            <select name="email_filter_mode" id="email_filter_mode" class="form-select">
+                                <option value="opt_in" {{ 'selected' if uc.plugin_config.get('email_filter_mode') == 'opt_in' }}>Opt-in (allowlist)</option>
+                                <option value="opt_out" {{ 'selected' if uc.plugin_config.get('email_filter_mode') == 'opt_out' }}>Opt-out (blocklist)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="email-allowed-section">
+                            <label class="form-label" for="email_allowed_senders">Allowed Senders</label>
+                            <span class="form-hint">One email address per line</span>
+                            <textarea name="email_allowed_senders" id="email_allowed_senders" class="form-textarea"
+                                      rows="3" placeholder="boss@example.com&#10;team@example.com">{{ uc.plugin_config.get('email_allowed_senders', '') }}</textarea>
+                        </div>
+                        <div class="form-group" id="email-blocked-section" style="display: none;">
+                            <label class="form-label" for="email_blocked_senders">Blocked Senders</label>
+                            <span class="form-hint">One email address per line</span>
+                            <textarea name="email_blocked_senders" id="email_blocked_senders" class="form-textarea"
+                                      rows="3" placeholder="spam@example.com">{{ uc.plugin_config.get('email_blocked_senders', '') }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="settings-checkbox-label">
+                                <input type="checkbox" name="email_dry_run" value="on"
+                                       {{ 'checked' if uc.plugin_config.get('email_dry_run', true) }}>
+                                <span class="form-label form-label-inline">Dry run</span>
+                            </label>
+                            <span class="form-hint">Draft replies without sending them</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="settings-checkbox-label">
+                                <input type="checkbox" name="email_show_draft_replies" value="on"
+                                       {{ 'checked' if uc.plugin_config.get('email_show_draft_replies', false) }}>
+                                <span class="form-label form-label-inline">Show draft replies</span>
+                            </label>
+                            <span class="form-hint">Log draft replies even when not sending</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="email_max_email_age_hours">Max Email Age (hours)</label>
+                            <span class="form-hint">Ignore emails older than this</span>
+                            <input type="number" name="email_max_email_age_hours" id="email_max_email_age_hours"
+                                   class="form-input" min="1" max="720"
+                                   value="{{ uc.plugin_config.get('email_max_email_age_hours', 48) }}">
+                        </div>
+                    </div>
+                </details>
+                {% endif %}
+
+                {% if uc.id == 'github_monitor' %}
+                <details class="assignment-config plugin-config">
+                    <summary class="assignment-config-summary">Plugin settings — GitHub</summary>
+                    <div class="assignment-config-body">
+                        <div class="form-group">
+                            <label class="form-label" for="github_repos">Repositories</label>
+                            <span class="form-hint">One per line, format: owner/repo</span>
+                            <textarea name="github_repos" id="github_repos" class="form-textarea"
+                                      rows="3" placeholder="myorg/myrepo&#10;myorg/another-repo">{{ uc.plugin_config.get('github_repos', '') }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="settings-checkbox-label">
+                                <input type="checkbox" name="github_dry_run" value="on"
+                                       {{ 'checked' if uc.plugin_config.get('github_dry_run', true) }}>
+                                <span class="form-label form-label-inline">Dry run</span>
+                            </label>
+                            <span class="form-hint">Analyze without posting comments or merging PRs</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="github_bot_username">Bot Username</label>
+                            <span class="form-hint">GitHub username the agent posts as (to avoid self-replies)</span>
+                            <input type="text" name="github_bot_username" id="github_bot_username"
+                                   class="form-input" placeholder="my-bot"
+                                   value="{{ uc.plugin_config.get('github_bot_username', '') }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="github_tick_interval_minutes">Tick Interval (minutes)</label>
+                            <span class="form-hint">How often to poll GitHub for changes</span>
+                            <input type="number" name="github_tick_interval_minutes" id="github_tick_interval_minutes"
+                                   class="form-input" min="1" max="1440"
+                                   value="{{ uc.plugin_config.get('github_tick_interval_minutes', 15) }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label form-separator-lg">Dependabot Auto-Merge</label>
+                            <label class="settings-checkbox-label">
+                                <input type="checkbox" name="github_auto_merge_patch" value="on"
+                                       {{ 'checked' if uc.plugin_config.get('github_auto_merge_patch', false) }}>
+                                <span class="form-label form-label-inline">Patch versions</span>
+                            </label>
+                            <label class="settings-checkbox-label">
+                                <input type="checkbox" name="github_auto_merge_minor" value="on"
+                                       {{ 'checked' if uc.plugin_config.get('github_auto_merge_minor', false) }}>
+                                <span class="form-label form-label-inline">Minor versions</span>
+                            </label>
+                            <label class="settings-checkbox-label">
+                                <input type="checkbox" name="github_auto_merge_major" value="on"
+                                       {{ 'checked' if uc.plugin_config.get('github_auto_merge_major', false) }}>
+                                <span class="form-label form-label-inline">Major versions</span>
+                            </label>
+                        </div>
+                    </div>
+                </details>
+                {% endif %}
+
+                {% if uc.id == 'dev_automation' %}
+                <details class="assignment-config plugin-config">
+                    <summary class="assignment-config-summary">Plugin settings — Dev Agent</summary>
+                    <div class="assignment-config-body">
+                        <div class="form-group">
+                            <label class="form-label" for="dev_repo_url">Repository URL</label>
+                            <span class="form-hint">Git remote URL for the target repo</span>
+                            <input type="text" name="dev_repo_url" id="dev_repo_url"
+                                   class="form-input" placeholder="https://github.com/org/repo.git"
+                                   value="{{ uc.plugin_config.get('dev_repo_url', '') }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="dev_workspace_dir">Workspace Directory</label>
+                            <span class="form-hint">Local path where the agent clones and works</span>
+                            <input type="text" name="dev_workspace_dir" id="dev_workspace_dir"
+                                   class="form-input" placeholder="/home/user/dev-workspace"
+                                   value="{{ uc.plugin_config.get('dev_workspace_dir', '') }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="settings-checkbox-label">
+                                <input type="checkbox" name="dev_dry_run" value="on"
+                                       {{ 'checked' if uc.plugin_config.get('dev_dry_run', true) }}>
+                                <span class="form-label form-label-inline">Dry run</span>
+                            </label>
+                            <span class="form-hint">Plan fixes without committing or pushing</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="dev_tick_interval_minutes">Tick Interval (minutes)</label>
+                            <span class="form-hint">How often the agent looks for new work</span>
+                            <input type="number" name="dev_tick_interval_minutes" id="dev_tick_interval_minutes"
+                                   class="form-input" min="5" max="1440"
+                                   value="{{ uc.plugin_config.get('dev_tick_interval_minutes', 30) }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="dev_opencode_model">OpenCode Model</label>
+                            <span class="form-hint">LLM model for code generation (leave empty for default)</span>
+                            <input type="text" name="dev_opencode_model" id="dev_opencode_model"
+                                   class="form-input" placeholder="qwen3:8b"
+                                   value="{{ uc.plugin_config.get('dev_opencode_model', '') }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="settings-checkbox-label">
+                                <input type="checkbox" name="dev_log_watcher_enabled" value="on"
+                                       {{ 'checked' if uc.plugin_config.get('dev_log_watcher_enabled', false) }}>
+                                <span class="form-label form-label-inline">Enable log watcher</span>
+                            </label>
+                            <span class="form-hint">Monitor application logs for anomalies</span>
+                        </div>
+                    </div>
+                </details>
+                {% endif %}
+
             </div>
             {% endfor %}
 
