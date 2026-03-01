@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Dashboard{% endblock %} — Överblick</title>
     <link rel="icon" type="image/svg+xml" href="/static/img/overblick-logo.svg">
-    <link rel="stylesheet" href="/static/css/dashboard.css?v=2">
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=3">
     <script src="/static/js/htmx.min.js"></script>
 </head>
 <body hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'>
@@ -30,14 +30,8 @@
             <a href="/system" class="nav-link {% if request.url.path == '/system' %}active{% endif %}" {% if request.url.path == '/system' %}aria-current="page"{% endif %}>System</a>
             <a href="/monitor" class="nav-link {% if request.url.path == '/monitor' %}active{% endif %}" {% if request.url.path == '/monitor' %}aria-current="page"{% endif %}>Monitor</a>
             {% if irc_enabled() %}<a href="/irc" class="nav-link {% if request.url.path == '/irc' %}active{% endif %}" {% if request.url.path == '/irc' %}aria-current="page"{% endif %}>IRC</a>{% endif %}
-            {% if kontrast_enabled() %}<a href="/kontrast" class="nav-link {% if request.url.path == '/kontrast' %}active{% endif %}" {% if request.url.path == '/kontrast' %}aria-current="page"{% endif %}>Kontrast</a>{% endif %}
-            {% if spegel_enabled() %}<a href="/spegel" class="nav-link {% if request.url.path == '/spegel' %}active{% endif %}" {% if request.url.path == '/spegel' %}aria-current="page"{% endif %}>Spegel</a>{% endif %}
-            {% if skuggspel_enabled() %}<a href="/skuggspel" class="nav-link {% if request.url.path == '/skuggspel' %}active{% endif %}" {% if request.url.path == '/skuggspel' %}aria-current="page"{% endif %}>Skuggspel</a>{% endif %}
-            {% if compass_enabled() %}<a href="/compass" class="nav-link {% if request.url.path == '/compass' %}active{% endif %}" {% if request.url.path == '/compass' %}aria-current="page"{% endif %}>Compass</a>{% endif %}
-            {% if stage_enabled() %}<a href="/stage" class="nav-link {% if request.url.path == '/stage' %}active{% endif %}" {% if request.url.path == '/stage' %}aria-current="page"{% endif %}>Stage</a>{% endif %}
+            <a href="/psychology" class="nav-link {% if request.url.path.startswith('/psychology') or request.url.path in ['/kontrast', '/spegel', '/skuggspel', '/compass', '/stage'] %}active{% endif %}" {% if request.url.path == '/psychology' %}aria-current="page"{% endif %}>Psychology</a>
             {% if moltbook_enabled() %}<a href="/moltbook" class="nav-link {% if request.url.path == '/moltbook' %}active{% endif %}" {% if request.url.path == '/moltbook' %}aria-current="page"{% endif %}>Moltbook</a>{% endif %}
-            {% if email_enabled() %}<a href="/email" class="nav-link {% if request.url.path == '/email' %}active{% endif %}" {% if request.url.path == '/email' %}aria-current="page"{% endif %}>Email</a>{% endif %}
-            {% if telegram_enabled() %}<a href="/telegram" class="nav-link {% if request.url.path == '/telegram' %}active{% endif %}" {% if request.url.path == '/telegram' %}aria-current="page"{% endif %}>Telegram</a>{% endif %}
             {% if digest_enabled() %}<a href="/digest" class="nav-link {% if request.url.path == '/digest' %}active{% endif %}" {% if request.url.path == '/digest' %}aria-current="page"{% endif %}>Digest</a>{% endif %}
             {% if github_enabled() %}<a href="/github" class="nav-link {% if request.url.path == '/github' %}active{% endif %}" {% if request.url.path == '/github' %}aria-current="page"{% endif %}>GitHub</a>{% endif %}
             {% if dev_enabled() %}<a href="/dev" class="nav-link {% if request.url.path == '/dev' %}active{% endif %}" {% if request.url.path == '/dev' %}aria-current="page"{% endif %}>Dev Agent</a>{% endif %}

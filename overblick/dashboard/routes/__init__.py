@@ -34,6 +34,7 @@ def register_routes(app: FastAPI) -> None:
     from .github_dash import router as github_dash_router
     from .dev import router as dev_router
     from .log_agent import router as log_agent_router
+    from .psychology import router as psychology_router
 
     app.include_router(auth_router)
     app.include_router(dashboard_router)
@@ -57,6 +58,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(github_dash_router)
     app.include_router(dev_router)
     app.include_router(log_agent_router)
+    app.include_router(psychology_router)
     app.include_router(settings_router)
     app.include_router(observability_router)
     app.include_router(api_router)

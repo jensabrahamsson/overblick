@@ -8,6 +8,8 @@ import re
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from .dashboard import _PLUGIN_ROUTE_MAP
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -85,4 +87,5 @@ async def agent_detail(request: Request, name: str):
         "can_stop": is_running,
         "poll_interval": request.app.state.config.poll_interval,
         "plugin_links": plugin_links,
+        "plugin_route_map": _PLUGIN_ROUTE_MAP,
     })

@@ -90,7 +90,7 @@
                 {% endif %}
                 <div class="info-item">
                     <span class="info-label">Uptime</span>
-                    <span class="info-value">{{ _format_uptime(agent_status.get('uptime', 0)) }}</span>
+                    <span class="info-value">{{ _format_uptime(agent_status.get('uptime_seconds', agent_status.get('uptime', 0))) }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Restarts</span>
@@ -104,19 +104,17 @@
             <h3 class="card-title">Active Plugins</h3>
             <div class="tag-list">
                 {% for p in identity.plugins %}
+                {% set purl = plugin_route_map.get(p) %}
+                {% if purl %}
+                <a href="{{ purl }}" class="tag tag-plugin tag-link">{{ p }}</a>
+                {% else %}
                 <span class="tag tag-plugin">{{ p }}</span>
+                {% endif %}
                 {% endfor %}
                 {% if not identity.plugins %}
                 <span class="text-muted">No plugins configured</span>
                 {% endif %}
             </div>
-            {% if plugin_links %}
-            <div class="btn-group mt-2">
-                {% for link in plugin_links %}
-                <a href="{{ link.url }}" class="btn btn-ghost btn-sm">View {{ link.label }} data →</a>
-                {% endfor %}
-            </div>
-            {% endif %}
 
             <h3 class="card-title mt-3">Capabilities</h3>
             <div class="tag-list">

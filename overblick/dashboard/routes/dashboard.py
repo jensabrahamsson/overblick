@@ -240,6 +240,10 @@ async def identity_stop(name: str, request: Request):
 
 _ACRONYMS = {"ai", "llm", "rss", "api", "ipc"}
 
+# Plugins that are capabilities/services, not standalone agents.
+# These should not appear as agent cards on the dashboard.
+_CAPABILITY_PLUGINS = {"telegram", "email_agent", "host_health"}
+
 
 # -- Plugin control file helpers (per-agent stop/start) ----------------------
 
@@ -386,6 +390,9 @@ def _build_agent_status_rows(
         plugin_states = _read_plugin_states(base_dir, ident_name)
 
         for plugin in plugins:
+            # Skip capability plugins — not standalone agents
+            if plugin in _CAPABILITY_PLUGINS:
+                continue
             plugin_stopped = plugin_states.get(plugin) == "stopped"
 
             if process_running and not plugin_stopped:
@@ -415,7 +422,7 @@ def _build_agent_status_rows(
                 "identity_ref": ident_name,
                 "state": state,
                 "pid": proc.get("pid") if proc else None,
-                "uptime": proc.get("uptime", proc.get("uptime_seconds", 0)) if proc else 0,
+                "uptime": proc.get("uptime_seconds", proc.get("uptime", 0)) if proc else 0,
                 "restart_count": proc.get("restart_count", 0) if proc else 0,
                 "last_action": last_action,
                 "can_start": not process_running or plugin_stopped,

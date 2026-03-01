@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Psychology{% endblock %}
+
+{% block content %}
+<div class="detail">
+    <div class="detail-header">
+        <h1 class="detail-name">Psychology</h1>
+        <p class="detail-description">Personality analysis, shadow exploration, and identity integrity tools. These plugins probe the inner workings of each agent's character.</p>
+    </div>
+
+    <div class="psych-grid">
+        {% for plugin in plugins %}
+        <a href="{{ plugin.url }}" class="psych-card {% if not plugin.enabled %}psych-card-disabled{% endif %}">
+            <div class="psych-card-icon">{{ plugin.icon }}</div>
+            <div class="psych-card-body">
+                <h3 class="psych-card-name">{{ plugin.display_name }}</h3>
+                <span class="psych-card-subtitle">{{ plugin.subtitle }}</span>
+                <p class="psych-card-desc">{{ plugin.description }}</p>
+            </div>
+            {% if not plugin.enabled %}
+            <span class="psych-card-badge">Not configured</span>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

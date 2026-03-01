@@ -79,7 +79,7 @@ async def login_page(request: Request):
         LOGIN_CSRF_COOKIE,
         login_csrf,
         httponly=True,
-        samesite="strict",
+        samesite="lax",
         max_age=600,  # 10 minutes
     )
     return response
@@ -92,15 +92,30 @@ async def login_submit(request: Request):
     templates = request.app.state.templates
     rate_limiter: RateLimiter = request.app.state.rate_limiter
 
+    # Helper: render login with fresh CSRF (every error response needs this)
+    def _login_error(error_msg: str, status_code: int = 403):
+        fresh_csrf = SessionManager.generate_login_csrf()
+        resp = templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": error_msg,
+            "csrf_token": fresh_csrf,
+        }, status_code=status_code)
+        resp.set_cookie(
+            LOGIN_CSRF_COOKIE,
+            fresh_csrf,
+            httponly=True,
+            samesite="lax",
+            max_age=600,
+        )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     # Rate limit check
     client_ip = request.client.host if request.client else "unknown"
     rate_key = f"login:{client_ip}"
     if not rate_limiter.check(rate_key, config.login_rate_limit, config.login_rate_window):
         logger.warning("Login rate limit exceeded for %s", client_ip)
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": "Too many login attempts. Please wait before trying again.",
-        }, status_code=429)
+        return _login_error("Too many login attempts. Please wait before trying again.", 429)
 
     # Parse and validate form
     form = await request.form()
@@ -111,18 +126,12 @@ async def login_submit(request: Request):
     cookie_csrf = request.cookies.get(LOGIN_CSRF_COOKIE, "")
     if not SessionManager.validate_login_csrf(cookie_csrf, csrf_token):
         logger.warning("Login CSRF validation failed from %s", client_ip)
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": "Invalid form submission. Please try again.",
-        }, status_code=403)
+        return _login_error("Invalid form submission. Please try again.")
 
     # Validate password (bcrypt hash or legacy plaintext)
     if not _verify_password(password, config):
         logger.warning("Failed login attempt from %s", client_ip)
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": "Invalid password.",
-        }, status_code=401)
+        return _login_error("Invalid password.", 401)
 
     # Create session
     session_mgr: SessionManager = request.app.state.session_manager

@@ -123,7 +123,20 @@ def cmd_start(args: argparse.Namespace) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
 
     port = args.port
+
+    # If --host wasn't explicitly set, check YAML config for network_access
     host = args.host
+    if host == "127.0.0.1":
+        try:
+            import yaml
+            cfg_file_check = base_dir / "config" / "overblick.yaml"
+            if cfg_file_check.exists():
+                with open(cfg_file_check) as f:
+                    cfg = yaml.safe_load(f) or {}
+                if cfg.get("dashboard", {}).get("network_access"):
+                    host = "0.0.0.0"
+        except Exception:
+            pass
 
     # Start gateway in background
     (log_dir / "gateway").mkdir(parents=True, exist_ok=True)

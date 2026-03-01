@@ -260,6 +260,7 @@ button:focus-visible,
     transition: all 0.2s;
 }
 .agent-card:hover { border-color: var(--accent); box-shadow: var(--shadow-hover); }
+a.agent-card-link { text-decoration: none; color: inherit; display: block; cursor: pointer; }
 
 .agent-card-header {
     display: flex;
@@ -374,6 +375,8 @@ button:focus-visible,
 }
 .tag-sm { padding: 1px 8px; font-size: 0.75rem; }
 .tag-plugin { border-color: var(--accent); color: var(--accent); }
+a.tag-link { text-decoration: none; cursor: pointer; transition: all 0.2s; }
+a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 .tag-capability { border-color: var(--orange); color: var(--orange); }
 .tag-operational { border-color: #2dd4bf; color: #2dd4bf; }
 .tag-psychology {
@@ -2483,4 +2486,70 @@ details.obs-error-message[open] .obs-error-full {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+}
+
+/* --- Psychology Hub --- */
+.psych-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: var(--space-xl);
+    margin-top: var(--space-xl);
+}
+.psych-card {
+    display: flex;
+    gap: var(--space-lg);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-xl);
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s;
+    position: relative;
+}
+.psych-card:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-hover);
+}
+.psych-card-disabled {
+    opacity: 0.5;
+}
+.psych-card-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+.psych-card-body {
+    flex: 1;
+    min-width: 0;
+}
+.psych-card-name {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+.psych-card-subtitle {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--accent);
+    margin-bottom: var(--space-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.psych-card-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+}
+.psych-card-badge {
+    position: absolute;
+    top: var(--space-sm);
+    right: var(--space-sm);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
 }
