@@ -44,6 +44,7 @@ class TestAnalyzerCapability:
             "interest_keywords": ["artificial intelligence", "crypto"],
             "engagement_threshold": 35.0,
             "agent_name": "TestBot",
+            "relevant_submolts": ["ai", "crypto"],
         })
         cap = AnalyzerCapability(ctx)
         await cap.setup()

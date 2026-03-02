@@ -51,11 +51,13 @@ class DecisionEngine:
         engagement_threshold: float = 35.0,
         fuzzy_threshold: int = 75,
         self_agent_name: str = "",
+        relevant_submolts: set[str] | None = None,
     ):
         self._keywords = [k.lower() for k in (interest_keywords or [])]
         self._threshold = engagement_threshold
         self._fuzzy_threshold = fuzzy_threshold
         self._self_name = self_agent_name.lower()
+        self._relevant_submolts = {s.lower() for s in relevant_submolts} if relevant_submolts else set()
 
     def evaluate_post(
         self,
@@ -72,16 +74,19 @@ class DecisionEngine:
             )
 
         text = f"{title} {content}".lower()
+        words = text.split()
         score = 0.0
         matched = []
 
-        # Keyword matching (exact + fuzzy)
+        # Keyword matching: exact substring first, fuzzy only for non-matches.
+        # Pre-filter words by minimum length (3 chars) to skip noise tokens.
+        long_words = [w for w in words if len(w) >= 3]
         for keyword in self._keywords:
             if keyword in text:
                 score += 20.0
                 matched.append(keyword)
             elif any(fuzz.partial_ratio(keyword, word) >= self._fuzzy_threshold
-                     for word in text.split()):
+                     for word in long_words):
                 score += 10.0
                 matched.append(f"~{keyword}")
 
@@ -89,9 +94,8 @@ class DecisionEngine:
         if "?" in content:
             score += 10.0
 
-        # Boost for submolt relevance
-        relevant_submolts = {"ai", "crypto", "philosophy", "general"}
-        if submolt.lower() in relevant_submolts:
+        # Boost for submolt relevance (identity-specific)
+        if self._relevant_submolts and submolt.lower() in self._relevant_submolts:
             score += 5.0
 
         # Length penalty (too short = low effort)

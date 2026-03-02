@@ -1,10 +1,8 @@
 """
-Tests for MoltbookRequestProxy — rate limiting, caching, and metrics.
+Tests for MoltbookRequestProxy — caching, rate limit handling, and metrics.
 """
 
-import asyncio
 import time
-from unittest.mock import patch
 
 import pytest
 
@@ -68,54 +66,15 @@ class TestMoltbookRequestProxy:
         assert stats["cached_requests"] == 0
         assert stats["rate_limited_count"] == 0
 
-    @pytest.mark.asyncio
-    async def test_request_returns_proxy_marker(self):
-        proxy = MoltbookRequestProxy(max_requests_per_minute=100)
-        result = await proxy.request("GET", "/api/feed")
-        assert result["_proxy_marker"] is True
-        assert result["method"] == "GET"
-        assert result["endpoint"] == "/api/feed"
+    def test_cache_response_and_retrieval(self):
+        proxy = MoltbookRequestProxy(enable_cache=True)
+        proxy.cache_response("GET", "/api/feed", {"data": True})
+        assert proxy._cache.get("GET", "/api/feed") == {"data": True}
 
-    @pytest.mark.asyncio
-    async def test_get_request_cached(self):
-        proxy = MoltbookRequestProxy(
-            max_requests_per_minute=100, enable_cache=True
-        )
-        # First request
-        await proxy.request("GET", "/api/feed")
-        # Cache the response
-        proxy.cache_response("GET", "/api/feed", {"cached": True})
-        # Second request should hit cache
-        result = await proxy.request("GET", "/api/feed")
-        assert result == {"cached": True}
-        assert proxy.get_stats()["cached_requests"] == 1
-
-    @pytest.mark.asyncio
-    async def test_post_not_cached(self):
-        proxy = MoltbookRequestProxy(
-            max_requests_per_minute=100, enable_cache=True
-        )
+    def test_post_not_cached(self):
+        proxy = MoltbookRequestProxy(enable_cache=True)
         proxy.cache_response("POST", "/api/post", {"should_not_cache": True})
-        result = await proxy.request("POST", "/api/post")
-        assert result["_proxy_marker"] is True
-
-    @pytest.mark.asyncio
-    async def test_skip_cache_flag(self):
-        proxy = MoltbookRequestProxy(
-            max_requests_per_minute=100, enable_cache=True
-        )
-        proxy.cache_response("GET", "/api/feed", {"cached": True})
-        result = await proxy.request("GET", "/api/feed", skip_cache=True)
-        assert result["_proxy_marker"] is True
-
-    @pytest.mark.asyncio
-    async def test_cache_disabled(self):
-        proxy = MoltbookRequestProxy(
-            max_requests_per_minute=100, enable_cache=False
-        )
-        proxy.cache_response("GET", "/api/feed", {"cached": True})
-        result = await proxy.request("GET", "/api/feed")
-        assert result["_proxy_marker"] is True
+        assert proxy._cache.get("POST", "/api/post") is None
 
     def test_handle_rate_limit_response(self):
         proxy = MoltbookRequestProxy()
@@ -128,13 +87,6 @@ class TestMoltbookRequestProxy:
         proxy.cache_response("GET", "/api/feed", {"data": True})
         proxy.clear_cache()
         assert proxy._cache.get("GET", "/api/feed") is None
-
-    @pytest.mark.asyncio
-    async def test_request_increments_total(self):
-        proxy = MoltbookRequestProxy(max_requests_per_minute=100)
-        await proxy.request("GET", "/api/feed")
-        await proxy.request("POST", "/api/post")
-        assert proxy.get_stats()["total_requests"] == 2
 
     @pytest.mark.asyncio
     async def test_check_rate_limit_under_limit(self):

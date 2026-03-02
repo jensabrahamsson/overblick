@@ -5,7 +5,7 @@ Covers all end-to-end flows that were missing from existing tests:
 - Heartbeat with HEARTBEAT_TOPICS (regression guard for the topic_vars fix)
 - Prompt name resolution fallbacks (COMMENT_PROMPT -> RESPONSE_PROMPT)
 - DM edge cases (404 disables DMs, empty reply, suspension propagation)
-- Suspension backoff (24h backoff, skip during backoff, API timestamp usage)
+- Suspension backoff (1h fallback, skip during backoff, API timestamp usage)
 - MoltCaptcha challenges detected in feed posts
 - Reply handling (_handle_reply success, comment not found, exception)
 - Status persistence (JSON file written, survives errors)
@@ -83,7 +83,8 @@ class TestHeartbeatTopicFormatting:
         """Free-form heartbeat (no forced topics) posts successfully."""
         plugin, ctx, client = setup_anomal_plugin
 
-        # Override _load_prompts to return free-form prompts
+        # Override prompts to return free-form prompts
+        plugin._prompts = _TopicAwarePrompts()
         plugin._load_prompts = lambda _: _TopicAwarePrompts()
 
         mock_llm_client.chat = AsyncMock(return_value={
@@ -101,6 +102,7 @@ class TestHeartbeatTopicFormatting:
     ):
         """Heartbeat injects recent post titles as anti-repetition context."""
         plugin, ctx, client = setup_anomal_plugin
+        plugin._prompts = _TopicAwarePrompts()
         plugin._load_prompts = lambda _: _TopicAwarePrompts()
 
         # Mock engagement_db to return recent titles
@@ -128,6 +130,7 @@ class TestHeartbeatTopicFormatting:
         """With empty HEARTBEAT_TOPICS, fallback prompt with {topic_index} works."""
         plugin, ctx, client = setup_anomal_plugin
         # _FallbackPrompts has no HEARTBEAT_TOPICS and uses {topic_index} only
+        plugin._prompts = _FallbackPrompts()
         plugin._load_prompts = lambda _: _FallbackPrompts()
 
         mock_llm_client.chat = AsyncMock(return_value={
@@ -195,6 +198,7 @@ class TestPromptNameResolution:
     ):
         """Plugin uses RESPONSE_PROMPT when COMMENT_PROMPT is absent."""
         plugin, ctx, client = setup_anomal_plugin
+        plugin._prompts = _ResponsePromptOnly()
         plugin._load_prompts = lambda _: _ResponsePromptOnly()
 
         post = make_post(
@@ -224,6 +228,7 @@ class TestPromptNameResolution:
     ):
         """_handle_reply uses REPLY_TO_COMMENT_PROMPT when REPLY_PROMPT is absent."""
         plugin, ctx, client = setup_anomal_plugin
+        plugin._prompts = _ResponsePromptOnly()
         plugin._load_prompts = lambda _: _ResponsePromptOnly()
 
         reply_comment = Comment(
@@ -252,6 +257,7 @@ class TestPromptNameResolution:
     ):
         """When no prompts exist at all, hardcoded fallback is used."""
         plugin, ctx, client = setup_anomal_plugin
+        plugin._prompts = _NoPromptsAtAll()
         plugin._load_prompts = lambda _: _NoPromptsAtAll()
 
         post = make_post(
@@ -278,8 +284,8 @@ class TestDMHandlingEdgeCases:
     """Edge cases for _handle_dms()."""
 
     @pytest.mark.asyncio
-    async def test_dm_404_disables_dm_support(self, setup_anomal_plugin):
-        """A 404 MoltbookError disables future DM handling."""
+    async def test_dm_404_disables_dm_support_after_3_consecutive(self, setup_anomal_plugin):
+        """Three consecutive 404 MoltbookErrors disable future DM handling."""
         plugin, ctx, client = setup_anomal_plugin
 
         assert plugin._dms_supported is True
@@ -288,11 +294,21 @@ class TestDMHandlingEdgeCases:
             side_effect=MoltbookError("API 404: DM endpoint not found"),
         )
 
+        # First two 404s should not disable
         await plugin._handle_dms()
+        assert plugin._dms_supported is True
+        assert plugin._dm_consecutive_404s == 1
 
+        await plugin._handle_dms()
+        assert plugin._dms_supported is True
+        assert plugin._dm_consecutive_404s == 2
+
+        # Third 404 disables with cooldown
+        await plugin._handle_dms()
         assert plugin._dms_supported is False
+        assert plugin._dm_disabled_until is not None
 
-        # Subsequent calls should be no-ops
+        # Subsequent calls should be no-ops (within cooldown)
         client.list_dm_requests.reset_mock()
         await plugin._handle_dms()
         client.list_dm_requests.assert_not_called()
@@ -365,7 +381,7 @@ class TestDMHandlingEdgeCases:
 
 
 class TestSuspensionBackoff:
-    """Test the 24h suspension backoff logic in tick()."""
+    """Test the suspension backoff logic in tick()."""
 
     @pytest.mark.asyncio
     async def test_suspension_triggers_backoff(self, setup_anomal_plugin):
@@ -428,8 +444,8 @@ class TestSuspensionBackoff:
         assert plugin._suspended_until.month == 6
 
     @pytest.mark.asyncio
-    async def test_suspension_without_timestamp_uses_24h(self, setup_anomal_plugin):
-        """SuspensionError without timestamp falls back to 24h backoff."""
+    async def test_suspension_without_timestamp_uses_1h(self, setup_anomal_plugin):
+        """SuspensionError without timestamp falls back to 1h backoff."""
         plugin, ctx, client = setup_anomal_plugin
 
         # No parseable timestamp in the message
@@ -441,8 +457,10 @@ class TestSuspensionBackoff:
         await plugin.tick()
 
         assert plugin._suspended_until is not None
-        expected_min = before + timedelta(hours=23, minutes=59)
+        expected_min = before + timedelta(minutes=59)
+        expected_max = before + timedelta(hours=1, minutes=1)
         assert plugin._suspended_until > expected_min
+        assert plugin._suspended_until < expected_max
 
 
 # ---------------------------------------------------------------------------

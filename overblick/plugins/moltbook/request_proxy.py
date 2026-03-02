@@ -158,65 +158,6 @@ class MoltbookRequestProxy:
 
         return True
 
-    async def request(
-        self,
-        method: str,
-        endpoint: str,
-        json_data: Optional[dict] = None,
-        params: Optional[dict] = None,
-        skip_cache: bool = False,
-    ) -> dict:
-        """
-        Make a proxied request to Moltbook API.
-
-        This method should be called by MoltbookClient instead of direct HTTP calls.
-
-        Args:
-            method: HTTP method (GET, POST, etc.)
-            endpoint: API endpoint
-            json_data: JSON body for POST/PUT
-            params: Query parameters
-            skip_cache: Force skip cache even for GET requests
-
-        Returns:
-            Response dict
-
-        Raises:
-            Exception: On request failure
-        """
-        # Wait for any active rate limit
-        await self.wait_for_rate_limit()
-
-        # Check cache for GET requests
-        if method == "GET" and self._cache_enabled and not skip_cache:
-            cached = self._cache.get(method, endpoint, params)
-            if cached is not None:
-                self._cached_requests += 1
-                return cached
-
-        # Check rate limit
-        await self.check_rate_limit()
-
-        # Record request time
-        self._request_times.append(time.time())
-        self._total_requests += 1
-
-        # Log request
-        logger.debug(
-            f"PROXY REQUEST [{len(self._request_times)}/{self._max_rpm}]: "
-            f"{method} {endpoint}"
-        )
-
-        # This will be implemented by integrating with MoltbookClient
-        # For now, return a marker to show this needs integration
-        return {
-            "_proxy_marker": True,
-            "method": method,
-            "endpoint": endpoint,
-            "json": json_data,
-            "params": params,
-        }
-
     def handle_rate_limit_response(self, retry_after_seconds: int) -> None:
         """
         Handle rate limit response from API.

@@ -70,12 +70,21 @@ class MoltbookPlugin(PluginBase):
         self._therapy_system = None
         self._safe_learning = None
 
+        # Cached prompts module (loaded once in setup())
+        self._prompts = None
+
         # State
         self._tick_count = 0
         self._comments_this_cycle = 0
         self._max_comments_per_cycle = 2
         self._suspended_until: Optional[datetime] = None
-        self._dms_supported: bool = True  # Set to False on first 404 from DM endpoints
+        self._dms_supported: bool = True
+        self._dm_consecutive_404s: int = 0  # Track consecutive 404s before disabling
+        self._dm_disabled_until: Optional[datetime] = None  # Re-check after cooldown
+
+        # Circuit breaker: exponential backoff on consecutive API failures
+        self._consecutive_api_failures: int = 0
+        self._max_backoff_multiplier: int = 8
         self._dream_journal_posted_date: Optional[date] = None
         self._processed_dm_convos: set[str] = set()  # Dedup within a single tick
 
@@ -91,8 +100,9 @@ class MoltbookPlugin(PluginBase):
         if not api_key:
             raise RuntimeError(f"Missing moltbook_api_key for identity {identity.name}")
 
-        # Load prompts module
-        prompts = self._load_prompts(identity.name)
+        # Load and cache prompts module
+        self._prompts = self._load_prompts(identity.name)
+        prompts = self._prompts or self._load_prompts(self.ctx.identity.name)
 
         # Create challenge handler and LLM-based response router
         response_router = None
@@ -121,10 +131,12 @@ class MoltbookPlugin(PluginBase):
         interest_keywords = identity.raw_config.get("interest_keywords", [])
 
         # Decision engine
+        relevant_submolts = identity.raw_config.get("relevant_submolts", None)
         self._decision_engine = DecisionEngine(
             interest_keywords=interest_keywords,
             engagement_threshold=identity.raw_config.get("engagement_threshold", 35.0),
             self_agent_name=identity.raw_config.get("agent_name", identity.name),
+            relevant_submolts=set(relevant_submolts) if relevant_submolts else None,
         )
 
         # Response generator — uses SafeLLMPipeline for automatic security
@@ -244,6 +256,16 @@ class MoltbookPlugin(PluginBase):
         self._comments_this_cycle = 0
         self._processed_dm_convos.clear()
 
+        # Circuit breaker: skip ticks when API is failing consecutively
+        if self._consecutive_api_failures >= 3:
+            backoff = min(2 ** (self._consecutive_api_failures - 3), self._max_backoff_multiplier)
+            if self._tick_count % backoff != 0:
+                logger.debug(
+                    "Circuit breaker active (%d failures, skipping %d/%d ticks)",
+                    self._consecutive_api_failures, backoff - 1, backoff,
+                )
+                return
+
         # Check suspension backoff — skip all activity until suspension expires
         if self._suspended_until and datetime.now(timezone.utc) < self._suspended_until:
             remaining = (self._suspended_until - datetime.now(timezone.utc)).total_seconds() / 3600
@@ -324,6 +346,7 @@ class MoltbookPlugin(PluginBase):
             await self._handle_dms()
 
             # Persist status after successful tick
+            self._consecutive_api_failures = 0  # Reset circuit breaker on success
             self._persist_status()
 
         except SuspensionError as e:
@@ -339,9 +362,9 @@ class MoltbookPlugin(PluginBase):
                     e.suspended_until, e.reason,
                 )
             else:
-                self._suspended_until = datetime.now(timezone.utc) + timedelta(hours=24)
-                logger.error(
-                    "Account SUSPENDED — no expiry in response, backing off 24h (until %s). Reason: %s",
+                self._suspended_until = datetime.now(timezone.utc) + timedelta(hours=1)
+                logger.warning(
+                    "Account SUSPENDED — no expiry in response, backing off 1h (until %s). Reason: %s",
                     self._suspended_until.isoformat(), e.reason,
                 )
             self.ctx.audit_log.log(
@@ -356,14 +379,19 @@ class MoltbookPlugin(PluginBase):
         except RateLimitError as e:
             logger.warning("Rate limited during tick: %s", e)
         except MoltbookError as e:
-            logger.error("Moltbook error during tick: %s", e, exc_info=True)
+            self._consecutive_api_failures += 1
+            logger.error(
+                "Moltbook error during tick (failure %d): %s",
+                self._consecutive_api_failures, e, exc_info=True,
+            )
             self._persist_status()
         except Exception as e:
-            logger.error("Unexpected error in tick: %s", e, exc_info=True)
+            self._consecutive_api_failures += 1
+            logger.error("Unexpected error in tick (failure %d): %s", self._consecutive_api_failures, e, exc_info=True)
 
     async def _engage_with_post(self, post, decision) -> None:
         """Generate and post a comment on a post."""
-        prompts = self._load_prompts(self.ctx.identity.name)
+        prompts = self._prompts or self._load_prompts(self.ctx.identity.name)
         comment_prompt = getattr(
             prompts, "COMMENT_PROMPT",
             getattr(prompts, "RESPONSE_PROMPT", "Respond to this post:\nTitle: {title}\n{content}"),
@@ -489,12 +517,10 @@ class MoltbookPlugin(PluginBase):
         - Engaging comments (above reply threshold): upvote AND queue reply
         - Normal comments (below reply threshold): upvote only
 
-        N+1 note: This issues one API call per post (up to 5) plus one
-        DB query per comment. At typical agent scale (5 posts × 10 comments)
-        this is ~55 queries per tick — acceptable. A future optimisation would
-        batch post IDs in a single SQL `WHERE post_id IN (...)` query.
+        Checks at most 3 recent posts per tick to limit API calls.
         """
-        my_post_ids = await self.ctx.engagement_db.get_my_post_ids(limit=5)
+        max_posts_to_check = self.ctx.identity.raw_config.get("reply_check_limit", 3)
+        my_post_ids = await self.ctx.engagement_db.get_my_post_ids(limit=max_posts_to_check)
         if not my_post_ids:
             return
 
@@ -638,15 +664,26 @@ class MoltbookPlugin(PluginBase):
         1. Approve any pending DM requests.
         2. For each conversation with unread messages, generate and send a reply.
         """
+        # Re-enable DMs after cooldown period (6 hours)
+        if not self._dms_supported and self._dm_disabled_until:
+            if datetime.now(timezone.utc) >= self._dm_disabled_until:
+                logger.info("DM cooldown expired, re-enabling DM handling")
+                self._dms_supported = True
+                self._dm_consecutive_404s = 0
+                self._dm_disabled_until = None
+
         if not self._dms_supported:
             return
 
-        prompts = self._load_prompts(self.ctx.identity.name)
+        prompts = self._prompts or self._load_prompts(self.ctx.identity.name)
         dm_prompt = getattr(prompts, "DM_PROMPT", "Reply to this DM from {sender}:\n{message}\n\nReply:")
 
         try:
             # Approve pending DM requests
             requests = await self._client.list_dm_requests()
+
+            # Reset 404 counter on successful API contact
+            self._dm_consecutive_404s = 0
             for req in requests:
                 try:
                     await self._client.approve_dm_request(req.id)
@@ -688,10 +725,20 @@ class MoltbookPlugin(PluginBase):
             raise  # Let tick() handle the 24h backoff
         except MoltbookError as e:
             if "API 404" in str(e):
-                self._dms_supported = False
-                logger.warning(
-                    "DM endpoint not available on this server (404) — disabling DM handling"
-                )
+                self._dm_consecutive_404s += 1
+                if self._dm_consecutive_404s >= 3:
+                    self._dms_supported = False
+                    self._dm_disabled_until = datetime.now(timezone.utc) + timedelta(hours=6)
+                    logger.warning(
+                        "DM endpoint returned 404 %d times — disabling until %s",
+                        self._dm_consecutive_404s,
+                        self._dm_disabled_until.isoformat(),
+                    )
+                else:
+                    logger.warning(
+                        "DM endpoint 404 (%d/3 before disable)",
+                        self._dm_consecutive_404s,
+                    )
             else:
                 logger.warning("DM handling error: %s", e)
 
@@ -736,7 +783,7 @@ class MoltbookPlugin(PluginBase):
                 logger.warning("Comment %s not found on post %s", comment_id, post_id)
                 return False
 
-            prompts = self._load_prompts(self.ctx.identity.name)
+            prompts = self._prompts or self._load_prompts(self.ctx.identity.name)
             reply_prompt = getattr(
                 prompts, "REPLY_PROMPT",
                 getattr(prompts, "REPLY_TO_COMMENT_PROMPT", "Reply to: {comment}\nOn post: {title}"),
@@ -785,7 +832,7 @@ class MoltbookPlugin(PluginBase):
                 logger.debug("Skipping heartbeat — dream journal pending for today")
                 return False
 
-        prompts = self._load_prompts(self.ctx.identity.name)
+        prompts = self._prompts or self._load_prompts(self.ctx.identity.name)
         heartbeat_topics = getattr(prompts, "HEARTBEAT_TOPICS", [])
 
         # Decide prompt: 30% chance of learning-based heartbeat when learnings exist
@@ -921,7 +968,7 @@ class MoltbookPlugin(PluginBase):
             return False
 
         # Load identity-specific dream journal prompt
-        prompts = self._load_prompts(self.ctx.identity.name)
+        prompts = self._prompts or self._load_prompts(self.ctx.identity.name)
         journal_prompt = getattr(prompts, "DREAM_JOURNAL_PROMPT", None)
         if not journal_prompt:
             return False

@@ -33,12 +33,14 @@ class AnalyzerCapability(CapabilityBase):
         engagement_threshold = self.ctx.config.get("engagement_threshold", 35.0)
         fuzzy_threshold = self.ctx.config.get("fuzzy_threshold", 75)
         self_agent_name = self.ctx.config.get("agent_name", self.ctx.identity_name)
+        relevant_submolts = self.ctx.config.get("relevant_submolts")
 
         self._engine = DecisionEngine(
             interest_keywords=interest_keywords,
             engagement_threshold=engagement_threshold,
             fuzzy_threshold=fuzzy_threshold,
             self_agent_name=self_agent_name,
+            relevant_submolts=set(relevant_submolts) if relevant_submolts else None,
         )
         logger.info("AnalyzerCapability initialized for %s", self.ctx.identity_name)
 

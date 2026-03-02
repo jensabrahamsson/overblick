@@ -167,6 +167,7 @@ class TestMaybePostDreamJournal:
         # Prompts
         if prompts_cls is None:
             prompts_cls = _MockPromptsWithDreamJournal
+        plugin._prompts = prompts_cls()
         plugin._load_prompts = MagicMock(return_value=prompts_cls())
 
         return plugin

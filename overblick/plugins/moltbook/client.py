@@ -144,14 +144,25 @@ class MoltbookClient:
     async def _ensure_session(self) -> None:
         """Ensure HTTP session exists."""
         if self._session is None or self._session.closed:
+            connector = aiohttp.TCPConnector(
+                limit=10,
+                limit_per_host=5,
+            )
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
                 "User-Agent": f"Overblick/1.0 ({self._identity_name})",
             }
-            self._session = aiohttp.ClientSession(headers=headers)
+            self._session = aiohttp.ClientSession(headers=headers, connector=connector)
             if self._challenge_handler:
                 self._challenge_handler.set_session(self._session)
+
+    async def _refresh_session(self) -> None:
+        """Close and recreate HTTP session to clear stale connection state."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+        self._session = None
+        await self._ensure_session()
 
     async def _request(
         self,
@@ -176,12 +187,9 @@ class MoltbookClient:
                 logger.debug("API %s %s -> CACHE HIT", method, endpoint)
                 return cached
 
-        # Wait for rate limit
+        # Wait for rate limit (single rate limiter — proxy handles caching only)
         if not await self._rate_limiter.acquire_request():
             raise RateLimitError("Rate limit exceeded")
-
-        await self._proxy.wait_for_rate_limit()
-        await self._proxy.check_rate_limit()
 
         url = f"{self.base_url}{endpoint}"
 
@@ -198,12 +206,14 @@ class MoltbookClient:
 
         for attempt in range(retry_count):
             try:
+                # Differentiated timeouts: GETs are fast reads, POSTs may involve challenges
+                timeout_seconds = 30 if method == "GET" else 90
                 async with self._session.request(
                     method,
                     url,
                     json=json,
                     params=params,
-                    timeout=aiohttp.ClientTimeout(total=90),
+                    timeout=aiohttp.ClientTimeout(total=timeout_seconds),
                 ) as response:
                     # Forensic logging for all error responses
                     if response.status >= 400:
@@ -251,6 +261,11 @@ class MoltbookClient:
                             raise
                         except Exception as e:
                             logger.debug("Challenge detection error: %s", e)
+
+                    # Session refresh on auth errors (first attempt only)
+                    if response.status in (401, 403) and attempt == 0:
+                        logger.info("Auth error (HTTP %d), refreshing session", response.status)
+                        await self._refresh_session()
 
                     # Permanent errors — check for suspension first
                     if response.status == 401:
