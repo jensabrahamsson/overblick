@@ -183,6 +183,111 @@ def cmd_start(args: argparse.Namespace) -> None:
         print("\nStopped.")
 
 
+def cmd_internet_gateway(args: argparse.Namespace) -> None:
+    """Start the Internet Gateway (secure reverse proxy for remote LLM access)."""
+    from overblick.gateway.internet_gateway import run_internet_gateway
+
+    base_dir = Path(__file__).parent.parent
+    log_dir = base_dir / "logs" / "internet_gateway"
+
+    setup_logging("internet_gateway", log_dir, verbose=args.verbose)
+
+    run_internet_gateway(
+        host=args.host,
+        port=args.port,
+        no_tls=args.no_tls,
+    )
+
+
+def cmd_api_keys(args: argparse.Namespace) -> None:
+    """Manage API keys for the Internet Gateway."""
+    from overblick.gateway.inet_auth import APIKeyManager
+    from overblick.gateway.inet_config import get_inet_config
+
+    config = get_inet_config()
+    data_dir = config.resolved_data_dir
+    manager = APIKeyManager(data_dir / "api_keys.db")
+
+    try:
+        if args.keys_cmd == "create":
+            expires = None
+            if args.expires:
+                raw = args.expires.rstrip("d")
+                expires = int(raw)
+
+            models = None
+            if args.models:
+                models = [m.strip() for m in args.models.split(",")]
+
+            backends = None
+            if args.backends:
+                backends = [b.strip() for b in args.backends.split(",")]
+
+            raw_key, record = manager.create_key(
+                name=args.name,
+                expires_days=expires,
+                allowed_models=models,
+                allowed_backends=backends,
+                max_tokens_cap=args.max_tokens,
+                requests_per_minute=args.rpm,
+            )
+
+            print(f"\nAPI Key created successfully!")
+            print(f"  Name:    {record.name}")
+            print(f"  ID:      {record.key_id}")
+            print(f"  Prefix:  {record.key_prefix}")
+            if record.expires_at:
+                from datetime import datetime, timezone
+                exp = datetime.fromtimestamp(record.expires_at, tz=timezone.utc)
+                print(f"  Expires: {exp.strftime('%Y-%m-%d %H:%M UTC')}")
+            else:
+                print(f"  Expires: never")
+            print(f"  RPM:     {record.requests_per_minute}")
+            print(f"\n  Full key (shown ONCE — store it securely):")
+            print(f"  {raw_key}")
+            print(f"\n  WARNING: This key cannot be retrieved again.")
+
+        elif args.keys_cmd == "list":
+            keys = manager.list_keys()
+            if not keys:
+                print("No API keys configured.")
+                return
+
+            print(f"\n{'ID':<10} {'Name':<20} {'Prefix':<14} {'RPM':>5} {'Requests':>10} {'Status':<10}")
+            print("-" * 75)
+            for k in keys:
+                status = "revoked" if k.revoked else "active"
+                if k.expires_at:
+                    import time
+                    if time.time() > k.expires_at:
+                        status = "expired"
+                print(f"{k.key_id:<10} {k.name:<20} {k.key_prefix:<14} {k.requests_per_minute:>5} {k.total_requests:>10} {status:<10}")
+
+        elif args.keys_cmd == "revoke":
+            if manager.revoke_key(args.key_id):
+                print(f"Key {args.key_id} revoked.")
+            else:
+                print(f"Key {args.key_id} not found.")
+                sys.exit(1)
+
+        elif args.keys_cmd == "rotate":
+            result = manager.rotate_key(args.key_id)
+            if result:
+                raw_key, record = result
+                print(f"\nKey {args.key_id} rotated. New key:")
+                print(f"  ID:     {record.key_id}")
+                print(f"  Prefix: {record.key_prefix}")
+                print(f"\n  Full key (shown ONCE — store it securely):")
+                print(f"  {raw_key}")
+                print(f"\n  WARNING: This key cannot be retrieved again.")
+                print(f"  The old key has been revoked.")
+            else:
+                print(f"Key {args.key_id} not found or already revoked.")
+                sys.exit(1)
+    finally:
+        manager.close()
+
+
 def cmd_manage(args: argparse.Namespace) -> None:
     """Delegate to the cross-platform service manager CLI."""
     from overblick.manage.__main__ import main as manage_main
@@ -272,6 +377,38 @@ def main() -> None:
     sup_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
     sup_parser.add_argument("--no-restart", action="store_true", help="Disable auto-restart")
     sup_parser.set_defaults(func=cmd_supervisor)
+
+    # internet-gateway
+    inet_parser = subparsers.add_parser("internet-gateway", help="Start Internet Gateway (secure LLM proxy)")
+    inet_parser.add_argument("--host", default=None, help="Host to bind (default: 0.0.0.0)")
+    inet_parser.add_argument("--port", type=int, default=None, help="Port (default: 8201)")
+    inet_parser.add_argument("--no-tls", action="store_true", help="Disable TLS (dev mode, forces localhost)")
+    inet_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
+    inet_parser.set_defaults(func=cmd_internet_gateway)
+
+    # api-keys
+    keys_parser = subparsers.add_parser("api-keys", help="Manage Internet Gateway API keys")
+    keys_sub = keys_parser.add_subparsers(dest="keys_cmd", required=True)
+
+    create_parser = keys_sub.add_parser("create", help="Create a new API key")
+    create_parser.add_argument("--name", required=True, help="Key name (e.g. 'my-laptop')")
+    create_parser.add_argument("--expires", default=None, help="Expiry (e.g. '90d' for 90 days)")
+    create_parser.add_argument("--rpm", type=int, default=30, help="Requests per minute (default: 30)")
+    create_parser.add_argument("--models", default=None, help="Comma-separated allowed models")
+    create_parser.add_argument("--backends", default=None, help="Comma-separated allowed backends")
+    create_parser.add_argument("--max-tokens", type=int, default=4096, help="Max tokens cap (default: 4096)")
+    create_parser.set_defaults(func=cmd_api_keys)
+
+    list_keys_parser = keys_sub.add_parser("list", help="List all API keys")
+    list_keys_parser.set_defaults(func=cmd_api_keys)
+
+    revoke_parser = keys_sub.add_parser("revoke", help="Revoke an API key")
+    revoke_parser.add_argument("key_id", help="Key ID to revoke")
+    revoke_parser.set_defaults(func=cmd_api_keys)
+
+    rotate_parser = keys_sub.add_parser("rotate", help="Rotate an API key (create new, revoke old)")
+    rotate_parser.add_argument("key_id", help="Key ID to rotate")
+    rotate_parser.set_defaults(func=cmd_api_keys)
 
     # manage (cross-platform service manager — delegates to overblick.manage)
     manage_parser = subparsers.add_parser(

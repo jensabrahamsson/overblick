@@ -402,3 +402,207 @@ The gateway prevents GPU starvation through:
 # Integration tests
 ./venv/bin/python3 -m pytest tests/integration/test_gateway_integration.py -v
 ```
+
+---
+
+## Internet Gateway (Experimental — Not Yet Integrated)
+
+### What Is This?
+
+The Internet Gateway is a hardened reverse proxy that sits in front of the internal LLM Gateway and exposes it to the internet over TLS with API key authentication. It lives in the `inet_*.py` and `internet_gateway.py` files in this directory.
+
+**This is not yet officially supported by Överblick.** The code is here, it works, and the tests pass — but it is not wired into the main `overblick start` workflow, the dashboard does not manage it, and the supervisor does not monitor it. If you need this and are comfortable running it yourself, go ahead. Even better: open a PR to integrate it properly.
+
+### Why Does This Exist?
+
+The internal LLM Gateway binds to `127.0.0.1:8200` by design. It trusts every request because it only accepts localhost connections. This is fine when your agents and your Ollama instance live on the same machine.
+
+But what if they don't?
+
+Common scenarios:
+
+- **Your GPU server is at home**, and you want to use your models from a laptop on a different network, from your phone, or from a VPS running agents.
+- **You have a beefy workstation at the office** running Ollama with large models, and you want your remote agents to use it.
+- **You run multiple machines** and want them all to share one Ollama instance without exposing an unauthenticated LLM endpoint to the internet.
+
+The naive solution — binding the internal gateway to `0.0.0.0` — would expose an unauthenticated, unencrypted LLM endpoint to anyone who finds the port. That is not acceptable.
+
+The Internet Gateway solves this by placing a security perimeter between the internet and your internal gateway:
+
+```
+Internet (laptop, phone, VPS, ...)
+    │
+    │ HTTPS (TLS 1.2+)
+    ▼
+┌──────────────────────────────────────┐
+│  Internet Gateway (0.0.0.0:8201)     │
+│  ├─ TLS termination                 │
+│  ├─ API key auth (Bearer token)     │
+│  ├─ Per-key rate limiting           │
+│  ├─ IP allowlist (optional)         │
+│  ├─ Auto-ban on abuse               │
+│  ├─ Request validation & size cap   │
+│  ├─ max_tokens clamping             │
+│  ├─ Full audit trail (SQLite)       │
+│  └─ Error masking                   │
+└──────────────────────────────────────┘
+    │
+    │ HTTP (127.0.0.1 only)
+    ▼
+┌──────────────────────────────────────┐
+│  Internal Gateway (127.0.0.1:8200)   │
+│  (unchanged — origin validation)     │
+└──────────────────────────────────────┘
+    │
+    ▼
+  Ollama / DeepSeek / Cloud backends
+```
+
+The internal gateway remains localhost-only. Even if an attacker discovers port 8200, the origin validation middleware rejects non-localhost requests. Defense in depth.
+
+### How It Works
+
+**Authentication.** Every request (except `/health`) must include a `Bearer` token in the `Authorization` header. Tokens are bcrypt-hashed API keys stored in a local SQLite database. Each key has a name (e.g. "my-laptop"), optional expiry, per-key rate limits, and scoped permissions (allowed models, allowed backends, max_tokens cap). Keys use the format `sk-ob-<32 hex chars>` — easy to identify and grep for in logs.
+
+**Proxy flow for `/v1/chat/completions`:**
+
+1. Middleware chain runs: request size check → IP ban check → IP allowlist → global rate limit.
+2. Bearer token is extracted and verified against the key database (bcrypt, timing-safe).
+3. Per-key rate limit is checked.
+4. Request body is parsed with strict Pydantic validation (`extra="forbid"` — unknown fields are rejected).
+5. Permission check: is this model allowed for this key? This backend?
+6. `max_tokens` is clamped to `min(requested, key cap, global cap)`.
+7. Request is forwarded to the internal gateway via httpx. Auth headers are stripped; the internal API key is injected if configured.
+8. On success: response is passed through, token usage is extracted for audit.
+9. On internal error: a generic 502 or 504 is returned. **Internal details (URLs, stack traces, backend names) are never leaked.**
+10. Usage stats are updated on the key record.
+11. An audit entry is written (async, non-blocking).
+
+**Rate limiting.** Two layers: a global token bucket (default 60 RPM) applied to all requests via middleware, and a per-key token bucket (default 30 RPM, configurable per key) applied after authentication. Both use the framework's existing `RateLimiter` (token bucket with LRU eviction).
+
+**Auto-ban.** Failed authentication attempts, rate limit violations, and other abuses are tracked per IP in a sliding window. After a configurable number of violations (default 10 in 5 minutes), the IP is banned for 1 hour. Bans are stored in memory for fast O(1) lookups and backed by the audit log for persistence.
+
+**TLS.** Three modes: (1) provide your own cert and key (e.g. Let's Encrypt), (2) auto-generate a self-signed certificate on first start (stored in `data/internet_gateway/tls/`, valid 365 days, regenerated when expired), (3) no TLS — only allowed when binding to `127.0.0.1` (dev mode). **The gateway refuses to start without TLS on a public interface.** This is a hard safety guard, not a warning.
+
+**Error masking.** No OpenAPI docs are exposed (`/docs`, `/redoc`, `/openapi.json` all return 404). All error responses follow OpenAI's error format (`{"error": {"message": "...", "type": "...", "code": "..."}}`). Internal errors from the upstream gateway are replaced with generic messages. An attacker learns nothing about the internal architecture from error responses.
+
+**Audit trail.** Every request — successful or not — is logged to `data/internet_gateway/audit.db` (SQLite WAL mode). The audit records: timestamp, key ID/name, source IP, HTTP method, path, model, status code, token usage, latency, errors, and security violations. Background cleanup removes entries older than 90 days.
+
+### Endpoints
+
+| Method | Path | Auth | Proxied to |
+|--------|------|------|------------|
+| GET | `/health` | No | Local status only |
+| POST | `/v1/chat/completions` | Yes | Internal gateway `/v1/chat/completions` |
+| POST | `/v1/embeddings` | Yes | Internal gateway `/v1/embeddings` |
+| GET | `/v1/models` | Yes | Internal gateway `/models` |
+
+Everything else returns 404.
+
+### Usage (Manual)
+
+```bash
+# 1. Create an API key
+python -m overblick api-keys create --name "my-laptop" --expires 90d
+#   → prints the full key ONCE (sk-ob-...). Store it securely.
+
+# 2. Start the Internet Gateway
+python -m overblick internet-gateway
+#   → listens on 0.0.0.0:8201 with auto self-signed TLS
+
+# 3. Test from a remote machine
+curl -k https://your-server:8201/health
+
+curl -k -H "Authorization: Bearer sk-ob-..." \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen3:8b","messages":[{"role":"user","content":"hello"}]}' \
+  https://your-server:8201/v1/chat/completions
+
+# Dev mode (localhost only, no TLS)
+python -m overblick internet-gateway --no-tls
+```
+
+**Key management:**
+
+```bash
+python -m overblick api-keys list
+python -m overblick api-keys create --name "phone" --rpm 10 --models "qwen3:8b"
+python -m overblick api-keys revoke <key-id>
+python -m overblick api-keys rotate <key-id>
+```
+
+### Configuration
+
+Environment variables (`OVERBLICK_INET_*` prefix) or `internet_gateway:` section in `config/overblick.yaml`:
+
+```yaml
+internet_gateway:
+  port: 8201
+  tls_cert_path: "/etc/letsencrypt/live/myhost/fullchain.pem"
+  tls_key_path: "/etc/letsencrypt/live/myhost/privkey.pem"
+  ip_allowlist: []           # CIDR notation, empty = all allowed
+  global_rpm: 60
+  per_key_rpm: 30
+  max_tokens_cap: 4096
+  max_request_bytes: 65536   # 64KB body limit
+  request_timeout: 120.0     # seconds
+  auto_ban_threshold: 10     # violations before ban
+  auto_ban_duration: 3600    # ban duration in seconds
+```
+
+| Env Variable | Purpose | Default |
+|---|---|---|
+| `OVERBLICK_INET_HOST` | Bind address | `0.0.0.0` |
+| `OVERBLICK_INET_PORT` | Listen port | `8201` |
+| `OVERBLICK_INET_TLS_CERT_PATH` | TLS certificate path | — |
+| `OVERBLICK_INET_TLS_KEY_PATH` | TLS private key path | — |
+| `OVERBLICK_INET_TLS_AUTO_SELFSIGNED` | Auto-generate self-signed cert | `true` |
+| `OVERBLICK_INET_INTERNAL_GATEWAY_URL` | Internal gateway URL | `http://127.0.0.1:8200` |
+| `OVERBLICK_INET_INTERNAL_API_KEY` | API key for internal gateway | — |
+| `OVERBLICK_INET_GLOBAL_RPM` | Global requests per minute | `60` |
+| `OVERBLICK_INET_PER_KEY_RPM` | Default per-key RPM | `30` |
+| `OVERBLICK_INET_MAX_TOKENS_CAP` | Global max_tokens clamp | `4096` |
+| `OVERBLICK_INET_IP_ALLOWLIST` | Comma-separated CIDRs | — |
+| `OVERBLICK_INET_AUTO_BAN_THRESHOLD` | Violations before ban | `10` |
+| `OVERBLICK_INET_AUTO_BAN_DURATION` | Ban duration (seconds) | `3600` |
+
+### Security Properties
+
+| Threat | Mitigation |
+|--------|-----------|
+| Brute force API key | bcrypt (~100ms/attempt), auto-ban after threshold, rate limiting |
+| Stolen API key | Key expiry, rotation, per-key scope, revocation, IP logged in audit |
+| DDoS | Global + per-key rate limits, max_tokens clamp, request size limit |
+| Prompt injection | Proxied as-is — the internal gateway's SafeLLMPipeline handles sanitization |
+| SSRF via proxy | Only forwards to the hardcoded `internal_gateway_url` |
+| TLS downgrade | Hard refusal: no plaintext on `0.0.0.0` |
+| Information leakage | Error masking, no OpenAPI docs, generic error messages |
+| Port 8200 found by attacker | Internal gateway's origin validation rejects non-localhost |
+| Key enumeration | Timing-safe bcrypt (always runs at least one compare, even for unknown prefixes) |
+
+### Internet Gateway File Structure
+
+| File | Purpose |
+|------|---------|
+| `inet_models.py` | Pydantic models: APIKeyRecord, BanRecord, InetAuditEntry |
+| `inet_config.py` | Configuration (env vars, YAML, safety guard) |
+| `inet_auth.py` | API key CRUD (SQLite + bcrypt) |
+| `inet_audit.py` | Audit trail (SQLite WAL, async writes, 90-day retention) |
+| `inet_tls.py` | TLS certificate loading and self-signed generation |
+| `inet_middleware.py` | Middleware stack: size limit, IP ban, allowlist, global rate limit |
+| `internet_gateway.py` | FastAPI reverse proxy application |
+
+### What's Missing (Contributions Welcome)
+
+This is where you come in. The Internet Gateway works standalone, but it is not yet integrated into the Överblick workflow. A proper integration would involve:
+
+- **Dashboard integration** — show Internet Gateway status, connected clients, audit trail, and key management in the web dashboard.
+- **Supervisor monitoring** — have the supervisor start/stop/restart the Internet Gateway alongside agents.
+- **`overblick start` integration** — optionally start the Internet Gateway as part of the standard startup sequence.
+- **Streaming support** — the proxy currently buffers full responses. Streaming (SSE) for chat completions would reduce time-to-first-token for remote clients.
+- **WebSocket support** — for real-time chat interfaces on remote clients.
+- **Mutual TLS (mTLS)** — for environments where IP allowlisting is insufficient and you want certificate-based client authentication.
+- **Key management in dashboard** — create/revoke/rotate keys from the web UI instead of the CLI.
+- **Usage dashboards** — visualize per-key token usage, request patterns, and cost estimates over time.
+
+If any of this sounds interesting, open a PR. The foundation is solid and tested.
