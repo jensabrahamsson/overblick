@@ -16,9 +16,10 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 import httpx
+import pydantic
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from overblick.core.security.rate_limiter import RateLimiter
 
@@ -61,12 +62,25 @@ def _error_json(status: int, message: str, error_type: str) -> JSONResponse:
 class ProxiedChatRequest(BaseModel):
     """Strict request body for chat completions (extra fields forbidden)."""
     model: str = Field(default="qwen3:8b")
-    messages: list[dict] = Field(...)
+    messages: list[dict[str, str]] = Field(...)
     max_tokens: int = Field(default=2000, ge=1, le=32768)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     top_p: float = Field(default=0.9, ge=0.0, le=1.0)
 
     model_config = {"extra": "forbid"}
+
+    @field_validator("messages")
+    @classmethod
+    def validate_messages(cls, v: list[dict[str, str]]) -> list[dict[str, str]]:
+        """Ensure each message has 'role' and 'content' keys."""
+        if not v:
+            raise ValueError("messages must not be empty")
+        for i, msg in enumerate(v):
+            if "role" not in msg:
+                raise ValueError(f"messages[{i}] missing 'role'")
+            if "content" not in msg:
+                raise ValueError(f"messages[{i}] missing 'content'")
+        return v
 
 
 class EmbeddingRequest(BaseModel):
@@ -107,6 +121,16 @@ async def lifespan(app: FastAPI):
         timeout=httpx.Timeout(_config.request_timeout, connect=10.0),
     )
 
+    # Store tracker on app.state for middleware access (single instance)
+    app.state.violation_tracker = _violation_tracker
+
+    # Add middleware stack (outermost first = added last)
+    app.add_middleware(GlobalRateLimitMiddleware, rpm=_config.global_rpm)
+    if _config.ip_allowlist:
+        app.add_middleware(IPAllowlistMiddleware, allowlist=_config.ip_allowlist)
+    app.add_middleware(IPBanMiddleware, tracker=_violation_tracker)
+    app.add_middleware(RequestSizeLimitMiddleware, max_bytes=_config.max_request_bytes)
+
     logger.info(
         "Internet Gateway starting on %s:%d (TLS: %s, internal: %s)",
         _config.host, _config.port,
@@ -117,12 +141,21 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down Internet Gateway...")
-    if _http_client:
-        await _http_client.aclose()
-    if _audit_log:
-        _audit_log.close()
-    if _key_manager:
-        _key_manager.close()
+    try:
+        if _http_client:
+            await _http_client.aclose()
+    except Exception as e:
+        logger.warning("Error closing HTTP client: %s", e)
+    try:
+        if _audit_log:
+            _audit_log.close()
+    except Exception as e:
+        logger.warning("Error closing audit log: %s", e)
+    try:
+        if _key_manager:
+            _key_manager.close()
+    except Exception as e:
+        logger.warning("Error closing key manager: %s", e)
     logger.info("Internet Gateway stopped")
 
 
@@ -135,38 +168,8 @@ app = FastAPI(
 )
 
 
-def _setup_middleware(app: FastAPI) -> None:
-    """Add middleware stack (outermost first = added last)."""
-    config = get_inet_config()
-
-    # Order matters: last added = outermost = runs first
-    # We need a ViolationTracker that persists, so we create it here
-    # and also use it in lifespan. The middleware instances are created
-    # fresh here.
-    tracker = ViolationTracker(
-        window_seconds=config.auto_ban_window,
-        threshold=config.auto_ban_threshold,
-        ban_duration=config.auto_ban_duration,
-    )
-
-    # Innermost first (executed last):
-    app.add_middleware(GlobalRateLimitMiddleware, rpm=config.global_rpm)
-    if config.ip_allowlist:
-        app.add_middleware(IPAllowlistMiddleware, allowlist=config.ip_allowlist)
-    app.add_middleware(IPBanMiddleware, tracker=tracker)
-    app.add_middleware(RequestSizeLimitMiddleware, max_bytes=config.max_request_bytes)
-
-    # Store tracker reference for use in route handlers
-    app.state.violation_tracker = tracker
-
-
-# Middleware must be added at import time (before first request)
-# We defer this to avoid requiring config at import time
-_middleware_initialized = False
-
-
 @app.middleware("http")
-async def ensure_middleware_and_security_headers(request: Request, call_next):
+async def ensure_middleware_and_security_headers(request: Request, call_next) -> JSONResponse:
     """Add security headers to all responses."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -264,7 +267,7 @@ async def chat_completions(request: Request):
         try:
             body = await request.body()
             parsed = ProxiedChatRequest.model_validate_json(body)
-        except Exception:
+        except (ValueError, pydantic.ValidationError):
             _audit_log.log(
                 key_id=key_record.key_id, key_name=key_record.name,
                 source_ip=client_ip, method="POST", path="/v1/chat/completions",
@@ -398,7 +401,7 @@ async def embeddings(request: Request):
     try:
         body = await request.body()
         parsed = EmbeddingRequest.model_validate_json(body)
-    except Exception:
+    except (ValueError, pydantic.ValidationError):
         return _error_json(400, "Invalid request body", "invalid_request_error")
 
     # Proxy — internal gateway expects query params for embeddings
@@ -486,10 +489,6 @@ def _record_violation(ip: str, violation_type: str) -> None:
     """Record a violation and trigger auto-ban if threshold reached."""
     if _violation_tracker:
         _violation_tracker.record_violation(ip)
-    # Also record via the app.state tracker (used by middleware)
-    tracker = getattr(app.state, "violation_tracker", None)
-    if tracker and tracker is not _violation_tracker:
-        tracker.record_violation(ip)
 
 
 @app.exception_handler(Exception)
@@ -514,9 +513,6 @@ def run_internet_gateway(
     config = get_inet_config()
     effective_host = host or config.host
     effective_port = port or config.port
-
-    # Setup middleware with proper config
-    _setup_middleware(app)
 
     # Safety check
     if not no_tls:

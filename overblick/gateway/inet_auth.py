@@ -168,6 +168,15 @@ class APIKeyManager:
                     logger.warning("API key '%s' has expired (id: %s)", row[1], row[0])
                     return None
 
+                try:
+                    allowed_models = json.loads(row[7])
+                except (json.JSONDecodeError, TypeError):
+                    allowed_models = []
+                try:
+                    allowed_backends = json.loads(row[8])
+                except (json.JSONDecodeError, TypeError):
+                    allowed_backends = []
+
                 return APIKeyRecord(
                     key_id=row[0],
                     name=row[1],
@@ -176,8 +185,8 @@ class APIKeyManager:
                     created_at=row[4],
                     expires_at=row[5],
                     revoked=bool(row[6]),
-                    allowed_models=json.loads(row[7]),
-                    allowed_backends=json.loads(row[8]),
+                    allowed_models=allowed_models,
+                    allowed_backends=allowed_backends,
                     max_tokens_cap=row[9],
                     requests_per_minute=row[10],
                     total_requests=row[11],
@@ -203,11 +212,14 @@ class APIKeyManager:
             logger.info("Revoked API key: %s", key_id)
             return True
 
-        logger.warning("API key not found for revocation: %s", key_id)
+        logger.info("API key not found for revocation: %s", key_id)
         return False
 
     def rotate_key(self, key_id: str) -> Optional[tuple[str, APIKeyRecord]]:
         """Rotate an API key: create new key with same permissions, revoke old.
+
+        Atomic: revoke + create happen in a single transaction so a crash
+        between them cannot lose the key.
 
         Returns:
             Tuple of (new_raw_key, new_record), or None if old key not found.
@@ -225,22 +237,65 @@ class APIKeyManager:
         row = cursor.fetchone()
 
         if not row:
-            logger.warning("API key not found for rotation: %s", key_id)
+            logger.info("API key not found for rotation: %s", key_id)
             return None
 
         name, models_json, backends_json, max_tokens_cap, rpm = row
+        allowed_models = json.loads(models_json) or None
+        allowed_backends = json.loads(backends_json) or None
 
-        # Revoke old key
-        self.revoke_key(key_id)
+        # Generate new key material
+        new_key_id = secrets.token_hex(_KEY_ID_LENGTH // 2)
+        raw_hex = secrets.token_hex(_KEY_HEX_LENGTH // 2)
+        raw_key = f"{_KEY_PREFIX}{raw_hex}"
+        key_prefix = raw_key[:_DISPLAY_PREFIX_LENGTH]
+        key_hash = bcrypt.hashpw(raw_key.encode(), bcrypt.gensalt()).decode()
+        now = time.time()
+        models_json_new = json.dumps(allowed_models or [])
+        backends_json_new = json.dumps(allowed_backends or [])
 
-        # Create new key with same permissions
-        return self.create_key(
+        # Atomic: revoke old + insert new in one transaction
+        try:
+            self._conn.execute("BEGIN IMMEDIATE")
+            self._conn.execute(
+                "UPDATE api_keys SET revoked = 1 WHERE key_id = ?",
+                (key_id,),
+            )
+            self._conn.execute(
+                """
+                INSERT INTO api_keys
+                    (key_id, name, key_hash, key_prefix, created_at, expires_at,
+                     allowed_models, allowed_backends, max_tokens_cap, requests_per_minute)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_key_id, name, key_hash, key_prefix, now, None,
+                    models_json_new, backends_json_new, max_tokens_cap, rpm,
+                ),
+            )
+            self._conn.execute("COMMIT")
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
+
+        record = APIKeyRecord(
+            key_id=new_key_id,
             name=name,
-            allowed_models=json.loads(models_json) or None,
-            allowed_backends=json.loads(backends_json) or None,
+            key_hash=key_hash,
+            key_prefix=key_prefix,
+            created_at=now,
+            expires_at=None,
+            allowed_models=allowed_models or [],
+            allowed_backends=allowed_backends or [],
             max_tokens_cap=max_tokens_cap,
             requests_per_minute=rpm,
         )
+
+        logger.info(
+            "Rotated API key '%s': %s -> %s (prefix: %s)",
+            name, key_id, new_key_id, key_prefix,
+        )
+        return raw_key, record
 
     def list_keys(self) -> list[APIKeyRecord]:
         """List all API keys (metadata only, never returns hashes in display).
@@ -261,6 +316,15 @@ class APIKeyManager:
 
         results = []
         for row in cursor.fetchall():
+            try:
+                allowed_models = json.loads(row[7])
+            except (json.JSONDecodeError, TypeError):
+                allowed_models = []
+            try:
+                allowed_backends = json.loads(row[8])
+            except (json.JSONDecodeError, TypeError):
+                allowed_backends = []
+
             results.append(APIKeyRecord(
                 key_id=row[0],
                 name=row[1],
@@ -269,8 +333,8 @@ class APIKeyManager:
                 created_at=row[4],
                 expires_at=row[5],
                 revoked=bool(row[6]),
-                allowed_models=json.loads(row[7]),
-                allowed_backends=json.loads(row[8]),
+                allowed_models=allowed_models,
+                allowed_backends=allowed_backends,
                 max_tokens_cap=row[9],
                 requests_per_minute=row[10],
                 total_requests=row[11],

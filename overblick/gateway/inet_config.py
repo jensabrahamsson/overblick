@@ -92,16 +92,23 @@ class InternetGatewayConfig(BaseModel):
         return self.tls_auto_selfsigned
 
     def validate_safety(self) -> None:
-        """Refuse to start if plaintext on public interface.
+        """Refuse to start if plaintext on public interface or invalid config.
 
         Raises:
             RuntimeError: If TLS is disabled and host is not localhost.
+            ValueError: If internal_gateway_url has invalid scheme.
         """
         if not self.tls_enabled and self.host != "127.0.0.1":
             raise RuntimeError(
                 "SAFETY: Refusing to start Internet Gateway without TLS on "
                 f"host={self.host}. Either provide TLS certificates, enable "
                 "tls_auto_selfsigned, or bind to 127.0.0.1 for dev mode."
+            )
+
+        if not self.internal_gateway_url.startswith(("http://", "https://")):
+            raise ValueError(
+                f"internal_gateway_url must start with http:// or https://, "
+                f"got: {self.internal_gateway_url!r}"
             )
 
     @classmethod

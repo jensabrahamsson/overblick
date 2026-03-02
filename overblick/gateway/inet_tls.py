@@ -8,7 +8,9 @@ Three modes:
 """
 
 import datetime
+import ipaddress
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -50,12 +52,8 @@ def _generate_self_signed(
             x509.SubjectAlternativeName([
                 x509.DNSName("localhost"),
                 x509.DNSName(hostname),
-                x509.IPAddress(
-                    __import__("ipaddress").ip_address("127.0.0.1")
-                ),
-                x509.IPAddress(
-                    __import__("ipaddress").ip_address("::1")
-                ),
+                x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
+                x509.IPAddress(ipaddress.ip_address("::1")),
             ]),
             critical=False,
         )
@@ -70,9 +68,11 @@ def _generate_self_signed(
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption(),
         ))
+    os.chmod(key_path, 0o600)
 
     with open(cert_path, "wb") as f:
         f.write(cert.public_bytes(serialization.Encoding.PEM))
+    os.chmod(cert_path, 0o644)
 
     logger.info(
         "Generated self-signed TLS certificate: %s (valid %d days)",

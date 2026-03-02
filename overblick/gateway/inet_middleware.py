@@ -39,12 +39,17 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > self.max_bytes:
-            logger.warning(
-                "Request too large: %s bytes from %s",
-                content_length, request.client.host if request.client else "unknown",
-            )
-            return _error_response(413, "Request body too large", "invalid_request_error")
+        if content_length:
+            try:
+                length = int(content_length)
+            except ValueError:
+                return _error_response(400, "Invalid Content-Length header", "invalid_request_error")
+            if length > self.max_bytes:
+                logger.warning(
+                    "Request too large: %d bytes from %s",
+                    length, request.client.host if request.client else "unknown",
+                )
+                return _error_response(413, "Request body too large", "invalid_request_error")
 
         return await call_next(request)
 
@@ -52,13 +57,21 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
 class ViolationTracker:
     """Track violations per IP for auto-ban decisions.
 
-    In-memory sliding window — fast lookups, bounded memory via cleanup.
+    In-memory sliding window — fast lookups, bounded memory via max_tracked_ips.
+    When the IP cap is reached, oldest entries are evicted to stay within bounds.
     """
 
-    def __init__(self, window_seconds: int = 300, threshold: int = 10, ban_duration: int = 3600):
+    def __init__(
+        self,
+        window_seconds: int = 300,
+        threshold: int = 10,
+        ban_duration: int = 3600,
+        max_tracked_ips: int = 50_000,
+    ):
         self.window_seconds = window_seconds
         self.threshold = threshold
         self.ban_duration = ban_duration
+        self.max_tracked_ips = max_tracked_ips
         # ip -> list of violation timestamps
         self._violations: dict[str, list[float]] = defaultdict(list)
         # ip -> ban expiry timestamp
@@ -69,7 +82,11 @@ class ViolationTracker:
         now = time.time()
         cutoff = now - self.window_seconds
 
-        # Clean old violations
+        # Enforce memory bounds before adding new IP
+        if ip not in self._violations and len(self._violations) >= self.max_tracked_ips:
+            self._evict_oldest()
+
+        # Clean old violations for this IP
         violations = self._violations[ip]
         self._violations[ip] = [t for t in violations if t > cutoff]
         self._violations[ip].append(now)
@@ -102,6 +119,46 @@ class ViolationTracker:
             return 0
         remaining = int(expires - time.time())
         return max(0, remaining)
+
+    def cleanup(self) -> int:
+        """Purge expired bans and old violations. Returns number of entries removed."""
+        now = time.time()
+        cutoff = now - self.window_seconds
+        removed = 0
+
+        # Purge expired bans
+        expired_bans = [ip for ip, exp in self._bans.items() if now > exp]
+        for ip in expired_bans:
+            del self._bans[ip]
+            self._violations.pop(ip, None)
+            removed += 1
+
+        # Purge IPs with no recent violations (and not banned)
+        stale_ips = [
+            ip for ip, ts_list in self._violations.items()
+            if ip not in self._bans and all(t <= cutoff for t in ts_list)
+        ]
+        for ip in stale_ips:
+            del self._violations[ip]
+            removed += 1
+
+        return removed
+
+    def _evict_oldest(self) -> None:
+        """Evict the oldest violation entries to stay within max_tracked_ips."""
+        # Find IPs with the oldest last-violation timestamp (skip banned IPs)
+        candidates = []
+        for ip, ts_list in self._violations.items():
+            if ip not in self._bans and ts_list:
+                candidates.append((ip, max(ts_list)))
+
+        # Sort by most recent violation (ascending) — evict least recently active
+        candidates.sort(key=lambda x: x[1])
+
+        # Evict 10% or at least 1 to make room
+        evict_count = max(1, len(candidates) // 10)
+        for ip, _ in candidates[:evict_count]:
+            del self._violations[ip]
 
 
 class IPBanMiddleware(BaseHTTPMiddleware):
@@ -153,17 +210,25 @@ class IPAllowlistMiddleware(BaseHTTPMiddleware):
 class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
     """Global rate limiting using the framework's token bucket."""
 
+    _HEALTH_RPM = 300  # Generous separate limit for /health
+
     def __init__(self, app, rpm: int = 60):
         super().__init__(app)
         from overblick.core.security.rate_limiter import RateLimiter
 
         # Token bucket: rpm tokens, refill at rpm/60 per second
         self.limiter = RateLimiter(max_tokens=float(rpm), refill_rate=rpm / 60.0)
+        self._health_limiter = RateLimiter(
+            max_tokens=float(self._HEALTH_RPM),
+            refill_rate=self._HEALTH_RPM / 60.0,
+        )
         self.rpm = rpm
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        # Skip rate limiting for health checks
+        # Health checks use a separate, generous rate limit
         if request.url.path == "/health":
+            if not self._health_limiter.allow("health"):
+                return _error_response(429, "Rate limit exceeded", "rate_limit_error")
             return await call_next(request)
 
         if not self.limiter.allow("global"):
