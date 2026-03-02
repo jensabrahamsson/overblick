@@ -121,15 +121,19 @@ class Orchestrator:
         self._audit_log = AuditLog(data_dir / "audit.db", self._identity_name)
         self._audit_log.log("orchestrator_setup", category="lifecycle")
 
-        # 3b. Initialize engagement database
-        eng_db_config = DatabaseConfig(
-            sqlite_path=str(data_dir / "engagement.db"),
-        )
-        self._engagement_db_backend = SQLiteBackend(eng_db_config, identity=self._identity_name)
-        await self._engagement_db_backend.connect()
-        self._engagement_db = EngagementDB(self._engagement_db_backend, identity=self._identity_name)
-        await self._engagement_db.setup()
-        logger.info("EngagementDB initialized for %s", self._identity_name)
+        # 3b. Initialize engagement database (lazy — only if moltbook is active)
+        plugin_names = list(self._identity.plugins) if self._identity.plugins else ["moltbook"]
+        if "moltbook" in plugin_names:
+            eng_db_config = DatabaseConfig(
+                sqlite_path=str(data_dir / "engagement.db"),
+            )
+            self._engagement_db_backend = SQLiteBackend(eng_db_config, identity=self._identity_name)
+            await self._engagement_db_backend.connect()
+            self._engagement_db = EngagementDB(self._engagement_db_backend, identity=self._identity_name)
+            await self._engagement_db.setup()
+            logger.info("EngagementDB initialized for %s", self._identity_name)
+        else:
+            logger.debug("EngagementDB skipped — no moltbook plugin for %s", self._identity_name)
 
         # 4. Initialize quiet hours
         self._quiet_hours = QuietHoursChecker(self._identity.quiet_hours)
@@ -434,33 +438,10 @@ class Orchestrator:
             logger.warning("Could not load capability registry: %s", e)
             return
 
-        # Build per-capability configs from identity
+        # Build per-capability configs from identity (centralized)
+        from overblick.core.capability import build_capability_configs
         system_prompt = f"You are {self._identity.display_name}."
-        configs = {
-            "dream_system": {
-                "dream_templates": self._identity.raw_config.get("dream_templates"),
-            },
-            "therapy_system": {
-                "therapy_day": self._identity.raw_config.get("therapy_day", 6),
-                "system_prompt": system_prompt,
-            },
-            "safe_learning": {
-                "ethos_text": self._identity.raw_config.get("ethos_text", ""),
-            },
-            "emotional_state": {},
-            "analyzer": {
-                "interest_keywords": self._identity.interest_keywords,
-                "engagement_threshold": self._identity.engagement_threshold,
-                "agent_name": self._identity.raw_config.get("agent_name", self._identity.name),
-            },
-            "composer": {
-                "system_prompt": system_prompt,
-                "temperature": self._identity.llm.temperature,
-                "max_tokens": self._identity.llm.max_tokens,
-            },
-            "conversation_tracker": {},
-            "summarizer": {},
-        }
+        configs = build_capability_configs(self._identity, system_prompt)
 
         # Create a temporary PluginContext for capability creation
         # (capabilities need a context but aren't plugin-specific)

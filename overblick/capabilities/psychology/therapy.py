@@ -1,10 +1,9 @@
 """
 TherapyCapability — wraps TherapySystem or CherryTherapySystem as a capability.
 
-Weekly psychological reflection:
-  - Anomal (and generic identities): LLM-based Jungian + Freudian analysis
-    pipeline via TherapySystem.
-  - Cherry: Template-based attachment theory sessions via CherryTherapySystem.
+Weekly psychological reflection. Config-driven via 'therapy_model':
+  - "llm" (default): LLM-based Jungian + Freudian analysis via TherapySystem
+  - "template": Template-based attachment theory sessions via CherryTherapySystem
 """
 
 import logging
@@ -39,12 +38,12 @@ class TherapyCapability(CapabilityBase):
 
     async def setup(self) -> None:
         therapy_day = self.ctx.config.get("therapy_day", TherapySystem.DEFAULT_THERAPY_DAY)
-        identity = self.ctx.identity_name.lower()
+        model = self.ctx.config.get("therapy_model", "llm")
 
-        if identity == "cherry":
+        if model == "template":
             self._therapy_system = CherryTherapySystem(therapy_day=therapy_day)
             logger.info(
-                "TherapyCapability (Cherry/template-based) initialized for %s",
+                "TherapyCapability (template-based) initialized for %s",
                 self.ctx.identity_name,
             )
         else:

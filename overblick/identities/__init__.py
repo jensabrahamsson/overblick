@@ -76,8 +76,7 @@ class LLMSettings(BaseModel):
     """LLM configuration.
 
     All agents connect via the LLM Gateway, which routes to configured
-    backends (local Ollama, cloud Ollama, OpenAI). The 'provider' field
-    is kept for backward compatibility but defaults to 'gateway'.
+    backends (local Ollama, cloud Ollama, OpenAI).
     """
     model_config = ConfigDict(frozen=True, extra="ignore")
 
@@ -89,30 +88,6 @@ class LLMSettings(BaseModel):
 
     # Gateway URL — all agents route through this
     gateway_url: str = "http://127.0.0.1:8200"
-
-    # Legacy provider field — kept for backward compatibility with existing
-    # YAML configs. Always treated as "gateway" by the orchestrator.
-    provider: str = "gateway"
-
-    # Cloud LLM settings (kept for backward compat with existing configs)
-    cloud_api_url: str = ""
-    cloud_model: str = ""
-    cloud_secret_key: str = "cloud_api_key"
-
-    # DEPRECATED — kept for backward compatibility with existing YAML configs.
-    use_gateway: bool = False
-
-    @model_validator(mode="before")
-    @classmethod
-    def _normalize_provider(cls, data):
-        """Normalize all provider values to 'gateway' (backward compat)."""
-        if isinstance(data, dict):
-            # Legacy: use_gateway=True -> provider="gateway"
-            if data.get("use_gateway") and not data.get("provider"):
-                data["provider"] = "gateway"
-            # All providers now route through gateway
-            data["provider"] = "gateway"
-        return data
 
 
 class QuietHoursSettings(BaseModel):
@@ -323,6 +298,20 @@ class Identity(BaseModel):
     def get_preferred_words(self) -> list[str]:
         """Get list of preferred vocabulary words."""
         return self.vocabulary.get("preferred_words", [])
+
+    def get_plugin_config(self, plugin_name: str) -> dict[str, Any]:
+        """Get typed plugin configuration from raw_config.
+
+        Returns the plugin's config sub-dict, or empty dict if not configured.
+        Safer than raw_config[name] which raises KeyError.
+
+        Args:
+            plugin_name: Plugin name (e.g. "email_agent", "ai_digest")
+
+        Returns:
+            Plugin config dict (never None)
+        """
+        return self.raw_config.get(plugin_name, {})
 
     def get_interest_topics(self, area: str) -> list[str]:
         """Get topics for a specific interest area."""

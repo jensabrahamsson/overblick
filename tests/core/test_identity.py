@@ -14,45 +14,25 @@ class TestLLMSettings:
         assert s.model == "qwen3:8b"
         assert s.temperature == 0.7
         assert s.max_tokens == 2000
-        assert s.provider == "gateway"  # all providers normalize to gateway
 
     def test_frozen(self):
         s = LLMSettings()
         with pytest.raises(ValidationError):
             s.model = "other"
 
-    def test_provider_cloud_normalizes_to_gateway(self):
-        """Cloud provider is normalized to gateway (all providers route through gateway)."""
-        s = LLMSettings(
-            provider="cloud",
-            cloud_api_url="https://api.openai.com/v1",
-            cloud_model="gpt-4o",
-            cloud_secret_key="my_api_key",
-        )
-        assert s.provider == "gateway"  # normalized
-        assert s.cloud_api_url == "https://api.openai.com/v1"
-        assert s.cloud_model == "gpt-4o"
-        assert s.cloud_secret_key == "my_api_key"
-
-    def test_provider_gateway(self):
-        s = LLMSettings(provider="gateway", gateway_url="http://10.0.0.1:8200")
-        assert s.provider == "gateway"
+    def test_gateway_url(self):
+        s = LLMSettings(gateway_url="http://10.0.0.1:8200")
         assert s.gateway_url == "http://10.0.0.1:8200"
 
-    def test_backward_compat_use_gateway(self):
-        """use_gateway=True should migrate to provider='gateway'."""
-        s = LLMSettings.model_validate({"use_gateway": True})
-        assert s.provider == "gateway"
-
-    def test_backward_compat_use_gateway_false(self):
-        """use_gateway=False still normalizes to gateway (all providers are gateway now)."""
-        s = LLMSettings.model_validate({"use_gateway": False})
-        assert s.provider == "gateway"
-
-    def test_explicit_provider_normalizes_to_gateway(self):
-        """All provider values normalize to 'gateway' regardless of input."""
-        s = LLMSettings.model_validate({"use_gateway": True, "provider": "ollama"})
-        assert s.provider == "gateway"
+    def test_extra_fields_ignored(self):
+        """Legacy YAML fields (provider, use_gateway, cloud_*) are ignored."""
+        s = LLMSettings.model_validate({
+            "model": "qwen3:8b",
+            "provider": "ollama",
+            "use_gateway": True,
+            "cloud_api_url": "https://api.openai.com/v1",
+        })
+        assert s.model == "qwen3:8b"
 
 
 class TestQuietHoursSettings:

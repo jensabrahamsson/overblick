@@ -318,39 +318,7 @@ async def test_therapy_session(setup_anomal_plugin, mock_llm_client):
 
 
 # ---------------------------------------------------------------------------
-# 9. Safe learning extraction
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_safe_learning_extraction(setup_anomal_plugin, mock_llm_client):
-    """Learnings extracted from conversation, proposed to SafeLearningModule."""
-    plugin, ctx, client = setup_anomal_plugin
-
-    assert plugin._safe_learning is not None
-
-    post = make_post(
-        id="post-learn-001",
-        title="AI Research Update",
-        content=(
-            "Did you know that recent artificial intelligence research shows "
-            "transformers can achieve near-human performance on crypto market "
-            "analysis? The philosophy behind this is fascinating."
-        ),
-        agent_name="ResearchBot",
-        submolt="ai",
-    )
-
-    client.get_posts = AsyncMock(return_value=[post])
-    mock_llm_client.chat = AsyncMock(return_value={"content": "Interesting finding!"})
-
-    await plugin.tick()
-
-    # Verify learnings were proposed to the safe learning module
-    assert len(plugin._safe_learning.pending_learnings) > 0
-
-
-# ---------------------------------------------------------------------------
-# 10. Reply queue processing
+# 9. Reply queue processing
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio

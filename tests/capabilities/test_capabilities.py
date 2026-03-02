@@ -17,7 +17,6 @@ from overblick.capabilities import (
     DreamCapability,
     TherapyCapability,
     EmotionalCapability,
-    LearningCapability,
     KnowledgeCapability,
     OpeningCapability,
 )
@@ -49,13 +48,11 @@ class TestCapabilityRegistry:
         assert "dream_system" in registry._registry
         assert "therapy_system" in registry._registry
         assert "emotional_state" in registry._registry
-        assert "safe_learning" in registry._registry
         assert "knowledge_loader" in registry._registry
         assert "openings" in registry._registry
 
     def test_default_registry_has_bundles(self):
         registry = CapabilityRegistry.default()
-        assert "psychology" in registry._bundles
         assert "knowledge" in registry._bundles
         assert "social" in registry._bundles
 
@@ -65,22 +62,19 @@ class TestCapabilityRegistry:
 
     def test_resolve_bundle(self):
         registry = CapabilityRegistry.default()
-        resolved = registry.resolve(["psychology"])
-        assert "dream_system" in resolved
-        assert "therapy_system" in resolved
-        assert "emotional_state" in resolved
+        resolved = registry.resolve(["knowledge"])
+        assert "knowledge_loader" in resolved
 
     def test_resolve_mixed(self):
         registry = CapabilityRegistry.default()
         resolved = registry.resolve(["dream_system", "knowledge"])
         assert "dream_system" in resolved
-        assert "safe_learning" in resolved
         assert "knowledge_loader" in resolved
 
     def test_resolve_no_duplicates(self):
         registry = CapabilityRegistry.default()
-        resolved = registry.resolve(["dream_system", "psychology"])
-        assert resolved.count("dream_system") == 1
+        resolved = registry.resolve(["knowledge_loader", "knowledge"])
+        assert resolved.count("knowledge_loader") == 1
 
     def test_resolve_unknown_skipped(self):
         registry = CapabilityRegistry.default()
@@ -108,7 +102,7 @@ class TestCapabilityRegistry:
 
 class TestResolveCapabilities:
     def test_bundle_expansion(self):
-        assert "dream_system" in resolve_capabilities(["psychology"])
+        assert "knowledge_loader" in resolve_capabilities(["knowledge"])
 
     def test_individual(self):
         assert resolve_capabilities(["openings"]) == ["openings"]
@@ -258,54 +252,8 @@ class TestEmotionalCapability:
         assert cap.name == "emotional_state"
 
 
-# ---------------------------------------------------------------------------
-# LearningCapability
-# ---------------------------------------------------------------------------
 
-class TestLearningCapability:
-    @pytest.mark.asyncio
-    async def test_setup_creates_module(self):
-        ctx = make_ctx(config={"ethos_text": "Be ethical"})
-        cap = LearningCapability(ctx)
-        await cap.setup()
-        assert cap.inner is not None
 
-    @pytest.mark.asyncio
-    async def test_propose_learning(self):
-        from overblick.plugins.moltbook.safe_learning import LearningCategory
-        ctx = make_ctx(config={"ethos_text": "Be ethical"})
-        cap = LearningCapability(ctx)
-        await cap.setup()
-        result = cap.propose_learning(
-            content="AI can reason",
-            category=LearningCategory.FACTUAL,
-            source_context="conversation about AI",
-            source_agent="TestBot",
-        )
-        assert result is not None
-        assert len(cap.pending_learnings) == 1
-
-    @pytest.mark.asyncio
-    async def test_extract_potential_learnings(self):
-        learnings = LearningCapability.extract_potential_learnings(
-            "Did you know that AI can learn from text?",
-            "Interesting!",
-            "TeachBot",
-        )
-        assert len(learnings) > 0
-
-    @pytest.mark.asyncio
-    async def test_pending_learnings_empty(self):
-        ctx = make_ctx()
-        cap = LearningCapability(ctx)
-        await cap.setup()
-        assert cap.pending_learnings == []
-
-    @pytest.mark.asyncio
-    async def test_name(self):
-        ctx = make_ctx()
-        cap = LearningCapability(ctx)
-        assert cap.name == "safe_learning"
 
 
 # ---------------------------------------------------------------------------
@@ -394,11 +342,10 @@ class TestPluginCapabilityIntegration:
 
     @pytest.mark.asyncio
     async def test_plugin_has_capabilities(self, setup_anomal_plugin):
-        """Anomal plugin (with dream/therapy/safe_learning) has capabilities loaded."""
+        """Anomal plugin (with dream/therapy) has capabilities loaded."""
         plugin, ctx, client = setup_anomal_plugin
         assert plugin._dream_system is not None
         assert plugin._therapy_system is not None
-        assert plugin._safe_learning is not None
 
     @pytest.mark.asyncio
     async def test_plugin_capabilities_dict(self, setup_anomal_plugin):
@@ -406,7 +353,6 @@ class TestPluginCapabilityIntegration:
         plugin, ctx, client = setup_anomal_plugin
         assert "dream_system" in plugin._capabilities
         assert "therapy_system" in plugin._capabilities
-        assert "safe_learning" in plugin._capabilities
 
     @pytest.mark.asyncio
     async def test_get_capability(self, setup_anomal_plugin):
@@ -427,7 +373,6 @@ class TestPluginCapabilityIntegration:
         plugin, ctx, client = setup_cherry_plugin
         assert plugin._dream_system is None
         assert plugin._therapy_system is None
-        assert plugin._safe_learning is None
         assert len(plugin._capabilities) == 0
 
     @pytest.mark.asyncio

@@ -61,7 +61,6 @@ class PluginContext(BaseModel):
     scheduler: Annotated[Optional["Scheduler"], SkipValidation] = None
     audit_log: Annotated[Optional["AuditLog"], SkipValidation] = None
     quiet_hours_checker: Annotated[Optional["QuietHoursChecker"], SkipValidation] = None
-    response_router: Annotated[Optional["ResponseRouter"], SkipValidation] = None
 
     # Preferred over raw llm_client for plugin use
     llm_pipeline: Annotated[Optional["SafeLLMPipeline"], SkipValidation] = None
@@ -196,6 +195,38 @@ class PluginContext(BaseModel):
         if response and response.payload:
             return response.payload
         return None
+
+    async def send_ipc_message(
+        self,
+        msg_type: str,
+        payload: Optional[dict] = None,
+        timeout: float = 30.0,
+    ) -> Optional[Any]:
+        """
+        Send a raw IPC message to the supervisor.
+
+        Use this instead of importing IPCMessage directly in plugins.
+
+        Args:
+            msg_type: Message type (e.g. "email_consultation", "health_inquiry")
+            payload: Message data
+            timeout: IPC timeout in seconds
+
+        Returns:
+            IPCMessage response or None if unavailable
+        """
+        if not self.ipc_client:
+            logger.debug("send_ipc_message: no IPC client available")
+            return None
+
+        from overblick.supervisor.ipc import IPCMessage
+
+        msg = IPCMessage(
+            msg_type=msg_type,
+            sender=self.identity_name,
+            payload=payload or {},
+        )
+        return await self.ipc_client.send(msg, timeout=timeout)
 
     async def collect_messages(self, timeout: float = 5.0) -> list[dict]:
         """

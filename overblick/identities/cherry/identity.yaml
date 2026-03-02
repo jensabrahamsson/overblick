@@ -52,6 +52,8 @@ capabilities:
 - knowledge
 - social
 - engagement
+emotional_model: relational
+therapy_model: template
 enabled_modules:
 - dream_system
 - therapy_system

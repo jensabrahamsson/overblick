@@ -50,7 +50,6 @@ from overblick.plugins.email_agent.prompts import (
 )
 from overblick.plugins.email_agent.reply_generator import ReplyGenerator
 from overblick.plugins.email_agent.reputation import ReputationManager
-from overblick.supervisor.ipc import IPCMessage
 
 logger = logging.getLogger(__name__)
 
@@ -807,20 +806,18 @@ class EmailAgentPlugin(PluginBase):
         except Exception as e:
             logger.debug("EmailAgent: question generation failed: %s", e)
 
-        msg = IPCMessage(
-            msg_type="email_consultation",
-            payload={
-                "question": question,
-                "email_from": sender,
-                "email_subject": subject,
-                "tentative_intent": classification.intent.value,
-                "confidence": classification.confidence,
-            },
-            sender=self.ctx.identity_name,
-        )
-
         try:
-            response = await self.ctx.ipc_client.send(msg, timeout=30.0)
+            response = await self.ctx.send_ipc_message(
+                msg_type="email_consultation",
+                payload={
+                    "question": question,
+                    "email_from": sender,
+                    "email_subject": subject,
+                    "tentative_intent": classification.intent.value,
+                    "confidence": classification.confidence,
+                },
+                timeout=30.0,
+            )
             if response and response.payload:
                 await self._process_boss_response(email, classification, response)
                 return True
@@ -833,7 +830,7 @@ class EmailAgentPlugin(PluginBase):
         self,
         email: dict[str, Any],
         classification: EmailClassification,
-        response: IPCMessage,
+        response: Any,
     ) -> None:
         """Process the supervisor's guidance and store as learning."""
         advised_action = response.payload.get("advised_action", "")

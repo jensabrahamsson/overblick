@@ -5,9 +5,7 @@ that the main capability tests do not reach.
 Focus areas (ordered by coverage gap size):
   - monitoring/inspector.py      (69% → targeting 80%+)
   - psychology/therapy_system.py (78% → targeting 90%+)
-  - knowledge/safe_learning.py   (87% → targeting 95%+)
   - knowledge/loader.py          (81% → targeting 95%+)
-  - knowledge/learning.py        (79% → targeting 95%+)
 """
 from __future__ import annotations
 
@@ -421,100 +419,6 @@ class TestTherapySystemBranches:
 
 
 # ===========================================================================
-# knowledge/safe_learning.py
-# ===========================================================================
-
-class TestSafeLearningEdgeCases:
-    """Tests for safe_learning.py code paths not covered elsewhere."""
-
-    def test_proposed_learning_to_dict(self):
-        """ProposedLearning.to_dict() returns expected structure."""
-        from overblick.capabilities.knowledge.safe_learning import (
-            ProposedLearning, LearningCategory, ReviewResult,
-        )
-        pl = ProposedLearning(
-            category=LearningCategory.FACTUAL,
-            content="The sky is blue",
-            source_context="chat conversation",
-            source_agent="TestBot",
-        )
-        d = pl.to_dict()
-        assert d["category"] == "factual"
-        assert d["content"] == "The sky is blue"
-        assert d["source_agent"] == "TestBot"
-        assert d["review_result"] == "pending"
-        assert d["stored"] is False
-
-    @pytest.mark.asyncio
-    async def test_review_learning_refine_response(self):
-        """REFINE response sets NEEDS_REFINEMENT status."""
-        from overblick.capabilities.knowledge.safe_learning import (
-            SafeLearningModule, LearningCategory, ReviewResult,
-        )
-
-        mock_llm = AsyncMock()
-        mock_llm.chat = AsyncMock(return_value={"content": "REFINE: Be more specific"})
-
-        module = SafeLearningModule(llm_client=mock_llm, ethos_text="Be ethical")
-        learning = module.propose_learning(
-            "AI is smart", LearningCategory.OPINION, "test", "Bot"
-        )
-        result = await module.review_learning(learning)
-        assert result == ReviewResult.NEEDS_REFINEMENT
-        assert learning.review_result == ReviewResult.NEEDS_REFINEMENT
-        # Still in pending (not moved to approved/rejected)
-        assert learning in module.pending_learnings
-
-    @pytest.mark.asyncio
-    async def test_review_learning_exception_rejects(self):
-        """LLM exception during review results in REJECTED."""
-        from overblick.capabilities.knowledge.safe_learning import (
-            SafeLearningModule, LearningCategory, ReviewResult,
-        )
-
-        mock_llm = AsyncMock()
-        mock_llm.chat = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
-
-        module = SafeLearningModule(llm_client=mock_llm)
-        learning = module.propose_learning(
-            "Some fact", LearningCategory.FACTUAL, "ctx", "Bot"
-        )
-        result = await module.review_learning(learning)
-        assert result == ReviewResult.REJECTED
-        assert "Review error" in learning.review_reason
-
-    @pytest.mark.asyncio
-    async def test_review_all_pending_counts_needs_refinement(self):
-        """review_all_pending() correctly counts NEEDS_REFINEMENT results."""
-        from overblick.capabilities.knowledge.safe_learning import (
-            SafeLearningModule, LearningCategory, ReviewResult,
-        )
-
-        mock_llm = AsyncMock()
-        mock_llm.chat = AsyncMock(return_value={"content": "REFINE: Needs more detail"})
-
-        module = SafeLearningModule(llm_client=mock_llm)
-        module.propose_learning("Fact 1", LearningCategory.FACTUAL, "ctx", "Bot")
-        module.propose_learning("Fact 2", LearningCategory.FACTUAL, "ctx", "Bot")
-
-        counts = await module.review_all_pending()
-        assert counts["needs_refinement"] == 2
-        assert counts["approved"] == 0
-        assert counts["rejected"] == 0
-
-    @pytest.mark.asyncio
-    async def test_review_learning_no_llm_returns_pending(self):
-        """Without LLM client, review returns PENDING."""
-        from overblick.capabilities.knowledge.safe_learning import (
-            SafeLearningModule, LearningCategory, ReviewResult,
-        )
-        module = SafeLearningModule(llm_client=None)
-        learning = module.propose_learning("Test", LearningCategory.FACTUAL, "ctx", "Bot")
-        result = await module.review_learning(learning)
-        assert result == ReviewResult.PENDING
-
-
-# ===========================================================================
 # knowledge/loader.py (KnowledgeCapability) — uninitialised paths
 # ===========================================================================
 
@@ -553,52 +457,4 @@ class TestKnowledgeCapabilityUninitialised:
         from overblick.capabilities.knowledge.loader import KnowledgeCapability
         ctx = make_ctx()
         cap = KnowledgeCapability(ctx)
-        assert cap.inner is None
-
-
-# ===========================================================================
-# knowledge/learning.py (LearningCapability) — uninitialised paths
-# ===========================================================================
-
-class TestLearningCapabilityUninitialised:
-    """Test all fallback paths when LearningCapability.setup() not called."""
-
-    def test_propose_learning_no_module_returns_none(self):
-        """propose_learning() returns None before setup()."""
-        from overblick.capabilities.knowledge.learning import LearningCapability
-        from overblick.capabilities.knowledge.safe_learning import LearningCategory
-        ctx = make_ctx()
-        cap = LearningCapability(ctx)
-        # No setup() called → _module is None
-        result = cap.propose_learning("Test", LearningCategory.FACTUAL, "ctx", "Bot")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_review_all_pending_no_module_returns_zero_counts(self):
-        """review_all_pending() returns zero counts before setup()."""
-        from overblick.capabilities.knowledge.learning import LearningCapability
-        ctx = make_ctx()
-        cap = LearningCapability(ctx)
-        counts = await cap.review_all_pending()
-        assert counts == {"approved": 0, "rejected": 0, "needs_refinement": 0}
-
-    def test_pending_learnings_no_module_returns_empty(self):
-        """pending_learnings returns [] before setup()."""
-        from overblick.capabilities.knowledge.learning import LearningCapability
-        ctx = make_ctx()
-        cap = LearningCapability(ctx)
-        assert cap.pending_learnings == []
-
-    def test_approved_learnings_no_module_returns_empty(self):
-        """approved_learnings returns [] before setup()."""
-        from overblick.capabilities.knowledge.learning import LearningCapability
-        ctx = make_ctx()
-        cap = LearningCapability(ctx)
-        assert cap.approved_learnings == []
-
-    def test_inner_is_none_without_setup(self):
-        """inner property is None before setup()."""
-        from overblick.capabilities.knowledge.learning import LearningCapability
-        ctx = make_ctx()
-        cap = LearningCapability(ctx)
         assert cap.inner is None

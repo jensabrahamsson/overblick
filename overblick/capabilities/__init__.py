@@ -3,8 +3,7 @@ Capabilities — composable behavioral building blocks for agent plugins.
 
 Bundles:
     system         = [system_clock] — Core capabilities injected into all agents
-    psychology     = [dream, therapy, emotional] — DEPRECATED: Use psychological_framework in personality.yaml
-    knowledge      = [learning, loader]
+    knowledge      = [loader]
     social         = [openings]
     engagement     = [analyzer, composer]
     conversation   = [conversation_tracker]
@@ -20,7 +19,6 @@ from overblick.capabilities.psychology.dream import DreamCapability
 from overblick.capabilities.psychology.therapy import TherapyCapability
 from overblick.capabilities.psychology.emotional import EmotionalCapability
 from overblick.capabilities.psychology.mood_cycle import MoodCycleCapability
-from overblick.capabilities.knowledge.learning import LearningCapability
 from overblick.capabilities.knowledge.loader import KnowledgeCapability
 from overblick.capabilities.social.openings import OpeningCapability
 from overblick.capabilities.engagement.analyzer import AnalyzerCapability
@@ -44,7 +42,6 @@ CAPABILITY_REGISTRY: dict[str, type] = {
     "dream_system": DreamCapability,
     "therapy_system": TherapyCapability,
     "emotional_state": EmotionalCapability,
-    "safe_learning": LearningCapability,
     "knowledge_loader": KnowledgeCapability,
     "openings": OpeningCapability,
     "analyzer": AnalyzerCapability,
@@ -66,10 +63,8 @@ CAPABILITY_REGISTRY: dict[str, type] = {
 }
 
 # Bundle -> capability names
-# NOTE: "psychology" bundle is DEPRECATED as of v1.1. Use psychological_framework in personality.yaml instead.
 CAPABILITY_BUNDLES: dict[str, list[str]] = {
-    "psychology": ["dream_system", "therapy_system", "emotional_state", "mood_cycle"],  # DEPRECATED
-    "knowledge": ["safe_learning", "knowledge_loader"],
+    "knowledge": ["knowledge_loader"],
     "social": ["openings"],
     "engagement": ["analyzer", "composer"],
     "conversation": ["conversation_tracker"],
@@ -102,7 +97,6 @@ __all__ = [
     "DreamCapability",
     "TherapyCapability",
     "EmotionalCapability",
-    "LearningCapability",
     "KnowledgeCapability",
     "OpeningCapability",
     "AnalyzerCapability",

@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 from overblick.core.plugin_base import PluginBase, PluginContext
-from overblick.supervisor.ipc import IPCMessage
 
 logger = logging.getLogger(__name__)
 
@@ -136,17 +135,15 @@ class HostHealthPlugin(PluginBase):
         # Send IPC inquiry
         logger.info("HostHealth: sending inquiry — %s", motivation[:80])
 
-        msg = IPCMessage(
+        # 90s timeout: supervisor LLM generation can take 30-60s under load
+        response = await self.ctx.send_ipc_message(
             msg_type="health_inquiry",
             payload={
                 "motivation": motivation,
                 "previous_context": previous_context,
             },
-            sender=self.ctx.identity_name,
+            timeout=90.0,
         )
-
-        # 90s timeout: supervisor LLM generation can take 30-60s under load
-        response = await self.ctx.ipc_client.send(msg, timeout=90.0)
 
         if not response or response.msg_type != "health_response":
             logger.warning("HostHealth: no valid response from supervisor")

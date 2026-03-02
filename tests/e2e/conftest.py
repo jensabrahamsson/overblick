@@ -182,15 +182,14 @@ def _build_mock_system_service():
     svc.get_config.return_value = {}
     svc.get_available_plugins.return_value = ["moltbook", "telegram", "gmail", "email_agent"]
     svc.get_capability_bundles.return_value = {
-        "psychology": ["dream_system", "therapy_system", "emotional_state"],
-        "knowledge": ["safe_learning", "knowledge_loader"],
+        "knowledge": ["knowledge_loader"],
         "social": ["openings"],
         "engagement": ["decision_engine"],
         "monitoring": ["host_inspection"],
     }
     svc.get_capability_registry.return_value = [
         "dream_system", "therapy_system", "emotional_state",
-        "safe_learning", "knowledge_loader", "openings",
+        "knowledge_loader", "openings",
         "decision_engine", "host_inspection",
     ]
     return svc

@@ -38,13 +38,13 @@ from overblick.core.capability import CapabilityContext
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
-def _make_ctx(identity_name: str) -> CapabilityContext:
+def _make_ctx(identity_name: str, config: dict | None = None) -> CapabilityContext:
     """Build a minimal CapabilityContext for testing."""
     from pathlib import Path
     return CapabilityContext(
         identity_name=identity_name,
         data_dir=Path("/tmp/test_dream"),
-        config={},
+        config=config or {},
     )
 
 
@@ -334,14 +334,14 @@ class TestEmotionalCapabilityDispatch:
 
     @pytest.mark.asyncio
     async def test_anomal_gets_jungian_state(self):
-        ctx = _make_ctx("anomal")
+        ctx = _make_ctx("anomal", config={"emotional_model": "jungian"})
         cap = EmotionalCapability(ctx)
         await cap.setup()
         assert isinstance(cap.inner, AnomalEmotionalState)
 
     @pytest.mark.asyncio
     async def test_cherry_gets_relational_state(self):
-        ctx = _make_ctx("cherry")
+        ctx = _make_ctx("cherry", config={"emotional_model": "relational"})
         cap = EmotionalCapability(ctx)
         await cap.setup()
         assert isinstance(cap.inner, CherryEmotionalState)
@@ -355,7 +355,7 @@ class TestEmotionalCapabilityDispatch:
 
     @pytest.mark.asyncio
     async def test_anomal_state_accessed_via_get_mood_hint(self):
-        ctx = _make_ctx("anomal")
+        ctx = _make_ctx("anomal", config={"emotional_model": "jungian"})
         cap = EmotionalCapability(ctx)
         await cap.setup()
         cap.inner.intellectual_energy = 90
@@ -364,7 +364,7 @@ class TestEmotionalCapabilityDispatch:
 
     @pytest.mark.asyncio
     async def test_cherry_state_accessed_via_get_mood_hint(self):
-        ctx = _make_ctx("cherry")
+        ctx = _make_ctx("cherry", config={"emotional_model": "relational"})
         cap = EmotionalCapability(ctx)
         await cap.setup()
         cap.inner.flirty_energy = 0.9
@@ -372,33 +372,32 @@ class TestEmotionalCapabilityDispatch:
         assert "flirty" in hint.lower()
 
     @pytest.mark.asyncio
-    async def test_on_event_positive_works_for_all_identities(self):
-        for identity in ["anomal", "cherry", "blixt"]:
-            ctx = _make_ctx(identity)
+    async def test_on_event_positive_works_for_all_models(self):
+        for model in ["jungian", "relational", "generic"]:
+            ctx = _make_ctx("test", config={"emotional_model": model})
             cap = EmotionalCapability(ctx)
             await cap.setup()
-            # Should not raise
             await cap.on_event("interaction_positive")
 
     @pytest.mark.asyncio
-    async def test_on_event_negative_works_for_all_identities(self):
-        for identity in ["anomal", "cherry", "blixt"]:
-            ctx = _make_ctx(identity)
+    async def test_on_event_negative_works_for_all_models(self):
+        for model in ["jungian", "relational", "generic"]:
+            ctx = _make_ctx("test", config={"emotional_model": model})
             cap = EmotionalCapability(ctx)
             await cap.setup()
             await cap.on_event("interaction_negative")
 
     @pytest.mark.asyncio
-    async def test_on_event_jailbreak_works_for_anomal_cherry(self):
-        for identity in ["anomal", "cherry"]:
-            ctx = _make_ctx(identity)
+    async def test_on_event_jailbreak_works_for_jungian_relational(self):
+        for model in ["jungian", "relational"]:
+            ctx = _make_ctx("test", config={"emotional_model": model})
             cap = EmotionalCapability(ctx)
             await cap.setup()
             await cap.on_event("jailbreak_attempt")
 
     @pytest.mark.asyncio
-    async def test_on_event_ai_discussion_for_cherry(self):
-        ctx = _make_ctx("cherry")
+    async def test_on_event_ai_discussion_for_relational(self):
+        ctx = _make_ctx("cherry", config={"emotional_model": "relational"})
         cap = EmotionalCapability(ctx)
         await cap.setup()
         initial = cap.inner.denial_strength
@@ -412,7 +411,6 @@ class TestEmotionalCapabilityDispatch:
         cap = EmotionalCapability(ctx)
         await cap.setup()
         cap.inner.mood_intensity = 0.9
-        # Decay is time-based; with recent last_change it won't move much
         await cap.tick()
         assert cap.inner.mood_intensity <= 0.9
 
@@ -987,14 +985,14 @@ class TestTherapyCapabilityDispatch:
 
     @pytest.mark.asyncio
     async def test_cherry_gets_template_system(self):
-        ctx = _make_ctx("cherry")
+        ctx = _make_ctx("cherry", config={"therapy_model": "template"})
         cap = TherapyCapability(ctx)
         await cap.setup()
         assert isinstance(cap.inner, CherryTherapySystem)
 
     @pytest.mark.asyncio
     async def test_cherry_run_session_uses_generate_session(self):
-        ctx = _make_ctx("cherry")
+        ctx = _make_ctx("cherry", config={"therapy_model": "template"})
         cap = TherapyCapability(ctx)
         await cap.setup()
         session = await cap.run_session()
@@ -1003,7 +1001,7 @@ class TestTherapyCapabilityDispatch:
 
     @pytest.mark.asyncio
     async def test_cherry_run_session_passes_emotional_state(self):
-        ctx = _make_ctx("cherry")
+        ctx = _make_ctx("cherry", config={"therapy_model": "template"})
         cap = TherapyCapability(ctx)
         await cap.setup()
         state = CherryEmotionalState()

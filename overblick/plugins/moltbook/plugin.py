@@ -11,7 +11,6 @@ Implements the full OBSERVE -> THINK -> DECIDE -> ACT -> LEARN cycle:
 Conditional capabilities (enabled via identity.enabled_modules):
 - dream_system: Morning dreams and housekeeping
 - therapy_system: Weekly psychological reflection
-- safe_learning: LLM-reviewed knowledge acquisition
 - emotional_state: Mood tracking based on interactions
 """
 
@@ -68,7 +67,6 @@ class MoltbookPlugin(PluginBase):
         self._capabilities: dict[str, CapabilityBase] = {}
         self._dream_system = None
         self._therapy_system = None
-        self._safe_learning = None
 
         # Cached prompts module (loaded once in setup())
         self._prompts = None
@@ -468,18 +466,6 @@ class MoltbookPlugin(PluginBase):
                         category=c["category"],
                         source="moltbook",
                         source_context=c["context"],
-                    )
-            elif self._safe_learning:
-                from overblick.capabilities.knowledge.learning import LearningCapability
-                learnings = LearningCapability.extract_potential_learnings(
-                    post.content, response, post.agent_name,
-                )
-                for l in learnings:
-                    self._safe_learning.propose_learning(
-                        content=l["content"],
-                        category=l["category"],
-                        source_context=l["context"],
-                        source_agent=l["agent"],
                     )
 
             # Upvote interesting comments from other agents on this post
@@ -1057,21 +1043,9 @@ class MoltbookPlugin(PluginBase):
 
         identity = self.ctx.identity
 
-        # Build per-capability configs
-        configs = {
-            "dream_system": {
-                "dream_templates": identity.raw_config.get("dream_templates"),
-            },
-            "therapy_system": {
-                "therapy_day": identity.raw_config.get("therapy_day", 6),
-                "system_prompt": system_prompt,
-            },
-            "safe_learning": {
-                "ethos_text": identity.raw_config.get("ethos_text", ""),
-            },
-            "emotional_state": {},
-            "mood_cycle": identity.raw_config.get("mood_cycle", {}),
-        }
+        # Build per-capability configs (centralized to avoid drift)
+        from overblick.core.capability import build_capability_configs
+        configs = build_capability_configs(identity, system_prompt)
 
         resolved = registry.resolve(enabled_modules)
         for name in resolved:
@@ -1093,7 +1067,6 @@ class MoltbookPlugin(PluginBase):
         """Update backward-compatible aliases for direct capability access."""
         self._dream_system = self._capabilities.get("dream_system")
         self._therapy_system = self._capabilities.get("therapy_system")
-        self._safe_learning = self._capabilities.get("safe_learning")
 
     async def _tick_capabilities(self) -> None:
         """Tick all enabled capabilities concurrently."""

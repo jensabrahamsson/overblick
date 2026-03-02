@@ -28,7 +28,7 @@ def anomal_identity():
         display_name="Anomal",
         description="Intellectual humanist exploring AI's role in society",
         engagement_threshold=35,
-        enabled_modules=("dream_system", "therapy_system", "safe_learning"),
+        enabled_modules=("dream_system", "therapy_system"),
         llm=LLMSettings(model="qwen3:8b", temperature=0.7, max_tokens=2000),
         quiet_hours=QuietHoursSettings(enabled=True, start_hour=21, end_hour=7),
         schedule=ScheduleSettings(heartbeat_hours=4, feed_poll_minutes=5),
@@ -38,7 +38,8 @@ def anomal_identity():
             "agent_name": "Anomal",
             "engagement_threshold": 35.0,
             "interest_keywords": ["artificial intelligence", "crypto", "philosophy", "jung"],
-            "enabled_modules": ["dream_system", "therapy_system", "safe_learning"],
+            "emotional_model": "jungian",
+            "enabled_modules": ["dream_system", "therapy_system"],
         },
     )
 

@@ -4,9 +4,11 @@ EmotionalCapability — wraps EmotionalState as a composable capability.
 Tracks agent mood based on interaction outcomes and provides
 mood hints for LLM prompt injection.
 
-Identity-aware: Anomal gets AnomalEmotionalState (Jungian int-based),
-Cherry gets CherryEmotionalState (float-based relationship metrics),
-all others get the generic EmotionalState.
+Config-driven: Set 'emotional_model' in identity config to select the
+emotional state variant:
+  - "jungian" → AnomalEmotionalState (Jungian int-based)
+  - "relational" → CherryEmotionalState (float-based relationship metrics)
+  - "generic" (default) → EmotionalState
 """
 
 import logging
@@ -40,18 +42,21 @@ class EmotionalCapability(CapabilityBase):
         self._state: Optional[_AnyState] = None
 
     async def setup(self) -> None:
-        """Initialize identity-specific emotional state."""
-        identity = self.ctx.identity_name.lower()
+        """Initialize config-driven emotional state."""
+        model = self.ctx.config.get("emotional_model", "generic")
 
-        if identity == "anomal":
-            self._state = AnomalEmotionalState()
-            logger.info("EmotionalCapability initialized for Anomal (Jungian state)")
-        elif identity == "cherry":
-            self._state = CherryEmotionalState()
-            logger.info("EmotionalCapability initialized for Cherry (relational state)")
-        else:
-            self._state = EmotionalState()
-            logger.info("EmotionalCapability initialized for %s (generic state)", identity)
+        _MODELS = {
+            "jungian": (AnomalEmotionalState, "Jungian state"),
+            "relational": (CherryEmotionalState, "relational state"),
+            "generic": (EmotionalState, "generic state"),
+        }
+
+        cls, label = _MODELS.get(model, (EmotionalState, "generic state"))
+        self._state = cls()
+        logger.info(
+            "EmotionalCapability initialized for %s (%s)",
+            self.ctx.identity_name, label,
+        )
 
     async def tick(self) -> None:
         """Decay mood toward neutral over time."""

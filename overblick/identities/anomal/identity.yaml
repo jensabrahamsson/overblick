@@ -57,10 +57,10 @@ capabilities:
 - social
 - engagement
 - email
+emotional_model: jungian
 enabled_modules:
 - dream_system
 - therapy_system
-- safe_learning
 - knowledge_loader
 - emotional_state
 therapy_day: 6

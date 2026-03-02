@@ -141,17 +141,6 @@ def provision(base_dir: Path, state: dict[str, Any]) -> dict[str, Any]:
                 _write_yaml(plugins_path, plugins_data)
                 created_files.append(str(plugins_path.relative_to(base_dir)))
 
-    # --- 6. Per-agent config overrides (if non-default) ---
-    for char_name, cfg in agent_configs.items():
-        if char_name not in selected:
-            continue
-        override_path = config_dir / char_name / "config.yaml"
-        override_path.parent.mkdir(parents=True, exist_ok=True)
-        override_data = _build_agent_override(cfg, state)
-        if override_data:
-            _write_yaml(override_path, override_data)
-            created_files.append(str(override_path.relative_to(base_dir)))
-
     logger.info(
         "Provisioning complete: %d characters, %d files created",
         len(selected), len(created_files),
@@ -295,35 +284,6 @@ def _build_llm_config_legacy(llm: dict[str, Any]) -> dict[str, Any]:
         }
 
     return config
-
-
-def _build_agent_override(cfg: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
-    """Build per-agent config override from wizard state."""
-    llm_state = state.get("llm", {})
-    override: dict[str, Any] = {}
-
-    # Only store non-default values
-    temp = cfg.get("temperature", 0.7)
-    max_tokens = cfg.get("max_tokens", 2000)
-    default_temp = llm_state.get("default_temperature", 0.7)
-    default_max = llm_state.get("default_max_tokens", 2000)
-
-    if temp != default_temp or max_tokens != default_max:
-        override["llm"] = {}
-        if temp != default_temp:
-            override["llm"]["temperature"] = temp
-        if max_tokens != default_max:
-            override["llm"]["max_tokens"] = max_tokens
-
-    heartbeat = cfg.get("heartbeat_hours", 4)
-    if heartbeat != 4:
-        override["schedule"] = {"heartbeat_hours": heartbeat}
-
-    quiet = cfg.get("quiet_hours", True)
-    if not quiet:
-        override["quiet_hours"] = {"enabled": False}
-
-    return override
 
 
 def _build_plugin_configs(wizard_configs: dict[str, dict[str, Any]]) -> dict[str, Any]:

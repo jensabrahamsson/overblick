@@ -109,15 +109,6 @@ class TestProvisioner:
         assert data["principal_name"] != "Test User"
         assert "gAAAAA" in data["principal_name"]  # Fernet tokens start with gAAAAA
 
-    def test_agent_overrides(self, tmp_path: Path, wizard_state: dict):
-        provision(tmp_path, wizard_state)
-        # Stål has non-default temperature (0.4 vs 0.7 default)
-        override_path = tmp_path / "config" / "stal" / "config.yaml"
-        assert override_path.exists()
-        with open(override_path) as f:
-            data = yaml.safe_load(f)
-        assert data["llm"]["temperature"] == 0.4
-
     def test_idempotent(self, tmp_path: Path, wizard_state: dict):
         """Running provisioner twice should not break things."""
         result1 = provision(tmp_path, wizard_state)

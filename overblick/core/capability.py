@@ -186,6 +186,51 @@ class CapabilityBase(ABC):
         return f"<{self.__class__.__name__}({self.name}) {state}>"
 
 
+def build_capability_configs(
+    identity: Any,
+    system_prompt: str,
+) -> dict[str, dict[str, Any]]:
+    """Build per-capability config dicts from an identity.
+
+    Centralizes the config building so orchestrator and plugin don't
+    duplicate the same config extraction logic.
+
+    Args:
+        identity: Identity object with raw_config, interest_keywords, etc.
+        system_prompt: Pre-built system prompt for LLM-using capabilities.
+
+    Returns:
+        Dict mapping capability name → config dict.
+    """
+    rc = identity.raw_config
+    return {
+        "dream_system": {
+            "dream_templates": rc.get("dream_templates"),
+        },
+        "therapy_system": {
+            "therapy_day": rc.get("therapy_day", 6),
+            "therapy_model": rc.get("therapy_model", "llm"),
+            "system_prompt": system_prompt,
+        },
+        "emotional_state": {
+            "emotional_model": rc.get("emotional_model", "generic"),
+        },
+        "analyzer": {
+            "interest_keywords": identity.interest_keywords,
+            "engagement_threshold": identity.engagement_threshold,
+            "agent_name": rc.get("agent_name", identity.name),
+        },
+        "composer": {
+            "system_prompt": system_prompt,
+            "temperature": identity.llm.temperature,
+            "max_tokens": identity.llm.max_tokens,
+        },
+        "conversation_tracker": {},
+        "summarizer": {},
+        "mood_cycle": rc.get("mood_cycle", {}),
+    }
+
+
 class CapabilityRegistry:
     """
     Registry for discovering and instantiating capabilities.

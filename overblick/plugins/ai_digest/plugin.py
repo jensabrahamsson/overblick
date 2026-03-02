@@ -87,8 +87,7 @@ class AiDigestPlugin(PluginBase):
         logger.info("Setting up AiDigestPlugin for identity: %s", identity.name)
 
         # --- Load config from identity ---
-        raw_config = identity.raw_config
-        digest_config = raw_config.get("ai_digest", {})
+        digest_config = identity.get_plugin_config("ai_digest")
 
         self._feeds = digest_config.get("feeds", _DEFAULT_FEEDS)
         self._digest_hour = digest_config.get("hour", 7)
