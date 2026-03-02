@@ -51,6 +51,9 @@ _IDENTITIES_DIR = Path(__file__).parent
 _PERSONALITIES_DIR = Path(__file__).parent.parent / "personalities"
 
 # Alias map for backward compatibility after Swedish rename
+# Regex for valid identity names — prevents path traversal via ".." or "/"
+_SAFE_IDENTITY_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,30}$")
+
 _ALIASES: dict[str, str] = {
     "volt": "blixt",
     "birch": "bjork",
@@ -412,6 +415,13 @@ def load_identity(name: str) -> "Identity":
     """
     # Resolve aliases (old English names -> new Swedish names)
     name = _ALIASES.get(name, name)
+
+    # Validate identity name to prevent path traversal
+    if not _SAFE_IDENTITY_NAME_RE.match(name):
+        raise ValueError(
+            f"Invalid identity name: {name!r}. "
+            "Names must be lowercase alphanumeric with optional hyphens/underscores."
+        )
 
     # Try directory-based identity first (preferred)
     dir_based = _IDENTITIES_DIR / name / "personality.yaml"

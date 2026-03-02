@@ -255,7 +255,7 @@ class TestPipelineLLMFailure:
 
     @pytest.mark.asyncio
     async def test_llm_raises_exception(self):
-        """LLM raising exception blocks with error info."""
+        """LLM raising exception blocks with generic reason (no detail leakage)."""
         llm = AsyncMock()
         llm.chat = AsyncMock(side_effect=ConnectionError("Connection refused"))
         pipeline, _, _ = _make_pipeline(llm=llm)
@@ -266,7 +266,8 @@ class TestPipelineLLMFailure:
 
         assert result.blocked
         assert result.block_stage == PipelineStage.LLM_CALL
-        assert "Connection refused" in result.block_reason
+        assert result.block_reason == "LLM call failed"
+        assert "Connection refused" not in result.block_reason
 
 
 class TestPipelineAuditTrail:

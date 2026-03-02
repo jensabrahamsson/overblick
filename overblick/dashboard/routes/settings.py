@@ -21,6 +21,7 @@ Steps:
 """
 
 import html
+import ipaddress
 import logging
 from pathlib import Path
 from typing import Any
@@ -64,10 +65,34 @@ _BLOCKED_HOSTS = frozenset({
     "fd00::ec2", "100.100.100.200",
 })
 
+# Private/reserved IP networks blocked to prevent SSRF against internal services
+_PRIVATE_NETWORKS = (
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+)
+
+
+def _is_private_or_blocked(host: str) -> bool:
+    """Check if host is a private IP, loopback, or blocked metadata endpoint."""
+    if host in _BLOCKED_HOSTS:
+        return True
+    try:
+        addr = ipaddress.ip_address(host)
+        return any(addr in net for net in _PRIVATE_NETWORKS)
+    except ValueError:
+        # Not a valid IP — could be a hostname like "metadata.google.internal"
+        return host in _BLOCKED_HOSTS
+
 
 def _validate_test_host(host: str, port: str) -> tuple[str, int]:
     """Validate host/port for test connection endpoints (SSRF guard)."""
-    if host in _BLOCKED_HOSTS:
+    if _is_private_or_blocked(host):
         raise ValueError("Blocked host")
     port_int = int(port)
     if not 1 <= port_int <= 65535:
@@ -80,7 +105,7 @@ def _validate_test_url(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError("Only http/https URLs are allowed")
-    if parsed.hostname in _BLOCKED_HOSTS:
+    if parsed.hostname and _is_private_or_blocked(parsed.hostname):
         raise ValueError("Blocked host")
     return url
 

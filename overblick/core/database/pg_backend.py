@@ -52,21 +52,19 @@ class PostgreSQLBackend(DatabaseBackend):
         return f"${position}"
 
     async def connect(self) -> None:
-        """Create connection pool."""
-        dsn = (
-            f"postgresql://{self._config.pg_user}:{self._config.pg_password}"
-            f"@{self._config.pg_host}:{self._config.pg_port}"
-            f"/{self._config.pg_database}"
-        )
+        """Create connection pool.
 
-        # Validate schema name before use in init callback
+        Uses explicit keyword arguments instead of a DSN string to prevent
+        password leakage in exception messages from asyncpg.
+        """
+        # Validate schema name before use in init callback — always validate,
+        # even "public", to prevent injection if value comes from user config
         schema = self._config.pg_schema
-        if schema != "public":
-            if not _SAFE_IDENTIFIER_RE.match(schema):
-                raise ValueError(
-                    f"Unsafe PostgreSQL schema name: {schema!r}. "
-                    "Schema names must be alphanumeric identifiers (a-z, 0-9, _)."
-                )
+        if not _SAFE_IDENTIFIER_RE.match(schema):
+            raise ValueError(
+                f"Unsafe PostgreSQL schema name: {schema!r}. "
+                "Schema names must be alphanumeric identifiers (a-z, 0-9, _)."
+            )
 
         async def _init_conn(conn):
             """Set search_path for every new pool connection."""
@@ -76,7 +74,11 @@ class PostgreSQLBackend(DatabaseBackend):
                 )
 
         self._pool = await asyncpg.create_pool(
-            dsn,
+            host=self._config.pg_host,
+            port=self._config.pg_port,
+            user=self._config.pg_user,
+            password=self._config.pg_password,
+            database=self._config.pg_database,
             min_size=self._config.pool_min_size,
             max_size=self._config.pool_max_size,
             init=_init_conn,

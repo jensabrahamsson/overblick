@@ -218,6 +218,7 @@ class TestSafeLLMPipeline:
 
     @pytest.mark.asyncio
     async def test_llm_error(self, mock_llm):
+        """LLM errors return generic block_reason (no exception detail leakage)."""
         mock_llm.chat = AsyncMock(side_effect=ConnectionError("Connection refused"))
         pipeline = SafeLLMPipeline(llm_client=mock_llm)
         result = await pipeline.chat(
@@ -225,7 +226,9 @@ class TestSafeLLMPipeline:
         )
         assert result.blocked
         assert result.block_stage == PipelineStage.LLM_CALL
-        assert "Connection refused" in result.block_reason
+        assert result.block_reason == "LLM call failed"
+        # Exception details must NOT leak into block_reason (security)
+        assert "Connection refused" not in result.block_reason
 
     @pytest.mark.asyncio
     async def test_llm_empty_response(self, mock_llm):

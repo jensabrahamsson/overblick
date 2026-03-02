@@ -157,7 +157,10 @@ class TestPipelineFailClosed:
 
     @pytest.mark.asyncio
     async def test_llm_call_exception_blocks(self, mock_llm, mock_audit, mock_rate_limiter):
-        """When llm.chat() raises an exception, pipeline returns blocked=True."""
+        """When llm.chat() raises an exception, pipeline returns blocked=True.
+
+        The block_reason must be generic (no exception details leaked).
+        """
         mock_llm.chat = AsyncMock(
             side_effect=ConnectionError("Ollama connection refused")
         )
@@ -174,7 +177,9 @@ class TestPipelineFailClosed:
 
         assert result.blocked is True
         assert result.block_stage == PipelineStage.LLM_CALL
-        assert "Ollama connection refused" in result.block_reason
+        assert result.block_reason == "LLM call failed"
+        # Exception details must NOT leak (prevents DSN/credential exposure)
+        assert "Ollama connection refused" not in result.block_reason
 
     @pytest.mark.asyncio
     async def test_all_stages_pass(

@@ -132,28 +132,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Check session
         session_data = get_session(request)
         if not session_data:
-            # Auto-login for localhost when network_access mode is active
-            # (password only required from remote clients)
-            config = request.app.state.config
-            client_ip = request.client.host if request.client else "unknown"
-            if (
-                config.network_access
-                and config.auth_enabled
-                and client_ip in ("127.0.0.1", "::1")
-            ):
-                session_mgr: SessionManager = request.app.state.session_manager
-                cookie_value, csrf_token = session_mgr.create_session()
-                response = RedirectResponse(path, status_code=302)
-                response.set_cookie(
-                    SESSION_COOKIE,
-                    cookie_value,
-                    httponly=True,
-                    samesite="lax",
-                    max_age=config.session_hours * 3600,
-                )
-                logger.info("Auto-login for localhost client %s", client_ip)
-                return response
-
+            # When network_access is enabled, ALL clients must authenticate
+            # (including localhost) to prevent bypass via reverse proxies
             if request.headers.get("HX-Request"):
                 # htmx request — return 401 with redirect header
                 response = Response(status_code=401)

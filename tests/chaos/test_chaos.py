@@ -37,14 +37,20 @@ class TestPipelineChaos:
 
     @pytest.mark.asyncio
     async def test_llm_raises_exception(self):
-        """Pipeline should return blocked result when LLM crashes."""
+        """Pipeline should return blocked result when LLM crashes.
+
+        The block_reason must NOT leak exception details (security hardening:
+        prevents credential/DSN leakage in error messages).
+        """
         llm = AsyncMock()
         llm.chat = AsyncMock(side_effect=RuntimeError("GPU on fire"))
         pipeline = SafeLLMPipeline(llm_client=llm)
         result = await pipeline.chat(messages=[{"role": "user", "content": "Hello"}])
         assert result.blocked
         assert result.block_stage == PipelineStage.LLM_CALL
-        assert "GPU on fire" in result.block_reason
+        assert result.block_reason == "LLM call failed"
+        # Exception details must NOT be in block_reason (security)
+        assert "GPU on fire" not in result.block_reason
 
     @pytest.mark.asyncio
     async def test_llm_returns_none(self):

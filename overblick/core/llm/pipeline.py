@@ -215,9 +215,11 @@ class SafeLLMPipeline:
             )
         except Exception as e:
             logger.error("LLM call failed: %s", e, exc_info=True)
+            # Sanitize: use generic message for block_reason to prevent
+            # leaking connection strings or credentials in exception text
             result = PipelineResult(
                 blocked=True,
-                block_reason=f"LLM error: {e}",
+                block_reason="LLM call failed",
                 block_stage=PipelineStage.LLM_CALL,
                 duration_ms=(time.monotonic() - start) * 1000,
                 stages_passed=stages,
@@ -350,7 +352,7 @@ class SafeLLMPipeline:
             # Fail CLOSED — block if preflight crashes (security-first)
             return PipelineResult(
                 blocked=True,
-                block_reason=f"Preflight check unavailable: {e}",
+                block_reason="Preflight check unavailable",
                 block_stage=PipelineStage.PREFLIGHT,
             )
         return None
@@ -372,7 +374,7 @@ class SafeLLMPipeline:
         except Exception as e:
             logger.error("Output safety error: %s", e, exc_info=True)
             # Fail CLOSED — block if output safety crashes (security-first)
-            return (True, "", f"Output safety unavailable: {e}")
+            return (True, "", "Output safety unavailable")
 
         return None
 
