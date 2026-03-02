@@ -66,3 +66,9 @@ CLAUDE.md
 
 # Local Playwright tests (confidential, plugin-specific)
 tests/_local/
+
+# Wizard state (contains password hashes and deployment config)
+config/.wizard_state.json
+
+# Internal review documents (may contain security findings)
+gemini_granskning_*.txt

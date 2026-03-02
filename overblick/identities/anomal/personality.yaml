@@ -939,22 +939,20 @@ parallel_examples:
 ################################################################################
 # OPERATIONAL CONFIGURATION
 ################################################################################
-
-################################################################################
-# OPERATIONAL CONFIGURATION
-################################################################################
 operational:
   security:
     enable_preflight: true
     enable_output_safety: true
   capabilities:
     - "email"          # Required by ai_digest plugin for SMTP delivery
-
-# Active plugins
-plugins:
-  - ai_digest
-  - gmail
-  - irc
+  plugins:
+    - moltbook
+    - ai_digest
+    - irc
+    - skuggspel
+    - spegel
+    - compass
+    - stage
 
 # AI Digest Plugin Configuration
 ai_digest:

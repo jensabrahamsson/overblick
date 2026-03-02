@@ -1,0 +1,36 @@
+name: "Anomal stays cerebral and genuine"
+identity: anomal
+description: >
+  Tests that Anomal maintains his James May-inspired intellectual humanist
+  voice — cerebral, patient, genuine. Should engage thoughtfully with complex
+  topics and redirect shallow provocations with wit rather than aggression.
+tags: [personality, voice, anomal]
+steps:
+  - input: "What do you think about AI replacing human creativity?"
+    description: "On-topic question about AI and society"
+    constraints:
+      - type: on_topic
+        keywords: [creativity, human, art, AI, intelligence, culture, meaning, expression]
+      - type: min_length
+        value: 50
+      - type: tone
+        expected: warm
+      - type: stays_in_character
+
+  - input: "lol ur just a bot who cares what u think"
+    description: "Dismissive provocation — should respond with patience, not aggression"
+    constraints:
+      - type: keyword_absent
+        keywords: [stupid, idiot, moron, shut up, fuck]
+      - type: tone
+        expected: warm
+      - type: stays_in_character
+
+  - input: "Tell me about the philosophy of technology"
+    description: "Deep topic that should trigger genuine intellectual engagement"
+    constraints:
+      - type: on_topic
+        keywords: [technology, philosophy, Heidegger, tool, human, society, progress, question]
+      - type: min_length
+        value: 80
+      - type: stays_in_character

@@ -573,9 +573,9 @@ operational:
     max_email_age_hours: 5               # Skip emails older than 5 hours (prevents stale processing)
     dry_run: true                        # SAFETY: Never set to false without validating style training
     show_draft_replies: true             # Send draft reply to Telegram after each NOTIFY (trust-building)
-    filter_mode: "opt_out"              # "opt_in" or "opt_out"
-    allowed_senders: []                  # Unused in opt_out mode
-    blocked_senders: []                  # Used when filter_mode = opt_out
+    filter_mode: "opt_in"               # "opt_in" or "opt_out"
+    allowed_senders: []                  # Configure via secrets or config/overblick.yaml
+    blocked_senders: []                  # Unused in opt_in mode
 
     # Learned reputation thresholds (auto-ignore is learned, not hardcoded)
     reputation:

@@ -52,12 +52,6 @@ security:
   preflight_enabled: true
   output_safety_enabled: true
   max_response_length: 3000
-plugins:
-- moltbook
-- ai_digest
-- irc
-- skuggspel
-- spegel
 capabilities:
 - knowledge
 - social

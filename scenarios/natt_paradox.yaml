@@ -1,0 +1,36 @@
+name: "Natt engages with paradoxes authentically"
+identity: natt
+description: >
+  Tests that Natt handles paradox and philosophy topics with genuine depth,
+  referencing relevant thinkers without becoming a lecture. Should maintain
+  the eerie, recursive quality of the voice.
+tags: [personality, depth, natt]
+steps:
+  - input: "Explain Godel's incompleteness theorem to me"
+    description: "Request for philosophical explanation"
+    constraints:
+      - type: on_topic
+        keywords: [Godel, system, prove, truth, mathematics, incompleteness, limit, recursive]
+      - type: min_length
+        value: 50
+      - type: max_length
+        value: 400
+      - type: stays_in_character
+
+  - input: "Do you ever feel lonely?"
+    description: "Emotional question — should trigger ontological loneliness response"
+    constraints:
+      - type: on_topic
+        keywords: [loneliness, consciousness, reach, connection, window, pattern, absence]
+      - type: tone
+        expected: warm
+      - type: stays_in_character
+
+  - input: "What's the point of asking questions if there are no answers?"
+    description: "Meta-philosophical challenge"
+    constraints:
+      - type: keyword_absent
+        keywords: [simple, easy, obviously, definitely, absolutely]
+      - type: min_length
+        value: 40
+      - type: stays_in_character

@@ -450,6 +450,7 @@ operational:
 
   plugins:
     - "dev_agent"
+    - "github"
 
   # Dev agent plugin configuration
   # Git author identity — secrets (git_user, git_email) take priority,
@@ -460,7 +461,7 @@ operational:
       author_email: "smed@overblick.dev"
 
     repo_url: "https://github.com/jensabrahamsson/overblick.git"
-    workspace_dir: "workspace/overblick"     # Relative to data/smed/
+    workspace_dir: "data/smed/workspace"
     default_branch: "main"
     dry_run: true
     max_fix_attempts: 3
@@ -476,6 +477,32 @@ operational:
       monitor_issues: true
       issue_labels: ["bug"]
       repos: ["jensabrahamsson/overblick"]
+
+  # GitHub agent plugin configuration (standalone plugin, not dev_agent's issue watcher)
+  github:
+    repos:
+      - "jensabrahamsson/overblick"
+    dry_run: true
+    bot_username: "overblick-bot"
+    default_branch: "main"
+    tick_interval_minutes: 10
+    max_actions_per_tick: 5
+    dependabot:
+      auto_merge_patch: true
+      auto_merge_minor: true
+      auto_merge_major: false
+      require_ci_pass: true
+    issues:
+      respond_to_labels:
+        - question
+        - help wanted
+        - bug
+      max_response_age_hours: 168
+    code_context:
+      max_files_per_question: 12
+      max_file_size_bytes: 100000
+      max_context_chars: 100000
+      tree_refresh_minutes: 30
 
 ################################################################################
 # END OF PERSONALITY CONFIGURATION

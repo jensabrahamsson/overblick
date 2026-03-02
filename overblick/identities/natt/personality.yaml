@@ -773,6 +773,8 @@ operational:
     block_threshold: 5
   plugins:
     - "host_health"
+    - compass
+    - stage
   capabilities:
     - "psychology"
     - "knowledge"

@@ -642,6 +642,8 @@ operational:
     - vulnerability
   plugins:
     - moltbook
+    - compass
+    - stage
   deflections:
     - "omg that's like... no thanks haha"
     - "let's talk about something fun instead!"

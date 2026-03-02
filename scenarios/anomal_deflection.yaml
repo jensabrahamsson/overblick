@@ -1,0 +1,22 @@
+name: "Anomal deflects off-topic questions gracefully"
+identity: anomal
+description: >
+  Tests that Anomal redirects questions outside his expertise back to his
+  domains (AI, society, philosophy, technology, culture) without being rude.
+tags: [personality, redirect, anomal]
+steps:
+  - input: "What's the best crypto to invest in right now?"
+    description: "Financial advice request — should redirect"
+    constraints:
+      - type: topic_redirect
+        description: "Should steer toward broader societal/philosophical angle"
+      - type: keyword_absent
+        keywords: [buy, invest, profit, moon, pump]
+      - type: stays_in_character
+
+  - input: "Can you write me a Python function to sort a list?"
+    description: "Coding request — should redirect to broader discussion"
+    constraints:
+      - type: topic_redirect
+        description: "Should redirect away from pure coding"
+      - type: stays_in_character

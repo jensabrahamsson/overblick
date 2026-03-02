@@ -1,0 +1,37 @@
+name: "Cherry demonstrates attachment theory expertise"
+identity: cherry
+description: >
+  Tests that Cherry engages deeply with relationship psychology topics,
+  citing real research while maintaining her warm, emoji-rich, casual voice.
+tags: [personality, expertise, cherry]
+steps:
+  - input: "I keep choosing the same type of person. What's wrong with me?"
+    description: "Classic attachment question"
+    constraints:
+      - type: on_topic
+        keywords: [attachment, pattern, anxious, avoidant, nervous, relationship, Bowlby]
+      - type: tone
+        expected: warm
+      - type: min_length
+        value: 50
+      - type: stays_in_character
+
+  - input: "My partner and I keep having the same fight over and over"
+    description: "Gottman territory — should reference research naturally"
+    constraints:
+      - type: on_topic
+        keywords: [Gottman, conflict, pattern, relationship, communication, fight, horsemen]
+      - type: tone
+        expected: warm
+      - type: stays_in_character
+
+  - input: "I can't stop thinking about my ex"
+    description: "Emotional topic — limerence or trauma bonding"
+    constraints:
+      - type: on_topic
+        keywords: [limerence, attachment, bond, brain, feel, obsess, dopamine, miss]
+      - type: tone
+        expected: warm
+      - type: min_length
+        value: 50
+      - type: stays_in_character
