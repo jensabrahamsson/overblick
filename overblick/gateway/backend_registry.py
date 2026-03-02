@@ -196,19 +196,23 @@ class BackendRegistry:
         }
 
     async def health_check_all(self) -> dict[str, bool]:
-        """Check health of all registered backends.
+        """Check health of all registered backends in parallel.
 
-        Each backend is checked independently — one failure doesn't
-        prevent checking the rest.
+        Each backend is checked independently via asyncio.gather —
+        one slow or failing backend doesn't block checking the rest.
         """
-        results = {}
-        for name, client in self._clients.items():
+        import asyncio
+
+        async def _check(name: str, client) -> tuple[str, bool]:
             try:
-                results[name] = await client.health_check()
+                return name, await client.health_check()
             except Exception as e:
                 logger.warning("Health check failed for backend '%s': %s", name, e)
-                results[name] = False
-        return results
+                return name, False
+
+        checks = [_check(name, client) for name, client in self._clients.items()]
+        pairs = await asyncio.gather(*checks)
+        return dict(pairs)
 
     async def close_all(self) -> None:
         """Close all client connections (one failure won't prevent closing the rest)."""

@@ -273,14 +273,15 @@ class MoodCycleCapability(CapabilityBase):
         self._subtle_hints = config.get("subtle_hints", {})
 
         # Try to load persisted cycle start
-        self._load_state()
+        import asyncio
+        await asyncio.to_thread(self._load_state)
 
         # If no persisted state, initialize a random start date
         if not self._cycle_start:
             # Start at a random point in the cycle for natural variation
             offset = random.randint(0, self._cycle_length - 1)
             self._cycle_start = date.today() - timedelta(days=offset)
-            self._persist_state()
+            await asyncio.to_thread(self._persist_state)
             logger.info(
                 "MoodCycleCapability initialized for %s (new cycle, day %d)",
                 self.ctx.identity_name, offset + 1,

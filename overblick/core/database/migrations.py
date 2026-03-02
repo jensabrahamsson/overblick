@@ -187,4 +187,22 @@ MIGRATIONS: list[Migration] = [
             );
         """,
     ),
+
+    Migration(
+        version=4,
+        name="add_performance_indexes",
+        up_sql="""
+            -- Engagement queries filter by identity + time range
+            CREATE INDEX IF NOT EXISTS idx_engagements_post_id
+                ON engagements(post_id);
+
+            -- My comments queried by post_id for thread detection
+            CREATE INDEX IF NOT EXISTS idx_my_comments_post_id
+                ON my_comments(post_id);
+
+            -- Audit log: compound index for per-identity time-range queries
+            CREATE INDEX IF NOT EXISTS idx_audit_identity_ts
+                ON audit_log(identity, timestamp);
+        """,
+    ),
 ]

@@ -2807,10 +2807,12 @@ class TestDraftReplyDatabaseTracking:
         db = EmailAgentDB(backend)
         await db.setup()
 
-        # Verify migration count includes v7
-        assert len(MIGRATIONS) == 7
+        # Verify migration count includes v8 (latest: performance_indexes)
+        assert len(MIGRATIONS) == 8
         assert MIGRATIONS[6].version == 7
         assert MIGRATIONS[6].name == "draft_reply_tracking"
+        assert MIGRATIONS[7].version == 8
+        assert MIGRATIONS[7].name == "performance_indexes"
 
         await db.close()
 

@@ -168,7 +168,7 @@ class MoltbookPlugin(PluginBase):
         # Restore topic rotation state from disk
         data_dir = self.ctx.data_dir
         if isinstance(data_dir, Path):
-            self._heartbeat.load_state(data_dir)
+            await asyncio.to_thread(self._heartbeat.load_state, data_dir)
 
         # Knowledge loader
         identity_dir = identity.identity_dir
@@ -180,7 +180,7 @@ class MoltbookPlugin(PluginBase):
         self._opening_selector = OpeningSelector(phrases=openings)
 
         # Restore dream journal dedup state from disk
-        self._load_dream_date()
+        await asyncio.to_thread(self._load_dream_date)
 
         # Load capabilities via registry
         enabled_modules = identity.raw_config.get("enabled_modules", [])
@@ -347,7 +347,7 @@ class MoltbookPlugin(PluginBase):
 
             # Persist status after successful tick
             self._consecutive_api_failures = 0  # Reset circuit breaker on success
-            self._persist_status()
+            await asyncio.to_thread(self._persist_status)
 
         except SuspensionError as e:
             # Use API's expiry timestamp if available, otherwise fallback to 24h
@@ -375,7 +375,7 @@ class MoltbookPlugin(PluginBase):
                     "identity": self.ctx.identity.name,
                 },
             )
-            self._persist_status()
+            await asyncio.to_thread(self._persist_status)
         except RateLimitError as e:
             logger.warning("Rate limited during tick: %s", e)
         except MoltbookError as e:
@@ -384,7 +384,7 @@ class MoltbookPlugin(PluginBase):
                 "Moltbook error during tick (failure %d): %s",
                 self._consecutive_api_failures, e, exc_info=True,
             )
-            self._persist_status()
+            await asyncio.to_thread(self._persist_status)
         except Exception as e:
             self._consecutive_api_failures += 1
             logger.error("Unexpected error in tick (failure %d): %s", self._consecutive_api_failures, e, exc_info=True)
@@ -925,7 +925,7 @@ class MoltbookPlugin(PluginBase):
             # Persist topic rotation state
             data_dir = self.ctx.data_dir
             if isinstance(data_dir, Path):
-                self._heartbeat.save_state(data_dir)
+                await asyncio.to_thread(self._heartbeat.save_state, data_dir)
 
             self.ctx.audit_log.log(
                 action="heartbeat_posted",
@@ -1002,7 +1002,7 @@ class MoltbookPlugin(PluginBase):
 
             await self.ctx.engagement_db.track_my_post(post.id, title)
             self._dream_journal_posted_date = today
-            self._persist_dream_date()
+            await asyncio.to_thread(self._persist_dream_date)
 
             self.ctx.audit_log.log(
                 action="dream_journal_posted",
@@ -1096,14 +1096,16 @@ class MoltbookPlugin(PluginBase):
         self._safe_learning = self._capabilities.get("safe_learning")
 
     async def _tick_capabilities(self) -> None:
-        """Tick all enabled capabilities (dreams, therapy, learning, etc.)."""
-        for cap in self._capabilities.values():
-            if not getattr(cap, "enabled", False):
-                continue
+        """Tick all enabled capabilities concurrently."""
+        async def _safe_tick(cap):
             try:
                 await cap.tick()
             except Exception as e:
                 logger.warning("Capability tick error (%s): %s", cap.name, e)
+
+        enabled = [c for c in self._capabilities.values() if getattr(c, "enabled", False)]
+        if enabled:
+            await asyncio.gather(*[_safe_tick(c) for c in enabled])
 
     def _gather_capability_context(self) -> str:
         """Collect prompt context from all enabled capabilities."""

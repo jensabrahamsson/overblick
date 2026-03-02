@@ -174,20 +174,23 @@ class AiDigestPlugin(PluginBase):
             logger.error("AiDigestPlugin pipeline error: %s", e, exc_info=True)
 
     async def _fetch_all_feeds(self) -> list[FeedArticle]:
-        """Fetch and parse all configured RSS feeds.
+        """Fetch and parse all configured RSS feeds in parallel.
 
         Filters to articles published in the last 24 hours.
+        Uses asyncio.to_thread for blocking feedparser.parse() calls
+        and gathers all feeds concurrently.
         """
-        articles: list[FeedArticle] = []
+        import asyncio
+
         cutoff = time.time() - 86400  # 24 hours ago
 
-        for feed_url in self._feeds:
+        async def _fetch_one(feed_url: str) -> list[FeedArticle]:
             try:
-                feed = feedparser.parse(feed_url)
+                feed = await asyncio.to_thread(feedparser.parse, feed_url)
                 feed_name = feed.feed.get("title", feed_url) if feed.feed else feed_url
+                result = []
 
                 for entry in feed.entries:
-                    # Parse publication time
                     published_parsed = entry.get("published_parsed")
                     if published_parsed:
                         entry_time = time.mktime(published_parsed)
@@ -201,7 +204,7 @@ class AiDigestPlugin(PluginBase):
                     summary = entry.get("summary", entry.get("description", ""))
 
                     if title and link:
-                        articles.append(FeedArticle(
+                        result.append(FeedArticle(
                             title=title,
                             link=link,
                             summary=summary[:500],
@@ -214,9 +217,15 @@ class AiDigestPlugin(PluginBase):
                     "AiDigestPlugin: fetched %d entries from %s",
                     len(feed.entries), feed_name,
                 )
+                return result
 
             except Exception as e:
                 logger.error("AiDigestPlugin: failed to fetch %s: %s", feed_url, e, exc_info=True)
+                return []
+
+        # Fetch all feeds concurrently
+        feed_results = await asyncio.gather(*[_fetch_one(url) for url in self._feeds])
+        articles = [a for batch in feed_results for a in batch]
 
         # Sort by recency, limit to prevent token overflow
         articles.sort(key=lambda a: a.timestamp, reverse=True)

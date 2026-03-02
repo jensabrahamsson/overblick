@@ -127,6 +127,23 @@ MIGRATIONS = [
         """,
         down_sql="",
     ),
+    Migration(
+        version=8,
+        name="performance_indexes",
+        up_sql="""
+            CREATE INDEX IF NOT EXISTS idx_email_records_intent
+                ON email_records(classified_intent);
+            CREATE INDEX IF NOT EXISTS idx_email_records_created
+                ON email_records(created_at);
+            CREATE INDEX IF NOT EXISTS idx_email_records_from
+                ON email_records(email_from);
+        """,
+        down_sql="""
+            DROP INDEX IF EXISTS idx_email_records_intent;
+            DROP INDEX IF EXISTS idx_email_records_created;
+            DROP INDEX IF EXISTS idx_email_records_from;
+        """,
+    ),
 ]
 
 
@@ -316,25 +333,33 @@ class EmailAgentDB:
     # -- Stats --
 
     async def get_stats(self) -> dict:
-        """Get aggregate statistics for agent state initialization."""
-        total = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM email_records",
-        ) or 0
-        replied = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM email_records WHERE classified_intent = 'reply'",
-        ) or 0
-        notified = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM email_records WHERE classified_intent = 'notify'",
-        ) or 0
-        consulted = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM email_records WHERE classified_intent = 'ask_boss'",
-        ) or 0
+        """Get aggregate statistics for agent state initialization.
+
+        Uses a single query with conditional aggregation instead of
+        4 separate COUNT queries (1 round-trip vs 4).
+        """
+        row = await self._db.fetch_one(
+            "SELECT "
+            "  COUNT(*) AS total, "
+            "  SUM(CASE WHEN classified_intent = 'reply' THEN 1 ELSE 0 END) AS replied, "
+            "  SUM(CASE WHEN classified_intent = 'notify' THEN 1 ELSE 0 END) AS notified, "
+            "  SUM(CASE WHEN classified_intent = 'ask_boss' THEN 1 ELSE 0 END) AS consulted "
+            "FROM email_records",
+        )
+
+        if not row:
+            return {
+                "emails_processed": 0,
+                "emails_replied": 0,
+                "notifications_sent": 0,
+                "boss_consultations": 0,
+            }
 
         return {
-            "emails_processed": total,
-            "emails_replied": replied,
-            "notifications_sent": notified,
-            "boss_consultations": consulted,
+            "emails_processed": row["total"] or 0,
+            "emails_replied": row["replied"] or 0,
+            "notifications_sent": row["notified"] or 0,
+            "boss_consultations": row["consulted"] or 0,
         }
 
     # -- Notification tracking --

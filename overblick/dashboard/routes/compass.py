@@ -23,9 +23,10 @@ async def compass_page(request: Request):
     """Render the Compass drift detection page."""
     templates = request.app.state.templates
 
+    import asyncio
     try:
         baselines, alerts, drift_history, drift_threshold, identity_status = (
-            _load_compass_data(request)
+            await asyncio.to_thread(_load_compass_data, request)
         )
         data_errors = []
     except Exception as e:

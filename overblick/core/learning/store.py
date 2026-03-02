@@ -183,18 +183,29 @@ class LearningStore:
             await conn.commit()
             learning.id = cursor.lastrowid
 
+    # Maximum number of embeddings to load for in-memory similarity search.
+    # Keeps memory bounded while still returning good results (most recent
+    # learnings are most likely to be relevant).
+    _MAX_SIMILARITY_CANDIDATES = 500
+
     async def _search_by_similarity(
         self,
         query_embedding: list[float],
         limit: int,
     ) -> list[Learning]:
-        """Search approved learnings by cosine similarity to query embedding."""
+        """Search approved learnings by cosine similarity to query embedding.
+
+        Loads at most _MAX_SIMILARITY_CANDIDATES recent embeddings to keep
+        memory usage bounded. For large learning stores this trades perfect
+        recall for bounded latency.
+        """
         async with aiosqlite.connect(str(self._db_path)) as conn:
             conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
                 "SELECT * FROM identity_learnings "
-                "WHERE status = ? AND embedding IS NOT NULL",
-                (LearningStatus.APPROVED.value,),
+                "WHERE status = ? AND embedding IS NOT NULL "
+                "ORDER BY created_at DESC LIMIT ?",
+                (LearningStatus.APPROVED.value, self._MAX_SIMILARITY_CANDIDATES),
             )
             rows = await cursor.fetchall()
 

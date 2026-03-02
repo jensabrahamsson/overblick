@@ -62,6 +62,11 @@ _ALIASES: dict[str, str] = {
     "nyx": "natt",
 }
 
+# Identity object cache with TTL — avoids re-reading and re-parsing YAML
+# on every load_identity() call. Cache is keyed by resolved identity name.
+_identity_cache: dict[str, tuple[float, "Identity"]] = {}
+_IDENTITY_CACHE_TTL: float = 60.0  # seconds
+
 
 # ---------------------------------------------------------------------------
 # Operational sub-models
@@ -423,20 +428,33 @@ def load_identity(name: str) -> "Identity":
             "Names must be lowercase alphanumeric with optional hyphens/underscores."
         )
 
+    # Check cache (TTL-based)
+    import time as _time
+    now = _time.monotonic()
+    cached = _identity_cache.get(name)
+    if cached is not None:
+        cached_at, identity = cached
+        if now - cached_at < _IDENTITY_CACHE_TTL:
+            return identity
+
     # Try directory-based identity first (preferred)
     dir_based = _IDENTITIES_DIR / name / "personality.yaml"
     if dir_based.exists():
         data = _load_yaml(dir_based)
         base_dir = dir_based.parent
         logger.info("Loaded identity from directory: %s", name)
-        return _build_identity(name, data, base_dir)
+        result = _build_identity(name, data, base_dir)
+        _identity_cache[name] = (now, result)
+        return result
 
     # Try standalone file
     standalone = _IDENTITIES_DIR / f"{name}.yaml"
     if standalone.exists():
         data = _load_yaml(standalone)
         logger.info("Loaded standalone identity: %s", name)
-        return _build_identity(name, data)
+        result = _build_identity(name, data)
+        _identity_cache[name] = (now, result)
+        return result
 
     # Fall back to personalities directory (legacy)
     legacy_file = _PERSONALITIES_DIR / name / "personality.yaml"
@@ -444,7 +462,9 @@ def load_identity(name: str) -> "Identity":
         data = _load_yaml(legacy_file)
         base_dir = legacy_file.parent
         logger.info("Loaded identity from legacy personalities dir: %s", name)
-        return _build_identity(name, data, base_dir)
+        result = _build_identity(name, data, base_dir)
+        _identity_cache[name] = (now, result)
+        return result
 
     raise FileNotFoundError(
         f"No identity found for '{name}'. "

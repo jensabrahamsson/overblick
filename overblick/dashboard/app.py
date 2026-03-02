@@ -59,6 +59,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 }, status_code=500)
             else:
                 response = HTMLResponse("Internal Server Error", status_code=500)
+        # Cache static assets (CSS/JS/images) for 1 hour
+        path = request.url.path
+        if path.startswith("/static/") or path.startswith("/setup-static/"):
+            response.headers["Cache-Control"] = "public, max-age=3600"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"

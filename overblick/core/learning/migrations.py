@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS identity_learnings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_learnings_status ON identity_learnings(status);
+CREATE INDEX IF NOT EXISTS idx_learnings_status_embedding
+    ON identity_learnings(status) WHERE embedding IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_learnings_created ON identity_learnings(created_at);
 """
 
 
