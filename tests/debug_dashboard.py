@@ -45,6 +45,7 @@ async def main():
 
     # Now let's see what _build_plugin_cards returns
     from overblick.dashboard.routes.dashboard import _build_plugin_cards
+
     plugin_cards = _build_plugin_cards(identities, agents)
 
     print("\n" + "=" * 80)

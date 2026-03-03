@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Severity classification multipliers for drift score thresholds
 _CRITICAL_MULTIPLIER = 2.0  # drift_score > threshold * 2 = critical
-_WARNING_MULTIPLIER = 1.0   # drift_score > threshold * 1 = warning
+_WARNING_MULTIPLIER = 1.0  # drift_score > threshold * 1 = warning
 
 router = APIRouter()
 
@@ -24,6 +24,7 @@ async def compass_page(request: Request):
     templates = request.app.state.templates
 
     import asyncio
+
     try:
         baselines, alerts, drift_history, drift_threshold, identity_status = (
             await asyncio.to_thread(_load_compass_data, request)
@@ -35,21 +36,25 @@ async def compass_page(request: Request):
         drift_threshold, identity_status = 2.0, {}
         data_errors = [f"Failed to load compass data: {e}"]
 
-    return templates.TemplateResponse("compass.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "baselines": baselines,
-        "alerts": alerts,
-        "drift_history": drift_history,
-        "drift_threshold": drift_threshold,
-        "identity_status": identity_status,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "compass.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "baselines": baselines,
+            "alerts": alerts,
+            "drift_history": drift_history,
+            "drift_threshold": drift_threshold,
+            "identity_status": identity_status,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if compass plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("compass")
 
 
@@ -81,6 +86,7 @@ def _load_compass_data(request: Request) -> tuple:
     drift_threshold = 2.0
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
+
     data_root = resolve_data_root(request)
     if not data_root.exists():
         return baselines, alerts, drift_history, drift_threshold, {}
@@ -110,9 +116,7 @@ def _load_compass_data(request: Request) -> tuple:
 
     # Add severity to drift history entries
     for entry in drift_history:
-        entry["severity"] = _classify_severity(
-            entry.get("drift_score", 0), drift_threshold
-        )
+        entry["severity"] = _classify_severity(entry.get("drift_score", 0), drift_threshold)
 
     # Build identity status: latest drift per identity
     identity_status = {}

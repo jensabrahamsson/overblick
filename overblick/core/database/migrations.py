@@ -91,7 +91,6 @@ MIGRATIONS: list[Migration] = [
             CREATE INDEX IF NOT EXISTS idx_audit_category ON audit_log(category);
         """,
     ),
-
     Migration(
         version=2,
         name="add_agent_state_tables",
@@ -156,7 +155,6 @@ MIGRATIONS: list[Migration] = [
             );
         """,
     ),
-
     Migration(
         version=3,
         name="add_agent_audit_tables",
@@ -187,7 +185,6 @@ MIGRATIONS: list[Migration] = [
             );
         """,
     ),
-
     Migration(
         version=4,
         name="add_performance_indexes",

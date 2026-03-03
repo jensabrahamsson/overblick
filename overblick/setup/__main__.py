@@ -85,6 +85,7 @@ def main(sandbox: bool = False, headless: bool = False) -> None:
     logger.info("Base directory: %s", base_dir)
 
     from .app import create_setup_app
+
     app = create_setup_app(base_dir=base_dir)
 
     # Store port and url on app state (useful for Playwright tests)
@@ -92,13 +93,16 @@ def main(sandbox: bool = False, headless: bool = False) -> None:
     app.state.url = url
 
     if not headless:
+
         def _open_browser():
             logger.info("Opening browser at %s", url)
             webbrowser.open(url)
+
         threading.Timer(1.2, _open_browser).start()
 
     try:
         import uvicorn
+
         uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
     except KeyboardInterrupt:
         logger.info("Setup wizard interrupted by user")
@@ -117,11 +121,13 @@ def cli() -> None:
         description="Överblick first-time onboarding wizard",
     )
     parser.add_argument(
-        "--sandbox", action="store_true",
+        "--sandbox",
+        action="store_true",
         help="Run in sandbox mode (temp directory, no real config changes)",
     )
     parser.add_argument(
-        "--headless", action="store_true",
+        "--headless",
+        action="store_true",
         help="Skip opening the browser (for automated testing)",
     )
     args = parser.parse_args()

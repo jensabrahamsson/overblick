@@ -259,9 +259,7 @@ class TestInetAuditLog:
             # Run cleanup directly via SQL (simulating what the cleanup method does)
             conn = sqlite3.connect(str(db_path))
             cutoff = time.time() - (24 * 3600)  # 1 day ago
-            cursor = conn.execute(
-                "DELETE FROM inet_audit WHERE timestamp < ?", (cutoff,)
-            )
+            cursor = conn.execute("DELETE FROM inet_audit WHERE timestamp < ?", (cutoff,))
             removed = cursor.rowcount
             conn.commit()
             conn.close()

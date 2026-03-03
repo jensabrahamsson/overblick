@@ -32,12 +32,22 @@ logger = logging.getLogger(__name__)
 
 # Domains known to be high-risk or exclusively used for spam/phishing.
 # Emails from these domains are auto-ignored before reaching the LLM.
-BLOCKED_DOMAINS: frozenset[str] = frozenset({
-    "tempmail.com", "throwaway.email", "guerrillamail.com",
-    "mailinator.com", "yopmail.com", "sharklasers.com",
-    "guerrillamailblock.com", "grr.la", "dispostable.com",
-    "trashmail.com", "fakeinbox.com", "maildrop.cc",
-})
+BLOCKED_DOMAINS: frozenset[str] = frozenset(
+    {
+        "tempmail.com",
+        "throwaway.email",
+        "guerrillamail.com",
+        "mailinator.com",
+        "yopmail.com",
+        "sharklasers.com",
+        "guerrillamailblock.com",
+        "grr.la",
+        "dispostable.com",
+        "trashmail.com",
+        "fakeinbox.com",
+        "maildrop.cc",
+    }
+)
 
 # Regex patterns that indicate phishing or social engineering attempts.
 # Matched against subject + body (case-insensitive).
@@ -104,10 +114,7 @@ class EmailClassifier:
             return "No senders are allowed for replies (empty allow-list)"
         # opt_out mode
         if self._blocked_senders:
-            return (
-                "Can reply to any sender except: "
-                f"{', '.join(sorted(self._blocked_senders))}"
-            )
+            return "Can reply to any sender except: " f"{', '.join(sorted(self._blocked_senders))}"
         return "Can reply to any sender"
 
     @staticmethod
@@ -132,7 +139,7 @@ class EmailClassifier:
         body: str,
         sender_reputation: str = "",
         email_signals: str = "",
-    ) -> Optional[EmailClassification]:
+    ) -> EmailClassification | None:
         """Run classification with pre-LLM safety checks, then LLM decision."""
         # Pre-LLM safety: blocked domains
         if self.is_blocked_domain(sender):
@@ -151,7 +158,8 @@ class EmailClassifier:
         if self.detect_phishing(subject, body):
             logger.warning(
                 "EmailAgent: phishing pattern detected in email from %s: %s",
-                sender, subject[:80],
+                sender,
+                subject[:80],
             )
             return EmailClassification(
                 intent=EmailIntent.IGNORE,
@@ -159,15 +167,15 @@ class EmailClassifier:
                 reasoning="Phishing/social engineering pattern detected",
                 priority="low",
             )
-        goals_text = "\n".join(
-            f"- {g.description} (priority: {g.priority})"
-            for g in self._state.goals
-        ) or "No active goals"
+        goals_text = (
+            "\n".join(f"- {g.description} (priority: {g.priority})" for g in self._state.goals)
+            or "No active goals"
+        )
 
-        learnings_text = "\n".join(
-            f"- [{l.learning_type}] {l.content}"
-            for l in self._learnings[:10]
-        ) or "No learnings yet"
+        learnings_text = (
+            "\n".join(f"- [{l.learning_type}] {l.content}" for l in self._learnings[:10])
+            or "No learnings yet"
+        )
 
         sender_history_text = "No previous interactions"
         if self._db:
@@ -204,14 +212,16 @@ class EmailClassifier:
                 if parsed:
                     return parsed
                 # LLM returned prose instead of JSON — retry with explicit reminder
-                retry_messages = list(messages) + [
+                retry_messages = [
+                    *list(messages),
                     {"role": "assistant", "content": result.content},
-                    {"role": "user", "content": (
-                        'Your response must be valid JSON only. '
+                    {
+                        "role": "user",
+                        "content": 'Your response must be valid JSON only. '
                         'Respond with ONLY this JSON object, no other text:\n'
                         '{"intent": "ignore|notify|reply|ask_boss", "confidence": 0.0-1.0, '
-                        '"reasoning": "one sentence", "priority": "low|normal|high|urgent"}'
-                    )},
+                        '"reasoning": "one sentence", "priority": "low|normal|high|urgent"}',
+                    },
                 ]
                 retry_result = await self._ctx.llm_pipeline.chat(
                     messages=retry_messages,
@@ -224,7 +234,7 @@ class EmailClassifier:
 
         return None
 
-    def _parse(self, raw: str) -> Optional[EmailClassification]:
+    def _parse(self, raw: str) -> EmailClassification | None:
         """Parse LLM JSON output into EmailClassification."""
         try:
             data = json.loads(raw)
@@ -262,7 +272,7 @@ class EmailClassifier:
             return None
 
     @staticmethod
-    def normalize_intent(raw_intent: str) -> Optional[str]:
+    def normalize_intent(raw_intent: str) -> str | None:
         """Normalize a raw intent string to a valid EmailIntent value.
 
         Returns the normalized intent string or None if unrecognizable.
@@ -278,7 +288,9 @@ class EmailClassifier:
         mapped = _INTENT_ALIASES.get(clean)
         if mapped:
             logger.debug(
-                "EmailAgent: mapped boss intent '%s' → '%s'", raw_intent, mapped,
+                "EmailAgent: mapped boss intent '%s' → '%s'",
+                raw_intent,
+                mapped,
             )
             return mapped
 

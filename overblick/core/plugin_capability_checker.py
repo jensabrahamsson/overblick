@@ -19,7 +19,7 @@ missing grants (recommended for production).
 
 import logging
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class PluginCapabilityChecker:
     """
 
     # Standard capability definitions
-    CAPABILITIES = {
+    CAPABILITIES: ClassVar[dict[str, str]] = {
         # Network access
         "network_outbound": "Make HTTP/HTTPS requests to external services",
         "network_inbound": "Accept incoming network connections",
@@ -114,9 +114,7 @@ class PluginCapabilityChecker:
                 ", ".join(missing),
                 self.identity_name,
                 plugin_name,
-                "\n".join(
-                    f"    {cap}: true  # {self.CAPABILITIES[cap]}" for cap in missing
-                ),
+                "\n".join(f"    {cap}: true  # {self.CAPABILITIES[cap]}" for cap in missing),
             )
 
         if warned:

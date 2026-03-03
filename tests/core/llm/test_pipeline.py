@@ -26,12 +26,14 @@ def mock_audit():
 @pytest.fixture
 def mock_preflight():
     checker = AsyncMock()
-    checker.check = AsyncMock(return_value=PreflightResult(
-        allowed=True,
-        threat_level=ThreatLevel.SAFE,
-        threat_type=ThreatType.NONE,
-        threat_score=0.0,
-    ))
+    checker.check = AsyncMock(
+        return_value=PreflightResult(
+            allowed=True,
+            threat_level=ThreatLevel.SAFE,
+            threat_type=ThreatType.NONE,
+            threat_score=0.0,
+        )
+    )
     return checker
 
 
@@ -45,9 +47,7 @@ def mock_output_safety():
         replaced: bool = False
 
     safety = MagicMock()
-    safety.sanitize = MagicMock(
-        side_effect=lambda text: MockResult(text=text, blocked=False)
-    )
+    safety.sanitize = MagicMock(side_effect=lambda text: MockResult(text=text, blocked=False))
     return safety
 
 
@@ -78,7 +78,9 @@ class TestPipelineResult:
 
 class TestSafeLLMPipeline:
     @pytest.mark.asyncio
-    async def test_happy_path(self, mock_llm, mock_audit, mock_preflight, mock_output_safety, mock_rate_limiter):
+    async def test_happy_path(
+        self, mock_llm, mock_audit, mock_preflight, mock_output_safety, mock_rate_limiter
+    ):
         pipeline = SafeLLMPipeline(
             llm_client=mock_llm,
             audit_log=mock_audit,
@@ -106,14 +108,16 @@ class TestSafeLLMPipeline:
 
     @pytest.mark.asyncio
     async def test_preflight_blocks(self, mock_llm, mock_preflight):
-        mock_preflight.check = AsyncMock(return_value=PreflightResult(
-            allowed=False,
-            threat_level=ThreatLevel.BLOCKED,
-            threat_type=ThreatType.JAILBREAK,
-            threat_score=0.95,
-            reason="Jailbreak detected",
-            deflection="Nice try.",
-        ))
+        mock_preflight.check = AsyncMock(
+            return_value=PreflightResult(
+                allowed=False,
+                threat_level=ThreatLevel.BLOCKED,
+                threat_type=ThreatType.JAILBREAK,
+                threat_score=0.95,
+                reason="Jailbreak detected",
+                deflection="Nice try.",
+            )
+        )
         pipeline = SafeLLMPipeline(
             llm_client=mock_llm,
             preflight_checker=mock_preflight,
@@ -129,12 +133,14 @@ class TestSafeLLMPipeline:
 
     @pytest.mark.asyncio
     async def test_skip_preflight(self, mock_llm, mock_preflight):
-        mock_preflight.check = AsyncMock(return_value=PreflightResult(
-            allowed=False,
-            threat_level=ThreatLevel.BLOCKED,
-            threat_type=ThreatType.JAILBREAK,
-            threat_score=0.95,
-        ))
+        mock_preflight.check = AsyncMock(
+            return_value=PreflightResult(
+                allowed=False,
+                threat_level=ThreatLevel.BLOCKED,
+                threat_type=ThreatType.JAILBREAK,
+                threat_score=0.95,
+            )
+        )
         pipeline = SafeLLMPipeline(
             llm_client=mock_llm,
             preflight_checker=mock_preflight,
@@ -406,7 +412,9 @@ class TestSafeLLMPipeline:
         assert call_kwargs["complexity"] is None
 
     @pytest.mark.asyncio
-    async def test_stage_timings_populated(self, mock_llm, mock_preflight, mock_output_safety, mock_rate_limiter):
+    async def test_stage_timings_populated(
+        self, mock_llm, mock_preflight, mock_output_safety, mock_rate_limiter
+    ):
         """Pipeline result includes stage timing data (Pass 4, fix 4.1)."""
         pipeline = SafeLLMPipeline(
             llm_client=mock_llm,
@@ -451,9 +459,9 @@ class TestSafeLLMPipeline:
     @pytest.mark.asyncio
     async def test_think_tokens_stripped(self, mock_llm):
         """Think tokens are stripped from LLM output (Pass 1, fix 1.6)."""
-        mock_llm.chat = AsyncMock(return_value={
-            "content": "<think>Internal reasoning here</think>The actual response."
-        })
+        mock_llm.chat = AsyncMock(
+            return_value={"content": "<think>Internal reasoning here</think>The actual response."}
+        )
         pipeline = SafeLLMPipeline(llm_client=mock_llm)
         result = await pipeline.chat(
             messages=[{"role": "user", "content": "Hello"}],
@@ -466,10 +474,12 @@ class TestSafeLLMPipeline:
     @pytest.mark.asyncio
     async def test_reasoning_content_exposed(self, mock_llm):
         """DeepSeek reasoner reasoning_content is exposed in PipelineResult."""
-        mock_llm.chat = AsyncMock(return_value={
-            "content": "The answer is 42.",
-            "reasoning_content": "Let me analyze this step by step...",
-        })
+        mock_llm.chat = AsyncMock(
+            return_value={
+                "content": "The answer is 42.",
+                "reasoning_content": "Let me analyze this step by step...",
+            }
+        )
         pipeline = SafeLLMPipeline(llm_client=mock_llm)
         result = await pipeline.chat(
             messages=[{"role": "user", "content": "What is the meaning?"}],
@@ -492,32 +502,42 @@ class TestSafeLLMPipeline:
         assert result.reasoning_content is None
 
     @pytest.mark.asyncio
-    async def test_stage_ordering_enforced(self, mock_llm, mock_preflight, mock_output_safety, mock_rate_limiter):
+    async def test_stage_ordering_enforced(
+        self, mock_llm, mock_preflight, mock_output_safety, mock_rate_limiter
+    ):
         """Pipeline stages execute in correct order: sanitize -> preflight -> rate_limit -> LLM -> output_safety."""
         call_order = []
 
         original_check = mock_preflight.check
+
         async def tracked_check(*a, **kw):
             call_order.append("preflight")
             return await original_check(*a, **kw)
+
         mock_preflight.check = tracked_check
 
         original_allow = mock_rate_limiter.allow
+
         def tracked_allow(*a, **kw):
             call_order.append("rate_limit")
             return original_allow(*a, **kw)
+
         mock_rate_limiter.allow = tracked_allow
 
         original_chat = mock_llm.chat
+
         async def tracked_chat(*a, **kw):
             call_order.append("llm_call")
             return await original_chat(*a, **kw)
+
         mock_llm.chat = tracked_chat
 
         original_sanitize = mock_output_safety.sanitize
+
         def tracked_sanitize(*a, **kw):
             call_order.append("output_safety")
             return original_sanitize(*a, **kw)
+
         mock_output_safety.sanitize = tracked_sanitize
 
         pipeline = SafeLLMPipeline(
@@ -534,6 +554,7 @@ class TestSafeLLMPipeline:
     async def test_strict_mode_requires_all_components(self, mock_llm):
         """Strict mode raises ConfigError if security components are missing."""
         from overblick.core.exceptions import ConfigError
+
         with pytest.raises(ConfigError, match="missing required"):
             SafeLLMPipeline(
                 llm_client=mock_llm,

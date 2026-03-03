@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Patterns that indicate an error worth investigating
 _ERROR_PATTERN = re.compile(
-    r"^(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}[\.,]?\d*)\s+"
-    r"(ERROR|CRITICAL)\s+(.+)$",
+    r"^(\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}[\.,]?\d*)\s+" r"(ERROR|CRITICAL)\s+(.+)$",
     re.MULTILINE,
 )
 
@@ -97,11 +96,11 @@ class LogWatcher:
             return [], offset
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
                 f.seek(offset)
                 content = f.read()
                 new_offset = f.tell()
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.warning("Failed to read %s: %s", file_path, e)
             return [], offset
 
@@ -143,15 +142,17 @@ class LogWatcher:
                     traceback_text = "\n".join(tb_lines)
                     i = j  # Skip past traceback
 
-                errors.append(LogErrorEntry(
-                    file_path=str(file_path),
-                    line_number=base_offset + sum(len(l) + 1 for l in lines[:i]),
-                    identity=identity,
-                    level=level,
-                    message=message.strip(),
-                    traceback=traceback_text,
-                    timestamp=timestamp,
-                ))
+                errors.append(
+                    LogErrorEntry(
+                        file_path=str(file_path),
+                        line_number=base_offset + sum(len(l) + 1 for l in lines[:i]),
+                        identity=identity,
+                        level=level,
+                        message=message.strip(),
+                        traceback=traceback_text,
+                        timestamp=timestamp,
+                    )
+                )
 
             i += 1
 

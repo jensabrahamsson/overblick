@@ -7,7 +7,13 @@ import pytest
 from overblick.core.event_bus import EventBus
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.core.plugin_base import PluginContext
-from overblick.identities import Personality, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.identities import (
+    Personality,
+    LLMSettings,
+    QuietHoursSettings,
+    ScheduleSettings,
+    SecuritySettings,
+)
 from overblick.plugins.spegel.plugin import SpegelPlugin
 
 
@@ -56,8 +62,12 @@ def mock_event_bus():
 
 @pytest.fixture
 def spegel_context(
-    spegel_identity, tmp_path, mock_llm_client, mock_audit_log,
-    mock_pipeline_spegel, mock_event_bus,
+    spegel_identity,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_pipeline_spegel,
+    mock_event_bus,
 ):
     """Full plugin context for spegel tests."""
     ctx = PluginContext(

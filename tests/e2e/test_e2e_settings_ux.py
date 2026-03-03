@@ -34,7 +34,9 @@ class TestAmbientElements:
         page.goto(f"{dashboard_server}/settings/step/1")
         page.wait_for_load_state("networkidle")
 
-        volume = page.locator("[class*='volume'], [class*='audio'], input[type='range'][class*='volume']")
+        volume = page.locator(
+            "[class*='volume'], [class*='audio'], input[type='range'][class*='volume']"
+        )
         # Volume control is optional but should exist if audio is present
         audio = page.locator("audio")
         if audio.count() > 0:
@@ -200,11 +202,14 @@ class TestCharacterCarousel:
 class TestResponsiveDesign:
     """Test wizard responsiveness at different viewport sizes."""
 
-    @pytest.mark.parametrize("width,label", [
-        (1280, "desktop"),
-        (768, "tablet"),
-        (375, "mobile"),
-    ])
+    @pytest.mark.parametrize(
+        "width,label",
+        [
+            (1280, "desktop"),
+            (768, "tablet"),
+            (375, "mobile"),
+        ],
+    )
     def test_wizard_renders_at_viewport(self, dashboard_server, page, width, label):
         """Wizard should render without horizontal overflow at various viewports."""
         page.set_viewport_size({"width": width, "height": 900})
@@ -219,11 +224,14 @@ class TestResponsiveDesign:
         """)
         assert not has_overflow, f"Horizontal overflow at {width}px ({label})"
 
-    @pytest.mark.parametrize("width,label", [
-        (1280, "desktop"),
-        (768, "tablet"),
-        (375, "mobile"),
-    ])
+    @pytest.mark.parametrize(
+        "width,label",
+        [
+            (1280, "desktop"),
+            (768, "tablet"),
+            (375, "mobile"),
+        ],
+    )
     def test_step6_renders_at_viewport(self, dashboard_server, page, width, label):
         """Step 6 (carousel) should render without overflow at various viewports."""
         page.set_viewport_size({"width": width, "height": 900})

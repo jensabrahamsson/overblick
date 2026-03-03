@@ -203,6 +203,7 @@ class TestBackwardCompatibility:
             PlannedAction,
             TickLog,
         )
+
         # Just verify they're importable
         assert AgentGoal is not None
         assert PlannedAction is not None

@@ -9,7 +9,7 @@ import asyncio
 import logging
 import sqlite3
 
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
@@ -34,23 +34,27 @@ async def telegram_page(request: Request, page: int = Query(default=1, ge=1)):
 
     all_notifications = data["notifications"]
     total = len(all_notifications)
-    notifications = all_notifications[:page * _PAGE_SIZE]
+    notifications = all_notifications[: page * _PAGE_SIZE]
     has_more = total > page * _PAGE_SIZE
 
-    return templates.TemplateResponse("telegram.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "notifications": notifications,
-        "stats": data["stats"],
-        "page": page,
-        "has_more": has_more,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "telegram.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "notifications": notifications,
+            "stats": data["stats"],
+            "page": page,
+            "has_more": has_more,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if telegram plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("telegram")
 
 
@@ -63,6 +67,7 @@ def _load_telegram_data(request: Request) -> dict:
     for any direct telegram plugin entries.
     """
     from pathlib import Path
+
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
 
     data_root = resolve_data_root(request)
@@ -94,14 +99,16 @@ def _load_telegram_data(request: Request) -> dict:
                     "FROM notification_tracking ORDER BY created_at DESC LIMIT 50"
                 ).fetchall()
                 for row in rows:
-                    notifications.append({
-                        "identity": identity_name,
-                        "text": row["notification_text"],
-                        "feedback": bool(row["feedback_received"]),
-                        "feedback_text": row["feedback_text"],
-                        "is_draft": bool(row["is_draft_reply"]),
-                        "created_at": row["created_at"],
-                    })
+                    notifications.append(
+                        {
+                            "identity": identity_name,
+                            "text": row["notification_text"],
+                            "feedback": bool(row["feedback_received"]),
+                            "feedback_text": row["feedback_text"],
+                            "is_draft": bool(row["is_draft_reply"]),
+                            "created_at": row["created_at"],
+                        }
+                    )
                     has_identity_data = True
                     stats["sent"] += 1
                     if row["feedback_received"]:

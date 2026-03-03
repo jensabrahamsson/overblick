@@ -19,10 +19,10 @@ from overblick.plugins.irc.topic_manager import (
     select_topic,
 )
 
-
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+
 
 class TestIRCTurn:
     def test_create_turn(self):
@@ -54,10 +54,7 @@ class TestIRCConversation:
         assert conv.should_end is False
 
     def test_conversation_should_end(self):
-        turns = [
-            IRCTurn(identity="anomal", content=f"msg {i}", turn_number=i)
-            for i in range(20)
-        ]
+        turns = [IRCTurn(identity="anomal", content=f"msg {i}", turn_number=i) for i in range(20)]
         conv = IRCConversation(
             id="irc-full",
             topic="Full",
@@ -105,6 +102,7 @@ class TestTopicState:
 # ---------------------------------------------------------------------------
 # Topic Manager
 # ---------------------------------------------------------------------------
+
 
 class TestTopicPool:
     def test_topic_pool_not_empty(self):
@@ -264,7 +262,9 @@ class TestSelectParticipants:
 
         # "always" was in recent → no bonus, others get +0.15
         result = select_participants(
-            identities, topic, min_participants=2,
+            identities,
+            topic,
+            min_participants=2,
             recent_participants=["always"],
         )
         names = [r.name for r in result]
@@ -276,11 +276,14 @@ class TestSelectParticipants:
 # Plugin
 # ---------------------------------------------------------------------------
 
+
 class TestIRCPlugin:
     @pytest.mark.asyncio
     async def test_setup_creates_data_dir(self, irc_plugin, mock_ctx):
-        with patch("overblick.identities.list_identities", return_value=[]), \
-             patch("overblick.identities.load_identity"):
+        with (
+            patch("overblick.identities.list_identities", return_value=[]),
+            patch("overblick.identities.load_identity"),
+        ):
             await irc_plugin.setup()
 
         assert mock_ctx.data_dir.exists()
@@ -290,8 +293,10 @@ class TestIRCPlugin:
         mock_identity = MagicMock()
         mock_identity.name = "anomal"
 
-        with patch("overblick.identities.list_identities", return_value=["anomal"]), \
-             patch("overblick.identities.load_identity", return_value=mock_identity):
+        with (
+            patch("overblick.identities.list_identities", return_value=["anomal"]),
+            patch("overblick.identities.load_identity", return_value=mock_identity),
+        ):
             await irc_plugin.setup()
 
         assert "anomal" in irc_plugin._identities
@@ -302,8 +307,10 @@ class TestIRCPlugin:
         mock_identity = MagicMock()
         mock_identity.name = "anomal"
 
-        with patch("overblick.identities.list_identities", return_value=["anomal"]), \
-             patch("overblick.identities.load_identity", return_value=mock_identity):
+        with (
+            patch("overblick.identities.list_identities", return_value=["anomal"]),
+            patch("overblick.identities.load_identity", return_value=mock_identity),
+        ):
             await irc_plugin.setup()
 
         assert irc_plugin._running is True
@@ -394,6 +401,7 @@ class TestIRCPluginSpeakerSelection:
         # would treat the TOPIC event as participant[0]'s last turn and exclude
         # them from speaking first — the initiator never participated.
         from overblick.plugins.irc.models import IRCEventType
+
         turns = [
             IRCTurn(identity="anomal", content="#consciousness", type=IRCEventType.JOIN),
             IRCTurn(identity="cherry", content="#consciousness", type=IRCEventType.JOIN),
@@ -509,9 +517,11 @@ class TestIRCPluginConversationTick:
         irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
         # Global quiet hours active (21-07), but IRC's own quiet hours not active
         mock_ctx.quiet_hours_checker.is_quiet_hours.return_value = True
-        with patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False), \
-             patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=True), \
-             patch.object(irc_plugin, "_start_conversation", new_callable=AsyncMock) as mock_start:
+        with (
+            patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False),
+            patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=True),
+            patch.object(irc_plugin, "_start_conversation", new_callable=AsyncMock) as mock_start,
+        ):
             await irc_plugin._conversation_tick()
         # Should attempt to start a conversation
         mock_start.assert_called_once()
@@ -535,8 +545,10 @@ class TestIRCPluginConversationTick:
         )
         irc_plugin._current_conversation = conv
 
-        with patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False), \
-             patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=False):
+        with (
+            patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False),
+            patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=False),
+        ):
             await irc_plugin._conversation_tick()
 
         assert irc_plugin._current_conversation.state == ConversationState.PAUSED
@@ -570,6 +582,7 @@ class TestIRCPluginPrompts:
 
         # Mock the LLM pipeline to capture the messages
         from overblick.core.llm.pipeline import PipelineResult
+
         mock_ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Test reply"))
 
         with patch("overblick.identities.build_system_prompt", return_value="Base prompt"):

@@ -28,7 +28,7 @@ class BaselineProfile(BaseModel):
     sample_count: int = 0
     established_at: float = Field(default_factory=time.time)
     # Standard deviations for each metric (for drift calculation)
-    std_devs: dict[str, float] = {}
+    std_devs: dict[str, float] = Field(default_factory=dict)
 
 
 class DriftMetrics(BaseModel):
@@ -37,7 +37,7 @@ class DriftMetrics(BaseModel):
     identity_name: str
     current_metrics: StyleMetrics
     drift_score: float = 0.0  # 0 = perfect match, higher = more drift
-    drifted_dimensions: list[str] = []
+    drifted_dimensions: list[str] = Field(default_factory=list)
     sample_count: int = 0
     measured_at: float = Field(default_factory=time.time)
 
@@ -48,7 +48,7 @@ class DriftAlert(BaseModel):
     identity_name: str
     drift_score: float
     threshold: float
-    drifted_dimensions: list[str] = []
+    drifted_dimensions: list[str] = Field(default_factory=list)
     message: str = ""
     fired_at: float = Field(default_factory=time.time)
     acknowledged: bool = False

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 def _find_pr(
     action: PlannedAction,
     observation: Any,
-) -> Optional[PRSnapshot]:
+) -> PRSnapshot | None:
     """Find a PR in observations by number."""
     if not isinstance(observation, dict):
         return None
@@ -45,7 +45,7 @@ def _find_pr(
 def _find_issue(
     action: PlannedAction,
     observation: Any,
-) -> Optional[IssueSnapshot]:
+) -> IssueSnapshot | None:
     """Find an issue in observations by number."""
     if not isinstance(observation, dict):
         return None
@@ -68,13 +68,15 @@ class MergePRHandler:
         pr = _find_pr(action, observation)
         if not pr:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"PR #{action.target_number} not found in observations",
             )
 
         if not pr.is_dependabot:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error="Only Dependabot PRs can be auto-merged",
             )
 
@@ -95,29 +97,34 @@ class ApprovePRHandler:
         pr = _find_pr(action, observation)
         if not pr:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"PR #{action.target_number} not found in observations",
             )
 
         if self._dry_run:
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"DRY RUN: would approve PR #{pr.number}",
             )
 
         try:
             await self._client.create_pull_review(
-                action.repo, pr.number,
+                action.repo,
+                pr.number,
                 event="APPROVE",
                 body=action.reasoning or "Approved by Överblick agent.",
             )
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"Approved PR #{pr.number}: {pr.title}",
             )
         except Exception as e:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Failed to approve PR: {e}",
             )
 
@@ -133,30 +140,35 @@ class ReviewPRHandler:
         pr = _find_pr(action, observation)
         if not pr:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"PR #{action.target_number} not found in observations",
             )
 
         if self._dry_run:
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"DRY RUN: would review PR #{pr.number}",
             )
 
         try:
             body = action.reasoning or "Reviewed by Överblick agent."
             await self._client.create_pull_review(
-                action.repo, pr.number,
+                action.repo,
+                pr.number,
                 event="COMMENT",
                 body=body,
             )
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"Reviewed PR #{pr.number}: {pr.title}",
             )
         except Exception as e:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Failed to review PR: {e}",
             )
 
@@ -172,12 +184,15 @@ class RespondIssueHandler:
         issue = _find_issue(action, observation)
         if not issue:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Issue #{action.target_number} not found in observations",
             )
 
         return await self._issue_responder.handle_respond(
-            action, issue, default_branch=self._default_branch,
+            action,
+            issue,
+            default_branch=self._default_branch,
         )
 
 
@@ -189,16 +204,13 @@ class NotifyOwnerHandler:
         self._dry_run = dry_run
 
     async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
-        message = (
-            f"*GitHub Agent: {action.repo}*\n"
-            f"{action.target}\n\n"
-            f"_{action.reasoning}_"
-        )
+        message = f"*GitHub Agent: {action.repo}*\n" f"{action.target}\n\n" f"_{action.reasoning}_"
 
         if self._dry_run:
             logger.info("DRY RUN: would notify owner: %s", message[:200])
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"DRY RUN: would notify owner about {action.target}",
             )
 
@@ -206,17 +218,20 @@ class NotifyOwnerHandler:
             try:
                 await self._notify_fn(message)
                 return ActionOutcome(
-                    action=action, success=True,
+                    action=action,
+                    success=True,
                     result=f"Notified owner about {action.target}",
                 )
             except Exception as e:
                 return ActionOutcome(
-                    action=action, success=False,
+                    action=action,
+                    success=False,
                     error=f"Notification failed: {e}",
                 )
 
         return ActionOutcome(
-            action=action, success=False,
+            action=action,
+            success=False,
             error="No notification function available",
         )
 
@@ -231,28 +246,34 @@ class CommentPRHandler:
     async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
         if self._dry_run:
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"DRY RUN: would comment on PR #{action.target_number}",
             )
 
         body = action.params.get("body", action.reasoning or "")
         if not body:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error="No comment body provided",
             )
 
         try:
             await self._client.create_comment(
-                action.repo, action.target_number, body,
+                action.repo,
+                action.target_number,
+                body,
             )
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"Commented on PR #{action.target_number}",
             )
         except Exception as e:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Failed to comment: {e}",
             )
 
@@ -262,7 +283,8 @@ class RefreshContextHandler:
 
     async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
         return ActionOutcome(
-            action=action, success=True,
+            action=action,
+            success=True,
             result="Context refresh noted (handled by observation phase)",
         )
 
@@ -272,7 +294,8 @@ class SkipHandler:
 
     async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
         return ActionOutcome(
-            action=action, success=True,
+            action=action,
+            success=True,
             result=f"Skipped: {action.reasoning}",
         )
 

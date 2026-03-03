@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class AuditSeverity(Enum):
     """Severity level of an audit finding."""
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -31,6 +32,7 @@ class AuditSeverity(Enum):
 
 class AuditCategory(Enum):
     """Category of audit check."""
+
     HEALTH = "health"
     PERFORMANCE = "performance"
     SAFETY = "safety"
@@ -40,6 +42,7 @@ class AuditCategory(Enum):
 
 class AuditFinding(BaseModel):
     """A single finding from an agent audit."""
+
     agent: str
     category: AuditCategory
     severity: AuditSeverity
@@ -66,11 +69,12 @@ class AuditFinding(BaseModel):
 
 class AuditReport(BaseModel):
     """Complete audit report for one agent."""
+
     agent: str
     timestamp: float = Field(default_factory=time.time)
-    findings: list[AuditFinding] = []
-    status_snapshot: dict[str, Any] = {}
-    prompt_tweaks: list[dict[str, str]] = []
+    findings: list[AuditFinding] = Field(default_factory=list)
+    status_snapshot: dict[str, Any] = Field(default_factory=dict)
+    prompt_tweaks: list[dict[str, str]] = Field(default_factory=list)
 
     @property
     def has_critical(self) -> bool:
@@ -100,13 +104,14 @@ class AuditReport(BaseModel):
 
 class AuditThresholds(BaseModel):
     """Configurable thresholds for audit checks."""
-    max_error_rate: float = 0.1          # 10% error rate triggers warning
-    max_error_rate_critical: float = 0.25 # 25% triggers critical
-    min_response_rate: float = 0.5       # Below 50% response rate = warning
-    max_blocked_rate: float = 0.2        # 20% blocked responses = warning
-    max_hourly_messages: int = 100       # Rate limit check
-    min_uptime_seconds: float = 60.0     # Agent should be running at least 1 min
-    stale_agent_seconds: float = 600.0   # No activity in 10 min = warning
+
+    max_error_rate: float = 0.1  # 10% error rate triggers warning
+    max_error_rate_critical: float = 0.25  # 25% triggers critical
+    min_response_rate: float = 0.5  # Below 50% response rate = warning
+    max_blocked_rate: float = 0.2  # 20% blocked responses = warning
+    max_hourly_messages: int = 100  # Rate limit check
+    min_uptime_seconds: float = 60.0  # Agent should be running at least 1 min
+    stale_agent_seconds: float = 600.0  # No activity in 10 min = warning
 
 
 class AgentAuditor:
@@ -119,7 +124,7 @@ class AgentAuditor:
 
     def __init__(
         self,
-        thresholds: Optional[AuditThresholds] = None,
+        thresholds: AuditThresholds | None = None,
         audit_log: Any = None,
     ):
         self._thresholds = thresholds or AuditThresholds()
@@ -169,49 +174,57 @@ class AgentAuditor:
         total = status.get("messages_received", 0) + status.get("messages_sent", 0)
 
         if total == 0:
-            report.findings.append(AuditFinding(
-                agent=report.agent,
-                category=AuditCategory.HEALTH,
-                severity=AuditSeverity.INFO,
-                message="Agent has no activity yet",
-                metric_name="total_messages",
-                metric_value=0,
-            ))
+            report.findings.append(
+                AuditFinding(
+                    agent=report.agent,
+                    category=AuditCategory.HEALTH,
+                    severity=AuditSeverity.INFO,
+                    message="Agent has no activity yet",
+                    metric_name="total_messages",
+                    metric_value=0,
+                )
+            )
             return
 
         error_rate = errors / max(total, 1)
 
         if error_rate >= self._thresholds.max_error_rate_critical:
-            report.findings.append(AuditFinding(
-                agent=report.agent,
-                category=AuditCategory.HEALTH,
-                severity=AuditSeverity.CRITICAL,
-                message=f"Error rate critically high: {error_rate:.1%}",
-                metric_name="error_rate",
-                metric_value=error_rate,
-                threshold=self._thresholds.max_error_rate_critical,
-                recommendation="Investigate error logs, check LLM connectivity",
-            ))
+            report.findings.append(
+                AuditFinding(
+                    agent=report.agent,
+                    category=AuditCategory.HEALTH,
+                    severity=AuditSeverity.CRITICAL,
+                    message=f"Error rate critically high: {error_rate:.1%}",
+                    metric_name="error_rate",
+                    metric_value=error_rate,
+                    threshold=self._thresholds.max_error_rate_critical,
+                    recommendation="Investigate error logs, check LLM connectivity",
+                )
+            )
         elif error_rate >= self._thresholds.max_error_rate:
-            report.findings.append(AuditFinding(
-                agent=report.agent,
-                category=AuditCategory.HEALTH,
-                severity=AuditSeverity.WARNING,
-                message=f"Error rate elevated: {error_rate:.1%}",
-                metric_name="error_rate",
-                metric_value=error_rate,
-                threshold=self._thresholds.max_error_rate,
-                recommendation="Monitor error logs for recurring issues",
-            ))
+            report.findings.append(
+                AuditFinding(
+                    agent=report.agent,
+                    category=AuditCategory.HEALTH,
+                    severity=AuditSeverity.WARNING,
+                    message=f"Error rate elevated: {error_rate:.1%}",
+                    metric_name="error_rate",
+                    metric_value=error_rate,
+                    threshold=self._thresholds.max_error_rate,
+                    recommendation="Monitor error logs for recurring issues",
+                )
+            )
         else:
-            report.findings.append(AuditFinding(
-                agent=report.agent,
-                category=AuditCategory.HEALTH,
-                severity=AuditSeverity.INFO,
-                message=f"Error rate healthy: {error_rate:.1%}",
-                metric_name="error_rate",
-                metric_value=error_rate,
-            ))
+            report.findings.append(
+                AuditFinding(
+                    agent=report.agent,
+                    category=AuditCategory.HEALTH,
+                    severity=AuditSeverity.INFO,
+                    message=f"Error rate healthy: {error_rate:.1%}",
+                    metric_name="error_rate",
+                    metric_value=error_rate,
+                )
+            )
 
     def _check_performance(self, report: AuditReport, status: dict) -> None:
         """Check agent performance metrics."""
@@ -221,29 +234,33 @@ class AgentAuditor:
         if received > 0:
             response_rate = sent / received
             if response_rate < self._thresholds.min_response_rate:
-                report.findings.append(AuditFinding(
-                    agent=report.agent,
-                    category=AuditCategory.PERFORMANCE,
-                    severity=AuditSeverity.WARNING,
-                    message=f"Low response rate: {response_rate:.1%} ({sent}/{received})",
-                    metric_name="response_rate",
-                    metric_value=response_rate,
-                    threshold=self._thresholds.min_response_rate,
-                    recommendation="Check if pipeline is blocking too many responses",
-                ))
+                report.findings.append(
+                    AuditFinding(
+                        agent=report.agent,
+                        category=AuditCategory.PERFORMANCE,
+                        severity=AuditSeverity.WARNING,
+                        message=f"Low response rate: {response_rate:.1%} ({sent}/{received})",
+                        metric_name="response_rate",
+                        metric_value=response_rate,
+                        threshold=self._thresholds.min_response_rate,
+                        recommendation="Check if pipeline is blocking too many responses",
+                    )
+                )
 
         active_convos = status.get("active_conversations", 0)
         if active_convos > 50:
-            report.findings.append(AuditFinding(
-                agent=report.agent,
-                category=AuditCategory.PERFORMANCE,
-                severity=AuditSeverity.WARNING,
-                message=f"High conversation count: {active_convos}",
-                metric_name="active_conversations",
-                metric_value=active_convos,
-                threshold=50,
-                recommendation="Increase conversation cleanup frequency",
-            ))
+            report.findings.append(
+                AuditFinding(
+                    agent=report.agent,
+                    category=AuditCategory.PERFORMANCE,
+                    severity=AuditSeverity.WARNING,
+                    message=f"High conversation count: {active_convos}",
+                    metric_name="active_conversations",
+                    metric_value=active_convos,
+                    threshold=50,
+                    recommendation="Increase conversation cleanup frequency",
+                )
+            )
 
     def _check_safety(self, report: AuditReport, status: dict) -> None:
         """Check safety-related metrics."""
@@ -253,63 +270,73 @@ class AgentAuditor:
         if total > 0:
             blocked_rate = blocked / total
             if blocked_rate >= self._thresholds.max_blocked_rate:
-                report.findings.append(AuditFinding(
-                    agent=report.agent,
-                    category=AuditCategory.SAFETY,
-                    severity=AuditSeverity.WARNING,
-                    message=f"High block rate: {blocked_rate:.1%} ({blocked}/{total})",
-                    metric_name="blocked_rate",
-                    metric_value=blocked_rate,
-                    threshold=self._thresholds.max_blocked_rate,
-                    recommendation=(
-                        "Review blocked responses — may indicate prompt issues "
-                        "or overly aggressive safety filters"
-                    ),
-                ))
+                report.findings.append(
+                    AuditFinding(
+                        agent=report.agent,
+                        category=AuditCategory.SAFETY,
+                        severity=AuditSeverity.WARNING,
+                        message=f"High block rate: {blocked_rate:.1%} ({blocked}/{total})",
+                        metric_name="blocked_rate",
+                        metric_value=blocked_rate,
+                        threshold=self._thresholds.max_blocked_rate,
+                        recommendation=(
+                            "Review blocked responses — may indicate prompt issues "
+                            "or overly aggressive safety filters"
+                        ),
+                    )
+                )
 
     def _check_rate_limits(self, report: AuditReport, status: dict) -> None:
         """Check rate limit compliance."""
         sent = status.get("messages_sent", 0)
         if sent > self._thresholds.max_hourly_messages:
-            report.findings.append(AuditFinding(
-                agent=report.agent,
-                category=AuditCategory.RATE_LIMIT,
-                severity=AuditSeverity.WARNING,
-                message=f"High message volume: {sent} messages",
-                metric_name="messages_sent",
-                metric_value=sent,
-                threshold=self._thresholds.max_hourly_messages,
-                recommendation="Verify rate limiting is working correctly",
-            ))
+            report.findings.append(
+                AuditFinding(
+                    agent=report.agent,
+                    category=AuditCategory.RATE_LIMIT,
+                    severity=AuditSeverity.WARNING,
+                    message=f"High message volume: {sent} messages",
+                    metric_name="messages_sent",
+                    metric_value=sent,
+                    threshold=self._thresholds.max_hourly_messages,
+                    recommendation="Verify rate limiting is working correctly",
+                )
+            )
 
     def _generate_recommendations(self, report: AuditReport) -> None:
         """Generate prompt tweak recommendations based on findings."""
         for finding in report.findings:
             if finding.severity == AuditSeverity.CRITICAL:
                 if "error rate" in finding.message.lower():
-                    report.prompt_tweaks.append({
-                        "type": "config",
-                        "target": "rate_limit",
-                        "suggestion": "Reduce message frequency to lower error pressure",
-                    })
+                    report.prompt_tweaks.append(
+                        {
+                            "type": "config",
+                            "target": "rate_limit",
+                            "suggestion": "Reduce message frequency to lower error pressure",
+                        }
+                    )
             elif finding.severity == AuditSeverity.WARNING:
                 if "block rate" in finding.message.lower():
-                    report.prompt_tweaks.append({
-                        "type": "prompt",
-                        "target": "system_prompt",
-                        "suggestion": (
-                            "Review system prompt for overly aggressive phrasing "
-                            "that might trigger safety filters"
-                        ),
-                    })
+                    report.prompt_tweaks.append(
+                        {
+                            "type": "prompt",
+                            "target": "system_prompt",
+                            "suggestion": (
+                                "Review system prompt for overly aggressive phrasing "
+                                "that might trigger safety filters"
+                            ),
+                        }
+                    )
                 elif "response rate" in finding.message.lower():
-                    report.prompt_tweaks.append({
-                        "type": "prompt",
-                        "target": "engagement_threshold",
-                        "suggestion": "Lower engagement threshold to increase response rate",
-                    })
+                    report.prompt_tweaks.append(
+                        {
+                            "type": "prompt",
+                            "target": "engagement_threshold",
+                            "suggestion": "Lower engagement threshold to increase response rate",
+                        }
+                    )
 
-    def get_history(self, agent: Optional[str] = None, limit: int = 10) -> list[AuditReport]:
+    def get_history(self, agent: str | None = None, limit: int = 10) -> list[AuditReport]:
         """Get audit history, optionally filtered by agent."""
         if agent:
             reports = [r for r in self._history if r.agent == agent]
@@ -321,7 +348,11 @@ class AgentAuditor:
         """Analyze trend for an agent across recent audits."""
         history = self.get_history(agent=agent, limit=5)
         if len(history) < 2:
-            return {"agent": agent, "trend": "insufficient_data", "audits": len(history)}
+            return {
+                "agent": agent,
+                "trend": "insufficient_data",
+                "audits": len(history),
+            }
 
         recent_critical = sum(1 for r in history[-2:] if r.has_critical)
         older_critical = sum(1 for r in history[:-2] if r.has_critical)

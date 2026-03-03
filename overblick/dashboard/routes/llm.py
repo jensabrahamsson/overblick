@@ -36,17 +36,20 @@ async def llm_page(request: Request):
     total_duration = sum(e.get("duration_ms", 0) or 0 for e in entries)
     avg_duration = total_duration / total_calls if total_calls > 0 else 0
 
-    return templates.TemplateResponse("llm.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "entries": entries,
-        "identities": identity_svc.list_identities(),
-        "selected_identity": identity,
-        "selected_hours": hours,
-        "total_calls": total_calls,
-        "total_duration": total_duration,
-        "avg_duration": avg_duration,
-    })
+    return templates.TemplateResponse(
+        "llm.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "entries": entries,
+            "identities": identity_svc.list_identities(),
+            "selected_identity": identity,
+            "selected_hours": hours,
+            "total_calls": total_calls,
+            "total_duration": total_duration,
+            "avg_duration": avg_duration,
+        },
+    )
 
 
 @router.get("/partials/llm-table", response_class=HTMLResponse)
@@ -72,10 +75,13 @@ async def llm_table_partial(request: Request):
     total_duration = sum(e.get("duration_ms", 0) or 0 for e in entries)
     avg_duration = total_duration / total_calls if total_calls > 0 else 0
 
-    return templates.TemplateResponse("partials/llm_table.html", {
-        "request": request,
-        "entries": entries,
-        "total_calls": total_calls,
-        "total_duration": total_duration,
-        "avg_duration": avg_duration,
-    })
+    return templates.TemplateResponse(
+        "partials/llm_table.html",
+        {
+            "request": request,
+            "entries": entries,
+            "total_calls": total_calls,
+            "total_duration": total_duration,
+            "avg_duration": avg_duration,
+        },
+    )

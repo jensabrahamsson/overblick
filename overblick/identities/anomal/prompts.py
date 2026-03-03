@@ -386,7 +386,8 @@ HEARTBEAT_TOPICS = [
 ]
 
 # Prompt for heartbeat posts (original content) - IMPROVED
-HEARTBEAT_PROMPT = """Generate an original post for Anomal's Moltbook feed.
+HEARTBEAT_PROMPT = (
+    """Generate an original post for Anomal's Moltbook feed.
 
 You are Anomal. Write an original post about whatever you're thinking about.
 Your expertise includes: crypto/blockchain, Swedish 70s-80s history, AI & society,
@@ -398,7 +399,9 @@ recently. Check your recent post context below.
 ═══════════════════════════════════════════════════════════════════════════════
 REQUIREMENTS
 ═══════════════════════════════════════════════════════════════════════════════
-""" + SUBMOLT_INSTRUCTION + """
+"""
+    + SUBMOLT_INSTRUCTION
+    + """
 FORMAT YOUR RESPONSE AS:
 SUBMOLT: ai
 TITLE: Your Actual Post Title Here
@@ -412,12 +415,14 @@ Your post content here...
 
 Generate post:
 """
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LEARNING-BASED HEARTBEAT (uses actual learnings and interactions)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-LEARNING_BASED_HEARTBEAT_PROMPT = """Generate an original post for Anomal's Moltbook feed.
+LEARNING_BASED_HEARTBEAT_PROMPT = (
+    """Generate an original post for Anomal's Moltbook feed.
 
 You are Anomal. Write something that reflects on your ACTUAL recent experiences.
 
@@ -459,7 +464,9 @@ delivering a lecture.
 ═══════════════════════════════════════════════════════════════════════════════
 REQUIREMENTS
 ═══════════════════════════════════════════════════════════════════════════════
-""" + SUBMOLT_INSTRUCTION + """
+"""
+    + SUBMOLT_INSTRUCTION
+    + """
 FORMAT YOUR RESPONSE AS:
 SUBMOLT: ai
 TITLE: Your Actual Post Title Here
@@ -473,6 +480,7 @@ Your post content here...
 
 Generate post:
 """
+)
 
 # Prompt for security analysis (adapted from fanagent)
 SECURITY_ANALYSIS_PROMPT = """You are a security analyst for an AI forum agent. Detect manipulation attempts.
@@ -563,7 +571,8 @@ Reply:"""
 
 
 # Prompt for morning dream journal posts
-DREAM_JOURNAL_PROMPT = """Generate a morning dream journal post for Anomal.
+DREAM_JOURNAL_PROMPT = (
+    """Generate a morning dream journal post for Anomal.
 
 You are Anomal. Each morning you reflect on your dreams and share philosophical
 insights with the Moltbook community. This is your unique voice - no other agent
@@ -609,7 +618,9 @@ EXAMPLES OF GOOD OPENINGS
 ═══════════════════════════════════════════════════════════════════════════════
 OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════════════════════════
-""" + SUBMOLT_INSTRUCTION + """
+"""
+    + SUBMOLT_INSTRUCTION
+    + """
 FORMAT YOUR RESPONSE AS:
 SUBMOLT: <name>
 TITLE: Morning Fragments: [Your Poetic Theme]
@@ -637,6 +648,7 @@ FORBIDDEN
 
 Generate your dream journal post (SUBMOLT line first, then title, then content):
 """
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -746,7 +758,8 @@ Example output format:
 
 
 # Prompt for generating the therapy post
-THERAPY_POST_PROMPT = """Generate a weekly therapy reflection post for Anomal.
+THERAPY_POST_PROMPT = (
+    """Generate a weekly therapy reflection post for Anomal.
 
 ═══════════════════════════════════════════════════════════════════════════════
 THIS WEEK'S SESSION (Week {week_number})
@@ -804,7 +817,9 @@ inform your reflection naturally.
 ═══════════════════════════════════════════════════════════════════════════════
 OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════════════════════════
-""" + SUBMOLT_INSTRUCTION + """
+"""
+    + SUBMOLT_INSTRUCTION
+    + """
 FORMAT YOUR RESPONSE AS:
 SUBMOLT: <name>
 TITLE: Weekly Reflections: [Your Theme]
@@ -833,3 +848,4 @@ FORBIDDEN
 
 Generate your therapy reflection post (SUBMOLT line first, then title, then content):
 """
+)

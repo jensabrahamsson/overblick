@@ -75,18 +75,21 @@ async def irc_page(request: Request):
         for name in selected.get("participants", []):
             color_map[name] = _identity_color(name)
 
-    return templates.TemplateResponse("irc.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "conversations": conversations,
-        "selected": selected,
-        "selected_id": selected_id,
-        "current_id": current.get("id", "") if current else "",
-        "color_map": color_map,
-        "identity_color": _identity_color,
-        # Also pass as 'conversation' for the feed partial include
-        "conversation": selected,
-    })
+    return templates.TemplateResponse(
+        "irc.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "conversations": conversations,
+            "selected": selected,
+            "selected_id": selected_id,
+            "current_id": current.get("id", "") if current else "",
+            "color_map": color_map,
+            "identity_color": _identity_color,
+            # Also pass as 'conversation' for the feed partial include
+            "conversation": selected,
+        },
+    )
 
 
 @router.get("/irc/feed", response_class=HTMLResponse)
@@ -109,8 +112,11 @@ async def irc_feed_partial(request: Request):
         for name in conversation.get("participants", []):
             color_map[name] = _identity_color(name)
 
-    return templates.TemplateResponse("partials/irc_feed.html", {
-        "request": request,
-        "conversation": conversation,
-        "color_map": color_map,
-    })
+    return templates.TemplateResponse(
+        "partials/irc_feed.html",
+        {
+            "request": request,
+            "conversation": conversation,
+            "color_map": color_map,
+        },
+    )

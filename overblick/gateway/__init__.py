@@ -9,13 +9,13 @@ Runs as a standalone FastAPI server on port 8200 (configurable).
 
 __version__ = "0.1.0"
 
-from .models import Priority, ChatMessage, ChatRequest, ChatResponse
 from .config import GatewayConfig
+from .models import ChatMessage, ChatRequest, ChatResponse, Priority
 
 __all__ = [
-    "Priority",
     "ChatMessage",
     "ChatRequest",
     "ChatResponse",
     "GatewayConfig",
+    "Priority",
 ]

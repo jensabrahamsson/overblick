@@ -14,12 +14,12 @@ emotional state variant:
 import logging
 from typing import Optional, Union
 
-from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.capabilities.psychology.emotional_state import (
-    EmotionalState,
     AnomalEmotionalState,
     CherryEmotionalState,
+    EmotionalState,
 )
+from overblick.core.capability import CapabilityBase, CapabilityContext
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class EmotionalCapability(CapabilityBase):
 
     def __init__(self, ctx: CapabilityContext):
         super().__init__(ctx)
-        self._state: Optional[_AnyState] = None
+        self._state: _AnyState | None = None
 
     async def setup(self) -> None:
         """Initialize config-driven emotional state."""
@@ -55,7 +55,8 @@ class EmotionalCapability(CapabilityBase):
         self._state = cls()
         logger.info(
             "EmotionalCapability initialized for %s (%s)",
-            self.ctx.identity_name, label,
+            self.ctx.identity_name,
+            label,
         )
 
     async def tick(self) -> None:
@@ -96,6 +97,6 @@ class EmotionalCapability(CapabilityBase):
             self._state.record_negative(topic) if topic else self._state.record_negative()
 
     @property
-    def inner(self) -> Optional[_AnyState]:
+    def inner(self) -> _AnyState | None:
         """Access the underlying state (for tests)."""
         return self._state

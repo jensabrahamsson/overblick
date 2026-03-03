@@ -98,7 +98,9 @@ class WorkspaceManager:
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
         ok, output = await self._run_git(
-            "clone", self._repo_url, str(self._path),
+            "clone",
+            self._repo_url,
+            str(self._path),
             cwd=self._path.parent,
         )
         if not ok:
@@ -239,7 +241,7 @@ class WorkspaceManager:
     async def _run_git(
         self,
         *args: str,
-        cwd: Optional[Path] = None,
+        cwd: Path | None = None,
         timeout: int = _GIT_TIMEOUT,
     ) -> tuple[bool, str]:
         """
@@ -247,7 +249,7 @@ class WorkspaceManager:
 
         Returns (success, output) tuple.
         """
-        cmd = ["git"] + list(args)
+        cmd = ["git", *list(args)]
         work_dir = cwd or self._path
         proc = None
 
@@ -267,7 +269,7 @@ class WorkspaceManager:
 
             return success, output
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("git %s timed out after %ds", args[0], timeout)
             if proc:
                 proc.kill()

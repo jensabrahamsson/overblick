@@ -24,9 +24,10 @@ logger = logging.getLogger(__name__)
 
 class TelegramUpdate(BaseModel):
     """A message received from Telegram."""
+
     message_id: int
     text: str
-    reply_to_message_id: Optional[int] = None
+    reply_to_message_id: int | None = None
     timestamp: str = ""
 
 
@@ -48,13 +49,13 @@ class TelegramNotifier:
 
     def __init__(self, ctx):
         self.ctx = ctx
-        self._bot_token: Optional[str] = None
-        self._chat_id: Optional[str] = None
-        self._owner_id: Optional[str] = None
-        self._base_url: Optional[str] = None
+        self._bot_token: str | None = None
+        self._chat_id: str | None = None
+        self._owner_id: str | None = None
+        self._base_url: str | None = None
         self._update_offset: int = 0
-        self._bot_id: Optional[int] = None
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._bot_id: int | None = None
+        self._session: aiohttp.ClientSession | None = None
 
     async def setup(self) -> None:
         """Load Telegram credentials from secrets."""
@@ -136,14 +137,18 @@ class TelegramNotifier:
 
         try:
             session = await self._ensure_session()
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with session.post(
+                url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
                 if resp.status == 200:
                     logger.info("Telegram notification sent to chat %s", self._chat_id)
                     return True
                 else:
                     body = await resp.text()
                     logger.error(
-                        "Telegram API error %d: %s", resp.status, body[:200],
+                        "Telegram API error %d: %s",
+                        resp.status,
+                        body[:200],
                     )
                     return False
         except aiohttp.ClientError as e:
@@ -151,8 +156,10 @@ class TelegramNotifier:
             return False
 
     async def send_notification_tracked(
-        self, message: str, ref_id: str = "",
-    ) -> Optional[int]:
+        self,
+        message: str,
+        ref_id: str = "",
+    ) -> int | None:
         """
         Send a notification and return the Telegram message_id for tracking.
 
@@ -176,19 +183,24 @@ class TelegramNotifier:
 
         try:
             session = await self._ensure_session()
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with session.post(
+                url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     tg_message_id = data.get("result", {}).get("message_id")
                     logger.info(
                         "Tracked notification sent (tg_msg=%s, ref=%s)",
-                        tg_message_id, ref_id,
+                        tg_message_id,
+                        ref_id,
                     )
                     return tg_message_id
                 else:
                     body = await resp.text()
                     logger.error(
-                        "Telegram API error %d: %s", resp.status, body[:200],
+                        "Telegram API error %d: %s",
+                        resp.status,
+                        body[:200],
                     )
                     return None
         except aiohttp.ClientError as e:
@@ -239,7 +251,8 @@ class TelegramNotifier:
                     update_id = update.get("update_id", 0)
                     # Always advance offset past this update
                     self._update_offset = max(
-                        self._update_offset, update_id + 1,
+                        self._update_offset,
+                        update_id + 1,
                     )
 
                     msg = update.get("message", {})
@@ -269,12 +282,14 @@ class TelegramNotifier:
                     reply_to = msg.get("reply_to_message", {})
                     reply_to_id = reply_to.get("message_id") if reply_to else None
 
-                    updates.append(TelegramUpdate(
-                        message_id=msg.get("message_id", 0),
-                        text=text,
-                        reply_to_message_id=reply_to_id,
-                        timestamp=str(msg.get("date", "")),
-                    ))
+                    updates.append(
+                        TelegramUpdate(
+                            message_id=msg.get("message_id", 0),
+                            text=text,
+                            reply_to_message_id=reply_to_id,
+                            timestamp=str(msg.get("date", "")),
+                        )
+                    )
 
                 return updates
 
@@ -315,7 +330,9 @@ class TelegramNotifier:
 
         try:
             session = await self._ensure_session()
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with session.post(
+                url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
                 return resp.status == 200
         except aiohttp.ClientError as e:
             logger.error("Telegram HTML notification failed: %s", e, exc_info=True)

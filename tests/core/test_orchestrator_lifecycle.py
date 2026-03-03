@@ -121,9 +121,7 @@ class TestSetupInitializesCapabilities:
             patch("overblick.core.orchestrator.SQLiteBackend") as mock_db_cls,
             patch("overblick.core.orchestrator.EngagementDB") as mock_eng_cls,
             patch.object(orch, "_create_llm_client", new_callable=AsyncMock),
-            patch.object(
-                orch, "_setup_capabilities", new_callable=AsyncMock
-            ) as mock_cap,
+            patch.object(orch, "_setup_capabilities", new_callable=AsyncMock) as mock_cap,
             patch.object(orch, "_create_ipc_client", return_value=None),
         ):
             mock_audit = MagicMock()

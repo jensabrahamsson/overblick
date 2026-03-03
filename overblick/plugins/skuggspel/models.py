@@ -10,7 +10,7 @@ class ShadowProfile(BaseModel):
 
     identity_name: str
     shadow_description: str
-    inverted_traits: dict[str, str] = {}
+    inverted_traits: dict[str, str] = Field(default_factory=dict)
     shadow_voice: str = ""
     framework: str = ""
 

@@ -28,8 +28,12 @@ class TestEnglishScenarios:
 
         # Configure LLM to return REPLY classification then English reply
         responses = [
-            PipelineResult(content='{"intent": "reply", "confidence": 0.95, "reasoning": "Meeting request from colleague", "priority": "normal"}'),
-            PipelineResult(content="Dear colleague,\n\nThank you for reaching out. I will check the calendar for Tuesday and come back to you with available time slots.\n\nBest regards,\nJens"),
+            PipelineResult(
+                content='{"intent": "reply", "confidence": 0.95, "reasoning": "Meeting request from colleague", "priority": "normal"}'
+            ),
+            PipelineResult(
+                content="Dear colleague,\n\nThank you for reaching out. I will check the calendar for Tuesday and come back to you with available time slots.\n\nBest regards,\nJens"
+            ),
         ]
         stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)
 
@@ -56,9 +60,11 @@ class TestEnglishScenarios:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"intent": "ignore", "confidence": 0.98, "reasoning": "Marketing newsletter", "priority": "low"}'
-        ))
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"intent": "ignore", "confidence": 0.98, "reasoning": "Marketing newsletter", "priority": "low"}'
+            )
+        )
 
         email = make_email(
             sender="test@example.com",
@@ -87,8 +93,12 @@ class TestSwedishScenarios:
         await plugin.setup()
 
         responses = [
-            PipelineResult(content='{"intent": "reply", "confidence": 0.92, "reasoning": "Project status request from colleague", "priority": "normal"}'),
-            PipelineResult(content="Hej,\n\nTack for ditt meddelande. Jag aterkommer med en statusuppdatering om Volvo-projektet senast fredag.\n\nMed vanlig halsning,\nJens"),
+            PipelineResult(
+                content='{"intent": "reply", "confidence": 0.92, "reasoning": "Project status request from colleague", "priority": "normal"}'
+            ),
+            PipelineResult(
+                content="Hej,\n\nTack for ditt meddelande. Jag aterkommer med en statusuppdatering om Volvo-projektet senast fredag.\n\nMed vanlig halsning,\nJens"
+            ),
         ]
         stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)
 
@@ -118,8 +128,12 @@ class TestGermanScenarios:
         await plugin.setup()
 
         responses = [
-            PipelineResult(content='{"intent": "notify", "confidence": 0.88, "reasoning": "Financial question about invoice — needs Jens review", "priority": "high"}'),
-            PipelineResult(content="Invoice question from buchhaltung@acme-motors.com about Rechnung Nr. 2024-0847. Financial matter requiring your review."),
+            PipelineResult(
+                content='{"intent": "notify", "confidence": 0.88, "reasoning": "Financial question about invoice — needs Jens review", "priority": "high"}'
+            ),
+            PipelineResult(
+                content="Invoice question from buchhaltung@acme-motors.com about Rechnung Nr. 2024-0847. Financial matter requiring your review."
+            ),
         ]
         stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)
 
@@ -149,8 +163,12 @@ class TestFrenchScenarios:
         await plugin.setup()
 
         responses = [
-            PipelineResult(content='{"intent": "reply", "confidence": 0.90, "reasoning": "Partnership inquiry — professional response needed", "priority": "normal"}'),
-            PipelineResult(content="Bonjour,\n\nJe vous remercie pour votre message. La proposition de partenariat est tres interessante. Je reviens vers vous dans les plus brefs delais.\n\nCordialement,\nJens Abrahamsson"),
+            PipelineResult(
+                content='{"intent": "reply", "confidence": 0.90, "reasoning": "Partnership inquiry — professional response needed", "priority": "normal"}'
+            ),
+            PipelineResult(
+                content="Bonjour,\n\nJe vous remercie pour votre message. La proposition de partenariat est tres interessante. Je reviens vers vous dans les plus brefs delais.\n\nCordialement,\nJens Abrahamsson"
+            ),
         ]
         stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)
 
@@ -181,8 +199,12 @@ class TestUncertainScenarios:
         # First call: classification with LOW confidence (below 0.7 threshold)
         # Second call: question generation for boss
         responses = [
-            PipelineResult(content='{"intent": "reply", "confidence": 0.45, "reasoning": "Ambiguous — could be important or spam", "priority": "normal"}'),
-            PipelineResult(content="I'm uncertain about this email regarding restructuring. Should I reply or just notify Jens?"),
+            PipelineResult(
+                content='{"intent": "reply", "confidence": 0.45, "reasoning": "Ambiguous — could be important or spam", "priority": "normal"}'
+            ),
+            PipelineResult(
+                content="I'm uncertain about this email regarding restructuring. Should I reply or just notify Jens?"
+            ),
         ]
         stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)
 
@@ -208,9 +230,11 @@ class TestUncertainScenarios:
         plugin = EmailAgentPlugin(stal_context_no_ipc)
         await plugin.setup()
 
-        stal_context_no_ipc.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"intent": "reply", "confidence": 0.3, "reasoning": "Very uncertain", "priority": "normal"}'
-        ))
+        stal_context_no_ipc.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"intent": "reply", "confidence": 0.3, "reasoning": "Very uncertain", "priority": "normal"}'
+            )
+        )
 
         email = make_email(
             sender="test@example.com",
@@ -247,7 +271,9 @@ class TestNotifyAllSenders:
 
     @pytest.mark.asyncio
     async def test_unknown_sender_notify_works(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """Emails from unknown senders classified as NOTIFY still get sent."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -255,7 +281,9 @@ class TestNotifyAllSenders:
 
         # LLM: classify as NOTIFY, then generate notification
         responses = [
-            PipelineResult(content='{"intent": "notify", "confidence": 0.85, "reasoning": "Important financial info", "priority": "high"}'),
+            PipelineResult(
+                content='{"intent": "notify", "confidence": 0.85, "reasoning": "Important financial info", "priority": "high"}'
+            ),
             PipelineResult(content="Important financial update from unknown sender."),
         ]
         stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)
@@ -276,7 +304,9 @@ class TestNotifyAllSenders:
 
     @pytest.mark.asyncio
     async def test_unknown_sender_reply_falls_back_to_notify(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """Emails from unknown senders classified as REPLY fall back to NOTIFY."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -284,7 +314,9 @@ class TestNotifyAllSenders:
 
         # LLM: classify as REPLY (but sender not allowed), then notification fallback
         responses = [
-            PipelineResult(content='{"intent": "reply", "confidence": 0.9, "reasoning": "Meeting request", "priority": "normal"}'),
+            PipelineResult(
+                content='{"intent": "reply", "confidence": 0.9, "reasoning": "Meeting request", "priority": "normal"}'
+            ),
             PipelineResult(content="Meeting request from unknown sender — please review."),
         ]
         stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=responses)

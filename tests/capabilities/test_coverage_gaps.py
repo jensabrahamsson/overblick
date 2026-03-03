@@ -7,6 +7,7 @@ Focus areas (ordered by coverage gap size):
   - psychology/therapy_system.py (78% → targeting 90%+)
   - knowledge/loader.py          (81% → targeting 95%+)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,9 +20,11 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_ctx(**overrides):
     """Minimal CapabilityContext."""
     from overblick.core.capability import CapabilityContext
+
     defaults = {
         "identity_name": "test",
         "data_dir": Path("/tmp/test"),
@@ -35,6 +38,7 @@ def make_ctx(**overrides):
 # ===========================================================================
 # monitoring/inspector.py
 # ===========================================================================
+
 
 class TestRunCommandEdgeCases:
     """Test _run_command exception branches."""
@@ -100,10 +104,15 @@ class TestInspectorExceptionPaths:
         async def _raising_collector():
             raise RuntimeError("collector failed")
 
-        with patch.object(inspector, "_collect_memory", side_effect=RuntimeError("mem fail")), \
-             patch.object(inspector, "_collect_uptime", new_callable=AsyncMock, return_value="1 day"), \
-             patch.object(inspector, "_collect_cpu", new_callable=AsyncMock) as mock_cpu:
+        with (
+            patch.object(inspector, "_collect_memory", side_effect=RuntimeError("mem fail")),
+            patch.object(
+                inspector, "_collect_uptime", new_callable=AsyncMock, return_value="1 day"
+            ),
+            patch.object(inspector, "_collect_cpu", new_callable=AsyncMock) as mock_cpu,
+        ):
             from overblick.capabilities.monitoring.models import CPUInfo
+
             mock_cpu.return_value = CPUInfo(load_1m=0.5, core_count=4)
 
             health = await inspector.inspect()
@@ -136,8 +145,9 @@ class TestLinuxMemoryCollection:
                 return proc_meminfo
             return ""
 
-        with patch("overblick.capabilities.monitoring.inspector._run_command",
-                   side_effect=_mock_cmd):
+        with patch(
+            "overblick.capabilities.monitoring.inspector._run_command", side_effect=_mock_cmd
+        ):
             mem = await inspector._collect_memory_linux()
 
             assert mem.total_mb == pytest.approx(16384.0, rel=0.01)
@@ -164,8 +174,9 @@ class TestLinuxMemoryCollection:
                 return free_output
             return ""
 
-        with patch("overblick.capabilities.monitoring.inspector._run_command",
-                   side_effect=_mock_cmd):
+        with patch(
+            "overblick.capabilities.monitoring.inspector._run_command", side_effect=_mock_cmd
+        ):
             mem = await inspector._collect_memory_linux()
             assert mem.total_mb == 8192.0
             assert mem.used_mb == 4000.0
@@ -179,8 +190,11 @@ class TestLinuxMemoryCollection:
         inspector = HostInspectionCapability()
         inspector._platform = "linux"
 
-        with patch("overblick.capabilities.monitoring.inspector._run_command",
-                   new_callable=AsyncMock, return_value=""):
+        with patch(
+            "overblick.capabilities.monitoring.inspector._run_command",
+            new_callable=AsyncMock,
+            return_value="",
+        ):
             mem = await inspector._collect_memory_linux()
             assert isinstance(mem, MemoryInfo)
             assert mem.total_mb == 0
@@ -191,17 +205,20 @@ class TestInspectorParsing:
 
     def test_parse_size_to_gb_terabyte(self):
         from overblick.capabilities.monitoring.inspector import HostInspectionCapability
+
         inspector = HostInspectionCapability()
         assert inspector._parse_size_to_gb("2T") == 2048.0
 
     def test_parse_size_to_gb_mebibyte(self):
         from overblick.capabilities.monitoring.inspector import HostInspectionCapability
+
         inspector = HostInspectionCapability()
         result = inspector._parse_size_to_gb("1024M")
         assert abs(result - 1.0) < 0.01
 
     def test_parse_size_to_gb_bytes_no_suffix(self):
         from overblick.capabilities.monitoring.inspector import HostInspectionCapability
+
         inspector = HostInspectionCapability()
         result = inspector._parse_size_to_gb("1073741824")  # 1 GB in bytes
         assert abs(result - 1.0) < 0.01
@@ -217,8 +234,9 @@ class TestInspectorParsing:
             # Format without "users" — triggers fallback regex
             return "10:00  up 3 days, load averages: 1.20 1.10 1.00"
 
-        with patch("overblick.capabilities.monitoring.inspector._run_command",
-                   side_effect=_mock_cmd):
+        with patch(
+            "overblick.capabilities.monitoring.inspector._run_command", side_effect=_mock_cmd
+        ):
             uptime = await inspector._collect_uptime()
             assert "3 days" in uptime or uptime  # should return something non-empty
 
@@ -226,6 +244,7 @@ class TestInspectorParsing:
 # ===========================================================================
 # psychology/therapy_system.py
 # ===========================================================================
+
 
 class TestTherapySystemBranches:
     """Tests for therapy system code paths not covered by wrapper tests."""
@@ -276,9 +295,11 @@ class TestTherapySystemBranches:
         from overblick.capabilities.psychology.therapy_system import TherapySystem
 
         mock_llm = AsyncMock()
-        mock_llm.chat = AsyncMock(return_value={
-            "content": "Reflections on Darkness\n\nThis week I walked through shadows..."
-        })
+        mock_llm.chat = AsyncMock(
+            return_value={
+                "content": "Reflections on Darkness\n\nThis week I walked through shadows..."
+            }
+        )
 
         ts = TherapySystem(llm_client=mock_llm, system_prompt="Therapist prompt.")
         dreams = [{"dream_type": "anima", "content": "A figure appeared in mist"}]
@@ -360,7 +381,9 @@ class TestTherapySystemBranches:
         from overblick.capabilities.psychology.therapy_system import TherapySystem
 
         ts = TherapySystem(llm_client=None)
-        result = await ts._synthesize([], [], [], "template: {dream_themes} {learning_count} {dream_count}")
+        result = await ts._synthesize(
+            [], [], [], "template: {dream_themes} {learning_count} {dream_count}"
+        )
         assert result == []
 
     @pytest.mark.asyncio
@@ -373,7 +396,9 @@ class TestTherapySystemBranches:
         ts = TherapySystem(llm_client=mock_llm)
 
         result = await ts._synthesize(
-            [], [], ["theme1"],
+            [],
+            [],
+            ["theme1"],
             "Themes: {dream_themes}, learnings: {learning_count}, dreams: {dream_count}",
         )
         assert result == []
@@ -388,7 +413,10 @@ class TestTherapySystemBranches:
         ts = TherapySystem(llm_client=mock_llm, system_prompt="prompt")
 
         session = TherapySession(week_number=1)
-        title, content, submolt = await ts._generate_post(session, "Post: {week_number} {dreams_processed} {learnings_processed} {dream_themes} {shadow_patterns} {synthesis_insights}")
+        title, content, submolt = await ts._generate_post(
+            session,
+            "Post: {week_number} {dreams_processed} {learnings_processed} {dream_themes} {shadow_patterns} {synthesis_insights}",
+        )
         assert title is None
         assert content is None
         assert submolt == "ai"
@@ -422,6 +450,7 @@ class TestTherapySystemBranches:
 # knowledge/loader.py (KnowledgeCapability) — uninitialised paths
 # ===========================================================================
 
+
 class TestKnowledgeCapabilityUninitialised:
     """Test all fallback paths when KnowledgeCapability is not set up."""
 
@@ -429,6 +458,7 @@ class TestKnowledgeCapabilityUninitialised:
     async def test_get_knowledge_no_loader(self):
         """get_knowledge() returns [] when no loader."""
         from overblick.capabilities.knowledge.loader import KnowledgeCapability
+
         ctx = make_ctx(config={"knowledge_dir": "/tmp/nonexistent_xyz_999"})
         cap = KnowledgeCapability(ctx)
         await cap.setup()
@@ -438,6 +468,7 @@ class TestKnowledgeCapabilityUninitialised:
     async def test_get_knowledge_by_category_no_loader(self):
         """get_knowledge(category=...) returns [] when no loader."""
         from overblick.capabilities.knowledge.loader import KnowledgeCapability
+
         ctx = make_ctx(config={"knowledge_dir": "/tmp/nonexistent_xyz_999"})
         cap = KnowledgeCapability(ctx)
         await cap.setup()
@@ -447,6 +478,7 @@ class TestKnowledgeCapabilityUninitialised:
     async def test_categories_no_loader(self):
         """categories property returns [] when no loader."""
         from overblick.capabilities.knowledge.loader import KnowledgeCapability
+
         ctx = make_ctx(config={"knowledge_dir": "/tmp/nonexistent_xyz_999"})
         cap = KnowledgeCapability(ctx)
         await cap.setup()
@@ -455,6 +487,7 @@ class TestKnowledgeCapabilityUninitialised:
     def test_inner_is_none_without_setup(self):
         """inner property is None before setup()."""
         from overblick.capabilities.knowledge.loader import KnowledgeCapability
+
         ctx = make_ctx()
         cap = KnowledgeCapability(ctx)
         assert cap.inner is None

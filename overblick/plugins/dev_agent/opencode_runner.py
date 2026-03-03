@@ -86,10 +86,14 @@ class OpencodeRunner:
         Returns parsed OpencodeResult.
         """
         cmd = [
-            "opencode", "run",
-            "--dir", str(self._workspace),
-            "--model", self._model,
-            "--format", "json",
+            "opencode",
+            "run",
+            "--dir",
+            str(self._workspace),
+            "--model",
+            self._model,
+            "--format",
+            "json",
             prompt,
         ]
 
@@ -103,7 +107,8 @@ class OpencodeRunner:
                 cwd=str(self._workspace),
             )
             stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=self._timeout,
+                proc.communicate(),
+                timeout=self._timeout,
             )
 
             duration = time.monotonic() - start
@@ -122,7 +127,7 @@ class OpencodeRunner:
             # Parse JSON output
             return self._parse_output(stdout_text, duration)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             duration = time.monotonic() - start
             logger.error("opencode timed out after %ds", self._timeout)
             try:

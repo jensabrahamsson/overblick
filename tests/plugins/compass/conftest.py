@@ -6,7 +6,13 @@ import pytest
 
 from overblick.core.event_bus import EventBus
 from overblick.core.plugin_base import PluginContext
-from overblick.identities import Personality, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.identities import (
+    Personality,
+    LLMSettings,
+    QuietHoursSettings,
+    ScheduleSettings,
+    SecuritySettings,
+)
 from overblick.plugins.compass.plugin import CompassPlugin
 
 
@@ -42,7 +48,11 @@ def mock_event_bus():
 
 @pytest.fixture
 def compass_context(
-    compass_identity, tmp_path, mock_llm_client, mock_audit_log, mock_event_bus,
+    compass_identity,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_event_bus,
 ):
     """Full plugin context for compass tests."""
     ctx = PluginContext(

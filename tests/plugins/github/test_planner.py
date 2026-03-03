@@ -13,7 +13,6 @@ from overblick.core.agentic.planner import ActionPlanner
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.github.models import ActionType
 
-
 # Valid GitHub action types
 _VALID_ACTIONS = {a.value for a in ActionType}
 
@@ -28,31 +27,34 @@ class TestActionPlanner:
     def test_parse_valid_plan(self):
         """Planner parses a valid JSON plan."""
         planner = ActionPlanner(
-            llm_pipeline=None, system_prompt="test",
+            llm_pipeline=None,
+            system_prompt="test",
             valid_actions=_VALID_ACTIONS,
         )
 
-        raw = json.dumps({
-            "reasoning": "Dependabot PR with passing CI should be merged",
-            "actions": [
-                {
-                    "action_type": "merge_pr",
-                    "target": "PR #42",
-                    "target_number": 42,
-                    "repo": "owner/repo",
-                    "priority": 90,
-                    "reasoning": "Safe patch bump",
-                },
-                {
-                    "action_type": "notify_owner",
-                    "target": "CI failure on PR #10",
-                    "target_number": 10,
-                    "repo": "owner/repo",
-                    "priority": 70,
-                    "reasoning": "Owner should know",
-                },
-            ],
-        })
+        raw = json.dumps(
+            {
+                "reasoning": "Dependabot PR with passing CI should be merged",
+                "actions": [
+                    {
+                        "action_type": "merge_pr",
+                        "target": "PR #42",
+                        "target_number": 42,
+                        "repo": "owner/repo",
+                        "priority": 90,
+                        "reasoning": "Safe patch bump",
+                    },
+                    {
+                        "action_type": "notify_owner",
+                        "target": "CI failure on PR #10",
+                        "target_number": 10,
+                        "repo": "owner/repo",
+                        "priority": 70,
+                        "reasoning": "Owner should know",
+                    },
+                ],
+            }
+        )
 
         plan = planner._parse_plan(raw, max_actions=5)
 
@@ -83,17 +85,33 @@ class TestActionPlanner:
     def test_parse_unknown_action_type(self):
         """Planner skips unknown action types."""
         planner = ActionPlanner(
-            llm_pipeline=None, system_prompt="test",
+            llm_pipeline=None,
+            system_prompt="test",
             valid_actions=_VALID_ACTIONS,
         )
 
-        raw = json.dumps({
-            "reasoning": "test",
-            "actions": [
-                {"action_type": "unknown_action", "target": "", "target_number": 0, "repo": "", "priority": 50},
-                {"action_type": "skip", "target": "", "target_number": 0, "repo": "", "priority": 50, "reasoning": "ok"},
-            ],
-        })
+        raw = json.dumps(
+            {
+                "reasoning": "test",
+                "actions": [
+                    {
+                        "action_type": "unknown_action",
+                        "target": "",
+                        "target_number": 0,
+                        "repo": "",
+                        "priority": 50,
+                    },
+                    {
+                        "action_type": "skip",
+                        "target": "",
+                        "target_number": 0,
+                        "repo": "",
+                        "priority": 50,
+                        "reasoning": "ok",
+                    },
+                ],
+            }
+        )
 
         plan = planner._parse_plan(raw, max_actions=5)
         assert len(plan.actions) == 1
@@ -104,7 +122,14 @@ class TestActionPlanner:
         planner = ActionPlanner(llm_pipeline=None, system_prompt="test")
 
         actions = [
-            {"action_type": "skip", "target": f"#{i}", "target_number": i, "repo": "", "priority": 50, "reasoning": ""}
+            {
+                "action_type": "skip",
+                "target": f"#{i}",
+                "target_number": i,
+                "repo": "",
+                "priority": 50,
+                "reasoning": "",
+            }
             for i in range(10)
         ]
         raw = json.dumps({"reasoning": "test", "actions": actions})
@@ -115,21 +140,25 @@ class TestActionPlanner:
     @pytest.mark.asyncio
     async def test_plan_with_llm(self, mock_pipeline):
         """Full plan generation with mocked LLM."""
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content=json.dumps({
-                "reasoning": "All good",
-                "actions": [
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content=json.dumps(
                     {
-                        "action_type": "skip",
-                        "target": "",
-                        "target_number": 0,
-                        "repo": "owner/repo",
-                        "priority": 50,
-                        "reasoning": "Nothing to do",
-                    },
-                ],
-            }),
-        ))
+                        "reasoning": "All good",
+                        "actions": [
+                            {
+                                "action_type": "skip",
+                                "target": "",
+                                "target_number": 0,
+                                "repo": "owner/repo",
+                                "priority": 50,
+                                "reasoning": "Nothing to do",
+                            },
+                        ],
+                    }
+                ),
+            )
+        )
 
         planner = ActionPlanner(llm_pipeline=mock_pipeline, system_prompt="test")
         plan = await planner.plan(

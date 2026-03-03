@@ -54,9 +54,7 @@ class TestAnalyzeBug:
 
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_proc = AsyncMock()
-            mock_proc.communicate = AsyncMock(
-                return_value=(mock_result.encode(), b"")
-            )
+            mock_proc.communicate = AsyncMock(return_value=(mock_result.encode(), b""))
             mock_proc.returncode = 0
             mock_exec.return_value = mock_proc
 
@@ -67,9 +65,7 @@ class TestAnalyzeBug:
     async def test_failure(self, runner, bug):
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_proc = AsyncMock()
-            mock_proc.communicate = AsyncMock(
-                return_value=(b"", b"Error occurred")
-            )
+            mock_proc.communicate = AsyncMock(return_value=(b"", b"Error occurred"))
             mock_proc.returncode = 1
             mock_exec.return_value = mock_proc
 
@@ -86,16 +82,16 @@ class TestFixBug:
 
     @pytest.mark.asyncio
     async def test_success_json(self, runner, bug):
-        mock_result = json.dumps({
-            "output": "Fixed the bug",
-            "files_changed": ["api.py"],
-        })
+        mock_result = json.dumps(
+            {
+                "output": "Fixed the bug",
+                "files_changed": ["api.py"],
+            }
+        )
 
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_proc = AsyncMock()
-            mock_proc.communicate = AsyncMock(
-                return_value=(mock_result.encode(), b"")
-            )
+            mock_proc.communicate = AsyncMock(return_value=(mock_result.encode(), b""))
             mock_proc.returncode = 0
             mock_exec.return_value = mock_proc
 
@@ -108,9 +104,7 @@ class TestFixBug:
         """Test fallback to plain text when JSON parsing fails."""
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_proc = AsyncMock()
-            mock_proc.communicate = AsyncMock(
-                return_value=(b"Not JSON output", b"")
-            )
+            mock_proc.communicate = AsyncMock(return_value=(b"Not JSON output", b""))
             mock_proc.returncode = 0
             mock_exec.return_value = mock_proc
 

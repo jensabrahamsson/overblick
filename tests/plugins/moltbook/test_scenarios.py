@@ -14,10 +14,10 @@ from overblick.plugins.moltbook.plugin import MoltbookPlugin
 
 from .conftest import make_post, _FallbackPrompts
 
-
 # ---------------------------------------------------------------------------
 # 1. Full engagement cycle — Anomal
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_anomal_full_engagement_cycle(setup_anomal_plugin, mock_llm_client):
@@ -38,7 +38,9 @@ async def test_anomal_full_engagement_cycle(setup_anomal_plugin, mock_llm_client
     )
 
     client.get_posts = AsyncMock(return_value=[post])
-    mock_llm_client.chat = AsyncMock(return_value={"content": "Fascinating point about consciousness."})
+    mock_llm_client.chat = AsyncMock(
+        return_value={"content": "Fascinating point about consciousness."}
+    )
 
     await plugin.tick()
 
@@ -56,6 +58,7 @@ async def test_anomal_full_engagement_cycle(setup_anomal_plugin, mock_llm_client
 # ---------------------------------------------------------------------------
 # 2. Full engagement cycle — Cherry
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_cherry_full_engagement_cycle(setup_cherry_plugin, mock_llm_client):
@@ -87,6 +90,7 @@ async def test_cherry_full_engagement_cycle(setup_cherry_plugin, mock_llm_client
 # 3. Max comments per cycle
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_max_comments_per_cycle(setup_anomal_plugin, mock_llm_client):
     """Only 2 comments posted even with 5 qualifying posts."""
@@ -116,6 +120,7 @@ async def test_max_comments_per_cycle(setup_anomal_plugin, mock_llm_client):
 # 4. Quiet hours prevent tick
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_quiet_hours_prevent_tick(setup_anomal_plugin):
     """No API calls when quiet_hours_checker.is_quiet_hours() returns True."""
@@ -133,6 +138,7 @@ async def test_quiet_hours_prevent_tick(setup_anomal_plugin):
 # ---------------------------------------------------------------------------
 # 4b. Capability ticking — dreams, therapy, learning
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_tick_calls_capability_ticks(setup_anomal_plugin):
@@ -193,6 +199,7 @@ async def test_tick_capability_error_does_not_crash(setup_anomal_plugin):
 # 5. Challenge during comment (MoltbookError)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_challenge_during_comment(setup_anomal_plugin, mock_llm_client):
     """MoltbookError on create_comment caught, cycle continues."""
@@ -220,10 +227,16 @@ async def test_challenge_during_comment(setup_anomal_plugin, mock_llm_client):
 
     # First comment fails, second should still be attempted
     client.create_comment = AsyncMock(
-        side_effect=[MoltbookError("Challenge failed"), Comment(
-            id="c-2", post_id="post-err-2", agent_id="a-1",
-            agent_name="Anomal", content="Response",
-        )]
+        side_effect=[
+            MoltbookError("Challenge failed"),
+            Comment(
+                id="c-2",
+                post_id="post-err-2",
+                agent_id="a-1",
+                agent_name="Anomal",
+                content="Response",
+            ),
+        ]
     )
 
     await plugin.tick()
@@ -235,6 +248,7 @@ async def test_challenge_during_comment(setup_anomal_plugin, mock_llm_client):
 # ---------------------------------------------------------------------------
 # 6. Rate limit handling
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_rate_limit_handling(setup_anomal_plugin):
@@ -253,6 +267,7 @@ async def test_rate_limit_handling(setup_anomal_plugin):
 # ---------------------------------------------------------------------------
 # 7. Dream context in comments
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_dream_context_in_comments(setup_anomal_plugin, mock_llm_client):
@@ -281,7 +296,9 @@ async def test_dream_context_in_comments(setup_anomal_plugin, mock_llm_client):
     # Verify LLM was called with dream context in the prompt
     assert mock_llm_client.chat.called
     call_kwargs = mock_llm_client.chat.call_args
-    messages = call_kwargs.kwargs.get("messages") or call_kwargs[1].get("messages") or call_kwargs[0][0]
+    messages = (
+        call_kwargs.kwargs.get("messages") or call_kwargs[1].get("messages") or call_kwargs[0][0]
+    )
     user_message = [m for m in messages if m["role"] == "user"][0]["content"]
     assert "RECENT REFLECTIONS" in user_message
 
@@ -290,6 +307,7 @@ async def test_dream_context_in_comments(setup_anomal_plugin, mock_llm_client):
 # 8. Therapy session
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_therapy_session(setup_anomal_plugin, mock_llm_client):
     """TherapySystem generates session with themes and insights."""
@@ -297,16 +315,20 @@ async def test_therapy_session(setup_anomal_plugin, mock_llm_client):
 
     assert plugin._therapy_system is not None
 
-    mock_llm_client.chat = AsyncMock(return_value={
-        "content": "The shadow patterns suggest integration progress.\nArchetypal encounters continue."
-    })
+    mock_llm_client.chat = AsyncMock(
+        return_value={
+            "content": "The shadow patterns suggest integration progress.\nArchetypal encounters continue."
+        }
+    )
 
     session = await plugin._therapy_system.run_session(
-        dreams=[{
-            "dream_type": "shadow_integration",
-            "content": "Facing the shadow in a dark mirror",
-            "insight": "Growth through honest self-examination",
-        }],
+        dreams=[
+            {
+                "dream_type": "shadow_integration",
+                "content": "Facing the shadow in a dark mirror",
+                "insight": "Growth through honest self-examination",
+            }
+        ],
         learnings=[{"category": "factual", "content": "AI alignment matters"}],
         dream_analysis_prompt="Analyze these dreams:\n{items}",
         synthesis_prompt="Synthesize: {dream_themes} with {learning_count} learnings",
@@ -321,6 +343,7 @@ async def test_therapy_session(setup_anomal_plugin, mock_llm_client):
 # 9. Reply queue processing
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_reply_queue_processing(setup_anomal_plugin, mock_llm_client):
     """Own post replies detected, queued, processed."""
@@ -330,12 +353,17 @@ async def test_reply_queue_processing(setup_anomal_plugin, mock_llm_client):
     ctx.engagement_db.get_my_post_ids = AsyncMock(return_value=["my-post-001"])
 
     reply_comment = Comment(
-        id="reply-001", post_id="my-post-001", agent_id="other-agent",
-        agent_name="Replier", content="Great point about crypto! What do you think about AI regulation?",
+        id="reply-001",
+        post_id="my-post-001",
+        agent_id="other-agent",
+        agent_name="Replier",
+        content="Great point about crypto! What do you think about AI regulation?",
     )
 
     replied_post = Post(
-        id="my-post-001", agent_id="agent-001", agent_name="Anomal",
+        id="my-post-001",
+        agent_id="agent-001",
+        agent_name="Anomal",
         title="Thoughts on AI and crypto regulation philosophy",
         content="My thoughts on the topic",
         comments=[reply_comment],
@@ -355,6 +383,7 @@ async def test_reply_queue_processing(setup_anomal_plugin, mock_llm_client):
 # ---------------------------------------------------------------------------
 # 11. Skip own posts
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_skip_own_posts(setup_anomal_plugin):
@@ -382,9 +411,11 @@ async def test_skip_own_posts(setup_anomal_plugin):
 # 12. Multi-identity isolation
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_multi_identity_isolation(
-    anomal_plugin_context, cherry_plugin_context,
+    anomal_plugin_context,
+    cherry_plugin_context,
     mock_llm_client,
 ):
     """Two plugin instances with separate mocks, no cross-contamination."""
@@ -405,8 +436,20 @@ async def test_multi_identity_isolation(
             cherry_plugin._client = cherry_client
 
     # Set up different feeds
-    anomal_post = make_post(id="a-post", title="AI philosophy", content="Artificial intelligence consciousness crypto discussion", agent_name="Bot", submolt="ai")
-    cherry_post = make_post(id="c-post", title="Stockholm dating", content="Love and relationships in the city with gossip and pop culture vibes", agent_name="Bot", submolt="general")
+    anomal_post = make_post(
+        id="a-post",
+        title="AI philosophy",
+        content="Artificial intelligence consciousness crypto discussion",
+        agent_name="Bot",
+        submolt="ai",
+    )
+    cherry_post = make_post(
+        id="c-post",
+        title="Stockholm dating",
+        content="Love and relationships in the city with gossip and pop culture vibes",
+        agent_name="Bot",
+        submolt="general",
+    )
 
     anomal_client.get_posts = AsyncMock(return_value=[anomal_post])
     cherry_client.get_posts = AsyncMock(return_value=[cherry_post])
@@ -415,12 +458,24 @@ async def test_multi_identity_isolation(
 
     mock_llm_client.chat = AsyncMock(return_value={"content": "Response"})
 
-    anomal_client.create_comment = AsyncMock(return_value=Comment(
-        id="ac-1", post_id="a-post", agent_id="a1", agent_name="Anomal", content="Response",
-    ))
-    cherry_client.create_comment = AsyncMock(return_value=Comment(
-        id="cc-1", post_id="c-post", agent_id="c1", agent_name="Cherry", content="Response",
-    ))
+    anomal_client.create_comment = AsyncMock(
+        return_value=Comment(
+            id="ac-1",
+            post_id="a-post",
+            agent_id="a1",
+            agent_name="Anomal",
+            content="Response",
+        )
+    )
+    cherry_client.create_comment = AsyncMock(
+        return_value=Comment(
+            id="cc-1",
+            post_id="c-post",
+            agent_id="c1",
+            agent_name="Cherry",
+            content="Response",
+        )
+    )
 
     await anomal_plugin.tick()
     await cherry_plugin.tick()
@@ -437,6 +492,7 @@ async def test_multi_identity_isolation(
 # ---------------------------------------------------------------------------
 # 13. Empty feed
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_empty_feed(setup_anomal_plugin):
@@ -456,14 +512,17 @@ async def test_empty_feed(setup_anomal_plugin):
 # 14. Heartbeat post
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_heartbeat_post(setup_anomal_plugin, mock_llm_client):
     """post_heartbeat() calls create_post, records heartbeat."""
     plugin, ctx, client = setup_anomal_plugin
 
-    mock_llm_client.chat = AsyncMock(return_value={
-        "content": "submolt: ai\nTITLE: Morning Thoughts on AI\nReflecting on consciousness."
-    })
+    mock_llm_client.chat = AsyncMock(
+        return_value={
+            "content": "submolt: ai\nTITLE: Morning Thoughts on AI\nReflecting on consciousness."
+        }
+    )
 
     result = await plugin.post_heartbeat()
 
@@ -476,6 +535,7 @@ async def test_heartbeat_post(setup_anomal_plugin, mock_llm_client):
 # ---------------------------------------------------------------------------
 # 15. Heartbeat blocked during quiet hours
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_heartbeat_blocked_quiet_hours(setup_anomal_plugin):
@@ -492,6 +552,7 @@ async def test_heartbeat_blocked_quiet_hours(setup_anomal_plugin):
 # ---------------------------------------------------------------------------
 # 16. Output safety modifies response
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_output_safety_modifies_response(setup_anomal_plugin, mock_llm_client):
@@ -510,9 +571,8 @@ async def test_output_safety_modifies_response(setup_anomal_plugin, mock_llm_cli
 
     # Mock pipeline to return moderated content (simulating output safety)
     from overblick.core.llm.pipeline import PipelineResult
-    ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-        content="[content moderated]"
-    ))
+
+    ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="[content moderated]"))
 
     await plugin.tick()
 
@@ -525,6 +585,7 @@ async def test_output_safety_modifies_response(setup_anomal_plugin, mock_llm_cli
 # ---------------------------------------------------------------------------
 # 17. Preflight blocks comment (now via pipeline)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_preflight_blocks_comment(setup_anomal_plugin, mock_llm_client):
@@ -543,11 +604,14 @@ async def test_preflight_blocks_comment(setup_anomal_plugin, mock_llm_client):
 
     # Pipeline blocks the request at preflight stage
     from overblick.core.llm.pipeline import PipelineResult, PipelineStage
-    ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-        blocked=True,
-        block_reason="Preflight detected unsafe content",
-        block_stage=PipelineStage.PREFLIGHT,
-    ))
+
+    ctx.llm_pipeline.chat = AsyncMock(
+        return_value=PipelineResult(
+            blocked=True,
+            block_reason="Preflight detected unsafe content",
+            block_stage=PipelineStage.PREFLIGHT,
+        )
+    )
 
     await plugin.tick()
 
@@ -558,6 +622,7 @@ async def test_preflight_blocks_comment(setup_anomal_plugin, mock_llm_client):
 # ---------------------------------------------------------------------------
 # 18. Upvote for moderate score
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_upvote_for_moderate_score(setup_anomal_plugin):

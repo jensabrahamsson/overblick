@@ -91,10 +91,12 @@ class TestCompassRoute:
 
         # Patch data root to use tmp_path
         import overblick.dashboard.routes.compass as compass_mod
+
         original = compass_mod._load_compass_data
 
         def patched_load(request):
             from pathlib import Path
+
             baselines = state["baselines"]
             alerts = state["alerts"]
             drift_history = state["drift_history"]
@@ -442,12 +444,14 @@ class TestHasDataFunctions:
     def test_compass_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when data dir is missing."""
         from overblick.dashboard.routes import compass
+
         monkeypatch.chdir(tmp_path)
         assert compass.has_data() is False
 
     def test_compass_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when compass plugin is configured."""
         from overblick.dashboard.routes import compass
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "anomal"
         ids.mkdir(parents=True)
@@ -457,12 +461,14 @@ class TestHasDataFunctions:
     def test_kontrast_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when data dir is missing."""
         from overblick.dashboard.routes import kontrast
+
         monkeypatch.chdir(tmp_path)
         assert kontrast.has_data() is False
 
     def test_kontrast_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when kontrast plugin is configured."""
         from overblick.dashboard.routes import kontrast
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "anomal"
         ids.mkdir(parents=True)
@@ -472,12 +478,14 @@ class TestHasDataFunctions:
     def test_spegel_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when data dir is missing."""
         from overblick.dashboard.routes import spegel
+
         monkeypatch.chdir(tmp_path)
         assert spegel.has_data() is False
 
     def test_spegel_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when spegel plugin is configured."""
         from overblick.dashboard.routes import spegel
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "anomal"
         ids.mkdir(parents=True)
@@ -487,12 +495,14 @@ class TestHasDataFunctions:
     def test_skuggspel_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when data dir is missing."""
         from overblick.dashboard.routes import skuggspel
+
         monkeypatch.chdir(tmp_path)
         assert skuggspel.has_data() is False
 
     def test_skuggspel_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when skuggspel plugin is configured."""
         from overblick.dashboard.routes import skuggspel
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "anomal"
         ids.mkdir(parents=True)
@@ -502,12 +512,14 @@ class TestHasDataFunctions:
     def test_stage_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when data dir is missing."""
         from overblick.dashboard.routes import stage
+
         monkeypatch.chdir(tmp_path)
         assert stage.has_data() is False
 
     def test_stage_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when stage plugin is configured."""
         from overblick.dashboard.routes import stage
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "anomal"
         ids.mkdir(parents=True)

@@ -49,10 +49,15 @@ async def test_ensure_cloned(tmp_path):
     subprocess.run(["git", "add", "."], cwd=source, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        cwd=source, capture_output=True,
-        env={"GIT_AUTHOR_NAME": "Test", "GIT_AUTHOR_EMAIL": "t@t.com",
-             "GIT_COMMITTER_NAME": "Test", "GIT_COMMITTER_EMAIL": "t@t.com",
-             "PATH": "/usr/bin:/usr/local/bin"},
+        cwd=source,
+        capture_output=True,
+        env={
+            "GIT_AUTHOR_NAME": "Test",
+            "GIT_AUTHOR_EMAIL": "t@t.com",
+            "GIT_COMMITTER_NAME": "Test",
+            "GIT_COMMITTER_EMAIL": "t@t.com",
+            "PATH": "/usr/bin:/usr/local/bin",
+        },
     )
 
     ws_path = tmp_path / "workspace" / "project"
@@ -95,10 +100,15 @@ async def test_commit_refuses_on_main(tmp_path):
     subprocess.run(["git", "add", "."], cwd=source, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        cwd=source, capture_output=True,
-        env={"GIT_AUTHOR_NAME": "Test", "GIT_AUTHOR_EMAIL": "t@t.com",
-             "GIT_COMMITTER_NAME": "Test", "GIT_COMMITTER_EMAIL": "t@t.com",
-             "PATH": "/usr/bin:/usr/local/bin"},
+        cwd=source,
+        capture_output=True,
+        env={
+            "GIT_AUTHOR_NAME": "Test",
+            "GIT_AUTHOR_EMAIL": "t@t.com",
+            "GIT_COMMITTER_NAME": "Test",
+            "GIT_COMMITTER_EMAIL": "t@t.com",
+            "PATH": "/usr/bin:/usr/local/bin",
+        },
     )
 
     ws_path = tmp_path / "workspace"
@@ -127,10 +137,15 @@ async def test_list_branches(tmp_path):
     subprocess.run(["git", "add", "."], cwd=source, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        cwd=source, capture_output=True,
-        env={"GIT_AUTHOR_NAME": "Test", "GIT_AUTHOR_EMAIL": "t@t.com",
-             "GIT_COMMITTER_NAME": "Test", "GIT_COMMITTER_EMAIL": "t@t.com",
-             "PATH": "/usr/bin:/usr/local/bin"},
+        cwd=source,
+        capture_output=True,
+        env={
+            "GIT_AUTHOR_NAME": "Test",
+            "GIT_AUTHOR_EMAIL": "t@t.com",
+            "GIT_COMMITTER_NAME": "Test",
+            "GIT_COMMITTER_EMAIL": "t@t.com",
+            "PATH": "/usr/bin:/usr/local/bin",
+        },
     )
 
     ws_path = tmp_path / "workspace"

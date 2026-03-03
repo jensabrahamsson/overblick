@@ -88,7 +88,8 @@ class TestScoreIdentityInterest:
 
     def test_partial_match(self):
         identity = _make_identity(
-            "test", interest_keywords=["AI", "philosophy"],
+            "test",
+            interest_keywords=["AI", "philosophy"],
         )
         topic = {"tags": ["AI", "philosophy", "economics", "society"]}
         score = score_identity_interest(identity, topic)
@@ -129,7 +130,8 @@ class TestScoreIdentityInterest:
     def test_multi_word_keywords_split(self):
         """Multi-word keywords should match individual words too."""
         identity = _make_identity(
-            "test", interest_keywords=["AI consciousness"],
+            "test",
+            interest_keywords=["AI consciousness"],
         )
         topic = {"tags": ["AI", "technology"]}
         score = score_identity_interest(identity, topic)
@@ -201,7 +203,9 @@ class TestSelectParticipants:
             _make_identity("cherry", interest_keywords=["dating", "relationships", "pop culture"]),
             _make_identity("blixt", interest_keywords=["privacy", "technology", "hacking"]),
             _make_identity("bjork", interest_keywords=["nature", "philosophy", "stoicism"]),
-            _make_identity("natt", interest_keywords=["philosophy", "consciousness", "existentialism"]),
+            _make_identity(
+                "natt", interest_keywords=["philosophy", "consciousness", "existentialism"]
+            ),
         ]
 
     @pytest.fixture
@@ -266,9 +270,7 @@ class TestSelectParticipants:
 
         for i in range(trials):
             random.seed(i)
-            result = select_participants(
-                identities, ai_topic, recent_participants=recent
-            )
+            result = select_participants(identities, ai_topic, recent_participants=recent)
             names = {id.name for id in result}
             # Check if any absent identities were selected
             if names & {"cherry", "blixt", "bjork"}:

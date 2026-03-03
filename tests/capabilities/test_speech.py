@@ -42,12 +42,14 @@ class TestSpeechToTextCapability:
 
     @pytest.mark.asyncio
     async def test_setup_custom_config(self):
-        ctx = make_ctx(config={
-            "model": "whisper-tiny",
-            "language": "sv",
-            "sample_rate": 8000,
-            "beam_size": 3,
-        })
+        ctx = make_ctx(
+            config={
+                "model": "whisper-tiny",
+                "language": "sv",
+                "sample_rate": 8000,
+                "beam_size": 3,
+            }
+        )
         cap = SpeechToTextCapability(ctx)
         await cap.setup()
         assert cap._model == "whisper-tiny"
@@ -107,12 +109,14 @@ class TestTextToSpeechCapability:
 
     @pytest.mark.asyncio
     async def test_setup_custom_config(self):
-        ctx = make_ctx(config={
-            "model": "coqui-tts",
-            "voice": "sven",
-            "speed": 1.5,
-            "output_format": "mp3",
-        })
+        ctx = make_ctx(
+            config={
+                "model": "coqui-tts",
+                "voice": "sven",
+                "speed": 1.5,
+                "output_format": "mp3",
+            }
+        )
         cap = TextToSpeechCapability(ctx)
         await cap.setup()
         assert cap._model == "coqui-tts"

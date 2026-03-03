@@ -43,10 +43,14 @@ class TestHostHealthPluginSetup:
         state_dir = natt_plugin_context.data_dir
         state_dir.mkdir(parents=True, exist_ok=True)
         state_file = state_dir / "host_health_state.json"
-        state_file.write_text(json.dumps({
-            "conversations": [{"timestamp": "2026-01-01T00:00:00", "sender": "natt"}],
-            "last_inquiry_time": 1000.0,
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "conversations": [{"timestamp": "2026-01-01T00:00:00", "sender": "natt"}],
+                    "last_inquiry_time": 1000.0,
+                }
+            )
+        )
 
         plugin = HostHealthPlugin(natt_plugin_context)
         await plugin.setup()
@@ -187,8 +191,7 @@ class TestHostHealthStatePersistence:
 
         # Fill with 55 entries
         plugin._conversation_history = [
-            {"timestamp": f"2026-01-{i:02d}T00:00:00", "sender": "natt"}
-            for i in range(1, 56)
+            {"timestamp": f"2026-01-{i:02d}T00:00:00", "sender": "natt"} for i in range(1, 56)
         ]
         plugin._last_inquiry_time = 0
 
@@ -270,12 +273,14 @@ class TestHostHealthErrorPaths:
         await plugin.setup()
 
         # Add a mock conversation entry to history
-        plugin._conversation_history.append({
-            "timestamp": time.time(),
-            "grade": "good",
-            "motivation": "Keep going!",
-            "metrics": {"cpu": 45.0, "memory": 60.0},
-        })
+        plugin._conversation_history.append(
+            {
+                "timestamp": time.time(),
+                "grade": "good",
+                "motivation": "Keep going!",
+                "metrics": {"cpu": 45.0, "memory": 60.0},
+            }
+        )
         plugin._save_state()
 
         # Create a new plugin instance and verify state is restored

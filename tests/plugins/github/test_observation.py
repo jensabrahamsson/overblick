@@ -39,9 +39,8 @@ class TestAgeHours:
     def test_valid_timestamp(self):
         # Recent timestamp should give small age
         from datetime import datetime, timezone, timedelta
-        recent = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+
+        recent = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
         age = _age_hours(recent)
         assert 1.9 < age < 2.5
 
@@ -116,7 +115,9 @@ class TestObservationCollector:
         mock_client.get_combined_status.return_value = {"state": "success"}
 
         observer = ObservationCollector(
-            client=mock_client, db=mock_db, bot_username="test-bot",
+            client=mock_client,
+            db=mock_db,
+            bot_username="test-bot",
         )
         obs = await observer.observe("owner/repo")
 
@@ -157,7 +158,9 @@ class TestObservationCollector:
         ]
 
         observer = ObservationCollector(
-            client=mock_client, db=mock_db, bot_username="test-bot",
+            client=mock_client,
+            db=mock_db,
+            bot_username="test-bot",
         )
         obs = await observer.observe("owner/repo")
 
@@ -187,7 +190,9 @@ class TestObservationCollector:
         mock_client.get_combined_status.return_value = {"state": ""}
 
         observer = ObservationCollector(
-            client=mock_client, db=mock_db, bot_username="test-bot",
+            client=mock_client,
+            db=mock_db,
+            bot_username="test-bot",
         )
         obs = await observer.observe("owner/repo")
         text = observer.format_for_planner(obs)

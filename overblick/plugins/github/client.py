@@ -17,11 +17,13 @@ logger = logging.getLogger(__name__)
 
 class GitHubAPIError(Exception):
     """Base exception for GitHub API errors."""
+
     pass
 
 
 class RateLimitError(GitHubAPIError):
     """Raised when GitHub rate limit is exhausted."""
+
     def __init__(self, message: str, reset_at: int = 0):
         super().__init__(message)
         self.reset_at = reset_at
@@ -40,7 +42,7 @@ class GitHubAPIClient:
     def __init__(self, token: str = "", base_url: str = ""):
         self._token = token
         self._base_url = (base_url or self.BASE_URL).rstrip("/")
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._rate_limit_remaining: int = 5000
         self._rate_limit_reset: int = 0
 
@@ -79,8 +81,8 @@ class GitHubAPIClient:
         self,
         method: str,
         endpoint: str,
-        params: Optional[dict] = None,
-        json: Optional[dict] = None,
+        params: dict | None = None,
+        json: dict | None = None,
         retry_count: int = 3,
     ) -> Any:
         """Make an authenticated API request with retry logic."""
@@ -90,7 +92,10 @@ class GitHubAPIClient:
         for attempt in range(retry_count):
             try:
                 async with self._session.request(
-                    method, url, params=params, json=json,
+                    method,
+                    url,
+                    params=params,
+                    json=json,
                     timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     self._update_rate_limit(response.headers)
@@ -118,11 +123,15 @@ class GitHubAPIClient:
                     # Transient errors — retry
                     if response.status in (500, 502, 503, 504):
                         if attempt < retry_count - 1:
-                            backoff = 2 ** attempt
+                            backoff = 2**attempt
                             logger.warning(
                                 "GitHub API %d on %s %s (attempt %d/%d), retrying in %ds",
-                                response.status, method, endpoint,
-                                attempt + 1, retry_count, backoff,
+                                response.status,
+                                method,
+                                endpoint,
+                                attempt + 1,
+                                retry_count,
+                                backoff,
                             )
                             await asyncio.sleep(backoff)
                             continue
@@ -134,7 +143,7 @@ class GitHubAPIClient:
 
             except aiohttp.ClientError as e:
                 if attempt < retry_count - 1:
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
                 else:
                     raise GitHubAPIError(f"Request failed after {retry_count} attempts: {e}")
 
@@ -186,7 +195,9 @@ class GitHubAPIClient:
             params["since"] = since
 
         return await self._request(
-            "GET", f"/repos/{repo}/issues/{issue_number}/comments", params=params,
+            "GET",
+            f"/repos/{repo}/issues/{issue_number}/comments",
+            params=params,
         )
 
     async def create_comment(
@@ -197,14 +208,17 @@ class GitHubAPIClient:
     ) -> dict:
         """Post a comment on an issue."""
         return await self._request(
-            "POST", f"/repos/{repo}/issues/{issue_number}/comments",
+            "POST",
+            f"/repos/{repo}/issues/{issue_number}/comments",
             json={"body": body},
         )
 
     # ── Repository Tree ───────────────────────────────────────────────────
 
     async def get_file_tree(
-        self, repo: str, branch: str = "main",
+        self,
+        repo: str,
+        branch: str = "main",
     ) -> dict:
         """
         Get the full file tree for a repository branch.
@@ -213,12 +227,16 @@ class GitHubAPIClient:
         of all paths. Returns the raw API response including tree sha.
         """
         return await self._request(
-            "GET", f"/repos/{repo}/git/trees/{branch}",
+            "GET",
+            f"/repos/{repo}/git/trees/{branch}",
             params={"recursive": "1"},
         )
 
     async def get_file_content(
-        self, repo: str, path: str, ref: str = "",
+        self,
+        repo: str,
+        path: str,
+        ref: str = "",
     ) -> dict:
         """
         Get file content via the Contents API.
@@ -229,7 +247,9 @@ class GitHubAPIClient:
         if ref:
             params["ref"] = ref
         return await self._request(
-            "GET", f"/repos/{repo}/contents/{path}", params=params,
+            "GET",
+            f"/repos/{repo}/contents/{path}",
+            params=params,
         )
 
     # ── Pull Requests ────────────────────────────────────────────────────
@@ -249,14 +269,16 @@ class GitHubAPIClient:
             per_page: Results per page (max 100)
         """
         return await self._request(
-            "GET", f"/repos/{repo}/pulls",
+            "GET",
+            f"/repos/{repo}/pulls",
             params={"state": state, "per_page": min(per_page, 100)},
         )
 
     async def get_pull(self, repo: str, pull_number: int) -> dict:
         """Get a single pull request with merge status details."""
         return await self._request(
-            "GET", f"/repos/{repo}/pulls/{pull_number}",
+            "GET",
+            f"/repos/{repo}/pulls/{pull_number}",
         )
 
     async def get_pull_diff(self, repo: str, pull_number: int) -> str:
@@ -268,7 +290,8 @@ class GitHubAPIClient:
             headers["Authorization"] = f"Bearer {self._token}"
 
         async with self._session.get(
-            url, headers=headers,
+            url,
+            headers=headers,
             timeout=aiohttp.ClientTimeout(total=30),
         ) as response:
             self._update_rate_limit(response.headers)
@@ -296,7 +319,8 @@ class GitHubAPIClient:
         if commit_title:
             body["commit_title"] = commit_title
         return await self._request(
-            "PUT", f"/repos/{repo}/pulls/{pull_number}/merge",
+            "PUT",
+            f"/repos/{repo}/pulls/{pull_number}/merge",
             json=body,
         )
 
@@ -320,16 +344,20 @@ class GitHubAPIClient:
         if body:
             payload["body"] = body
         return await self._request(
-            "POST", f"/repos/{repo}/pulls/{pull_number}/reviews",
+            "POST",
+            f"/repos/{repo}/pulls/{pull_number}/reviews",
             json=payload,
         )
 
     async def list_pull_reviews(
-        self, repo: str, pull_number: int,
+        self,
+        repo: str,
+        pull_number: int,
     ) -> list[dict]:
         """List reviews on a pull request."""
         return await self._request(
-            "GET", f"/repos/{repo}/pulls/{pull_number}/reviews",
+            "GET",
+            f"/repos/{repo}/pulls/{pull_number}/reviews",
         )
 
     # ── CI / Check Runs ──────────────────────────────────────────────────
@@ -341,7 +369,8 @@ class GitHubAPIClient:
         Returns the raw API response with check_runs array.
         """
         return await self._request(
-            "GET", f"/repos/{repo}/commits/{ref}/check-runs",
+            "GET",
+            f"/repos/{repo}/commits/{ref}/check-runs",
         )
 
     async def get_combined_status(self, repo: str, ref: str) -> dict:
@@ -351,7 +380,8 @@ class GitHubAPIClient:
         Returns state: "success", "failure", "pending", or "error".
         """
         return await self._request(
-            "GET", f"/repos/{repo}/commits/{ref}/status",
+            "GET",
+            f"/repos/{repo}/commits/{ref}/status",
         )
 
     # ── Rate Limit ────────────────────────────────────────────────────────

@@ -167,9 +167,11 @@ class TestAnalyzePatternHandler:
 
         pipeline = AsyncMock()
         handler = _AnalyzePatternHandler(llm_pipeline=pipeline, dry_run=False)
-        obs = LogObservation(scan_results=[
-            LogScanResult(identity="anomal", entries=[]),
-        ])
+        obs = LogObservation(
+            scan_results=[
+                LogScanResult(identity="anomal", entries=[]),
+            ]
+        )
 
         action = PlannedAction(action_type="analyze_pattern")
         result = await handler.handle(action, obs)
@@ -193,12 +195,20 @@ class TestSendAlertHandler:
             dry_run=True,
         )
 
-        obs = LogObservation(scan_results=[
-            LogScanResult(
-                identity="anomal", errors_found=1, criticals_found=0,
-                entries=[LogEntry(identity="anomal", file_path="a.log", level="ERROR", message="Test")],
-            ),
-        ])
+        obs = LogObservation(
+            scan_results=[
+                LogScanResult(
+                    identity="anomal",
+                    errors_found=1,
+                    criticals_found=0,
+                    entries=[
+                        LogEntry(
+                            identity="anomal", file_path="a.log", level="ERROR", message="Test"
+                        )
+                    ],
+                ),
+            ]
+        )
 
         action = PlannedAction(action_type="send_alert")
         result = await handler.handle(action, obs)
@@ -219,12 +229,23 @@ class TestSendAlertHandler:
             dry_run=False,
         )
 
-        obs = LogObservation(scan_results=[
-            LogScanResult(
-                identity="anomal", errors_found=1, criticals_found=0,
-                entries=[LogEntry(identity="anomal", file_path="a.log", level="ERROR", message="Real error")],
-            ),
-        ])
+        obs = LogObservation(
+            scan_results=[
+                LogScanResult(
+                    identity="anomal",
+                    errors_found=1,
+                    criticals_found=0,
+                    entries=[
+                        LogEntry(
+                            identity="anomal",
+                            file_path="a.log",
+                            level="ERROR",
+                            message="Real error",
+                        )
+                    ],
+                ),
+            ]
+        )
 
         action = PlannedAction(action_type="send_alert")
         result = await handler.handle(action, obs)
@@ -250,9 +271,11 @@ class TestSendAlertHandler:
             dry_run=False,
         )
 
-        obs = LogObservation(scan_results=[
-            LogScanResult(identity="anomal", errors_found=1, entries=[entry]),
-        ])
+        obs = LogObservation(
+            scan_results=[
+                LogScanResult(identity="anomal", errors_found=1, entries=[entry]),
+            ]
+        )
 
         action = PlannedAction(action_type="send_alert")
         result = await handler.handle(action, obs)

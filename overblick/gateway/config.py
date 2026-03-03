@@ -60,7 +60,7 @@ class GatewayConfig(BaseModel):
 
     # Multi-backend configuration
     default_backend: str = "local"
-    backends: dict[str, dict[str, Any]] = {}
+    backends: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     @property
     def ollama_base_url(self) -> str:
@@ -113,7 +113,8 @@ class GatewayConfig(BaseModel):
 
                 logger.info(
                     "Loaded %d backend(s) from overblick.yaml (default: %s)",
-                    len(backends), config.default_backend,
+                    len(backends),
+                    config.default_backend,
                 )
 
         # Inject Deepseek backend from env if not already in YAML
@@ -154,7 +155,7 @@ def _load_yaml_config() -> dict[str, Any]:
 
 
 # Singleton config instance
-_config: Optional[GatewayConfig] = None
+_config: GatewayConfig | None = None
 
 
 def get_config() -> GatewayConfig:

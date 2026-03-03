@@ -31,42 +31,48 @@ class TestCodeContextBuilder:
     def test_should_include_python(self):
         """Python files are included by default."""
         builder = CodeContextBuilder(
-            client=AsyncMock(), db=AsyncMock(),
+            client=AsyncMock(),
+            db=AsyncMock(),
         )
         assert builder._should_include("src/main.py") is True
 
     def test_should_include_yaml(self):
         """YAML files are included by default."""
         builder = CodeContextBuilder(
-            client=AsyncMock(), db=AsyncMock(),
+            client=AsyncMock(),
+            db=AsyncMock(),
         )
         assert builder._should_include("config/settings.yaml") is True
 
     def test_should_exclude_lock(self):
         """Lock files are excluded by default."""
         builder = CodeContextBuilder(
-            client=AsyncMock(), db=AsyncMock(),
+            client=AsyncMock(),
+            db=AsyncMock(),
         )
         assert builder._should_include("poetry.lock") is False
 
     def test_should_exclude_pycache(self):
         """__pycache__ is excluded by default."""
         builder = CodeContextBuilder(
-            client=AsyncMock(), db=AsyncMock(),
+            client=AsyncMock(),
+            db=AsyncMock(),
         )
         assert builder._should_include("__pycache__/module.cpython-313.pyc") is False
 
     def test_should_exclude_non_matching(self):
         """Files not matching any include pattern are excluded."""
         builder = CodeContextBuilder(
-            client=AsyncMock(), db=AsyncMock(),
+            client=AsyncMock(),
+            db=AsyncMock(),
         )
         assert builder._should_include("image.png") is False
 
     def test_custom_patterns(self):
         """Custom include/exclude patterns override defaults."""
         builder = CodeContextBuilder(
-            client=AsyncMock(), db=AsyncMock(),
+            client=AsyncMock(),
+            db=AsyncMock(),
             include_patterns=["*.rs", "*.go"],
             exclude_patterns=["vendor/*"],
         )
@@ -108,7 +114,9 @@ class TestCodeContextBuilder:
             question="how?",
             files=[
                 CachedFile(repo="test/repo", path="main.py", sha="abc", content="print('hello')"),
-                CachedFile(repo="test/repo", path="utils.py", sha="def", content="def helper(): pass"),
+                CachedFile(
+                    repo="test/repo", path="utils.py", sha="def", content="def helper(): pass"
+                ),
             ],
             total_size=100,
         )
@@ -155,9 +163,11 @@ class TestCodeContextBuilder:
     async def test_select_files_with_llm(self, code_context_db, mock_github_client):
         """select_files uses LLM to pick relevant files."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='["src/main.py", "src/utils.py"]',
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='["src/main.py", "src/utils.py"]',
+            )
+        )
 
         builder = CodeContextBuilder(
             client=mock_github_client,
@@ -178,9 +188,11 @@ class TestCodeContextBuilder:
     async def test_select_files_filters_invalid(self, code_context_db, mock_github_client):
         """select_files filters out paths not in the tree."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='["src/main.py", "nonexistent.py"]',
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='["src/main.py", "nonexistent.py"]',
+            )
+        )
 
         builder = CodeContextBuilder(
             client=mock_github_client,
@@ -227,9 +239,11 @@ class TestCodeContextBuilder:
     async def test_build_context_orchestrates(self, code_context_db, mock_github_client):
         """build_context orchestrates tree refresh, file selection, and fetch."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='["src/main.py"]',
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='["src/main.py"]',
+            )
+        )
 
         builder = CodeContextBuilder(
             client=mock_github_client,

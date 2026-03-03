@@ -61,6 +61,7 @@ def _is_process_alive(pid: int) -> bool:
     if IS_WINDOWS:
         try:
             import ctypes
+
             kernel32 = ctypes.windll.kernel32
             PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
             STILL_ACTIVE = 259  # STATUS_PENDING
@@ -84,7 +85,7 @@ def _is_process_alive(pid: int) -> bool:
             return False
 
 
-def _read_pid(pid_file: Path) -> Optional[int]:
+def _read_pid(pid_file: Path) -> int | None:
     """Read PID from file, return None if missing or stale.
 
     Guards against PID reuse by storing start timestamp alongside PID
@@ -140,6 +141,7 @@ def _kill_process(pid: int, timeout: float = 10.0) -> bool:
     if IS_WINDOWS:
         try:
             import ctypes
+
             kernel32 = ctypes.windll.kernel32
             PROCESS_TERMINATE = 0x0001
             handle = kernel32.OpenProcess(PROCESS_TERMINATE, False, pid)
@@ -212,7 +214,7 @@ def _http_health(url: str) -> bool:
 class ServiceManager:
     """Cross-platform service manager for Överblick components."""
 
-    def __init__(self, base_dir: Optional[Path] = None):
+    def __init__(self, base_dir: Path | None = None):
         self._base_dir = base_dir or _base_dir()
         self._pid_dir = self._base_dir / "data" / "pids"
         self._log_dir = self._base_dir / "logs"
@@ -256,7 +258,7 @@ class ServiceManager:
         # Wait for health
         for _ in range(10):
             if _http_health(f"http://127.0.0.1:{_GATEWAY_PORT}/health"):
-                print(f"[gateway] Started — healthy")
+                print("[gateway] Started — healthy")
                 return True
             time.sleep(1)
 
@@ -387,7 +389,7 @@ class ServiceManager:
     def _supervisor_log_file(self) -> Path:
         return self._log_dir / "supervisor" / "overblick.log"
 
-    def start_supervisor(self, identities: Optional[list[str]] = None) -> bool:
+    def start_supervisor(self, identities: list[str] | None = None) -> bool:
         """Start the supervisor with the specified identities."""
         ids = identities or _DEFAULT_IDENTITIES
 
@@ -406,7 +408,7 @@ class ServiceManager:
             if IS_WINDOWS:
                 kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
             proc = subprocess.Popen(
-                [python, "-m", "overblick", "supervisor"] + ids,
+                [python, "-m", "overblick", "supervisor", *ids],
                 **kwargs,
             )
 
@@ -443,7 +445,7 @@ class ServiceManager:
     # Platform commands
     # ------------------------------------------------------------------
 
-    def up(self, identities: Optional[list[str]] = None, port: int = _DASHBOARD_PORT) -> None:
+    def up(self, identities: list[str] | None = None, port: int = _DASHBOARD_PORT) -> None:
         """Start all services (gateway + dashboard + supervisor)."""
         print("=== Överblick Platform — Starting ===\n")
         self.start_gateway()

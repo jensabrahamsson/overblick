@@ -21,9 +21,9 @@ from typing import Optional
 from overblick.core.security.audit_log import AuditLog
 from overblick.supervisor.email_handler import EmailConsultationHandler
 from overblick.supervisor.health_handler import HealthInquiryHandler
-from overblick.supervisor.research_handler import ResearchHandler
 from overblick.supervisor.ipc import IPCMessage, IPCServer, generate_ipc_token
 from overblick.supervisor.process import AgentProcess, ProcessState
+from overblick.supervisor.research_handler import ResearchHandler
 from overblick.supervisor.routing import MessageRouter, RouteStatus
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class SupervisorState(Enum):
     """Supervisor lifecycle states."""
+
     INIT = "init"
     STARTING = "starting"
     RUNNING = "running"
@@ -48,11 +49,11 @@ class Supervisor:
 
     def __init__(
         self,
-        identities: Optional[list[str]] = None,
-        plugins: Optional[list[str]] = None,
-        socket_dir: Optional[Path] = None,
+        identities: list[str] | None = None,
+        plugins: list[str] | None = None,
+        socket_dir: Path | None = None,
         auto_restart: bool = True,
-        base_dir: Optional[Path] = None,
+        base_dir: Path | None = None,
     ):
         self._identities = identities or []
         self._default_plugins = plugins or ["moltbook"]
@@ -61,7 +62,9 @@ class Supervisor:
         self._agents: dict[str, AgentProcess] = {}
         self._auth_token = generate_ipc_token()
         self._ipc = IPCServer(
-            name="supervisor", socket_dir=socket_dir, auth_token=self._auth_token,
+            name="supervisor",
+            socket_dir=socket_dir,
+            auth_token=self._auth_token,
         )
         self._monitor_tasks: dict[str, asyncio.Task] = {}
         self._shutdown_event = asyncio.Event()
@@ -129,8 +132,8 @@ class Supervisor:
     async def start_agent(
         self,
         identity: str,
-        plugins: Optional[list[str]] = None,
-    ) -> Optional[AgentProcess]:
+        plugins: list[str] | None = None,
+    ) -> AgentProcess | None:
         """Start a single agent subprocess."""
         if identity in self._agents and self._agents[identity].state == ProcessState.RUNNING:
             logger.warning("Agent '%s' already running", identity)
@@ -147,13 +150,15 @@ class Supervisor:
         if not plugins:
             try:
                 from overblick.identities import load_identity
+
                 ident = load_identity(identity)
                 if ident and ident.plugins:
                     agent.plugins = list(ident.plugins)
             except Exception as e:
                 logger.warning(
                     "Could not load identity config for '%s': %s — using default plugins",
-                    identity, e,
+                    identity,
+                    e,
                 )
 
         success = await agent.start()
@@ -230,6 +235,7 @@ class Supervisor:
         Registers SIGINT/SIGTERM handlers for graceful shutdown.
         """
         from overblick.shared.platform import register_shutdown_signals
+
         register_shutdown_signals(self._shutdown_event)
 
         await self._shutdown_event.wait()
@@ -239,14 +245,10 @@ class Supervisor:
         """Get status of all managed agents."""
         return {
             "supervisor_state": self._state.value,
-            "agents": {
-                name: agent.to_dict()
-                for name, agent in self._agents.items()
-            },
+            "agents": {name: agent.to_dict() for name, agent in self._agents.items()},
             "total_agents": len(self._agents),
             "running_agents": sum(
-                1 for a in self._agents.values()
-                if a.state == ProcessState.RUNNING
+                1 for a in self._agents.values() if a.state == ProcessState.RUNNING
             ),
             "routing": self._message_router.get_stats(),
         }
@@ -267,7 +269,7 @@ class Supervisor:
             return
 
         try:
-            exit_code = await agent.monitor()
+            await agent.monitor()
 
             if (
                 self._auto_restart
@@ -278,7 +280,9 @@ class Supervisor:
                 agent.restart_count += 1
                 logger.info(
                     "Auto-restarting '%s' (attempt %d/%d)",
-                    identity, agent.restart_count, agent.max_restarts,
+                    identity,
+                    agent.restart_count,
+                    agent.max_restarts,
                 )
                 await asyncio.sleep(2.0 * agent.restart_count)  # Backoff
                 await agent.start()
@@ -289,12 +293,12 @@ class Supervisor:
         except asyncio.CancelledError:
             pass
 
-    async def _handle_status_request(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_status_request(self, msg: IPCMessage) -> IPCMessage | None:
         """Handle a status request from an agent."""
         status = self.get_status()
         return IPCMessage.status_response(status, sender="supervisor")
 
-    async def _handle_permission_request(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_permission_request(self, msg: IPCMessage) -> IPCMessage | None:
         """
         Handle a permission request from an agent.
 
@@ -307,7 +311,10 @@ class Supervisor:
 
         logger.info(
             "Permission request from '%s': %s:%s (%s)",
-            msg.sender, resource, action, reason,
+            msg.sender,
+            resource,
+            action,
+            reason,
         )
 
         # Stage 1: Auto-approve
@@ -317,31 +324,37 @@ class Supervisor:
             sender="supervisor",
         )
 
-    async def _handle_health_inquiry(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_health_inquiry(self, msg: IPCMessage) -> IPCMessage | None:
         """Handle a health inquiry from an agent."""
         return await self._health_handler.handle(msg)
 
-    async def _handle_email_consultation(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_email_consultation(self, msg: IPCMessage) -> IPCMessage | None:
         """Handle an email consultation from an agent."""
         return await self._email_handler.handle(msg)
 
-    async def _handle_research_request(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_research_request(self, msg: IPCMessage) -> IPCMessage | None:
         """Handle a research request from an agent."""
         return await self._research_handler.handle(msg)
 
-    async def _handle_start_agent(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_start_agent(self, msg: IPCMessage) -> IPCMessage | None:
         """Handle a start_agent request (e.g. from dashboard)."""
         identity = msg.payload.get("identity", "")
         if not identity:
             return IPCMessage(
                 msg_type="agent_action_response",
-                payload={"success": False, "error": "Missing identity", "identity": "", "action": "start"},
+                payload={
+                    "success": False,
+                    "error": "Missing identity",
+                    "identity": "",
+                    "action": "start",
+                },
                 sender="supervisor",
             )
 
         logger.info("Start agent requested for '%s' by '%s'", identity, msg.sender)
         self._audit_log.log(
-            "agent_start_requested", category="lifecycle",
+            "agent_start_requested",
+            category="lifecycle",
             details={"identity": identity, "requested_by": msg.sender},
         )
 
@@ -354,23 +367,34 @@ class Supervisor:
             )
         return IPCMessage(
             msg_type="agent_action_response",
-            payload={"success": False, "error": f"Failed to start '{identity}'", "identity": identity, "action": "start"},
+            payload={
+                "success": False,
+                "error": f"Failed to start '{identity}'",
+                "identity": identity,
+                "action": "start",
+            },
             sender="supervisor",
         )
 
-    async def _handle_stop_agent(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_stop_agent(self, msg: IPCMessage) -> IPCMessage | None:
         """Handle a stop_agent request (e.g. from dashboard)."""
         identity = msg.payload.get("identity", "")
         if not identity:
             return IPCMessage(
                 msg_type="agent_action_response",
-                payload={"success": False, "error": "Missing identity", "identity": "", "action": "stop"},
+                payload={
+                    "success": False,
+                    "error": "Missing identity",
+                    "identity": "",
+                    "action": "stop",
+                },
                 sender="supervisor",
             )
 
         logger.info("Stop agent requested for '%s' by '%s'", identity, msg.sender)
         self._audit_log.log(
-            "agent_stop_requested", category="lifecycle",
+            "agent_stop_requested",
+            category="lifecycle",
             details={"identity": identity, "requested_by": msg.sender},
         )
 
@@ -383,11 +407,16 @@ class Supervisor:
             )
         return IPCMessage(
             msg_type="agent_action_response",
-            payload={"success": False, "error": f"Agent '{identity}' not found or not running", "identity": identity, "action": "stop"},
+            payload={
+                "success": False,
+                "error": f"Agent '{identity}' not found or not running",
+                "identity": identity,
+                "action": "stop",
+            },
             sender="supervisor",
         )
 
-    async def _handle_route_message(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_route_message(self, msg: IPCMessage) -> IPCMessage | None:
         """
         Handle an agent-to-agent message routing request.
 
@@ -431,7 +460,7 @@ class Supervisor:
             sender="supervisor",
         )
 
-    async def _handle_collect_messages(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_collect_messages(self, msg: IPCMessage) -> IPCMessage | None:
         """
         Handle a message collection request from an agent.
 
@@ -458,7 +487,7 @@ class Supervisor:
             sender="supervisor",
         )
 
-    async def _handle_shutdown(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def _handle_shutdown(self, msg: IPCMessage) -> IPCMessage | None:
         """Handle shutdown request."""
         logger.info("Shutdown requested by '%s'", msg.sender)
         self._shutdown_event.set()

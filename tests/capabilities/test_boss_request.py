@@ -63,14 +63,16 @@ class TestBossRequestResearch:
     async def test_request_research_success(self):
         """request_research() returns summary on successful IPC."""
         mock_ipc = AsyncMock()
-        mock_ipc.send = AsyncMock(return_value=IPCMessage(
-            msg_type="research_response",
-            payload={
-                "summary": "The EUR/SEK rate is currently 11.45.",
-                "source": "duckduckgo_summarized",
-            },
-            sender="supervisor",
-        ))
+        mock_ipc.send = AsyncMock(
+            return_value=IPCMessage(
+                msg_type="research_response",
+                payload={
+                    "summary": "The EUR/SEK rate is currently 11.45.",
+                    "source": "duckduckgo_summarized",
+                },
+                sender="supervisor",
+            )
+        )
 
         ctx = _make_ctx(ipc_client=mock_ipc)
         cap = BossRequestCapability(ctx)
@@ -95,11 +97,13 @@ class TestBossRequestResearch:
     async def test_request_research_no_results(self):
         """request_research() returns None when IPC returns error."""
         mock_ipc = AsyncMock()
-        mock_ipc.send = AsyncMock(return_value=IPCMessage(
-            msg_type="research_response",
-            payload={"error": "Empty research query"},
-            sender="supervisor",
-        ))
+        mock_ipc.send = AsyncMock(
+            return_value=IPCMessage(
+                msg_type="research_response",
+                payload={"error": "Empty research query"},
+                sender="supervisor",
+            )
+        )
 
         ctx = _make_ctx(ipc_client=mock_ipc)
         cap = BossRequestCapability(ctx)
@@ -148,11 +152,13 @@ class TestBossRequestResearch:
     async def test_request_research_timeout_value(self):
         """request_research() uses 60s timeout for IPC."""
         mock_ipc = AsyncMock()
-        mock_ipc.send = AsyncMock(return_value=IPCMessage(
-            msg_type="research_response",
-            payload={"summary": "result"},
-            sender="supervisor",
-        ))
+        mock_ipc.send = AsyncMock(
+            return_value=IPCMessage(
+                msg_type="research_response",
+                payload={"summary": "result"},
+                sender="supervisor",
+            )
+        )
 
         ctx = _make_ctx(ipc_client=mock_ipc)
         cap = BossRequestCapability(ctx)

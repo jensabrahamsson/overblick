@@ -34,9 +34,7 @@ _DEFAULT_PROMPT = (
     "Describe this image briefly in 1-2 sentences. "
     "Focus on: what it shows, any text visible, and key details."
 )
-_CONTEXT_PROMPT = (
-    "Describe this image briefly (1-2 sentences). Context: {context}"
-)
+_CONTEXT_PROMPT = "Describe this image briefly (1-2 sentences). Context: {context}"
 
 # Media type mapping by extension
 _MEDIA_TYPES: dict[str, str] = {
@@ -72,8 +70,8 @@ class VisionCapability(CapabilityBase):
         self._timeout_seconds: int = 30
         self._default_prompt: str = _DEFAULT_PROMPT
         self._context_prompt: str = _CONTEXT_PROMPT
-        self._api_key: Optional[str] = None
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._api_key: str | None = None
+        self._session: aiohttp.ClientSession | None = None
 
     async def setup(self) -> None:
         self._model = self.ctx.config.get("model", "claude-3-haiku-20240307")
@@ -113,7 +111,7 @@ class VisionCapability(CapabilityBase):
         self,
         image_url: str,
         context: str = "",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Download an image from URL and analyze it.
 
@@ -159,7 +157,7 @@ class VisionCapability(CapabilityBase):
         base64_image: str,
         media_type: str = "image/jpeg",
         context: str = "",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Analyze a base64-encoded image.
 
@@ -175,11 +173,7 @@ class VisionCapability(CapabilityBase):
             logger.warning("VisionCapability is disabled (no API key)")
             return None
 
-        prompt = (
-            self._context_prompt.format(context=context)
-            if context
-            else self._default_prompt
-        )
+        prompt = self._context_prompt.format(context=context) if context else self._default_prompt
 
         payload = {
             "model": self._model,
@@ -210,9 +204,7 @@ class VisionCapability(CapabilityBase):
             async with session.post(_API_URL, json=payload) as resp:
                 if resp.status != 200:
                     body = await resp.text()
-                    logger.error(
-                        "Claude API error: HTTP %d — %s", resp.status, body[:200]
-                    )
+                    logger.error("Claude API error: HTTP %d — %s", resp.status, body[:200])
                     return None
 
                 data = await resp.json()

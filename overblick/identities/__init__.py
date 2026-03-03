@@ -34,7 +34,7 @@ from types import ModuleType
 from typing import Any, Optional
 
 import yaml
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from overblick.core.exceptions import ConfigError
 
@@ -72,12 +72,14 @@ _IDENTITY_CACHE_TTL: float = 60.0  # seconds
 # Operational sub-models
 # ---------------------------------------------------------------------------
 
+
 class LLMSettings(BaseModel):
     """LLM configuration.
 
     All agents connect via the LLM Gateway, which routes to configured
     backends (local Ollama, cloud Ollama, OpenAI).
     """
+
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     model: str = "qwen3:8b"
@@ -92,6 +94,7 @@ class LLMSettings(BaseModel):
 
 class QuietHoursSettings(BaseModel):
     """Quiet hours (bedroom mode) per identity."""
+
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     enabled: bool = True
@@ -103,6 +106,7 @@ class QuietHoursSettings(BaseModel):
 
 class ScheduleSettings(BaseModel):
     """Heartbeat and polling schedule."""
+
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     heartbeat_hours: int = 4
@@ -112,6 +116,7 @@ class ScheduleSettings(BaseModel):
 
 class SecuritySettings(BaseModel):
     """Security configuration."""
+
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     enable_preflight: bool = True
@@ -129,6 +134,7 @@ class SecuritySettings(BaseModel):
 # ---------------------------------------------------------------------------
 # Unified Identity model
 # ---------------------------------------------------------------------------
+
 
 class Identity(BaseModel):
     """
@@ -155,6 +161,7 @@ class Identity(BaseModel):
     - plugins: Which plugins to load
     - capability_names: Which capabilities to enable
     """
+
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     # --- Core identity ---
@@ -165,16 +172,16 @@ class Identity(BaseModel):
     description: str = ""
 
     # --- Character sections (raw dicts from YAML) ---
-    identity_info: dict[str, Any] = {}
-    backstory: dict[str, Any] = {}
-    voice: dict[str, Any] = {}
-    traits: dict[str, float] = {}
-    interests: dict[str, Any] = {}
-    vocabulary: dict[str, Any] = {}
-    signature_phrases: dict[str, list[str]] = {}
-    ethos: dict[str, Any] | list[str] = {}
-    examples: dict[str, Any] = {}
-    parallel_examples: dict[str, Any] = {}
+    identity_info: dict[str, Any] = Field(default_factory=dict)
+    backstory: dict[str, Any] = Field(default_factory=dict)
+    voice: dict[str, Any] = Field(default_factory=dict)
+    traits: dict[str, float] = Field(default_factory=dict)
+    interests: dict[str, Any] = Field(default_factory=dict)
+    vocabulary: dict[str, Any] = Field(default_factory=dict)
+    signature_phrases: dict[str, list[str]] = Field(default_factory=dict)
+    ethos: dict[str, Any] | list[str] = Field(default_factory=dict)
+    examples: dict[str, Any] = Field(default_factory=dict)
+    parallel_examples: dict[str, Any] = Field(default_factory=dict)
     moltbook_bio: str = ""
     moltbook_username: str = ""
 
@@ -194,19 +201,19 @@ class Identity(BaseModel):
     capability_names: tuple[str, ...] = ()
 
     # Security deflections
-    deflections: dict[str, list[str]] | list[str] = {}
+    deflections: dict[str, list[str]] | list[str] = Field(default_factory=dict)
 
     # Interest keywords for engagement scoring
-    interest_keywords: list[str] = []
+    interest_keywords: list[str] = Field(default_factory=list)
 
     # Identity-specific prompts module path
     prompts_module: str = ""
 
     # Knowledge, opinions, opsec (loaded from auxiliary YAML files)
-    personality: dict[str, Any] = {}
-    opinions: dict[str, Any] = {}
-    opsec: dict[str, Any] = {}
-    knowledge: dict[str, Any] = {}
+    personality: dict[str, Any] = Field(default_factory=dict)
+    opinions: dict[str, Any] = Field(default_factory=dict)
+    opsec: dict[str, Any] = Field(default_factory=dict)
+    knowledge: dict[str, Any] = Field(default_factory=dict)
 
     # Identity reference (defaults to self.name)
     identity_ref: str = ""
@@ -215,8 +222,8 @@ class Identity(BaseModel):
     loaded_personality: Any = None
 
     # Raw YAML data for arbitrary access
-    raw: dict[str, Any] = {}
-    raw_config: dict[str, Any] = {}
+    raw: dict[str, Any] = Field(default_factory=dict)
+    raw_config: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -246,8 +253,13 @@ class Identity(BaseModel):
         if not self.traits:
             return self
 
-        big_five = ["openness", "conscientiousness", "extraversion",
-                    "agreeableness", "neuroticism"]
+        big_five = [
+            "openness",
+            "conscientiousness",
+            "extraversion",
+            "agreeableness",
+            "neuroticism",
+        ]
         big_five_traits = {k: v for k, v in self.traits.items() if k in big_five}
 
         # Check range (0-1)
@@ -255,7 +267,9 @@ class Identity(BaseModel):
             if not (0 <= value <= 1):
                 logger.warning(
                     "Identity '%s' trait '%s' = %.2f is outside valid range [0, 1]",
-                    self.name, trait_name, value
+                    self.name,
+                    trait_name,
+                    value,
                 )
 
         # Check Big Five balance (should sum to ~2.5-3.5 for balanced personality)
@@ -268,8 +282,12 @@ class Identity(BaseModel):
                 logger.warning(
                     "Identity '%s' Big Five traits sum to %.2f (expected ~%.1f-%.1f for %d traits). "
                     "Traits: %s",
-                    self.name, trait_sum, expected_min, expected_max,
-                    len(big_five_traits), big_five_traits
+                    self.name,
+                    trait_sum,
+                    expected_min,
+                    expected_max,
+                    len(big_five_traits),
+                    big_five_traits,
                 )
 
         return self
@@ -283,7 +301,7 @@ class Identity(BaseModel):
 
     # --- Character accessors ---
 
-    def get_example(self, name: str) -> Optional[dict[str, str]]:
+    def get_example(self, name: str) -> dict[str, str] | None:
         """Get a specific example conversation by name."""
         return self.examples.get(name)
 
@@ -347,6 +365,7 @@ Personality = Identity
 # YAML loading
 # ---------------------------------------------------------------------------
 
+
 def _deep_merge(base: dict, override: dict) -> dict:
     """Recursively merge *override* into *base* (new dict, no mutation).
 
@@ -370,7 +389,7 @@ def _load_yaml(path: Path) -> dict:
         return yaml.safe_load(f) or {}
 
 
-def _find_identity_dir(name: str) -> Optional[Path]:
+def _find_identity_dir(name: str) -> Path | None:
     """Find the directory containing identity files, or None."""
     # Check identities/ directory first (primary)
     i_dir = _IDENTITIES_DIR / name
@@ -419,6 +438,7 @@ def load_identity(name: str) -> "Identity":
 
     # Check cache (TTL-based)
     import time as _time
+
     now = _time.monotonic()
     cached = _identity_cache.get(name)
     if cached is not None:
@@ -456,8 +476,7 @@ def load_identity(name: str) -> "Identity":
         return result
 
     raise FileNotFoundError(
-        f"No identity found for '{name}'. "
-        f"Searched: {dir_based}, {standalone}, {legacy_file}"
+        f"No identity found for '{name}'. " f"Searched: {dir_based}, {standalone}, {legacy_file}"
     )
 
 
@@ -475,6 +494,7 @@ def list_identities() -> list[str]:
     global _identity_list_cache, _identity_list_cache_ts
 
     import time as _time
+
     now = _time.monotonic()
     if _identity_list_cache and (now - _identity_list_cache_ts < _IDENTITY_LIST_TTL):
         return _identity_list_cache
@@ -542,7 +562,7 @@ def build_system_prompt(
     identity: "Identity",
     platform: str = "Moltbook",
     model_slug: str = "",
-    secrets_getter: Optional[callable] = None,
+    secrets_getter: callable | None = None,
 ) -> str:
     """
     Build a generic system prompt from identity data.
@@ -672,8 +692,10 @@ def build_system_prompt(
         parts.append("\nExample exchanges (for voice reference):")
         for ex_name, ex_data in example_items:
             user_msg = ex_data.get("user_message", ex_data.get("user", ""))
-            response = ex_data.get("response", ex_data.get("anomal_response",
-                       ex_data.get("cherry_response", "")))
+            response = ex_data.get(
+                "response",
+                ex_data.get("anomal_response", ex_data.get("cherry_response", "")),
+            )
             if user_msg and response:
                 parts.append(f"User: {user_msg.strip()}")
                 # Truncate long examples
@@ -756,13 +778,14 @@ def build_system_prompt(
         unique = sorted(set(still_unresolved))
         logger.warning(
             "Unresolved placeholders in system prompt for %s: %s",
-            identity.name, unique,
+            identity.name,
+            unique,
         )
 
     return prompt
 
 
-def _build_identity(name: str, data: dict, base_dir: Optional[Path] = None) -> Identity:
+def _build_identity(name: str, data: dict, base_dir: Path | None = None) -> Identity:
     """
     Build a unified Identity from raw YAML data.
 

@@ -43,7 +43,11 @@ class TestResponseRouterIntegration:
             "message": "Please verify your account",
         }
         result = router.inspect_sync(response)
-        assert result.verdict in (ResponseVerdict.SUSPICIOUS, ResponseVerdict.CHALLENGE, ResponseVerdict.NORMAL)
+        assert result.verdict in (
+            ResponseVerdict.SUSPICIOUS,
+            ResponseVerdict.CHALLENGE,
+            ResponseVerdict.NORMAL,
+        )
 
     def test_deeply_nested_content(self, router):
         """Deeply nested response structure is handled without crash."""
@@ -76,7 +80,11 @@ class TestResponseRouterIntegration:
             "form": {"action": "/auth", "fields": ["password"]},
         }
         result = router.inspect_sync(response)
-        assert result.verdict in (ResponseVerdict.SUSPICIOUS, ResponseVerdict.CHALLENGE, ResponseVerdict.NORMAL)
+        assert result.verdict in (
+            ResponseVerdict.SUSPICIOUS,
+            ResponseVerdict.CHALLENGE,
+            ResponseVerdict.NORMAL,
+        )
 
 
 class TestResponseResponseVerdicts:

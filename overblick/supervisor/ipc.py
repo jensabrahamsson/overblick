@@ -21,9 +21,10 @@ import secrets
 import socket
 import tempfile
 import time
-from datetime import datetime, timezone
+from collections.abc import Callable, Coroutine
+from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -47,10 +48,16 @@ def generate_ipc_token() -> str:
     return secrets.token_hex(32)
 
 
-def _encrypt_token(token: str) -> bytes:
-    """Encrypt IPC token with Fernet (auto-generates ephemeral key per session)."""
+def _obfuscate_token(token: str) -> bytes:
+    """Obfuscate IPC token with Fernet (key + encrypted token stored together).
+
+    WARNING: This provides obfuscation, not strong security — the encryption key
+    is stored alongside the encrypted token. Security relies on filesystem
+    permissions (0o600) preventing unauthorized read access.
+    """
     try:
         from cryptography.fernet import Fernet
+
         key = Fernet.generate_key()
         f = Fernet(key)
         encrypted = f.encrypt(token.encode())
@@ -61,10 +68,11 @@ def _encrypt_token(token: str) -> bytes:
         return token.encode()
 
 
-def _decrypt_token(data: bytes) -> str:
-    """Decrypt IPC token written by _encrypt_token."""
+def _deobfuscate_token(data: bytes) -> str:
+    """Deobfuscate IPC token written by _obfuscate_token."""
     try:
         from cryptography.fernet import Fernet
+
         parts = data.split(b"\n", 1)
         if len(parts) == 2:
             key, encrypted = parts
@@ -73,7 +81,7 @@ def _decrypt_token(data: bytes) -> str:
     except ImportError:
         pass
     except Exception as e:
-        logger.warning("Failed to decrypt IPC token: %s", e)
+        logger.warning("Failed to deobfuscate IPC token: %s", e)
     # Fallback: plaintext (backward compat or no cryptography)
     return data.decode().strip()
 
@@ -81,6 +89,7 @@ def _decrypt_token(data: bytes) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # IPC CONNECTION RATE LIMITER
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class _IPCRateLimiter:
     """Per-sender rate limiter for IPC connections.
@@ -126,8 +135,8 @@ class _IPCRateLimiter:
         return True
 
 
-def _read_conn_file(conn_path: Path) -> Optional[dict]:
-    """Read and decrypt connection info from .conn file (Windows TCP mode).
+def _read_conn_file(conn_path: Path) -> dict | None:
+    """Read and deobfuscate connection info from .conn file (Windows TCP mode).
 
     Returns dict with 'port' and 'token' keys, or None on failure.
     """
@@ -136,6 +145,7 @@ def _read_conn_file(conn_path: Path) -> Optional[dict]:
     data = conn_path.read_bytes()
     try:
         from cryptography.fernet import Fernet
+
         parts = data.split(b"\n", 1)
         if len(parts) == 2:
             key, encrypted = parts
@@ -145,7 +155,7 @@ def _read_conn_file(conn_path: Path) -> Optional[dict]:
     except ImportError:
         pass
     except Exception as e:
-        logger.warning("Failed to decrypt conn file %s: %s", conn_path, e)
+        logger.warning("Failed to deobfuscate conn file %s: %s", conn_path, e)
 
     # Fallback: try plaintext JSON
     try:
@@ -154,11 +164,11 @@ def _read_conn_file(conn_path: Path) -> Optional[dict]:
         return None
 
 
-def read_ipc_token(name: str = "supervisor", socket_dir: Optional[Path] = None) -> str:
-    """Read and decrypt IPC token from file (for child processes).
+def read_ipc_token(name: str = "supervisor", socket_dir: Path | None = None) -> str:
+    """Read and deobfuscate IPC token from file (for child processes).
 
-    On Unix: reads from .token file (Fernet-encrypted token).
-    On Windows: reads from .conn file (Fernet-encrypted JSON with port + token).
+    On Unix: reads from .token file (Fernet-obfuscated token).
+    On Windows: reads from .conn file (Fernet-obfuscated JSON with port + token).
     Falls back to .token if .conn is not found.
     """
     sd = socket_dir or _SOCKET_DIR
@@ -174,27 +184,30 @@ def read_ipc_token(name: str = "supervisor", socket_dir: Optional[Path] = None) 
     token_path = sd / f"overblick-{name}.token"
     if not token_path.exists():
         return ""
-    return _decrypt_token(token_path.read_bytes())
+    return _deobfuscate_token(token_path.read_bytes())
 
 
 class IPCMessage(BaseModel):
     """A message in the IPC protocol."""
+
     msg_type: str
-    payload: dict[str, Any] = {}
+    payload: dict[str, Any] = Field(default_factory=dict)
     sender: str = ""
-    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     request_id: str = ""
     auth_token: str = ""
 
     def to_json(self) -> str:
-        return json.dumps({
-            "type": self.msg_type,
-            "payload": self.payload,
-            "sender": self.sender,
-            "timestamp": self.timestamp,
-            "request_id": self.request_id,
-            "auth_token": self.auth_token,
-        })
+        return json.dumps(
+            {
+                "type": self.msg_type,
+                "payload": self.payload,
+                "sender": self.sender,
+                "timestamp": self.timestamp,
+                "request_id": self.request_id,
+                "auth_token": self.auth_token,
+            }
+        )
 
     @classmethod
     def from_json(cls, data: str) -> "IPCMessage":
@@ -218,8 +231,12 @@ class IPCMessage(BaseModel):
 
     @classmethod
     def permission_request(
-        cls, resource: str, action: str, reason: str,
-        sender: str = "", auth_token: str = "",
+        cls,
+        resource: str,
+        action: str,
+        reason: str,
+        sender: str = "",
+        auth_token: str = "",
     ) -> "IPCMessage":
         return cls(
             msg_type="permission_request",
@@ -242,7 +259,7 @@ class IPCMessage(BaseModel):
 
 
 # Type alias for message handlers
-MessageHandler = Callable[[IPCMessage], Coroutine[Any, Any, Optional[IPCMessage]]]
+MessageHandler = Callable[[IPCMessage], Coroutine[Any, Any, IPCMessage | None]]
 
 
 class IPCServer:
@@ -260,7 +277,7 @@ class IPCServer:
     def __init__(
         self,
         name: str = "supervisor",
-        socket_dir: Optional[Path] = None,
+        socket_dir: Path | None = None,
         auth_token: str = "",
         rate_limit_per_minute: int = 100,
     ):
@@ -268,13 +285,13 @@ class IPCServer:
         self._socket_dir = socket_dir or _SOCKET_DIR
         self._socket_path = self._socket_dir / f"overblick-{name}.sock"
         self._conn_path = self._socket_dir / f"overblick-{name}.conn"
-        self._server: Optional[asyncio.AbstractServer] = None
+        self._server: asyncio.AbstractServer | None = None
         self._handlers: dict[str, MessageHandler] = {}
         self._auth_token = auth_token
         self._rejected_count = 0
         self._rate_limiter = _IPCRateLimiter(max_per_minute=rate_limit_per_minute)
         self._rate_limited_count = 0
-        self._tcp_port: Optional[int] = None
+        self._tcp_port: int | None = None
 
     @property
     def socket_path(self) -> Path:
@@ -294,7 +311,7 @@ class IPCServer:
         return self._socket_dir / f"overblick-{self._name}.token"
 
     @property
-    def tcp_port(self) -> Optional[int]:
+    def tcp_port(self) -> int | None:
         """TCP port used on Windows (None on Unix)."""
         return self._tcp_port
 
@@ -373,16 +390,16 @@ class IPCServer:
             limit=_MAX_MESSAGE_SIZE,
         )
 
-        # Write connection info: Fernet key + encrypted JSON with port and token
+        # Write connection info: Fernet key + obfuscated JSON with port and token
         self._write_conn_file()
 
         logger.info("IPC server listening on 127.0.0.1:%d", self._tcp_port)
 
     def _write_token_file(self) -> None:
-        """Write encrypted auth token to file (Unix)."""
+        """Write obfuscated auth token to file (Unix)."""
         if not self._auth_token:
             return
-        encrypted_data = _encrypt_token(self._auth_token)
+        encrypted_data = _obfuscate_token(self._auth_token)
         if IS_WINDOWS:
             self.token_path.write_bytes(encrypted_data)
         else:
@@ -409,15 +426,18 @@ class IPCServer:
         if self._tcp_port is None:
             return
 
-        conn_data = json.dumps({
-            "port": self._tcp_port,
-            "token": self._auth_token,
-        })
+        conn_data = json.dumps(
+            {
+                "port": self._tcp_port,
+                "token": self._auth_token,
+            }
+        )
 
         # Write atomically: temp file → rename
         tmp_path = self._conn_path.with_suffix(".tmp")
         try:
             from cryptography.fernet import Fernet
+
             key = Fernet.generate_key()
             f = Fernet(key)
             encrypted = f.encrypt(conn_data.encode())
@@ -474,7 +494,8 @@ class IPCServer:
                 self._rate_limited_count += 1
                 logger.warning(
                     "IPC rate limited sender '%s' (total: %d)",
-                    sender_key, self._rate_limited_count,
+                    sender_key,
+                    self._rate_limited_count,
                 )
                 return
 
@@ -482,9 +503,10 @@ class IPCServer:
             if not self._validate_auth(msg):
                 self._rejected_count += 1
                 logger.warning(
-                    "IPC auth rejected from sender '%s' (type: %s) — "
-                    "total rejections: %d",
-                    msg.sender, msg.msg_type, self._rejected_count,
+                    "IPC auth rejected from sender '%s' (type: %s) — " "total rejections: %d",
+                    msg.sender,
+                    msg.msg_type,
+                    self._rejected_count,
                 )
                 return
 
@@ -525,9 +547,9 @@ class IPCClient:
     def __init__(
         self,
         target: str = "supervisor",
-        socket_dir: Optional[Path] = None,
+        socket_dir: Path | None = None,
         auth_token: str = "",
-        tcp_port: Optional[int] = None,
+        tcp_port: int | None = None,
     ):
         self._socket_dir = socket_dir or _SOCKET_DIR
         self._target = target
@@ -555,7 +577,7 @@ class IPCClient:
                 timeout=timeout,
             )
 
-    def _read_tcp_port(self) -> Optional[int]:
+    def _read_tcp_port(self) -> int | None:
         """Read TCP port from .conn file (Windows mode)."""
         if not self._conn_path.exists():
             return None
@@ -570,7 +592,7 @@ class IPCClient:
             logger.debug("Failed to read conn file: %s", e)
         return None
 
-    async def send(self, message: IPCMessage, timeout: float = 5.0) -> Optional[IPCMessage]:
+    async def send(self, message: IPCMessage, timeout: float = 5.0) -> IPCMessage | None:
         """
         Send a message and optionally wait for a response.
 
@@ -593,7 +615,7 @@ class IPCClient:
                     data = await asyncio.wait_for(reader.readline(), timeout=timeout)
                     if data:
                         return IPCMessage.from_json(data.decode().strip())
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning("IPC timeout waiting for response to %s", message.msg_type)
             finally:
                 writer.close()
@@ -603,14 +625,14 @@ class IPCClient:
             logger.debug("IPC socket/conn not found: %s", self._socket_path)
         except ConnectionRefusedError:
             logger.debug("IPC connection refused: %s", self._socket_path)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("IPC timeout connecting to %s", self._socket_path)
         except Exception as e:
             logger.error("IPC client error: %s", e, exc_info=True)
 
         return None
 
-    async def request_status(self, sender: str = "") -> Optional[dict]:
+    async def request_status(self, sender: str = "") -> dict | None:
         """Request status from the supervisor."""
         response = await self.send(
             IPCMessage.status_request(sender=sender, auth_token=self._auth_token)
@@ -620,11 +642,19 @@ class IPCClient:
         return None
 
     async def request_permission(
-        self, resource: str, action: str, reason: str, sender: str = "",
+        self,
+        resource: str,
+        action: str,
+        reason: str,
+        sender: str = "",
     ) -> bool:
         """Request permission from the supervisor."""
         msg = IPCMessage.permission_request(
-            resource, action, reason, sender=sender, auth_token=self._auth_token,
+            resource,
+            action,
+            reason,
+            sender=sender,
+            auth_token=self._auth_token,
         )
         response = await self.send(msg)
         if response and response.msg_type == "permission_response":

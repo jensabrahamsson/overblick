@@ -86,7 +86,10 @@ class TestAgentDetail:
         back_link.first.click()
         page.wait_for_load_state("networkidle")
 
-        assert page.url.rstrip("/") == dashboard_server.rstrip("/") or page.url == f"{dashboard_server}/"
+        assert (
+            page.url.rstrip("/") == dashboard_server.rstrip("/")
+            or page.url == f"{dashboard_server}/"
+        )
 
     def test_unknown_agent_redirects(self, dashboard_server, page):
         """Requesting an unknown agent should redirect to the dashboard."""

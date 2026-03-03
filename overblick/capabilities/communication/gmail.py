@@ -25,14 +25,14 @@ import asyncio
 import imaplib
 import logging
 import smtplib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
+from email import policy
 from email.header import decode_header as _decode_header
 from email.mime.text import MIMEText
 from email.parser import BytesParser
-from email import policy
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ IMAP_TIMEOUT = 30  # seconds — prevents indefinite hangs on unresponsive serve
 
 class GmailMessage(BaseModel):
     """Parsed email message from Gmail."""
+
     message_id: str
     thread_id: str
     sender: str
@@ -52,8 +53,10 @@ class GmailMessage(BaseModel):
     body: str
     snippet: str
     timestamp: str
-    labels: list[str] = []
-    headers: dict[str, str] = {}  # Key email headers for classification signals
+    labels: list[str] = Field(default_factory=list)
+    headers: dict[str, str] = Field(
+        default_factory=dict
+    )  # Key email headers for classification signals
 
 
 class GmailCapability:
@@ -83,9 +86,9 @@ class GmailCapability:
 
     def __init__(self, ctx):
         self.ctx = ctx
-        self._email: Optional[str] = None
-        self._password: Optional[str] = None
-        self._send_as: Optional[str] = None  # Optional From address (Gmail alias)
+        self._email: str | None = None
+        self._password: str | None = None
+        self._send_as: str | None = None  # Optional From address (Gmail alias)
         self._uid_map: dict[str, bytes] = {}  # RFC Message-ID → IMAP UID
 
     async def setup(self) -> None:
@@ -130,7 +133,7 @@ class GmailCapability:
     async def fetch_unread(
         self,
         max_results: int = 10,
-        since_days: Optional[int] = None,
+        since_days: int | None = None,
     ) -> list[GmailMessage]:
         """
         Fetch unread messages from Gmail inbox via IMAP.
@@ -150,20 +153,27 @@ class GmailCapability:
 
         try:
             return await asyncio.to_thread(
-                self._imap_fetch_unread, max_results, since_days,
+                self._imap_fetch_unread,
+                max_results,
+                since_days,
             )
         except Exception as e:
             logger.error("Gmail fetch_unread failed: %s", e, exc_info=True)
             return []
 
     def _imap_fetch_unread(
-        self, max_results: int, since_days: Optional[int] = None,
+        self,
+        max_results: int,
+        since_days: int | None = None,
     ) -> list[GmailMessage]:
         """Fetch unread messages via IMAP (blocking, run in thread pool)."""
+        assert self._email is not None and self._password is not None, "Gmail credentials missing"
         results = []
 
         with imaplib.IMAP4_SSL(
-            GMAIL_IMAP_HOST, GMAIL_IMAP_PORT, timeout=IMAP_TIMEOUT,
+            GMAIL_IMAP_HOST,
+            GMAIL_IMAP_PORT,
+            timeout=IMAP_TIMEOUT,
         ) as imap:
             imap.login(self._email, self._password)
             imap.select("INBOX")
@@ -172,15 +182,16 @@ class GmailCapability:
             # at the server level to avoid fetching ancient unread emails.
             search_criteria = "UNSEEN"
             if since_days is not None:
-                cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
+                cutoff = datetime.now(UTC) - timedelta(days=since_days)
                 imap_date = cutoff.strftime("%d-%b-%Y")  # e.g. "14-Feb-2026"
                 search_criteria = f"UNSEEN SINCE {imap_date}"
                 logger.debug(
                     "GmailCapability: fetching unread since %s (last %d day(s))",
-                    imap_date, since_days,
+                    imap_date,
+                    since_days,
                 )
 
-            status, data = imap.uid("search", None, search_criteria)
+            status, data = imap.uid("search", "", search_criteria)
             if status != "OK" or not data[0]:
                 return []
 
@@ -195,10 +206,13 @@ class GmailCapability:
         return results
 
     def _imap_fetch_message(
-        self, imap: imaplib.IMAP4_SSL, uid: bytes,
-    ) -> Optional[GmailMessage]:
+        self,
+        imap: imaplib.IMAP4_SSL,
+        uid: bytes,
+    ) -> GmailMessage | None:
         """Fetch and parse a single message by IMAP UID."""
-        status, data = imap.uid("fetch", uid, "(RFC822)")
+        uid_str = uid.decode()
+        status, data = imap.uid("fetch", uid_str, "(RFC822)")
         if status != "OK" or not data[0]:
             return None
 
@@ -314,6 +328,7 @@ class GmailCapability:
         if not self.configured:
             logger.warning("GmailCapability: not configured, cannot send")
             return False
+        assert self._email is not None and self._password is not None, "Gmail credentials missing"
 
         reply_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
 
@@ -336,6 +351,7 @@ class GmailCapability:
 
     def _smtp_send(self, msg: MIMEText) -> None:
         """Send email via SMTP with STARTTLS (blocking, run in thread pool)."""
+        assert self._email is not None and self._password is not None, "Gmail credentials missing"
         with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=30) as smtp:
             smtp.starttls()
             smtp.login(self._email, self._password)
@@ -375,12 +391,16 @@ class GmailCapability:
 
     def _imap_mark_read(self, uid: bytes) -> None:
         """Set \\Seen flag on a message via IMAP (blocking, run in thread pool)."""
+        assert self._email is not None and self._password is not None, "Gmail credentials missing"
+        uid_str = uid.decode()
         with imaplib.IMAP4_SSL(
-            GMAIL_IMAP_HOST, GMAIL_IMAP_PORT, timeout=IMAP_TIMEOUT,
+            GMAIL_IMAP_HOST,
+            GMAIL_IMAP_PORT,
+            timeout=IMAP_TIMEOUT,
         ) as imap:
             imap.login(self._email, self._password)
             imap.select("INBOX")
-            imap.uid("store", uid, "+FLAGS", "\\Seen")
+            imap.uid("store", uid_str, "+FLAGS", "\\Seen")
 
     # ── Lifecycle ────────────────────────────────────────────────────────
 

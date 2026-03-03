@@ -62,8 +62,10 @@ class TestShadowProfile:
         identity.raw = {}
 
         profile = plugin._build_shadow_profile(identity)
-        assert "normalcy" in profile.shadow_description.lower() or \
-               "acceptance" in profile.shadow_description.lower()
+        assert (
+            "normalcy" in profile.shadow_description.lower()
+            or "acceptance" in profile.shadow_description.lower()
+        )
 
     def test_default_shadow_cherry(self, skuggspel_context):
         """Cherry gets attachment-theory shadow."""
@@ -75,8 +77,10 @@ class TestShadowProfile:
         identity.raw = {}
 
         profile = plugin._build_shadow_profile(identity)
-        assert "avoidant" in profile.shadow_description.lower() or \
-               "cold" in profile.shadow_description.lower()
+        assert (
+            "avoidant" in profile.shadow_description.lower()
+            or "cold" in profile.shadow_description.lower()
+        )
 
     def test_shadow_from_psychological_framework(self, skuggspel_context):
         """Uses psychological_framework shadow if available."""
@@ -193,15 +197,17 @@ class TestStateManagement:
             await plugin.setup()
 
         plugin._last_run = 12345.0
-        plugin._posts.append(ShadowPost(
-            identity_name="test",
-            topic="Topic",
-            shadow_content="Shadow content",
-            shadow_profile=ShadowProfile(
+        plugin._posts.append(
+            ShadowPost(
                 identity_name="test",
-                shadow_description="Test",
-            ),
-        ))
+                topic="Topic",
+                shadow_content="Shadow content",
+                shadow_profile=ShadowProfile(
+                    identity_name="test",
+                    shadow_description="Test",
+                ),
+            )
+        )
         plugin._save_state()
 
         plugin2 = SkuggspelPlugin(skuggspel_context)

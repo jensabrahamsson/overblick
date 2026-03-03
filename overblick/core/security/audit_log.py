@@ -66,7 +66,7 @@ class AuditLog:
         self._db_path = db_path
         self._identity = identity
         self._retention_days = retention_days
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), timeout=10, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -74,18 +74,19 @@ class AuditLog:
         self._conn.commit()
         # Single-thread executor for non-blocking writes
         self._write_executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="audit-write",
+            max_workers=1,
+            thread_name_prefix="audit-write",
         )
 
     def _log_sync(
         self,
         action: str,
         category: str,
-        plugin: Optional[str],
-        details_json: Optional[str],
+        plugin: str | None,
+        details_json: str | None,
         success: bool,
-        duration_ms: Optional[float],
-        error: Optional[str],
+        duration_ms: float | None,
+        error: str | None,
     ) -> int:
         """Synchronous log write (runs in executor thread)."""
         cursor = self._conn.execute(
@@ -113,11 +114,11 @@ class AuditLog:
         self,
         action: str,
         category: str = "general",
-        plugin: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        plugin: str | None = None,
+        details: dict[str, Any] | None = None,
         success: bool = True,
-        duration_ms: Optional[float] = None,
-        error: Optional[str] = None,
+        duration_ms: float | None = None,
+        error: str | None = None,
     ) -> int:
         """
         Log an action (fire-and-forget, non-blocking when event loop is running).
@@ -146,22 +147,32 @@ class AuditLog:
             loop.run_in_executor(
                 self._write_executor,
                 self._log_sync,
-                action, category, plugin, details_json,
-                success, duration_ms, error,
+                action,
+                category,
+                plugin,
+                details_json,
+                success,
+                duration_ms,
+                error,
             )
             return 0  # ID not available for async writes
         except RuntimeError:
             # No event loop running — write synchronously (setup/teardown)
             return self._log_sync(
-                action, category, plugin, details_json,
-                success, duration_ms, error,
+                action,
+                category,
+                plugin,
+                details_json,
+                success,
+                duration_ms,
+                error,
             )
 
     def query(
         self,
-        action: Optional[str] = None,
-        category: Optional[str] = None,
-        since: Optional[float] = None,
+        action: str | None = None,
+        category: str | None = None,
+        since: float | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -224,8 +235,8 @@ class AuditLog:
 
     def count(
         self,
-        action: Optional[str] = None,
-        since: Optional[float] = None,
+        action: str | None = None,
+        since: float | None = None,
     ) -> int:
         """Count log entries matching criteria."""
         conditions = []
@@ -254,9 +265,7 @@ class AuditLog:
             Number of entries deleted
         """
         cutoff = time.time() - (self._retention_days * 86400)
-        cursor = self._conn.execute(
-            "DELETE FROM audit_log WHERE timestamp < ?", (cutoff,)
-        )
+        cursor = self._conn.execute("DELETE FROM audit_log WHERE timestamp < ?", (cutoff,))
         deleted = cursor.rowcount
         if deleted > 0:
             self._conn.commit()
@@ -276,8 +285,9 @@ class AuditLog:
         if self._cleanup_task and not self._cleanup_task.done():
             return
         self._cleanup_task = asyncio.create_task(self._cleanup_loop())
-        logger.debug("Audit log background cleanup started (every %ds)",
-                      self._CLEANUP_INTERVAL_SECONDS)
+        logger.debug(
+            "Audit log background cleanup started (every %ds)", self._CLEANUP_INTERVAL_SECONDS
+        )
 
     def stop_background_cleanup(self) -> None:
         """Cancel the background cleanup task."""

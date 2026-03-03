@@ -69,7 +69,12 @@ class TestOnboardingStep1:
         cookie_value, csrf = session_cookie
         resp = await client.post(
             "/onboard",
-            data={"step": "1", "name": "testbot", "description": "A test bot", "display_name": "TestBot"},
+            data={
+                "step": "1",
+                "name": "testbot",
+                "description": "A test bot",
+                "display_name": "TestBot",
+            },
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf},
             follow_redirects=False,
@@ -118,7 +123,12 @@ class TestOnboardingStep1:
         cookie_value, csrf = session_cookie
         resp = await client.post(
             "/onboard",
-            data={"step": "1", "name": "newagent", "description": "Test agent", "display_name": "NewAgent"},
+            data={
+                "step": "1",
+                "name": "newagent",
+                "description": "Test agent",
+                "display_name": "NewAgent",
+            },
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf},
             follow_redirects=False,
@@ -316,7 +326,12 @@ class TestOnboardingWizardState:
         # Submit step 1
         resp = await client.post(
             "/onboard",
-            data={"step": "1", "name": "flowbot", "description": "Flow test", "display_name": "FlowBot"},
+            data={
+                "step": "1",
+                "name": "flowbot",
+                "description": "Flow test",
+                "display_name": "FlowBot",
+            },
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf},
             follow_redirects=False,
@@ -422,8 +437,11 @@ class TestOnboardingChat:
         await client.post(
             "/onboard",
             data={
-                "step": "2", "model": "qwen3:8b", "temperature": "0.7",
-                "max_tokens": "2000", "provider": "ollama",
+                "step": "2",
+                "model": "qwen3:8b",
+                "temperature": "0.7",
+                "max_tokens": "2000",
+                "provider": "ollama",
             },
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf},
@@ -467,8 +485,11 @@ class TestOnboardingChat:
         await client.post(
             "/onboard",
             data={
-                "step": "2", "model": "qwen3:8b", "temperature": "0.7",
-                "max_tokens": "2000", "provider": "ollama",
+                "step": "2",
+                "model": "qwen3:8b",
+                "temperature": "0.7",
+                "max_tokens": "2000",
+                "provider": "ollama",
             },
             cookies={SESSION_COOKIE: cookie_value},
             headers={"X-CSRF-Token": csrf},

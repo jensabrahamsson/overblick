@@ -89,16 +89,16 @@ class DevAgentPlugin(AgenticPluginBase):
 
     def __init__(self, ctx: PluginContext):
         super().__init__(ctx)
-        self._db: Optional[DevAgentDB] = None
-        self._workspace: Optional[WorkspaceManager] = None
-        self._opencode: Optional[OpencodeRunner] = None
-        self._test_runner: Optional[TestRunner] = None
-        self._pr_creator: Optional[PRCreator] = None
-        self._log_watcher: Optional[LogWatcher] = None
-        self._observer: Optional[BugObserver] = None
+        self._db: DevAgentDB | None = None
+        self._workspace: WorkspaceManager | None = None
+        self._opencode: OpencodeRunner | None = None
+        self._test_runner: TestRunner | None = None
+        self._pr_creator: PRCreator | None = None
+        self._log_watcher: LogWatcher | None = None
+        self._observer: BugObserver | None = None
         self._handlers: dict[str, ActionHandler] = {}
         self._check_interval: int = 1800  # 30 minutes default
-        self._last_check: Optional[float] = None
+        self._last_check: float | None = None
         self._dry_run: bool = True
 
     async def setup(self) -> None:
@@ -118,7 +118,7 @@ class DevAgentPlugin(AgenticPluginBase):
         workspace_dir = da_config.get("workspace_dir", "workspace/overblick")
         default_branch = da_config.get("default_branch", "main")
         self._dry_run = da_config.get("dry_run", True)
-        max_fix_attempts = da_config.get("max_fix_attempts", 3)
+        da_config.get("max_fix_attempts", 3)
         max_actions_per_tick = da_config.get("max_actions_per_tick", 3)
         tick_interval_minutes = da_config.get("tick_interval_minutes", 30)
         self._check_interval = tick_interval_minutes * 60
@@ -223,8 +223,10 @@ class DevAgentPlugin(AgenticPluginBase):
         mode = "DRY RUN" if self._dry_run else "LIVE"
         logger.info(
             "DevAgentPlugin [%s] setup for '%s' (repo: %s, workspace: %s, %d goals)",
-            mode, self.ctx.identity_name,
-            repo_url, workspace_path,
+            mode,
+            self.ctx.identity_name,
+            repo_url,
+            workspace_path,
             len(self.goal_tracker.active_goals) if self.goal_tracker else 0,
         )
 

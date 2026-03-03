@@ -5,10 +5,10 @@ Defines domain-specific types for log scanning, pattern matching,
 and alert management.
 """
 
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Re-export core agentic models for convenience
 from overblick.core.agentic.models import (  # noqa: F401
@@ -21,16 +21,18 @@ from overblick.core.agentic.models import (  # noqa: F401
 )
 
 
-class AlertSeverity(str, Enum):
+class AlertSeverity(StrEnum):
     """Alert severity levels."""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     """Actions the log agent can take."""
+
     SCAN_LOGS = "scan_logs"
     ANALYZE_PATTERN = "analyze_pattern"
     SEND_ALERT = "send_alert"
@@ -39,6 +41,7 @@ class ActionType(str, Enum):
 
 class LogEntry(BaseModel):
     """A log entry found during scanning."""
+
     identity: str
     file_path: str
     line_number: int = 0
@@ -55,26 +58,29 @@ class LogEntry(BaseModel):
 
 class LogScanResult(BaseModel):
     """Result of scanning one identity's logs."""
+
     identity: str
     errors_found: int = 0
     criticals_found: int = 0
-    entries: list[LogEntry] = []
+    entries: list[LogEntry] = Field(default_factory=list)
     scan_duration_ms: float = 0.0
 
 
 class LogObservation(BaseModel):
     """Complete observation for the log agent."""
-    scan_results: list[LogScanResult] = []
+
+    scan_results: list[LogScanResult] = Field(default_factory=list)
     total_errors: int = 0
     total_criticals: int = 0
     identities_scanned: int = 0
-    audit_anomalies: list[dict[str, Any]] = []
+    audit_anomalies: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class PluginState(BaseModel):
     """Runtime state of the log agent plugin."""
+
     scans_completed: int = 0
     alerts_sent: int = 0
     patterns_analyzed: int = 0
-    last_check: Optional[float] = None
+    last_check: float | None = None
     current_health: str = "nominal"

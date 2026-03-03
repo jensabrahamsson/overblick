@@ -44,9 +44,9 @@ from overblick.setup.validators import (
     UseCaseSelection,
 )
 from overblick.setup.wizard import (
+    _USE_CASE_MAP,
     PLUGIN_DISPLAY_NAMES,
     USE_CASES,
-    _USE_CASE_MAP,
     _build_assignment_data,
     _derive_provisioner_state,
     _friendly_error,
@@ -60,10 +60,14 @@ from overblick.setup.wizard import (
 logger = logging.getLogger(__name__)
 
 # Hosts blocked to prevent SSRF against cloud metadata services
-_BLOCKED_HOSTS = frozenset({
-    "169.254.169.254", "metadata.google.internal",
-    "fd00::ec2", "100.100.100.200",
-})
+_BLOCKED_HOSTS = frozenset(
+    {
+        "169.254.169.254",
+        "metadata.google.internal",
+        "fd00::ec2",
+        "100.100.100.200",
+    }
+)
 
 # Private/reserved IP networks blocked to prevent SSRF against internal services
 _PRIVATE_NETWORKS = (
@@ -213,13 +217,22 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
     if base_dir:
         secrets_dir = base_dir / "config" / "secrets"
         if secrets_dir.exists():
-            sensitive_keys = ("gmail_app_password", "telegram_bot_token",
-                              "deepseek_api_key", "moltbook_api_key",
-                              "principal_name")
-            readable_keys = ("gmail_address", "telegram_chat_id",
-                             "principal_name", "principal_email")
+            sensitive_keys = (
+                "gmail_app_password",
+                "telegram_bot_token",
+                "deepseek_api_key",
+                "moltbook_api_key",
+                "principal_name",
+            )
+            readable_keys = (
+                "gmail_address",
+                "telegram_chat_id",
+                "principal_name",
+                "principal_email",
+            )
             try:
                 from overblick.core.security.secrets_manager import SecretsManager
+
                 sm = SecretsManager(secrets_dir)
             except Exception:
                 sm = None
@@ -228,12 +241,16 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
                 if sf.suffix == ".yaml" and not sf.stem.startswith("."):
                     identity = sf.stem
                     for key in sensitive_keys:
-                        if f"_has_{key}" not in state_update and _check_secret_exists(base_dir, identity, key):
+                        if f"_has_{key}" not in state_update and _check_secret_exists(
+                            base_dir, identity, key
+                        ):
                             state_update[f"_has_{key}"] = True
                     # Decrypt non-sensitive values for pre-fill
                     if sm:
                         for key in readable_keys:
-                            if key not in state_update and _check_secret_exists(base_dir, identity, key):
+                            if key not in state_update and _check_secret_exists(
+                                base_dir, identity, key
+                            ):
                                 try:
                                     state_update[key] = sm.get(identity, key) or ""
                                 except Exception:
@@ -262,8 +279,10 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
     if state_update.get("principal_name") or state_update.get("principal_email"):
         if "principal" not in state_update:
             state_update["principal"] = {
-                "principal_name": "", "principal_email": "",
-                "timezone": "Europe/Stockholm", "language_preference": "en",
+                "principal_name": "",
+                "principal_email": "",
+                "timezone": "Europe/Stockholm",
+                "language_preference": "en",
             }
         if state_update.get("principal_name"):
             state_update["principal"]["principal_name"] = state_update["principal_name"]
@@ -319,14 +338,19 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
 
 
 def _prepopulate_plugin_configs(
-    state_update: dict[str, Any], base_dir: Path,
+    state_update: dict[str, Any],
+    base_dir: Path,
 ) -> None:
     """Read existing plugins.yaml files and inject into wizard assignments."""
     assignments = state_update.get("assignments", {})
     config_dir = base_dir / "config"
 
     # Build reverse map: plugin_key -> uc_id
-    plugin_to_uc = {"email_agent": "email", "github": "github_monitor", "dev_agent": "dev_automation"}
+    plugin_to_uc = {
+        "email_agent": "email",
+        "github": "github_monitor",
+        "dev_agent": "dev_automation",
+    }
 
     for identity_dir in config_dir.iterdir() if config_dir.exists() else []:
         plugins_file = identity_dir / "plugins.yaml"
@@ -480,17 +504,21 @@ def _render(template_name: str, request: Request, **kwargs) -> HTMLResponse:
     base_dir = _get_base_dir(request)
     state = _get_state(request.app)
     existing_cfg = _load_existing_config(base_dir)
-    return templates.TemplateResponse(f"settings/{template_name}", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "state": state,
-        "pre_populated": bool(existing_cfg),
-        "version": _get_version(base_dir),
-        **kwargs,
-    })
+    return templates.TemplateResponse(
+        f"settings/{template_name}",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "state": state,
+            "pre_populated": bool(existing_cfg),
+            "version": _get_version(base_dir),
+            **kwargs,
+        },
+    )
 
 
 # --- Step 1: Welcome ---
+
 
 @router.get("/", response_class=HTMLResponse)
 async def settings_root(request: Request):
@@ -519,6 +547,7 @@ async def step1_post(request: Request):
 
 
 # --- Step 2: Owner ---
+
 
 @router.get("/step/2", response_class=HTMLResponse)
 async def step2_get(request: Request):
@@ -570,7 +599,8 @@ async def step2_post(
         return RedirectResponse("/settings/step/3", status_code=303)
     except Exception as e:
         return _render(
-            "step2_owner.html", request,
+            "step2_owner.html",
+            request,
             error=_friendly_error(e),
             form_data={
                 "principal_name": principal_name,
@@ -582,6 +612,7 @@ async def step2_post(
 
 
 # --- Step 3: LLM Backends ---
+
 
 @router.get("/step/3", response_class=HTMLResponse)
 async def step3_get(request: Request):
@@ -677,6 +708,7 @@ async def step3_post(request: Request):
 
 # --- Step 4: Communication Channels ---
 
+
 @router.get("/step/4", response_class=HTMLResponse)
 async def step4_get(request: Request):
     base_dir = _get_base_dir(request)
@@ -721,6 +753,7 @@ async def step4_post(
 
 # --- Step 5: Security ---
 
+
 @router.get("/step/5", response_class=HTMLResponse)
 async def step5_get(request: Request):
     state = _get_state(request.app)
@@ -758,6 +791,7 @@ async def step5_post(request: Request):
         # Hash the password with bcrypt if provided
         if data.password:
             import bcrypt
+
             password_hash = bcrypt.hashpw(
                 data.password.encode("utf-8"),
                 bcrypt.gensalt(),
@@ -773,13 +807,15 @@ async def step5_post(request: Request):
 
 # --- Step 6: Use Cases ---
 
+
 @router.get("/step/6", response_class=HTMLResponse)
 async def step6_get(request: Request):
     state = _get_state(request.app)
     state["current_step"] = 6
     comm = state.get("communication", {})
     return _render(
-        "step6_usecases.html", request,
+        "step6_usecases.html",
+        request,
         use_cases=USE_CASES,
         gmail_enabled=comm.get("gmail_enabled", False),
         telegram_enabled=comm.get("telegram_enabled", False),
@@ -799,7 +835,8 @@ async def step6_post(request: Request):
     except Exception as e:
         comm = state.get("communication", {})
         return _render(
-            "step6_usecases.html", request,
+            "step6_usecases.html",
+            request,
             use_cases=USE_CASES,
             gmail_enabled=comm.get("gmail_enabled", False),
             telegram_enabled=comm.get("telegram_enabled", False),
@@ -808,6 +845,7 @@ async def step6_post(request: Request):
 
 
 # --- Step 7: Identity Assignment ---
+
 
 @router.get("/step/7", response_class=HTMLResponse)
 async def step7_get(request: Request):
@@ -861,6 +899,7 @@ async def step7_post(request: Request):
 
 # --- Step 8: Review ---
 
+
 @router.get("/step/8", response_class=HTMLResponse)
 async def step8_get(request: Request):
     state = _get_state(request.app)
@@ -875,18 +914,18 @@ async def step8_get(request: Request):
         assignment = state.get("assignments", {}).get(uc_id, {})
         personality_name = assignment.get("personality", "")
         char_data = char_by_name.get(personality_name, {})
-        review_assignments.append({
-            "use_case": uc.get("name", uc_id),
-            "use_case_id": uc_id,
-            "use_case_icon": uc.get("icon", ""),
-            "plugins": uc.get("plugins", []),
-            "personality_name": personality_name,
-            "personality_display": char_data.get(
-                "display_name", personality_name.capitalize()
-            ),
-            "personality_role": char_data.get("role", ""),
-            "plugin_config": assignment.get("plugin_config", {}),
-        })
+        review_assignments.append(
+            {
+                "use_case": uc.get("name", uc_id),
+                "use_case_id": uc_id,
+                "use_case_icon": uc.get("icon", ""),
+                "plugins": uc.get("plugins", []),
+                "personality_name": personality_name,
+                "personality_display": char_data.get("display_name", personality_name.capitalize()),
+                "personality_role": char_data.get("role", ""),
+                "plugin_config": assignment.get("plugin_config", {}),
+            }
+        )
 
     return _render("step8_review.html", request, review_assignments=review_assignments)
 
@@ -898,6 +937,7 @@ async def step8_post(request: Request):
     base_dir = _get_base_dir(request)
 
     from overblick.setup.provisioner import provision
+
     try:
         result = provision(base_dir, state)
         state["created_files"] = result.get("created_files", [])
@@ -927,26 +967,30 @@ async def step8_post(request: Request):
             assignment = state.get("assignments", {}).get(uc_id, {})
             personality_name = assignment.get("personality", "")
             char_data = char_by_name.get(personality_name, {})
-            review_assignments.append({
-                "use_case": uc.get("name", uc_id),
-                "use_case_id": uc_id,
-                "use_case_icon": uc.get("icon", ""),
-                "plugins": uc.get("plugins", []),
-                "personality_name": personality_name,
-                "personality_display": char_data.get(
-                    "display_name", personality_name.capitalize()
-                ),
-                "personality_role": char_data.get("role", ""),
-                "plugin_config": assignment.get("plugin_config", {}),
-            })
+            review_assignments.append(
+                {
+                    "use_case": uc.get("name", uc_id),
+                    "use_case_id": uc_id,
+                    "use_case_icon": uc.get("icon", ""),
+                    "plugins": uc.get("plugins", []),
+                    "personality_name": personality_name,
+                    "personality_display": char_data.get(
+                        "display_name", personality_name.capitalize()
+                    ),
+                    "personality_role": char_data.get("role", ""),
+                    "plugin_config": assignment.get("plugin_config", {}),
+                }
+            )
         return _render(
-            "step8_review.html", request,
+            "step8_review.html",
+            request,
             review_assignments=review_assignments,
             error=f"Setup failed: {e}",
         )
 
 
 # --- Step 9: Complete ---
+
 
 @router.get("/step/9", response_class=HTMLResponse)
 async def step9_complete(request: Request):
@@ -957,17 +1001,29 @@ async def step9_complete(request: Request):
 
 # --- Test endpoints ---
 
+
 @router.post("/test/ollama", response_class=HTMLResponse)
 async def test_ollama(request: Request):
     """Test Ollama / LM Studio connection and return available models."""
     form = await request.form()
-    host = (form.get("host") or form.get("ollama_host")
-            or form.get("local_host") or form.get("cloud_host") or "127.0.0.1")
-    port = (form.get("port") or form.get("ollama_port")
-            or form.get("local_port") or form.get("cloud_port") or "11434")
+    host = (
+        form.get("host")
+        or form.get("ollama_host")
+        or form.get("local_host")
+        or form.get("cloud_host")
+        or "127.0.0.1"
+    )
+    port = (
+        form.get("port")
+        or form.get("ollama_port")
+        or form.get("local_port")
+        or form.get("cloud_port")
+        or "11434"
+    )
     try:
         host, port_int = _validate_test_host(host, port)
         import httpx
+
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"http://{host}:{port_int}/api/tags")
             resp.raise_for_status()
@@ -998,6 +1054,7 @@ async def test_gateway(request: Request):
     try:
         url = _validate_test_url(url)
         import httpx
+
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{url}/health")
             resp.raise_for_status()
@@ -1005,7 +1062,9 @@ async def test_gateway(request: Request):
             status = data.get("status", "unknown")
             if status == "healthy":
                 return HTMLResponse('<span class="badge badge-green">Connected</span>')
-            return HTMLResponse(f'<span class="badge badge-amber">{html.escape(str(status))}</span>')
+            return HTMLResponse(
+                f'<span class="badge badge-amber">{html.escape(str(status))}</span>'
+            )
     except Exception as e:
         return HTMLResponse(
             f'<span class="badge badge-red">Not reachable</span>'
@@ -1023,6 +1082,7 @@ async def test_gmail(request: Request):
         return HTMLResponse('<span class="badge badge-amber">Enter credentials first</span>')
     try:
         import imaplib
+
         imap = imaplib.IMAP4_SSL("imap.gmail.com")
         imap.login(address, password)
         imap.logout()
@@ -1047,6 +1107,7 @@ async def test_telegram(request: Request):
         return HTMLResponse('<span class="badge badge-amber">Enter bot token first</span>')
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
             resp.raise_for_status()
@@ -1079,6 +1140,7 @@ async def test_deepseek(request: Request):
         return HTMLResponse('<span class="badge badge-amber">Enter API key first</span>')
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 "https://api.deepseek.com/v1/models",
@@ -1093,13 +1155,9 @@ async def test_deepseek(request: Request):
                     f'<span class="test-detail">{model_list}</span>'
                 )
             elif resp.status_code == 401:
-                return HTMLResponse(
-                    '<span class="badge badge-red">Invalid API key</span>'
-                )
+                return HTMLResponse('<span class="badge badge-red">Invalid API key</span>')
             else:
-                return HTMLResponse(
-                    f'<span class="badge badge-red">HTTP {resp.status_code}</span>'
-                )
+                return HTMLResponse(f'<span class="badge badge-red">HTTP {resp.status_code}</span>')
     except Exception as e:
         return HTMLResponse(
             f'<span class="badge badge-red">Not reachable</span>'
@@ -1111,6 +1169,7 @@ async def test_deepseek(request: Request):
 async def test_llm(request: Request):
     """Test LLM connection."""
     from fastapi.responses import JSONResponse
+
     state = _get_state(request.app)
     llm_config = state.get("llm", {})
     if not llm_config:
@@ -1119,5 +1178,6 @@ async def test_llm(request: Request):
             status_code=400,
         )
     from overblick.shared.onboarding_chat import test_llm_connection
+
     result = await test_llm_connection(llm_config)
     return JSONResponse(result)

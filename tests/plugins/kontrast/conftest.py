@@ -8,7 +8,13 @@ import pytest
 from overblick.core.event_bus import EventBus
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.core.plugin_base import PluginContext
-from overblick.identities import Personality, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.identities import (
+    Personality,
+    LLMSettings,
+    QuietHoursSettings,
+    ScheduleSettings,
+    SecuritySettings,
+)
 from overblick.plugins.kontrast.plugin import KontrastPlugin
 
 
@@ -73,7 +79,11 @@ def mock_event_bus():
 
 @pytest.fixture
 def kontrast_context(
-    kontrast_identity, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline,
+    kontrast_identity,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_pipeline,
     mock_event_bus,
 ):
     """Full plugin context for kontrast tests."""

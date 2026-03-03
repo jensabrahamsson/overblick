@@ -34,16 +34,20 @@ async def moltbook_page(request: Request):
             profile["detail"] = s.get("detail", "")
             profile["updated_at"] = s.get("updated_at", "")
 
-    return templates.TemplateResponse("moltbook.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "profiles": profiles,
-    })
+    return templates.TemplateResponse(
+        "moltbook.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "profiles": profiles,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if any identity has the moltbook plugin configured."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("moltbook")
 
 
@@ -51,12 +55,14 @@ def has_data() -> bool:
 def _safe_load_yaml(path: Path) -> dict:
     """Load a YAML file safely, returning {} on any error."""
     from overblick.dashboard.routes._plugin_utils import safe_load_yaml
+
     return safe_load_yaml(path)
 
 
 def _collect_plugins(identity_dir: Path) -> set[str]:
     """Collect plugins from all config sources for an identity."""
     from overblick.dashboard.routes._plugin_utils import collect_plugins
+
     return collect_plugins(identity_dir)
 
 
@@ -96,14 +102,16 @@ def _get_moltbook_profiles() -> list[dict]:
             or display_name
         )
 
-        profiles.append({
-            "identity": d.name,
-            "display_name": display_name,
-            "bio": bio,
-            "url": f"{MOLTBOOK_BASE_URL}/{moltbook_username}",
-            "status": None,
-            "detail": "",
-            "updated_at": "",
-        })
+        profiles.append(
+            {
+                "identity": d.name,
+                "display_name": display_name,
+                "bio": bio,
+                "url": f"{MOLTBOOK_BASE_URL}/{moltbook_username}",
+                "status": None,
+                "detail": "",
+                "updated_at": "",
+            }
+        )
 
     return profiles

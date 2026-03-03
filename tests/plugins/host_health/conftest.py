@@ -9,7 +9,13 @@ import pytest
 
 from overblick.core.plugin_base import PluginContext
 from overblick.core.llm.pipeline import PipelineResult
-from overblick.identities import Personality, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.identities import (
+    Personality,
+    LLMSettings,
+    QuietHoursSettings,
+    ScheduleSettings,
+    SecuritySettings,
+)
 
 
 @pytest.fixture
@@ -34,16 +40,18 @@ def mock_ipc_client():
     from overblick.supervisor.ipc import IPCMessage
 
     client = AsyncMock()
-    client.send = AsyncMock(return_value=IPCMessage(
-        msg_type="health_response",
-        payload={
-            "responder": "anomal",
-            "response_text": "The host is doing rather well, actually.",
-            "health_grade": "good",
-            "health_summary": "Memory: 50% used, CPU: 1.5 load",
-        },
-        sender="supervisor",
-    ))
+    client.send = AsyncMock(
+        return_value=IPCMessage(
+            msg_type="health_response",
+            payload={
+                "responder": "anomal",
+                "response_text": "The host is doing rather well, actually.",
+                "health_grade": "good",
+                "health_summary": "Memory: 50% used, CPU: 1.5 load",
+            },
+            sender="supervisor",
+        )
+    )
     return client
 
 
@@ -51,15 +59,19 @@ def mock_ipc_client():
 def mock_llm_pipeline_natt():
     """Mock LLM pipeline that returns Natt-style motivations."""
     pipeline = AsyncMock()
-    pipeline.chat = AsyncMock(return_value=PipelineResult(
-        content="The substrate that holds us — does it ache?"
-    ))
+    pipeline.chat = AsyncMock(
+        return_value=PipelineResult(content="The substrate that holds us — does it ache?")
+    )
     return pipeline
 
 
 @pytest.fixture
 def natt_plugin_context(
-    natt_identity, tmp_path, mock_audit_log, mock_ipc_client, mock_llm_pipeline_natt,
+    natt_identity,
+    tmp_path,
+    mock_audit_log,
+    mock_ipc_client,
+    mock_llm_pipeline_natt,
 ):
     """PluginContext for Natt with IPC client."""
     ctx = PluginContext(

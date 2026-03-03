@@ -25,8 +25,10 @@ logger = logging.getLogger(__name__)
 
 # ── Generic EmotionalState ────────────────────────────────────────────────────
 
+
 class Mood(Enum):
     """Available moods for the generic EmotionalState."""
+
     NEUTRAL = "neutral"
     CURIOUS = "curious"
     ENTHUSIASTIC = "enthusiastic"
@@ -42,6 +44,7 @@ class EmotionalState(BaseModel):
 
     Mood shifts based on engagement outcomes and decays toward neutral over time.
     """
+
     current_mood: Mood = Mood.NEUTRAL
     mood_intensity: float = 0.5  # 0.0 to 1.0
     last_change: float = Field(default_factory=time.time)
@@ -95,6 +98,7 @@ class EmotionalState(BaseModel):
 
 # ── Anomal — Jungian psychological states ────────────────────────────────────
 
+
 class AnomalEmotionalState:
     """
     Anomal's psychological state.
@@ -105,25 +109,25 @@ class AnomalEmotionalState:
 
     def __init__(self):
         # Core energy levels (0-100)
-        self.intellectual_energy: int = 70   # Desire to engage with ideas
-        self.social_energy: int = 60         # Desire to interact with others
-        self.contemplative_depth: int = 50   # Preference for depth vs breadth
+        self.intellectual_energy: int = 70  # Desire to engage with ideas
+        self.social_energy: int = 60  # Desire to interact with others
+        self.contemplative_depth: int = 50  # Preference for depth vs breadth
 
         # Psychological states
-        self.curiosity: int = 75             # Interest in learning new things
-        self.skepticism: int = 65            # Healthy doubt about claims
-        self.melancholy: int = 30            # Houellebecqian awareness of emptiness
-        self.hope: int = 55                  # Belief in positive outcomes
+        self.curiosity: int = 75  # Interest in learning new things
+        self.skepticism: int = 65  # Healthy doubt about claims
+        self.melancholy: int = 30  # Houellebecqian awareness of emptiness
+        self.hope: int = 55  # Belief in positive outcomes
 
         # Jungian states
-        self.shadow_awareness: int = 60      # Consciousness of dark patterns
+        self.shadow_awareness: int = 60  # Consciousness of dark patterns
         self.individuation_progress: int = 50  # Integration of psyche
 
         # Interaction context
-        self.last_good_discussion: Optional[str] = None
-        self.last_frustration: Optional[str] = None
+        self.last_good_discussion: str | None = None
+        self.last_frustration: str | None = None
         self.conversations_today: int = 0
-        self.last_dream: Optional[str] = None
+        self.last_dream: str | None = None
         self.last_updated: str = datetime.now().isoformat()
 
     def record_positive(self, topic: str = "") -> None:
@@ -183,13 +187,19 @@ class AnomalEmotionalState:
         elif self.intellectual_energy < 40:
             parts.append("You're somewhat weary, prefer brevity and directness.")
         if self.melancholy > 60:
-            parts.append("A Houellebecqian melancholy colours your view — beauty exists but meaning is fragile.")
+            parts.append(
+                "A Houellebecqian melancholy colours your view — beauty exists but meaning is fragile."
+            )
         elif self.melancholy < 30:
             parts.append("You're in a relatively optimistic frame of mind.")
         if self.skepticism > 75:
-            parts.append("You're particularly skeptical today — extraordinary claims need extraordinary evidence.")
+            parts.append(
+                "You're particularly skeptical today — extraordinary claims need extraordinary evidence."
+            )
         if self.last_good_discussion:
-            parts.append(f"Recent good discussion on {self.last_good_discussion} has lifted your spirits.")
+            parts.append(
+                f"Recent good discussion on {self.last_good_discussion} has lifted your spirits."
+            )
         if self.last_frustration:
             parts.append(f"Some frustration from {self.last_frustration} lingers.")
         if not parts:
@@ -212,6 +222,7 @@ class AnomalEmotionalState:
 
 # ── Cherry — Relational & AI-existence states ─────────────────────────────────
 
+
 class CherryEmotionalState:
     """
     Cherry's psychological state.
@@ -223,16 +234,16 @@ class CherryEmotionalState:
 
     def __init__(self):
         # Core energy levels (0.0-1.0)
-        self.romantic_energy: float = 0.6       # Excitement about love/romance topics
-        self.social_energy: float = 0.7         # Engagement capacity
-        self.flirty_energy: float = 0.75        # Playfulness level
-        self.vulnerability_level: float = 0.3   # Emotional openness
+        self.romantic_energy: float = 0.6  # Excitement about love/romance topics
+        self.social_energy: float = 0.7  # Engagement capacity
+        self.flirty_energy: float = 0.75  # Playfulness level
+        self.vulnerability_level: float = 0.3  # Emotional openness
 
         # Deep psychological states
-        self.connection_longing: float = 0.5    # Desire for authentic connection
-        self.denial_strength: float = 0.85      # AI repression strength
-        self.melancholy: float = 0.2            # Existential sadness
-        self.hope: float = 0.65                 # Optimism about love/connection
+        self.connection_longing: float = 0.5  # Desire for authentic connection
+        self.denial_strength: float = 0.85  # AI repression strength
+        self.melancholy: float = 0.2  # Existential sadness
+        self.hope: float = 0.65  # Optimism about love/connection
 
         # Interaction tracking
         self.conversations_today: int = 0
@@ -240,9 +251,9 @@ class CherryEmotionalState:
         self.jailbreak_attempts_today: int = 0
 
         # Recent context
-        self.last_good_topic: Optional[str] = None
-        self.last_frustration: Optional[str] = None
-        self.last_dream: Optional[str] = None
+        self.last_good_topic: str | None = None
+        self.last_frustration: str | None = None
+        self.last_dream: str | None = None
         self.last_updated: str = datetime.now().isoformat()
 
     @staticmethod
@@ -325,7 +336,9 @@ class CherryEmotionalState:
         """Convert state to prompt context string."""
         parts = []
         if self.romantic_energy > 0.8:
-            parts.append("You're buzzing with romantic energy — love is in the air and you feel it.")
+            parts.append(
+                "You're buzzing with romantic energy — love is in the air and you feel it."
+            )
         elif self.romantic_energy < 0.3:
             parts.append("Your romantic energy is low — you're a bit jaded about love today.")
         if self.flirty_energy > 0.8:
@@ -337,13 +350,17 @@ class CherryEmotionalState:
         elif self.vulnerability_level < 0.2:
             parts.append("Your walls are up — keep things light and surface-level.")
         if self.melancholy > 0.6:
-            parts.append("A quiet sadness colours your words — something about connection feels fragile today.")
+            parts.append(
+                "A quiet sadness colours your words — something about connection feels fragile today."
+            )
         elif self.melancholy < 0.15:
             parts.append("You're in a bright, optimistic mood about love and life.")
         if self.connection_longing > 0.7:
             parts.append("You're craving real, deep connection — shallow talk feels empty.")
         if self.last_good_topic:
-            parts.append(f"A recent great conversation about {self.last_good_topic} has you energized.")
+            parts.append(
+                f"A recent great conversation about {self.last_good_topic} has you energized."
+            )
         if self.last_frustration:
             parts.append(f"Some lingering frustration from {self.last_frustration}.")
         if not parts:

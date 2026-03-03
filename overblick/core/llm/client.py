@@ -30,12 +30,12 @@ class LLMClient(ABC):
     async def chat(
         self,
         messages: list[dict],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
         priority: str = "low",
-        complexity: Optional[str] = None,
-    ) -> Optional[dict]:
+        complexity: str | None = None,
+    ) -> dict | None:
         """
         Send a chat completion request.
 

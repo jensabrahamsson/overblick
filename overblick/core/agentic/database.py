@@ -143,18 +143,26 @@ class AgenticDB:
             "description = ?, priority = ?, status = ?, progress = ?, "
             "metadata = ?, updated_at = datetime('now')",
             (
-                goal.name, goal.description, goal.priority,
-                goal.status.value, goal.progress, metadata_json,
-                goal.description, goal.priority, goal.status.value,
-                goal.progress, metadata_json,
+                goal.name,
+                goal.description,
+                goal.priority,
+                goal.status.value,
+                goal.progress,
+                metadata_json,
+                goal.description,
+                goal.priority,
+                goal.status.value,
+                goal.progress,
+                metadata_json,
             ),
         )
         return row_id or 0
 
-    async def get_goal_by_name(self, name: str) -> Optional[AgentGoal]:
+    async def get_goal_by_name(self, name: str) -> AgentGoal | None:
         """Get a single goal by name."""
         row = await self._db.fetch_one(
-            "SELECT * FROM agent_goals WHERE name = ?", (name,),
+            "SELECT * FROM agent_goals WHERE name = ?",
+            (name,),
         )
         return self._row_to_goal(row) if row else None
 
@@ -199,8 +207,12 @@ class AgenticDB:
             "(category, insight, confidence, source, source_tick, source_ref) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (
-                learning.category, learning.insight, learning.confidence,
-                learning.source, learning.source_tick, learning.source_ref,
+                learning.category,
+                learning.insight,
+                learning.confidence,
+                learning.source,
+                learning.source_tick,
+                learning.source_ref,
             ),
         )
         return row_id or 0
@@ -224,10 +236,15 @@ class AgenticDB:
             "reasoning_summary, duration_ms) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                tick.tick_number, tick.started_at, tick.completed_at,
-                tick.observations_count, tick.actions_planned,
-                tick.actions_executed, tick.actions_succeeded,
-                tick.reasoning_summary, tick.duration_ms,
+                tick.tick_number,
+                tick.started_at,
+                tick.completed_at,
+                tick.observations_count,
+                tick.actions_planned,
+                tick.actions_executed,
+                tick.actions_succeeded,
+                tick.reasoning_summary,
+                tick.duration_ms,
             ),
         )
         return row_id or 0

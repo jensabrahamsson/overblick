@@ -9,7 +9,7 @@ import asyncio
 import logging
 import sqlite3
 
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
@@ -34,25 +34,29 @@ async def github_page(request: Request, page: int = Query(default=1, ge=1)):
 
     all_actions = data["actions"]
     total = len(all_actions)
-    actions = all_actions[:page * _PAGE_SIZE]
+    actions = all_actions[: page * _PAGE_SIZE]
     has_more = total > page * _PAGE_SIZE
 
-    return templates.TemplateResponse("github.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "actions": actions,
-        "goals": data["goals"],
-        "stats": data["stats"],
-        "prs": data["prs"],
-        "page": page,
-        "has_more": has_more,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "github.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "actions": actions,
+            "goals": data["goals"],
+            "stats": data["stats"],
+            "prs": data["prs"],
+            "page": page,
+            "has_more": has_more,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if github plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("github")
 
 
@@ -87,17 +91,19 @@ def _load_github_data(request: Request) -> dict:
                     "FROM action_log ORDER BY created_at DESC LIMIT 50"
                 ).fetchall()
                 for row in rows:
-                    actions.append({
-                        "identity": identity_name,
-                        "action_type": row["action_type"],
-                        "target": row["target"],
-                        "repo": row["repo"],
-                        "reasoning": row["reasoning"],
-                        "success": bool(row["success"]),
-                        "result": row["result"],
-                        "duration_ms": row["duration_ms"],
-                        "created_at": row["created_at"],
-                    })
+                    actions.append(
+                        {
+                            "identity": identity_name,
+                            "action_type": row["action_type"],
+                            "target": row["target"],
+                            "repo": row["repo"],
+                            "reasoning": row["reasoning"],
+                            "success": bool(row["success"]),
+                            "result": row["result"],
+                            "duration_ms": row["duration_ms"],
+                            "created_at": row["created_at"],
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 
@@ -108,14 +114,16 @@ def _load_github_data(request: Request) -> dict:
                     "FROM agent_goals ORDER BY priority DESC"
                 ).fetchall()
                 for row in rows:
-                    goals.append({
-                        "identity": identity_name,
-                        "name": row["name"],
-                        "description": row["description"],
-                        "priority": row["priority"],
-                        "status": row["status"],
-                        "progress": row["progress"],
-                    })
+                    goals.append(
+                        {
+                            "identity": identity_name,
+                            "name": row["name"],
+                            "description": row["description"],
+                            "priority": row["priority"],
+                            "status": row["status"],
+                            "progress": row["progress"],
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 
@@ -127,26 +135,26 @@ def _load_github_data(request: Request) -> dict:
                     "FROM pr_tracking ORDER BY first_seen DESC LIMIT 20"
                 ).fetchall()
                 for row in rows:
-                    prs.append({
-                        "identity": identity_name,
-                        "repo": row["repo"],
-                        "pr_number": row["pr_number"],
-                        "title": row["title"],
-                        "author": row["author"],
-                        "is_dependabot": bool(row["is_dependabot"]),
-                        "ci_status": row["ci_status"],
-                        "merged": bool(row["merged"]),
-                        "auto_merged": bool(row["auto_merged"]),
-                        "first_seen": row["first_seen"],
-                    })
+                    prs.append(
+                        {
+                            "identity": identity_name,
+                            "repo": row["repo"],
+                            "pr_number": row["pr_number"],
+                            "title": row["title"],
+                            "author": row["author"],
+                            "is_dependabot": bool(row["is_dependabot"]),
+                            "ci_status": row["ci_status"],
+                            "merged": bool(row["merged"]),
+                            "auto_merged": bool(row["auto_merged"]),
+                            "first_seen": row["first_seen"],
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 
             # Stats
             try:
-                stats["events"] += conn.execute(
-                    "SELECT COUNT(*) FROM events_seen"
-                ).fetchone()[0]
+                stats["events"] += conn.execute("SELECT COUNT(*) FROM events_seen").fetchone()[0]
             except sqlite3.OperationalError:
                 pass
             try:
@@ -162,9 +170,9 @@ def _load_github_data(request: Request) -> dict:
             except sqlite3.OperationalError:
                 pass
             try:
-                stats["prs_tracked"] += conn.execute(
-                    "SELECT COUNT(*) FROM pr_tracking"
-                ).fetchone()[0]
+                stats["prs_tracked"] += conn.execute("SELECT COUNT(*) FROM pr_tracking").fetchone()[
+                    0
+                ]
             except sqlite3.OperationalError:
                 pass
 

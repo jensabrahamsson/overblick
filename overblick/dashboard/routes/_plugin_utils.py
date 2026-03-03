@@ -31,7 +31,7 @@ def resolve_data_root(request: Request) -> Path:
     return resolve_base_dir(request) / "data"
 
 
-def resolve_identities_dir(request: Optional[Request] = None) -> Path:
+def resolve_identities_dir(request: Request | None = None) -> Path:
     """Get the identities directory, resolving from app config if available."""
     if request is not None:
         return resolve_base_dir(request) / "overblick" / "identities"

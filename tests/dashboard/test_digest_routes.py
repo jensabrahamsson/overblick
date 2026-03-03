@@ -59,12 +59,14 @@ class TestDigestRoute:
     def test_digest_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when no identity has ai_digest."""
         from overblick.dashboard.routes import digest
+
         monkeypatch.chdir(tmp_path)
         assert digest.has_data() is False
 
     def test_digest_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when ai_digest is configured."""
         from overblick.dashboard.routes import digest
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "anomal"
         ids.mkdir(parents=True)

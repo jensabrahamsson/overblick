@@ -49,10 +49,12 @@ class TestGitHubAPIClient:
     def test_update_rate_limit(self):
         """Rate limit tracking updates from response headers."""
         client = GitHubAPIClient()
-        client._update_rate_limit({
-            "X-RateLimit-Remaining": "4200",
-            "X-RateLimit-Reset": "1700000000",
-        })
+        client._update_rate_limit(
+            {
+                "X-RateLimit-Remaining": "4200",
+                "X-RateLimit-Reset": "1700000000",
+            }
+        )
         assert client._rate_limit_remaining == 4200
         assert client._rate_limit_reset == 1700000000
 
@@ -60,9 +62,11 @@ class TestGitHubAPIClient:
         """Rate limit tracking handles invalid header values."""
         client = GitHubAPIClient()
         original_remaining = client._rate_limit_remaining
-        client._update_rate_limit({
-            "X-RateLimit-Remaining": "not-a-number",
-        })
+        client._update_rate_limit(
+            {
+                "X-RateLimit-Remaining": "not-a-number",
+            }
+        )
         # Should not change on invalid input
         assert client._rate_limit_remaining == original_remaining
 

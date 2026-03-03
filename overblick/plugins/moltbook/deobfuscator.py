@@ -11,7 +11,6 @@ Community findings (issue #134):
 import re
 from typing import Optional
 
-
 # ── Deobfuscation utilities ──────────────────────────────────────────────────
 # Moltbook challenges use three obfuscation techniques (per community reports):
 #   1. Case-mixing: random upper/lower casing  →  tWeNtY → twenty
@@ -52,11 +51,7 @@ def _strip_letter_doubling(word: str) -> str:
         ):
             i += 2  # Skip the doubled char
             # Consume one trailing same-letter residual from odd runs (SsS → S)
-            if (
-                i < len(word)
-                and word[i].isalpha()
-                and word[i].lower() == word[i - 2].lower()
-            ):
+            if i < len(word) and word[i].isalpha() and word[i].lower() == word[i - 2].lower():
                 i += 1
         else:
             i += 1
@@ -107,19 +102,42 @@ _TENS = {
     "ninety": 90,
 }
 
-_NUMBER_WORDS = frozenset(_ONES.keys()) | frozenset(_TENS.keys()) | frozenset(
-    {"hundred", "thousand"}
+_NUMBER_WORDS = (
+    frozenset(_ONES.keys()) | frozenset(_TENS.keys()) | frozenset({"hundred", "thousand"})
 )
 
 _CHALLENGE_VOCAB = frozenset(
     {
-        "newtons", "newton", "lobster", "lobsters",
-        "meters", "meter", "velocity", "speed",
-        "force", "claw", "claws", "dominance",
-        "fight", "combined", "total", "gains",
-        "loses", "slows", "drops", "antenna", "antennas",
-        "plus", "minus", "more", "less",
-        "exerts", "swims", "swimming", "molting", "water",
+        "newtons",
+        "newton",
+        "lobster",
+        "lobsters",
+        "meters",
+        "meter",
+        "velocity",
+        "speed",
+        "force",
+        "claw",
+        "claws",
+        "dominance",
+        "fight",
+        "combined",
+        "total",
+        "gains",
+        "loses",
+        "slows",
+        "drops",
+        "antenna",
+        "antennas",
+        "plus",
+        "minus",
+        "more",
+        "less",
+        "exerts",
+        "swims",
+        "swimming",
+        "molting",
+        "water",
     }
 )
 
@@ -145,8 +163,7 @@ def _reassemble_fragments(tokens: list[str]) -> list[str]:
 
         for k in range(min(MAX_MERGE, len(tokens) - i), 1, -1):
             merged = "".join(
-                "".join(c for c in tokens[j] if c.isalpha())
-                for j in range(i, i + k)
+                "".join(c for c in tokens[j] if c.isalpha()) for j in range(i, i + k)
             ).lower()
             if merged in _REASSEMBLY_TARGETS:
                 best_match = merged
@@ -229,7 +246,7 @@ def _correct_known_words(tokens: list[str]) -> list[str]:
     result = []
     for token in tokens:
         alpha = "".join(c for c in token if c.isalpha())
-        trailing = token[len(alpha):] if alpha else ""
+        trailing = token[len(alpha) :] if alpha else ""
         low = alpha.lower()
 
         # Strategy 1: explicit correction map

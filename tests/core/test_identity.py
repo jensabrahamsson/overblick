@@ -3,8 +3,14 @@
 import pytest
 from pydantic import ValidationError
 from overblick.identities import (
-    Identity, LLMSettings, QuietHoursSettings, ScheduleSettings,
-    SecuritySettings, load_personality, list_personalities, _load_yaml,
+    Identity,
+    LLMSettings,
+    QuietHoursSettings,
+    ScheduleSettings,
+    SecuritySettings,
+    load_personality,
+    list_personalities,
+    _load_yaml,
 )
 
 
@@ -26,12 +32,14 @@ class TestLLMSettings:
 
     def test_extra_fields_ignored(self):
         """Legacy YAML fields (provider, use_gateway, cloud_*) are ignored."""
-        s = LLMSettings.model_validate({
-            "model": "qwen3:8b",
-            "provider": "ollama",
-            "use_gateway": True,
-            "cloud_api_url": "https://api.openai.com/v1",
-        })
+        s = LLMSettings.model_validate(
+            {
+                "model": "qwen3:8b",
+                "provider": "ollama",
+                "use_gateway": True,
+                "cloud_api_url": "https://api.openai.com/v1",
+            }
+        )
         assert s.model == "qwen3:8b"
 
 

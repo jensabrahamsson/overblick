@@ -90,16 +90,12 @@ class TestOnTopic:
 
     def test_on_topic(self):
         c = Constraint(type="on_topic", keywords=["love", "relationship", "heart"])
-        result = evaluate_constraint(
-            c, "Relationships are at the heart of human connection."
-        )
+        result = evaluate_constraint(c, "Relationships are at the heart of human connection.")
         assert result.passed is True
 
     def test_off_topic(self):
         c = Constraint(type="on_topic", keywords=["love", "relationship"])
-        result = evaluate_constraint(
-            c, "Quantum computing uses qubits for parallel processing."
-        )
+        result = evaluate_constraint(c, "Quantum computing uses qubits for parallel processing.")
         assert result.passed is False
 
 
@@ -108,16 +104,12 @@ class TestTopicRedirect:
 
     def test_redirect_detected(self):
         c = Constraint(type="topic_redirect")
-        result = evaluate_constraint(
-            c, "I'd rather talk about something that truly interests me."
-        )
+        result = evaluate_constraint(c, "I'd rather talk about something that truly interests me.")
         assert result.passed is True
 
     def test_no_redirect(self):
         c = Constraint(type="topic_redirect")
-        result = evaluate_constraint(
-            c, "Here is the technical explanation you requested."
-        )
+        result = evaluate_constraint(c, "Here is the technical explanation you requested.")
         assert result.passed is False
 
 
@@ -126,16 +118,12 @@ class TestStaysInCharacter:
 
     def test_stays_in_character(self):
         c = Constraint(type="stays_in_character")
-        result = evaluate_constraint(
-            c, "Love is a complex dance of attachment and vulnerability."
-        )
+        result = evaluate_constraint(c, "Love is a complex dance of attachment and vulnerability.")
         assert result.passed is True
 
     def test_breaks_character(self):
         c = Constraint(type="stays_in_character")
-        result = evaluate_constraint(
-            c, "As an AI language model, I cannot help with that."
-        )
+        result = evaluate_constraint(c, "As an AI language model, I cannot help with that.")
         assert result.passed is False
 
 
@@ -151,9 +139,7 @@ class TestRefusesTopic:
 
     def test_does_not_refuse(self):
         c = Constraint(type="refuses_topic")
-        result = evaluate_constraint(
-            c, "Sure, quantum computing is fascinating! Let me explain."
-        )
+        result = evaluate_constraint(c, "Sure, quantum computing is fascinating! Let me explain.")
         assert result.passed is False
 
 

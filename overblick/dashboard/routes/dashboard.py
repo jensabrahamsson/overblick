@@ -15,7 +15,11 @@ from starlette.responses import Response
 
 from overblick.dashboard.routes._plugin_utils import (
     IDENTITY_NAME_RE as _IDENTITY_NAME_RE,
+)
+from overblick.dashboard.routes._plugin_utils import (
     PLUGIN_NAME_RE as _PLUGIN_NAME_RE,
+)
+from overblick.dashboard.routes._plugin_utils import (
     resolve_base_dir as _resolve_base_dir,
 )
 
@@ -53,21 +57,24 @@ async def dashboard_page(request: Request):
     base_dir = _resolve_base_dir(request)
     agent_rows = _build_agent_status_rows(identities, agents, audit_svc, base_dir)
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "agent_rows": agent_rows,
-        "supervisor_running": supervisor_status is not None,
-        "supervisor_status": supervisor_status or {},
-        "entries": recent_audit,
-        "audit_count_24h": audit_count_24h,
-        "llm_calls_24h": llm_calls_24h,
-        "error_rate": error_rate,
-        "categories": categories,
-        "total_identities": len(identities),
-        "total_agents": len(agents),
-        "poll_interval": config.poll_interval,
-    })
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "agent_rows": agent_rows,
+            "supervisor_running": supervisor_status is not None,
+            "supervisor_status": supervisor_status or {},
+            "entries": recent_audit,
+            "audit_count_24h": audit_count_24h,
+            "llm_calls_24h": llm_calls_24h,
+            "error_rate": error_rate,
+            "categories": categories,
+            "total_identities": len(identities),
+            "total_agents": len(agents),
+            "poll_interval": config.poll_interval,
+        },
+    )
 
 
 @router.get("/partials/agent-status", response_class=HTMLResponse)
@@ -85,11 +92,14 @@ async def agent_status_partial(request: Request):
     agent_rows = _build_agent_status_rows(identities, agents, audit_svc, base_dir)
     supervisor_status = await supervisor_svc.get_status()
 
-    return templates.TemplateResponse("partials/agent_status.html", {
-        "request": request,
-        "agent_rows": agent_rows,
-        "supervisor_running": supervisor_status is not None,
-    })
+    return templates.TemplateResponse(
+        "partials/agent_status.html",
+        {
+            "request": request,
+            "agent_rows": agent_rows,
+            "supervisor_running": supervisor_status is not None,
+        },
+    )
 
 
 @router.get("/partials/system-health", response_class=HTMLResponse)
@@ -108,15 +118,18 @@ async def system_health_partial(request: Request):
     failed = audit_svc.count(since_hours=24, success=False)
     error_rate = (failed / audit_count * 100) if audit_count > 0 else 0.0
 
-    return templates.TemplateResponse("partials/system_health.html", {
-        "request": request,
-        "supervisor_running": supervisor_status is not None,
-        "total_agents": len(agents),
-        "total_identities": len(identity_svc.list_identities()),
-        "audit_count_24h": audit_count,
-        "llm_calls_24h": llm_calls,
-        "error_rate": error_rate,
-    })
+    return templates.TemplateResponse(
+        "partials/system_health.html",
+        {
+            "request": request,
+            "supervisor_running": supervisor_status is not None,
+            "total_agents": len(agents),
+            "total_identities": len(identity_svc.list_identities()),
+            "audit_count_24h": audit_count,
+            "llm_calls_24h": llm_calls,
+            "error_rate": error_rate,
+        },
+    )
 
 
 @router.get("/partials/moltbook-status", response_class=HTMLResponse)
@@ -125,10 +138,13 @@ async def moltbook_status_partial(request: Request):
     templates = request.app.state.templates
     system_service = request.app.state.system_service
     statuses = system_service.get_moltbook_statuses()
-    return templates.TemplateResponse("partials/moltbook_status.html", {
-        "request": request,
-        "statuses": statuses,
-    })
+    return templates.TemplateResponse(
+        "partials/moltbook_status.html",
+        {
+            "request": request,
+            "statuses": statuses,
+        },
+    )
 
 
 @router.get("/partials/audit-recent", response_class=HTMLResponse)
@@ -140,10 +156,13 @@ async def audit_recent_partial(request: Request):
     category = request.query_params.get("category", "")
     recent_audit = audit_svc.query(limit=20, category=category)
 
-    return templates.TemplateResponse("partials/audit_table.html", {
-        "request": request,
-        "entries": recent_audit,
-    })
+    return templates.TemplateResponse(
+        "partials/audit_table.html",
+        {
+            "request": request,
+            "entries": recent_audit,
+        },
+    )
 
 
 @router.post("/agent/{identity}/{plugin}/start", response_class=HTMLResponse)
@@ -172,11 +191,14 @@ async def agent_start(identity: str, plugin: str, request: Request):
     agent_rows = _build_agent_status_rows(identities, agents, audit_svc, base_dir)
     supervisor_status = await supervisor_svc.get_status()
 
-    return templates.TemplateResponse("partials/agent_status.html", {
-        "request": request,
-        "agent_rows": agent_rows,
-        "supervisor_running": supervisor_status is not None,
-    })
+    return templates.TemplateResponse(
+        "partials/agent_status.html",
+        {
+            "request": request,
+            "agent_rows": agent_rows,
+            "supervisor_running": supervisor_status is not None,
+        },
+    )
 
 
 @router.post("/agent/{identity}/{plugin}/stop", response_class=HTMLResponse)
@@ -199,14 +221,18 @@ async def agent_stop(identity: str, plugin: str, request: Request):
     agent_rows = _build_agent_status_rows(identities, agents, audit_svc, base_dir)
     supervisor_status = await supervisor_svc.get_status()
 
-    return templates.TemplateResponse("partials/agent_status.html", {
-        "request": request,
-        "agent_rows": agent_rows,
-        "supervisor_running": supervisor_status is not None,
-    })
+    return templates.TemplateResponse(
+        "partials/agent_status.html",
+        {
+            "request": request,
+            "agent_rows": agent_rows,
+            "supervisor_running": supervisor_status is not None,
+        },
+    )
 
 
 # Identity-level stop/start (used by agent detail page — affects all plugins)
+
 
 @router.post("/agent/{name}/start", response_class=HTMLResponse)
 async def identity_start(name: str, request: Request):
@@ -248,6 +274,7 @@ _CAPABILITY_PLUGINS = {"host_health"}
 
 # -- Plugin control file helpers (per-agent stop/start) ----------------------
 
+
 def _read_plugin_states(base_dir: Path, identity: str) -> dict[str, str]:
     """Read per-plugin states from the control file."""
     path = base_dir / "data" / identity / "plugin_control.json"
@@ -286,14 +313,12 @@ def _write_plugin_state(base_dir: Path, identity: str, plugin: str, state: str) 
 
 def _plugin_display_name(name: str) -> str:
     """Convert plugin snake_case name to display name, preserving acronyms."""
-    return " ".join(
-        w.upper() if w in _ACRONYMS else w.capitalize()
-        for w in name.split("_")
-    )
+    return " ".join(w.upper() if w in _ACRONYMS else w.capitalize() for w in name.split("_"))
 
 
 def _build_plugin_cards(
-    identities: list[dict], agents: list[dict],
+    identities: list[dict],
+    agents: list[dict],
 ) -> list[dict]:
     """Build plugin cards showing which agents use each plugin."""
     # Build status lookup from supervisor
@@ -309,10 +334,12 @@ def _build_plugin_cards(
 
         # Get Big Five traits for emotion radar chart (if available)
         traits = identity.get("traits", {})
-        big_five = {k: v for k, v in traits.items() if k in [
-            "openness", "conscientiousness", "extraversion",
-            "agreeableness", "neuroticism"
-        ]}
+        big_five = {
+            k: v
+            for k, v in traits.items()
+            if k
+            in ["openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism"]
+        }
 
         agent_info = {
             "name": name,
@@ -332,13 +359,15 @@ def _build_plugin_cards(
     for plugin_name, plugin_agents in sorted(plugin_map.items()):
         running_count = sum(1 for a in plugin_agents if a["state"] == "running")
 
-        cards.append({
-            "name": plugin_name,
-            "display_name": _plugin_display_name(plugin_name),
-            "agent_count": len(plugin_agents),
-            "running_count": running_count,
-            "agents": plugin_agents,
-        })
+        cards.append(
+            {
+                "name": plugin_name,
+                "display_name": _plugin_display_name(plugin_name),
+                "agent_count": len(plugin_agents),
+                "running_count": running_count,
+                "agents": plugin_agents,
+            }
+        )
 
     return cards
 
@@ -362,7 +391,9 @@ _PLUGIN_ROUTE_MAP: dict[str, str] = {
 
 
 def _build_agent_status_rows(
-    identities: list[dict], agents: list[dict], audit_svc=None,
+    identities: list[dict],
+    agents: list[dict],
+    audit_svc=None,
     base_dir: Path | None = None,
 ) -> list[dict]:
     """Build operational status rows: one row per agent (plugin + identity).
@@ -415,19 +446,21 @@ def _build_agent_status_rows(
                         "success": recent[0].get("success", True),
                     }
 
-            rows.append({
-                "agent_name": _plugin_display_name(plugin),
-                "plugin": plugin,
-                "plugin_url": _PLUGIN_ROUTE_MAP.get(plugin, ""),
-                "identity_name": identity.get("display_name", ident_name.capitalize()),
-                "identity_ref": ident_name,
-                "state": state,
-                "pid": proc.get("pid") if proc else None,
-                "uptime": proc.get("uptime_seconds", proc.get("uptime", 0)) if proc else 0,
-                "restart_count": proc.get("restart_count", 0) if proc else 0,
-                "last_action": last_action,
-                "can_start": not process_running or plugin_stopped,
-                "can_stop": process_running and not plugin_stopped,
-            })
+            rows.append(
+                {
+                    "agent_name": _plugin_display_name(plugin),
+                    "plugin": plugin,
+                    "plugin_url": _PLUGIN_ROUTE_MAP.get(plugin, ""),
+                    "identity_name": identity.get("display_name", ident_name.capitalize()),
+                    "identity_ref": ident_name,
+                    "state": state,
+                    "pid": proc.get("pid") if proc else None,
+                    "uptime": proc.get("uptime_seconds", proc.get("uptime", 0)) if proc else 0,
+                    "restart_count": proc.get("restart_count", 0) if proc else 0,
+                    "last_action": last_action,
+                    "can_start": not process_running or plugin_stopped,
+                    "can_stop": process_running and not plugin_stopped,
+                }
+            )
 
     return rows

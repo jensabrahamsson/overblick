@@ -15,10 +15,12 @@ class TestGoalTracker:
     @pytest.mark.asyncio
     async def test_setup_creates_defaults(self, mock_agentic_db, sample_goals):
         """First setup creates default goals when DB is empty."""
-        mock_agentic_db.get_goals = AsyncMock(side_effect=[
-            [],  # First call: no goals exist
-            sample_goals,  # Second call: after creation
-        ])
+        mock_agentic_db.get_goals = AsyncMock(
+            side_effect=[
+                [],  # First call: no goals exist
+                sample_goals,  # Second call: after creation
+            ]
+        )
 
         tracker = GoalTracker(db=mock_agentic_db)
         await tracker.setup(default_goals=sample_goals)
@@ -81,9 +83,11 @@ class TestGoalTracker:
         """update_progress updates the goal and refreshes cache."""
         goal = AgentGoal(name="g", description="G", priority=50, progress=0.0)
         mock_agentic_db.get_goal_by_name = AsyncMock(return_value=goal)
-        mock_agentic_db.get_goals = AsyncMock(return_value=[
-            goal.model_copy(update={"progress": 0.7}),
-        ])
+        mock_agentic_db.get_goals = AsyncMock(
+            return_value=[
+                goal.model_copy(update={"progress": 0.7}),
+            ]
+        )
 
         tracker = GoalTracker(db=mock_agentic_db)
         tracker._goals = [goal]

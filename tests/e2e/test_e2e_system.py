@@ -47,10 +47,21 @@ class TestSystemPage:
 
         content = page.content()
         # Health grade is A-F or some indicator
-        has_health = any(indicator in content for indicator in [
-            "Grade", "Health", "CPU", "Memory", "Disk",
-            "grade", "health", "cpu", "memory", "disk",
-        ])
+        has_health = any(
+            indicator in content
+            for indicator in [
+                "Grade",
+                "Health",
+                "CPU",
+                "Memory",
+                "Disk",
+                "grade",
+                "health",
+                "cpu",
+                "memory",
+                "disk",
+            ]
+        )
         assert has_health, "No health indicators found on system page"
 
     def test_htmx_polling_configured(self, dashboard_server, page):

@@ -62,8 +62,10 @@ class BossRequestCapability:
         return self._ipc_client is not None
 
     async def request_research(
-        self, query: str, context: str = "",
-    ) -> Optional[str]:
+        self,
+        query: str,
+        context: str = "",
+    ) -> str | None:
         """
         Ask the supervisor to research a query via web search.
 
@@ -89,7 +91,8 @@ class BossRequestCapability:
 
         logger.info(
             "Research request from '%s': %s",
-            self.ctx.identity_name, query[:100],
+            self.ctx.identity_name,
+            query[:100],
         )
 
         try:

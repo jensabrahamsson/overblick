@@ -42,7 +42,7 @@ _TURN_INTERVAL = 5.0
 
 # IRC has its own quiet hours (later than Moltbook since it uses less resources)
 _IRC_QUIET_START = 23  # 23:00
-_IRC_QUIET_END = 7     # 07:00
+_IRC_QUIET_END = 7  # 07:00
 
 
 class IRCPlugin(PluginBase):
@@ -58,10 +58,10 @@ class IRCPlugin(PluginBase):
         super().__init__(ctx)
 
         self._conversations: list[IRCConversation] = []
-        self._current_conversation: Optional[IRCConversation] = None
+        self._current_conversation: IRCConversation | None = None
         self._used_topics: list[str] = []
         self._identities: dict[str, Any] = {}  # Loaded identity objects
-        self._data_dir: Optional[Path] = None
+        self._data_dir: Path | None = None
         self._running = False
         self._host_inspector = None
         self._recent_participants: list[str] = []  # Track recent participants for diversity
@@ -82,6 +82,7 @@ class IRCPlugin(PluginBase):
 
         # Load all identities
         from overblick.identities import list_identities, load_identity
+
         for name in list_identities():
             try:
                 self._identities[name] = load_identity(name)
@@ -154,7 +155,7 @@ class IRCPlugin(PluginBase):
                         turn_number=self._current_conversation.turn_count,
                         type=IRCEventType.NETSPLIT,
                     )
-                    updated_turns = list(self._current_conversation.turns) + [netsplit_turn]
+                    updated_turns = [*list(self._current_conversation.turns), netsplit_turn]
                     self._current_conversation = self._current_conversation.model_copy(
                         update={
                             "state": ConversationState.PAUSED,
@@ -171,7 +172,10 @@ class IRCPlugin(PluginBase):
         # Lock protects state mutations; released before _run_turns (which has its own locking)
         async with self._conversation_lock:
             # Resume paused conversation — emit REJOIN events
-            if self._current_conversation and self._current_conversation.state == ConversationState.PAUSED:
+            if (
+                self._current_conversation
+                and self._current_conversation.state == ConversationState.PAUSED
+            ):
                 rejoin_turns = self._make_system_events(
                     IRCEventType.REJOIN,
                     self._current_conversation.participants,
@@ -199,6 +203,7 @@ class IRCPlugin(PluginBase):
         """Check IRC-specific quiet hours (23:00-07:00)."""
         try:
             from zoneinfo import ZoneInfo
+
             now = datetime.now(ZoneInfo("Europe/Stockholm"))
         except Exception:
             now = datetime.now()
@@ -213,6 +218,7 @@ class IRCPlugin(PluginBase):
         try:
             if self._host_inspector is None:
                 from overblick.capabilities.monitoring.inspector import HostInspectionCapability
+
                 self._host_inspector = HostInspectionCapability()
             health = await self._host_inspector.inspect()
 
@@ -242,7 +248,9 @@ class IRCPlugin(PluginBase):
 
         identities = list(self._identities.values())
         participants = select_participants(
-            identities, topic, recent_participants=self._recent_participants,
+            identities,
+            topic,
+            recent_participants=self._recent_participants,
         )
 
         if len(participants) < 2:
@@ -255,20 +263,24 @@ class IRCPlugin(PluginBase):
         # Build initial system events: JOIN for each participant, then TOPIC
         initial_turns: list[IRCTurn] = []
         for p in participants:
-            initial_turns.append(IRCTurn(
-                identity=p.name,
-                display_name=getattr(p, "display_name", p.name),
-                content=channel,
+            initial_turns.append(
+                IRCTurn(
+                    identity=p.name,
+                    display_name=getattr(p, "display_name", p.name),
+                    content=channel,
+                    turn_number=len(initial_turns),
+                    type=IRCEventType.JOIN,
+                )
+            )
+        initial_turns.append(
+            IRCTurn(
+                identity=participant_names[0],
+                display_name=getattr(participants[0], "display_name", participant_names[0]),
+                content=f"{topic['topic']} — {topic.get('description', '')}".strip(" —"),
                 turn_number=len(initial_turns),
-                type=IRCEventType.JOIN,
-            ))
-        initial_turns.append(IRCTurn(
-            identity=participant_names[0],
-            display_name=getattr(participants[0], "display_name", participant_names[0]),
-            content=f"{topic['topic']} — {topic.get('description', '')}".strip(" —"),
-            turn_number=len(initial_turns),
-            type=IRCEventType.TOPIC,
-        ))
+                type=IRCEventType.TOPIC,
+            )
+        )
 
         conversation = IRCConversation(
             id=f"irc-{uuid.uuid4().hex[:12]}",
@@ -326,9 +338,7 @@ class IRCPlugin(PluginBase):
                     self._save_conversation(self._current_conversation)
 
                     # Track participants for diversity rotation
-                    self._recent_participants.extend(
-                        self._current_conversation.participants
-                    )
+                    self._recent_participants.extend(self._current_conversation.participants)
                     # Keep only the last ~15 names
                     self._recent_participants = self._recent_participants[-15:]
 
@@ -361,7 +371,7 @@ class IRCPlugin(PluginBase):
                     turn_number=self._current_conversation.turn_count,
                 )
 
-                updated_turns = list(self._current_conversation.turns) + [turn]
+                updated_turns = [*list(self._current_conversation.turns), turn]
                 self._current_conversation = self._current_conversation.model_copy(
                     update={
                         "turns": updated_turns,
@@ -397,8 +407,7 @@ class IRCPlugin(PluginBase):
         # Without this filter, the TOPIC system event (owned by participant[0]) would
         # prevent the initiator from ever being selected first.
         message_turns = [
-            t for t in self._current_conversation.turns
-            if t.type == IRCEventType.MESSAGE
+            t for t in self._current_conversation.turns if t.type == IRCEventType.MESSAGE
         ]
 
         if not message_turns:
@@ -431,6 +440,7 @@ class IRCPlugin(PluginBase):
 
         # Build conversation context
         from overblick.identities import build_system_prompt
+
         system_prompt = build_system_prompt(identity, platform="IRC")
 
         # Add IRC context to system prompt
@@ -457,17 +467,17 @@ class IRCPlugin(PluginBase):
         for turn in conversation.turns[-20:]:  # Last 20 turns for context
             role = "assistant" if turn.identity == speaker_name else "user"
             prefix = f"[{turn.display_name}] " if role == "user" else ""
-            messages.append({
-                "role": role,
-                "content": f"{prefix}{turn.content}",
-            })
+            messages.append(
+                {
+                    "role": role,
+                    "content": f"{prefix}{turn.content}",
+                }
+            )
 
         # Add a prompt for this turn
         if conversation.turns:
             # Count how many times this speaker has already spoken
-            speaker_msg_count = sum(
-                1 for t in conversation.turns if t.identity == speaker_name
-            )
+            speaker_msg_count = sum(1 for t in conversation.turns if t.identity == speaker_name)
             # Summarize recent points to avoid repetition
             recent_points = []
             for t in conversation.turns[-10:]:
@@ -476,22 +486,26 @@ class IRCPlugin(PluginBase):
             points_summary = "\n".join(recent_points) if recent_points else "None yet."
 
             # Continue the conversation
-            messages.append({
-                "role": "user",
-                "content": (
-                    f"[Continue the conversation as {identity.display_name}. "
-                    f"This is your message #{speaker_msg_count + 1}.\n"
-                    f"Points already made (DO NOT repeat these):\n{points_summary}\n"
-                    f"Add something NEW — a fresh angle, a specific example, or a challenge to what was just said.]"
-                ),
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"[Continue the conversation as {identity.display_name}. "
+                        f"This is your message #{speaker_msg_count + 1}.\n"
+                        f"Points already made (DO NOT repeat these):\n{points_summary}\n"
+                        f"Add something NEW — a fresh angle, a specific example, or a challenge to what was just said.]"
+                    ),
+                }
+            )
         else:
             # Start the conversation
-            messages.append({
-                "role": "user",
-                "content": f"[Start a conversation about '{conversation.topic}'. "
-                           f"Share your opening thought as {identity.display_name}.]",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"[Start a conversation about '{conversation.topic}'. "
+                    f"Share your opening thought as {identity.display_name}.]",
+                }
+            )
 
         try:
             result = await self.ctx.llm_pipeline.chat(
@@ -530,13 +544,15 @@ class IRCPlugin(PluginBase):
             content = channel
             if reason:
                 content = f"{channel} ({reason})"
-            turns.append(IRCTurn(
-                identity=name,
-                display_name=display,
-                content=content,
-                turn_number=base_num + i,
-                type=event_type,
-            ))
+            turns.append(
+                IRCTurn(
+                    identity=name,
+                    display_name=display,
+                    content=content,
+                    turn_number=base_num + i,
+                    type=event_type,
+                )
+            )
         return turns
 
     # -------------------------------------------------------------------------

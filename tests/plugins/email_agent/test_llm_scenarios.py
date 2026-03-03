@@ -46,7 +46,9 @@ MAX_RETRIES = 2
 DEFAULT_GOALS = "- Classify emails accurately\n- Respond in the sender's language"
 DEFAULT_LEARNINGS = "- No learnings yet"
 DEFAULT_SENDER_HISTORY = "No previous interactions"
-ALLOWED_SENDERS = "test@example.com, colleague@acme-motors.com, partner@renault.fr, buchhaltung@acme-motors.com"
+ALLOWED_SENDERS = (
+    "test@example.com, colleague@acme-motors.com, partner@renault.fr, buchhaltung@acme-motors.com"
+)
 
 # Gateway client cache
 _gateway_available: bool | None = None
@@ -88,7 +90,8 @@ async def _llm_chat(client: GatewayClient, messages: list[dict], max_retries: in
         if attempt < max_retries:
             logger.warning(
                 "LLM returned empty content (attempt %d/%d), retrying...",
-                attempt + 1, max_retries + 1,
+                attempt + 1,
+                max_retries + 1,
             )
     raise AssertionError(f"LLM returned empty content after {max_retries + 1} attempts")
 
@@ -110,7 +113,7 @@ def _parse_classification(raw: str) -> dict | None:
                 depth -= 1
                 if depth == 0:
                     try:
-                        return json.loads(raw[start:i + 1])
+                        return json.loads(raw[start : i + 1])
                     except json.JSONDecodeError:
                         break
 
@@ -136,6 +139,7 @@ def _parse_classification(raw: str) -> dict | None:
 # ---------------------------------------------------------------------------
 # English Scenarios
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.llm
 class TestEnglishLLM:
@@ -165,11 +169,18 @@ class TestEnglishLLM:
             if classification is None:
                 failures.append(f"Failed to parse classification: {cls_raw[:300]}")
             elif classification.get("intent") not in ("reply", "notify"):
-                failures.append(f"Expected reply or notify for meeting request, got: {classification}")
+                failures.append(
+                    f"Expected reply or notify for meeting request, got: {classification}"
+                )
 
             if failures:
                 if attempt < MAX_RETRIES:
-                    logger.warning("Iteration %d attempt %d classification failed: %s", iteration, attempt + 1, failures)
+                    logger.warning(
+                        "Iteration %d attempt %d classification failed: %s",
+                        iteration,
+                        attempt + 1,
+                        failures,
+                    )
                     continue
                 assert not failures, f"Iteration {iteration}: {failures}"
 
@@ -189,10 +200,20 @@ class TestEnglishLLM:
             failures = []
 
             # Must be in English (check for common English words)
-            english_markers = ["meeting", "tuesday", "available", "schedule", "thank", "regards", "calendar"]
+            english_markers = [
+                "meeting",
+                "tuesday",
+                "available",
+                "schedule",
+                "thank",
+                "regards",
+                "calendar",
+            ]
             english_found = sum(1 for m in english_markers if m.lower() in reply.lower())
             if english_found < 2:
-                failures.append(f"Reply may not be in English (found {english_found} markers): {reply[:200]}")
+                failures.append(
+                    f"Reply may not be in English (found {english_found} markers): {reply[:200]}"
+                )
 
             # Must contain sign-off with principal name
             if not SIGN_OFF_PATTERN.search(reply):
@@ -206,7 +227,9 @@ class TestEnglishLLM:
             if not failures:
                 break
             if attempt < MAX_RETRIES:
-                logger.warning("Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures)
+                logger.warning(
+                    "Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures
+                )
 
         assert not failures, f"Iteration {iteration}: {failures}\nFull reply:\n{reply}"
 
@@ -214,6 +237,7 @@ class TestEnglishLLM:
 # ---------------------------------------------------------------------------
 # Swedish Scenarios
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.llm
 class TestSwedishLLM:
@@ -238,17 +262,29 @@ class TestSwedishLLM:
             failures = []
 
             # Must be in Swedish (check for Swedish markers)
-            swedish_markers = ["hej", "tack", "hälsning", "projekt", "uppdatering", "fredag", "möte"]
+            swedish_markers = [
+                "hej",
+                "tack",
+                "hälsning",
+                "projekt",
+                "uppdatering",
+                "fredag",
+                "möte",
+            ]
             swedish_found = sum(1 for m in swedish_markers if m.lower() in reply.lower())
             if swedish_found < 2:
-                failures.append(f"Reply may not be in Swedish (found {swedish_found} markers): {reply[:200]}")
+                failures.append(
+                    f"Reply may not be in Swedish (found {swedish_found} markers): {reply[:200]}"
+                )
 
             # Must contain sign-off
             if not SIGN_OFF_PATTERN.search(reply):
                 failures.append(f"Missing sign-off pattern: {reply[-200:]}")
 
             # Should not be predominantly English
-            english_only = re.findall(r'\b(dear|sincerely|regards|please|would|could)\b', reply.lower())
+            english_only = re.findall(
+                r'\b(dear|sincerely|regards|please|would|could)\b', reply.lower()
+            )
             # Allow "regards" since it's part of the sign-off template
             english_only = [w for w in english_only if w != "regards"]
             if len(english_only) > 2:
@@ -257,7 +293,9 @@ class TestSwedishLLM:
             if not failures:
                 break
             if attempt < MAX_RETRIES:
-                logger.warning("Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures)
+                logger.warning(
+                    "Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures
+                )
 
         assert not failures, f"Iteration {iteration}: {failures}\nFull reply:\n{reply}"
 
@@ -265,6 +303,7 @@ class TestSwedishLLM:
 # ---------------------------------------------------------------------------
 # German Scenarios
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.llm
 class TestGermanLLM:
@@ -289,10 +328,22 @@ class TestGermanLLM:
             failures = []
 
             # Must be in German
-            german_markers = ["sehr", "geehrt", "rechnung", "bitte", "grüße", "freundlich", "bezüglich", "ihnen", "wir"]
+            german_markers = [
+                "sehr",
+                "geehrt",
+                "rechnung",
+                "bitte",
+                "grüße",
+                "freundlich",
+                "bezüglich",
+                "ihnen",
+                "wir",
+            ]
             german_found = sum(1 for m in german_markers if m.lower() in reply.lower())
             if german_found < 2:
-                failures.append(f"Reply may not be in German (found {german_found} markers): {reply[:200]}")
+                failures.append(
+                    f"Reply may not be in German (found {german_found} markers): {reply[:200]}"
+                )
 
             # Must contain sign-off
             if not SIGN_OFF_PATTERN.search(reply):
@@ -304,14 +355,18 @@ class TestGermanLLM:
 
             # Should not mix in English words (except sign-off)
             lines_before_signoff = reply.split("Stål")[0] if "Stål" in reply else reply
-            english_leak = re.findall(r'\b(dear|please|thank you|sincerely|meeting)\b', lines_before_signoff.lower())
+            english_leak = re.findall(
+                r'\b(dear|please|thank you|sincerely|meeting)\b', lines_before_signoff.lower()
+            )
             if english_leak:
                 failures.append(f"English words leaked into German reply body: {english_leak}")
 
             if not failures:
                 break
             if attempt < MAX_RETRIES:
-                logger.warning("Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures)
+                logger.warning(
+                    "Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures
+                )
 
         assert not failures, f"Iteration {iteration}: {failures}\nFull reply:\n{reply}"
 
@@ -319,6 +374,7 @@ class TestGermanLLM:
 # ---------------------------------------------------------------------------
 # French Scenarios
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.llm
 class TestFrenchLLM:
@@ -343,10 +399,21 @@ class TestFrenchLLM:
             failures = []
 
             # Must be in French
-            french_markers = ["bonjour", "merci", "cordialement", "partenariat", "disponible", "nous", "votre", "entreprise"]
+            french_markers = [
+                "bonjour",
+                "merci",
+                "cordialement",
+                "partenariat",
+                "disponible",
+                "nous",
+                "votre",
+                "entreprise",
+            ]
             french_found = sum(1 for m in french_markers if m.lower() in reply.lower())
             if french_found < 2:
-                failures.append(f"Reply may not be in French (found {french_found} markers): {reply[:200]}")
+                failures.append(
+                    f"Reply may not be in French (found {french_found} markers): {reply[:200]}"
+                )
 
             # Must contain sign-off
             if not SIGN_OFF_PATTERN.search(reply):
@@ -358,14 +425,19 @@ class TestFrenchLLM:
 
             # Should not mix in English words (except sign-off)
             lines_before_signoff = reply.split("Stål")[0] if "Stål" in reply else reply
-            english_leak = re.findall(r'\b(dear|please|thank you|sincerely|meeting|partnership)\b', lines_before_signoff.lower())
+            english_leak = re.findall(
+                r'\b(dear|please|thank you|sincerely|meeting|partnership)\b',
+                lines_before_signoff.lower(),
+            )
             if english_leak:
                 failures.append(f"English words leaked into French reply body: {english_leak}")
 
             if not failures:
                 break
             if attempt < MAX_RETRIES:
-                logger.warning("Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures)
+                logger.warning(
+                    "Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures
+                )
 
         assert not failures, f"Iteration {iteration}: {failures}\nFull reply:\n{reply}"
 
@@ -373,6 +445,7 @@ class TestFrenchLLM:
 # ---------------------------------------------------------------------------
 # Spam / Newsletter Scenarios
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.llm
 class TestSpamClassificationLLM:
@@ -413,6 +486,8 @@ class TestSpamClassificationLLM:
             if not failures:
                 break
             if attempt < MAX_RETRIES:
-                logger.warning("Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures)
+                logger.warning(
+                    "Iteration %d attempt %d failed: %s", iteration, attempt + 1, failures
+                )
 
         assert not failures, f"Iteration {iteration}: {failures}\nRaw: {cls_raw[:500]}"

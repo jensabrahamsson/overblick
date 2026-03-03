@@ -9,9 +9,10 @@ to avoid blocking the async event loop.
 import asyncio
 import logging
 import sqlite3
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
 
 from overblick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
 
@@ -37,14 +38,16 @@ class SQLiteBackend(DatabaseBackend):
         if identity:
             path_template = path_template.replace("{identity}", identity)
         self._db_path = Path(path_template)
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
         self._executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="sqlite-write",
+            max_workers=1,
+            thread_name_prefix="sqlite-write",
         )
         # Read executor uses per-call connections (not shared _conn)
         # so concurrent reads are safe under WAL mode.
         self._read_executor = ThreadPoolExecutor(
-            max_workers=3, thread_name_prefix="sqlite-read",
+            max_workers=3,
+            thread_name_prefix="sqlite-read",
         )
 
     @property
@@ -110,14 +113,14 @@ class SQLiteBackend(DatabaseBackend):
             cursor = self._conn.execute(sql, params)
             return cursor.rowcount
 
-    def _execute_returning_id_sync(self, sql: str, params: Sequence[Any]) -> Optional[int]:
+    def _execute_returning_id_sync(self, sql: str, params: Sequence[Any]) -> int | None:
         with self._conn:
             cursor = self._conn.execute(sql, params)
             return cursor.lastrowid
 
     # --- Read operations (per-call connections for thread safety) ---
 
-    def _fetch_one_sync(self, sql: str, params: Sequence[Any]) -> Optional[DatabaseRow]:
+    def _fetch_one_sync(self, sql: str, params: Sequence[Any]) -> DatabaseRow | None:
         conn = self._open_read_connection()
         try:
             cursor = conn.execute(sql, params)
@@ -154,12 +157,12 @@ class SQLiteBackend(DatabaseBackend):
         self._check_connected()
         return await self._run_in_executor(self._execute_sync, sql, params)
 
-    async def execute_returning_id(self, sql: str, params: Sequence[Any] = ()) -> Optional[int]:
+    async def execute_returning_id(self, sql: str, params: Sequence[Any] = ()) -> int | None:
         """Execute INSERT and return the new row ID."""
         self._check_connected()
         return await self._run_in_executor(self._execute_returning_id_sync, sql, params)
 
-    async def fetch_one(self, sql: str, params: Sequence[Any] = ()) -> Optional[DatabaseRow]:
+    async def fetch_one(self, sql: str, params: Sequence[Any] = ()) -> DatabaseRow | None:
         """Fetch a single row as a dict (uses per-call read connection)."""
         self._check_connected()
         return await self._run_in_read_executor(self._fetch_one_sync, sql, params)

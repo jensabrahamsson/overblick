@@ -27,10 +27,10 @@ from overblick.plugins.telegram.plugin import (
 )
 from tests.plugins.telegram.conftest import make_update
 
-
 # ---------------------------------------------------------------------------
 # Dataclass unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestTelegramMessage:
     """Test TelegramMessage dataclass."""
@@ -126,6 +126,7 @@ class TestUserRateLimit:
 # Plugin lifecycle tests
 # ---------------------------------------------------------------------------
 
+
 class TestPluginLifecycle:
     """Test plugin setup and teardown."""
 
@@ -149,8 +150,10 @@ class TestPluginLifecycle:
     async def test_setup_logs_to_audit(self, telegram_plugin, mock_audit_log):
         mock_audit_log.log.assert_called()
         call_args = mock_audit_log.log.call_args
-        assert call_args.kwargs.get("action") == "plugin_setup" or \
-               call_args[1].get("action") == "plugin_setup"
+        assert (
+            call_args.kwargs.get("action") == "plugin_setup"
+            or call_args[1].get("action") == "plugin_setup"
+        )
 
     @pytest.mark.asyncio
     async def test_teardown_clears_conversations(self, telegram_plugin):
@@ -171,6 +174,7 @@ class TestPluginLifecycle:
 # ---------------------------------------------------------------------------
 # Command handling tests
 # ---------------------------------------------------------------------------
+
 
 class TestCommandHandling:
     """Test bot command processing."""
@@ -217,7 +221,9 @@ class TestCommandHandling:
     @pytest.mark.asyncio
     async def test_ask_command_with_question(self, telegram_plugin):
         update = make_update("/ask What is privacy?")
-        with patch.object(telegram_plugin, "_handle_conversation", new_callable=AsyncMock) as mock_conv:
+        with patch.object(
+            telegram_plugin, "_handle_conversation", new_callable=AsyncMock
+        ) as mock_conv:
             with patch.object(telegram_plugin, "_send_message", new_callable=AsyncMock):
                 await telegram_plugin._handle_update(update)
                 mock_conv.assert_called_once()
@@ -245,6 +251,7 @@ class TestCommandHandling:
 # Conversation handling tests
 # ---------------------------------------------------------------------------
 
+
 class TestConversationHandling:
     """Test regular message processing."""
 
@@ -266,9 +273,7 @@ class TestConversationHandling:
     async def test_blocked_response_sends_deflection(self, telegram_plugin):
         telegram_plugin.ctx.llm_pipeline.chat = AsyncMock(
             return_value=PipelineResult(
-                blocked=True,
-                block_reason="Content policy",
-                deflection="I can't discuss that."
+                blocked=True, block_reason="Content policy", deflection="I can't discuss that."
             )
         )
         update = make_update("Something inappropriate")
@@ -331,6 +336,7 @@ class TestConversationHandling:
 # Rate limiting tests
 # ---------------------------------------------------------------------------
 
+
 class TestRateLimiting:
     """Test per-user rate limiting."""
 
@@ -361,6 +367,7 @@ class TestRateLimiting:
 # ---------------------------------------------------------------------------
 # Whitelist tests
 # ---------------------------------------------------------------------------
+
 
 class TestWhitelist:
     """Test chat ID whitelisting."""
@@ -394,6 +401,7 @@ class TestWhitelist:
 # Stale conversation cleanup
 # ---------------------------------------------------------------------------
 
+
 class TestStaleConversations:
     """Test cleanup of inactive conversations."""
 
@@ -416,6 +424,7 @@ class TestStaleConversations:
 # ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestEdgeCases:
     """Test edge cases and error handling."""
@@ -505,6 +514,7 @@ class TestNotificationFormatting:
     def test_conversation_context_max_history(self, telegram_plugin):
         """ConversationContext truncates messages beyond max_history limit."""
         from overblick.plugins.telegram.plugin import ConversationContext
+
         ctx = ConversationContext(chat_id=123, max_history=3)
         for i in range(10):
             ctx.add_user_message(f"Message {i}")
@@ -514,6 +524,7 @@ class TestNotificationFormatting:
     def test_rate_limit_window_accuracy(self, telegram_plugin):
         """Rate limiter correctly tracks per-minute and per-hour windows."""
         from overblick.plugins.telegram.plugin import UserRateLimit
+
         limiter = UserRateLimit(user_id=1, max_per_minute=2, max_per_hour=100)
         assert limiter.is_allowed()
         limiter.record()

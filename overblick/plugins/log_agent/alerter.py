@@ -21,7 +21,7 @@ class AlertFormatter:
     """Formats log entries into alert messages."""
 
     @staticmethod
-    def format_scan_summary(results: list[LogScanResult]) -> Optional[str]:
+    def format_scan_summary(results: list[LogScanResult]) -> str | None:
         """
         Format a scan summary for Telegram notification.
 
@@ -59,10 +59,7 @@ class AlertFormatter:
     def format_critical_alert(entry: LogEntry) -> str:
         """Format a single critical entry as an urgent alert."""
         msg = entry.message[:200]
-        text = (
-            f"*CRITICAL ALERT — {entry.identity}*\n"
-            f"{msg}\n"
-        )
+        text = f"*CRITICAL ALERT — {entry.identity}*\n" f"{msg}\n"
         if entry.traceback:
             tb = entry.traceback[:500]
             text += f"\n```\n{tb}\n```"

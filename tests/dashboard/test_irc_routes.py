@@ -17,8 +17,18 @@ def _make_conversations():
             topic_description="Exploring the boundaries between computation and awareness",
             participants=["anomal", "cherry", "bjork"],
             turns=[
-                IRCTurn(identity="anomal", display_name="Anomal", content="I think therefore I am.", turn_number=0),
-                IRCTurn(identity="cherry", display_name="Cherry", content="But do you feel?", turn_number=1),
+                IRCTurn(
+                    identity="anomal",
+                    display_name="Anomal",
+                    content="I think therefore I am.",
+                    turn_number=0,
+                ),
+                IRCTurn(
+                    identity="cherry",
+                    display_name="Cherry",
+                    content="But do you feel?",
+                    turn_number=1,
+                ),
             ],
             state=ConversationState.ACTIVE,
             updated_at=2000.0,
@@ -43,8 +53,7 @@ def _make_irc_service(conversations=None, current=None):
     conv_dicts = [c.model_dump() for c in conversations]
     svc.get_conversations.return_value = conv_dicts
     svc.get_current_conversation.return_value = (
-        current.model_dump() if current else
-        conv_dicts[0] if conv_dicts else None
+        current.model_dump() if current else conv_dicts[0] if conv_dicts else None
     )
     svc.has_data.return_value = len(conversations) > 0
 
@@ -133,7 +142,9 @@ class TestIRCEmptyState:
         svc.has_data.return_value = False
         _inject_irc_service(app, svc)
         cookie_value, _ = session_cookie
-        resp = await client.get("/irc", cookies={SESSION_COOKIE: cookie_value}, follow_redirects=False)
+        resp = await client.get(
+            "/irc", cookies={SESSION_COOKIE: cookie_value}, follow_redirects=False
+        )
         assert resp.status_code == 302
 
     @pytest.mark.asyncio
@@ -143,7 +154,9 @@ class TestIRCEmptyState:
         if hasattr(app.state, "irc_service"):
             delattr(app.state, "irc_service")
         cookie_value, _ = session_cookie
-        resp = await client.get("/irc", cookies={SESSION_COOKIE: cookie_value}, follow_redirects=False)
+        resp = await client.get(
+            "/irc", cookies={SESSION_COOKIE: cookie_value}, follow_redirects=False
+        )
         assert resp.status_code == 302
         assert "irc_not_available" in resp.headers.get("location", "")
 
@@ -188,7 +201,11 @@ class TestIRCConversationStates:
             topic="Paused Topic",
             participants=["anomal"],
             state=ConversationState.PAUSED,
-            turns=[IRCTurn(identity="anomal", display_name="Anomal", content="Before pause", turn_number=0)],
+            turns=[
+                IRCTurn(
+                    identity="anomal", display_name="Anomal", content="Before pause", turn_number=0
+                )
+            ],
         )
         _inject_irc_service(app, _make_irc_service(conversations=[paused]))
         cookie_value, _ = session_cookie
@@ -229,11 +246,24 @@ class TestIRCService:
 
     def test_get_conversations_reads_json(self, tmp_path):
         import json
+
         data_dir = tmp_path / "data" / "anomal" / "irc"
         data_dir.mkdir(parents=True)
         convs = [
-            {"id": "c1", "topic": "Topic 1", "participants": ["a"], "state": "active", "updated_at": 2000.0},
-            {"id": "c2", "topic": "Topic 2", "participants": ["b"], "state": "completed", "updated_at": 1000.0},
+            {
+                "id": "c1",
+                "topic": "Topic 1",
+                "participants": ["a"],
+                "state": "active",
+                "updated_at": 2000.0,
+            },
+            {
+                "id": "c2",
+                "topic": "Topic 2",
+                "participants": ["b"],
+                "state": "completed",
+                "updated_at": 1000.0,
+            },
         ]
         (data_dir / "conversations.json").write_text(json.dumps(convs))
 
@@ -245,6 +275,7 @@ class TestIRCService:
 
     def test_get_conversation_by_id(self, tmp_path):
         import json
+
         data_dir = tmp_path / "data" / "anomal" / "irc"
         data_dir.mkdir(parents=True)
         convs = [
@@ -264,11 +295,24 @@ class TestIRCService:
 
     def test_get_current_conversation_active(self, tmp_path):
         import json
+
         data_dir = tmp_path / "data" / "anomal" / "irc"
         data_dir.mkdir(parents=True)
         convs = [
-            {"id": "c1", "topic": "T1", "participants": [], "state": "completed", "updated_at": 2000.0},
-            {"id": "c2", "topic": "T2", "participants": [], "state": "active", "updated_at": 1000.0},
+            {
+                "id": "c1",
+                "topic": "T1",
+                "participants": [],
+                "state": "completed",
+                "updated_at": 2000.0,
+            },
+            {
+                "id": "c2",
+                "topic": "T2",
+                "participants": [],
+                "state": "active",
+                "updated_at": 1000.0,
+            },
         ]
         (data_dir / "conversations.json").write_text(json.dumps(convs))
 
@@ -279,10 +323,17 @@ class TestIRCService:
 
     def test_get_current_conversation_fallback(self, tmp_path):
         import json
+
         data_dir = tmp_path / "data" / "anomal" / "irc"
         data_dir.mkdir(parents=True)
         convs = [
-            {"id": "c1", "topic": "T1", "participants": [], "state": "completed", "updated_at": 2000.0},
+            {
+                "id": "c1",
+                "topic": "T1",
+                "participants": [],
+                "state": "completed",
+                "updated_at": 2000.0,
+            },
         ]
         (data_dir / "conversations.json").write_text(json.dumps(convs))
 
@@ -295,18 +346,21 @@ class TestIRCService:
 class TestIdentityColor:
     def test_consistent_colors(self):
         from overblick.dashboard.routes.irc import _identity_color
+
         color1 = _identity_color("anomal")
         color2 = _identity_color("anomal")
         assert color1 == color2
 
     def test_different_identities_get_different_colors(self):
         from overblick.dashboard.routes.irc import _identity_color
+
         color_anomal = _identity_color("anomal")
         color_cherry = _identity_color("cherry")
         assert color_anomal != color_cherry
 
     def test_color_format(self):
         from overblick.dashboard.routes.irc import _identity_color
+
         color = _identity_color("test")
         assert color.startswith("hsl(")
         assert color.endswith(")")

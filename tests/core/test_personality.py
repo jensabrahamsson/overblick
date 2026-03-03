@@ -166,12 +166,14 @@ class TestSecuritySettings:
 
     def test_rate_limiter_defaults(self):
         from overblick.identities import SecuritySettings
+
         ss = SecuritySettings()
         assert ss.rate_limiter_max_tokens == 10.0
         assert ss.rate_limiter_refill_rate == 0.5
 
     def test_rate_limiter_custom(self):
         from overblick.identities import SecuritySettings
+
         ss = SecuritySettings(rate_limiter_max_tokens=20.0, rate_limiter_refill_rate=1.0)
         assert ss.rate_limiter_max_tokens == 20.0
         assert ss.rate_limiter_refill_rate == 1.0
@@ -182,29 +184,34 @@ class TestIdentityPersonalityWiring:
 
     def test_identity_has_loaded_personality(self):
         from overblick.identities import load_personality
+
         identity = load_personality("anomal")
         assert identity.loaded_personality is not None
         assert identity.loaded_personality.name == "anomal"
 
     def test_identity_personality_ref(self):
         from overblick.identities import load_personality
+
         identity = load_personality("anomal")
         assert identity.personality_ref == "anomal"
 
     def test_identity_personality_has_voice(self):
         from overblick.identities import load_personality
+
         identity = load_personality("anomal")
         assert identity.loaded_personality.voice != {}
         assert "base_tone" in identity.loaded_personality.voice
 
     def test_identity_personality_has_traits(self):
         from overblick.identities import load_personality
+
         identity = load_personality("anomal")
         assert identity.loaded_personality.traits != {}
         assert "openness" in identity.loaded_personality.traits
 
     def test_cherry_has_personality(self):
         from overblick.identities import load_personality
+
         identity = load_personality("cherry")
         assert identity.loaded_personality is not None
         assert identity.loaded_personality.name == "cherry"

@@ -9,12 +9,12 @@ Weekly psychological reflection. Config-driven via 'therapy_model':
 import logging
 from typing import Optional, Union
 
-from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.capabilities.psychology.therapy_system import (
     CherryTherapySystem,
     TherapySession,
     TherapySystem,
 )
+from overblick.core.capability import CapabilityBase, CapabilityContext
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class TherapyCapability(CapabilityBase):
 
     def __init__(self, ctx: CapabilityContext):
         super().__init__(ctx)
-        self._therapy_system: Optional[_AnyTherapySystem] = None
+        self._therapy_system: _AnyTherapySystem | None = None
 
     async def setup(self) -> None:
         therapy_day = self.ctx.config.get("therapy_day", TherapySystem.DEFAULT_THERAPY_DAY)
@@ -65,7 +65,7 @@ class TherapyCapability(CapabilityBase):
             return False
         return self._therapy_system.is_therapy_day()
 
-    async def run_session(self, **kwargs) -> Optional[TherapySession]:
+    async def run_session(self, **kwargs) -> TherapySession | None:
         """
         Run a therapy session.
 
@@ -103,6 +103,6 @@ class TherapyCapability(CapabilityBase):
         return ""
 
     @property
-    def inner(self) -> Optional[_AnyTherapySystem]:
+    def inner(self) -> _AnyTherapySystem | None:
         """Access the underlying therapy system (for tests)."""
         return self._therapy_system

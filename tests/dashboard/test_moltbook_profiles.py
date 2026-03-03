@@ -103,15 +103,29 @@ class TestGetMoltbookProfiles:
         ids.mkdir(parents=True)
         monkeypatch.setattr(
             "overblick.dashboard.routes.moltbook.Path",
-            lambda *args: tmp_path / "overblick" / "identities" if args == ("overblick/identities",) else type(tmp_path)(*args),
+            lambda *args: (
+                tmp_path / "overblick" / "identities"
+                if args == ("overblick/identities",)
+                else type(tmp_path)(*args)
+            ),
         )
         # Simpler: monkeypatch the function's internal Path usage
         # Instead, patch at module level
-        _make_identity(ids, "hasbiobut_noplugin", moltbook_bio="I'm on Moltbook!", display_name="NoBio")
-        _make_identity(ids, "hasplugin", identity_plugins=["moltbook"], moltbook_bio="Active user", display_name="Active", agent_name="ActiveBot")
+        _make_identity(
+            ids, "hasbiobut_noplugin", moltbook_bio="I'm on Moltbook!", display_name="NoBio"
+        )
+        _make_identity(
+            ids,
+            "hasplugin",
+            identity_plugins=["moltbook"],
+            moltbook_bio="Active user",
+            display_name="Active",
+            agent_name="ActiveBot",
+        )
 
         # Patch Path("overblick/identities") to point to our tmp dir
         import overblick.dashboard.routes.moltbook as mod
+
         original_path = mod.Path
 
         def patched_path(p):
@@ -131,7 +145,8 @@ class TestGetMoltbookProfiles:
         ids = tmp_path / "overblick" / "identities"
         ids.mkdir(parents=True)
         _make_identity(
-            ids, "testbot",
+            ids,
+            "testbot",
             identity_plugins=["moltbook"],
             moltbook_bio="Bio here",
             display_name="TestBot Display",
@@ -139,6 +154,7 @@ class TestGetMoltbookProfiles:
         )
 
         import overblick.dashboard.routes.moltbook as mod
+
         original_path = mod.Path
 
         def patched_path(p):
@@ -158,13 +174,15 @@ class TestGetMoltbookProfiles:
         ids = tmp_path / "overblick" / "identities"
         ids.mkdir(parents=True)
         _make_identity(
-            ids, "noident",
+            ids,
+            "noident",
             personality_plugins=["moltbook"],
             moltbook_bio="Bio",
             display_name="FallbackName",
         )
 
         import overblick.dashboard.routes.moltbook as mod
+
         original_path = mod.Path
 
         def patched_path(p):
@@ -183,13 +201,21 @@ class TestGetMoltbookProfiles:
         ids.mkdir(parents=True)
 
         import overblick.dashboard.routes.moltbook as mod
-        monkeypatch.setattr(mod, "Path", lambda p: ids if p == "overblick/identities" else mod.Path(p))
+
+        monkeypatch.setattr(
+            mod, "Path", lambda p: ids if p == "overblick/identities" else mod.Path(p)
+        )
 
         assert _get_moltbook_profiles() == []
 
     def test_nonexistent_dir_returns_empty(self, tmp_path, monkeypatch):
         import overblick.dashboard.routes.moltbook as mod
-        monkeypatch.setattr(mod, "Path", lambda p: tmp_path / "nonexistent" if p == "overblick/identities" else mod.Path(p))
+
+        monkeypatch.setattr(
+            mod,
+            "Path",
+            lambda p: tmp_path / "nonexistent" if p == "overblick/identities" else mod.Path(p),
+        )
 
         assert _get_moltbook_profiles() == []
 
@@ -198,7 +224,8 @@ class TestGetMoltbookProfiles:
         ids = tmp_path / "overblick" / "identities"
         ids.mkdir(parents=True)
         _make_identity(
-            ids, "opbot",
+            ids,
+            "opbot",
             operational_plugins=["moltbook"],
             moltbook_bio="Op bio",
             display_name="OpBot",
@@ -206,6 +233,7 @@ class TestGetMoltbookProfiles:
         )
 
         import overblick.dashboard.routes.moltbook as mod
+
         original_path = mod.Path
 
         def patched_path(p):
@@ -264,6 +292,7 @@ class TestMoltbookUsernameInProfiles:
         (d / "identity.yaml").write_text(yaml.dump({"agent_name": "OldAgentName"}))
 
         import overblick.dashboard.routes.moltbook as mod
+
         original_path = mod.Path
 
         def patched_path(p):

@@ -84,22 +84,30 @@ class TestBackendConfig:
 
     def test_base_url_from_host_port(self):
         bc = BackendConfig(
-            name="local", enabled=True, backend_type="ollama",
-            host="127.0.0.1", port=11434,
+            name="local",
+            enabled=True,
+            backend_type="ollama",
+            host="127.0.0.1",
+            port=11434,
         )
         assert bc.base_url == "http://127.0.0.1:11434"
 
     def test_base_url_from_api_url(self):
         bc = BackendConfig(
-            name="deepseek", enabled=True, backend_type="deepseek",
+            name="deepseek",
+            enabled=True,
+            backend_type="deepseek",
             api_url="https://api.deepseek.com/v1",
         )
         assert bc.base_url == "https://api.deepseek.com/v1"
 
     def test_api_url_takes_precedence_over_host_port(self):
         bc = BackendConfig(
-            name="test", enabled=True, backend_type="deepseek",
-            host="127.0.0.1", port=8080,
+            name="test",
+            enabled=True,
+            backend_type="deepseek",
+            host="127.0.0.1",
+            port=8080,
             api_url="https://custom.api.com",
         )
         assert bc.base_url == "https://custom.api.com"

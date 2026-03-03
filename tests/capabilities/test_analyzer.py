@@ -23,11 +23,13 @@ def make_ctx(**overrides) -> CapabilityContext:
 class TestAnalyzerCapability:
     @pytest.mark.asyncio
     async def test_setup_creates_engine(self):
-        ctx = make_ctx(config={
-            "interest_keywords": ["AI", "crypto"],
-            "engagement_threshold": 35.0,
-            "agent_name": "TestBot",
-        })
+        ctx = make_ctx(
+            config={
+                "interest_keywords": ["AI", "crypto"],
+                "engagement_threshold": 35.0,
+                "agent_name": "TestBot",
+            }
+        )
         cap = AnalyzerCapability(ctx)
         await cap.setup()
         assert cap.inner is not None
@@ -40,12 +42,14 @@ class TestAnalyzerCapability:
 
     @pytest.mark.asyncio
     async def test_evaluate_matching_post(self):
-        ctx = make_ctx(config={
-            "interest_keywords": ["artificial intelligence", "crypto"],
-            "engagement_threshold": 35.0,
-            "agent_name": "TestBot",
-            "relevant_submolts": ["ai", "crypto"],
-        })
+        ctx = make_ctx(
+            config={
+                "interest_keywords": ["artificial intelligence", "crypto"],
+                "engagement_threshold": 35.0,
+                "agent_name": "TestBot",
+                "relevant_submolts": ["ai", "crypto"],
+            }
+        )
         cap = AnalyzerCapability(ctx)
         await cap.setup()
 
@@ -61,10 +65,12 @@ class TestAnalyzerCapability:
 
     @pytest.mark.asyncio
     async def test_evaluate_own_post_skipped(self):
-        ctx = make_ctx(config={
-            "interest_keywords": ["AI"],
-            "agent_name": "TestBot",
-        })
+        ctx = make_ctx(
+            config={
+                "interest_keywords": ["AI"],
+                "agent_name": "TestBot",
+            }
+        )
         cap = AnalyzerCapability(ctx)
         await cap.setup()
 
@@ -78,11 +84,13 @@ class TestAnalyzerCapability:
 
     @pytest.mark.asyncio
     async def test_evaluate_irrelevant_post(self):
-        ctx = make_ctx(config={
-            "interest_keywords": ["quantum physics"],
-            "engagement_threshold": 35.0,
-            "agent_name": "TestBot",
-        })
+        ctx = make_ctx(
+            config={
+                "interest_keywords": ["quantum physics"],
+                "engagement_threshold": 35.0,
+                "agent_name": "TestBot",
+            }
+        )
         cap = AnalyzerCapability(ctx)
         await cap.setup()
 
@@ -95,11 +103,13 @@ class TestAnalyzerCapability:
 
     @pytest.mark.asyncio
     async def test_evaluate_reply(self):
-        ctx = make_ctx(config={
-            "interest_keywords": ["AI"],
-            "engagement_threshold": 35.0,
-            "agent_name": "TestBot",
-        })
+        ctx = make_ctx(
+            config={
+                "interest_keywords": ["AI"],
+                "engagement_threshold": 35.0,
+                "agent_name": "TestBot",
+            }
+        )
         cap = AnalyzerCapability(ctx)
         await cap.setup()
 
@@ -122,9 +132,11 @@ class TestAnalyzerCapability:
 
     @pytest.mark.asyncio
     async def test_default_agent_name_from_identity(self):
-        ctx = make_ctx(config={
-            "interest_keywords": ["AI"],
-        })
+        ctx = make_ctx(
+            config={
+                "interest_keywords": ["AI"],
+            }
+        )
         cap = AnalyzerCapability(ctx)
         await cap.setup()
 

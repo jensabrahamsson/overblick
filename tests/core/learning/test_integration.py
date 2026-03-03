@@ -169,11 +169,13 @@ class TestFullCycle:
     @pytest.mark.asyncio
     async def test_get_relevant_ignores_rejected_and_candidates(self, tmp_path):
         """Only approved learnings returned regardless of embedding match."""
-        pipeline = _make_pipeline([
-            "APPROVED: Good",
-            "REJECTED: Bad",
-            "APPROVED: Good",
-        ])
+        pipeline = _make_pipeline(
+            [
+                "APPROVED: Good",
+                "REJECTED: Bad",
+                "APPROVED: Good",
+            ]
+        )
         store = LearningStore(
             db_path=tmp_path / "mixed.db",
             ethos_text="Be good",

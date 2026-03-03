@@ -15,7 +15,7 @@ import secrets
 import time
 from typing import Optional
 
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
@@ -61,7 +61,7 @@ class SessionManager:
         cookie_value = self._serializer.dumps(payload)
         return cookie_value, csrf_token
 
-    def validate_session(self, cookie_value: str) -> Optional[dict]:
+    def validate_session(self, cookie_value: str) -> dict | None:
         """
         Validate a session cookie.
 
@@ -96,7 +96,7 @@ class SessionManager:
         return hmac.compare_digest(cookie_token, form_token)
 
 
-def get_session(request: Request) -> Optional[dict]:
+def get_session(request: Request) -> dict | None:
     """Extract and validate session from request cookies."""
     session_mgr: SessionManager = request.app.state.session_manager
     cookie = request.cookies.get(SESSION_COOKIE)

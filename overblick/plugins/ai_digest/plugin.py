@@ -49,6 +49,7 @@ _DEFAULT_TOP_N = 7
 
 class FeedArticle(BaseModel):
     """A single article from an RSS feed."""
+
     title: str
     link: str
     summary: str = ""
@@ -77,8 +78,8 @@ class AiDigestPlugin(PluginBase):
         self._timezone: str = "Europe/Stockholm"
         self._top_n: int = _DEFAULT_TOP_N
         self._system_prompt: str = ""
-        self._last_digest_date: Optional[str] = None
-        self._state_file: Optional[Any] = None
+        self._last_digest_date: str | None = None
+        self._state_file: Any | None = None
         self._tick_count: int = 0
 
     async def setup(self) -> None:
@@ -96,7 +97,7 @@ class AiDigestPlugin(PluginBase):
 
         # Recipient: secrets take priority over config (keeps email addresses
         # out of checked-in YAML files).
-        recipient_from_secrets: Optional[str] = None
+        recipient_from_secrets: str | None = None
         try:
             recipient_from_secrets = self.ctx.get_secret("ai_digest_recipient")
         except Exception as e:
@@ -131,7 +132,10 @@ class AiDigestPlugin(PluginBase):
         )
         logger.info(
             "AiDigestPlugin setup complete for %s (%d feeds, digest at %02d:00 %s)",
-            identity.name, len(self._feeds), self._digest_hour, self._timezone,
+            identity.name,
+            len(self._feeds),
+            self._digest_hour,
+            self._timezone,
         )
 
     async def tick(self) -> None:
@@ -203,18 +207,21 @@ class AiDigestPlugin(PluginBase):
                     summary = entry.get("summary", entry.get("description", ""))
 
                     if title and link:
-                        result.append(FeedArticle(
-                            title=title,
-                            link=link,
-                            summary=summary[:500],
-                            published=entry.get("published", ""),
-                            feed_name=feed_name,
-                            timestamp=entry_time,
-                        ))
+                        result.append(
+                            FeedArticle(
+                                title=title,
+                                link=link,
+                                summary=summary[:500],
+                                published=entry.get("published", ""),
+                                feed_name=feed_name,
+                                timestamp=entry_time,
+                            )
+                        )
 
                 logger.debug(
                     "AiDigestPlugin: fetched %d entries from %s",
-                    len(feed.entries), feed_name,
+                    len(feed.entries),
+                    feed_name,
                 )
                 return result
 
@@ -235,27 +242,32 @@ class AiDigestPlugin(PluginBase):
         pipeline = self.ctx.llm_pipeline
         if not pipeline:
             logger.warning("No LLM pipeline available, returning first %d articles", self._top_n)
-            return articles[:self._top_n]
+            return articles[: self._top_n]
 
         # Build the article list for the LLM
         article_list = []
         for i, article in enumerate(articles):
             safe_title = wrap_external_content(article.title, "article_title")
             safe_summary = wrap_external_content(article.summary[:200], "article_summary")
-            article_list.append(f"{i + 1}. {safe_title}\n   {safe_summary}\n   Source: {article.feed_name}")
+            article_list.append(
+                f"{i + 1}. {safe_title}\n   {safe_summary}\n   Source: {article.feed_name}"
+            )
 
         articles_text = "\n\n".join(article_list)
 
         messages = [
             {"role": "system", "content": self._system_prompt},
-            {"role": "user", "content": (
-                f"Here are {len(articles)} AI news articles from the last 24 hours. "
-                f"Select the {self._top_n} most important and interesting ones. "
-                "Consider: technical significance, societal impact, novelty, and breadth of coverage.\n\n"
-                f"{articles_text}\n\n"
-                f"Respond with ONLY a JSON array of the article numbers you selected, "
-                f"in order of importance. Example: [3, 1, 7, 12, 5, 8, 2]"
-            )},
+            {
+                "role": "user",
+                "content": (
+                    f"Here are {len(articles)} AI news articles from the last 24 hours. "
+                    f"Select the {self._top_n} most important and interesting ones. "
+                    "Consider: technical significance, societal impact, novelty, and breadth of coverage.\n\n"
+                    f"{articles_text}\n\n"
+                    f"Respond with ONLY a JSON array of the article numbers you selected, "
+                    f"in order of importance. Example: [3, 1, 7, 12, 5, 8, 2]"
+                ),
+            },
         ]
 
         result = await pipeline.chat(
@@ -268,24 +280,30 @@ class AiDigestPlugin(PluginBase):
 
         if result.blocked:
             logger.warning("AiDigestPlugin ranking blocked: %s", result.block_reason)
-            return articles[:self._top_n]
+            return articles[: self._top_n]
 
         if not result.content or not result.content.strip():
-            logger.warning("AiDigestPlugin: ranking returned empty response, using first %d articles", self._top_n)
-            return articles[:self._top_n]
+            logger.warning(
+                "AiDigestPlugin: ranking returned empty response, using first %d articles",
+                self._top_n,
+            )
+            return articles[: self._top_n]
 
         # Parse the LLM's selection
         try:
             selected_indices = self._parse_selection(result.content, len(articles))
             if not selected_indices:
-                logger.warning("AiDigestPlugin: ranking parsed no valid indices, using first %d articles", self._top_n)
-                return articles[:self._top_n]
+                logger.warning(
+                    "AiDigestPlugin: ranking parsed no valid indices, using first %d articles",
+                    self._top_n,
+                )
+                return articles[: self._top_n]
             return [articles[i] for i in selected_indices]
         except Exception as e:
             logger.error("AiDigestPlugin: failed to parse ranking: %s", e, exc_info=True)
-            return articles[:self._top_n]
+            return articles[: self._top_n]
 
-    async def _generate_digest(self, articles: list[FeedArticle]) -> Optional[str]:
+    async def _generate_digest(self, articles: list[FeedArticle]) -> str | None:
         """Generate the digest summary in personality voice."""
         pipeline = self.ctx.llm_pipeline
         if not pipeline:
@@ -308,15 +326,19 @@ class AiDigestPlugin(PluginBase):
 
         messages = [
             {"role": "system", "content": self._system_prompt},
-            {"role": "user", "content": (
-                f"Write a morning AI news digest for {today}. "
-                f"Cover these {len(articles)} articles in your voice. "
-                "For each article, write 2-3 sentences explaining why it matters. "
-                "Add a brief intro and closing. Write in a style suitable for email.\n\n"
-                + "\n\n".join(article_details) + "\n\n"
-                "Include the article links so the reader can dive deeper. "
-                "Format with clear sections using markdown-style headers (##)."
-            )},
+            {
+                "role": "user",
+                "content": (
+                    f"Write a morning AI news digest for {today}. "
+                    f"Cover these {len(articles)} articles in your voice. "
+                    "For each article, write 2-3 sentences explaining why it matters. "
+                    "Add a brief intro and closing. Write in a style suitable for email.\n\n"
+                    + "\n\n".join(article_details)
+                    + "\n\n"
+                    "Include the article links so the reader can dive deeper. "
+                    "Format with clear sections using markdown-style headers (##)."
+                ),
+            },
         ]
 
         result = await pipeline.chat(
@@ -358,11 +380,13 @@ class AiDigestPlugin(PluginBase):
                     "article_count": article_count,
                     "content_length": len(digest_content),
                 },
-        )
+            )
 
         logger.info(
             "AiDigestPlugin: digest sent to %s (%d articles, %d chars)",
-            self._recipient, article_count, len(digest_content),
+            self._recipient,
+            article_count,
+            len(digest_content),
         )
 
     def _is_digest_time(self) -> bool:
@@ -404,9 +428,9 @@ class AiDigestPlugin(PluginBase):
         if start == -1 or end == -1:
             raise ValueError(f"No JSON array found in: {text[:100]}")
 
-        indices = json.loads(text[start:end + 1])
+        indices = json.loads(text[start : end + 1])
         # Convert 1-based to 0-based, filter valid indices
-        return [i - 1 for i in indices if isinstance(i, int) and 1 <= i <= max_index][:self._top_n]
+        return [i - 1 for i in indices if isinstance(i, int) and 1 <= i <= max_index][: self._top_n]
 
     def _build_digest_prompt(self, personality_name: str) -> str:
         """Build a system prompt from the configured personality."""
@@ -441,9 +465,13 @@ class AiDigestPlugin(PluginBase):
         if self._state_file:
             try:
                 self._state_file.parent.mkdir(parents=True, exist_ok=True)
-                self._state_file.write_text(json.dumps({
-                    "last_digest_date": self._last_digest_date,
-                }))
+                self._state_file.write_text(
+                    json.dumps(
+                        {
+                            "last_digest_date": self._last_digest_date,
+                        }
+                    )
+                )
             except Exception as e:
                 logger.warning("AiDigestPlugin: failed to save state: %s", e)
 

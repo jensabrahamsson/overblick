@@ -47,10 +47,14 @@ class HeartbeatManager:
         try:
             state_file = data_dir / "heartbeat_state.json"
             state_file.parent.mkdir(parents=True, exist_ok=True)
-            state_file.write_text(json.dumps({
-                "current_topic_index": self._current_topic_index,
-                "topic_count": self._topic_count,
-            }))
+            state_file.write_text(
+                json.dumps(
+                    {
+                        "current_topic_index": self._current_topic_index,
+                        "topic_count": self._topic_count,
+                    }
+                )
+            )
         except Exception as e:
             logger.debug("Failed to persist heartbeat state: %s", e)
 
@@ -68,7 +72,9 @@ class HeartbeatManager:
             if saved_count != self._topic_count:
                 logger.info(
                     "Topic count changed (%d -> %d), wrapped index to %d",
-                    saved_count, self._topic_count, self._current_topic_index,
+                    saved_count,
+                    self._topic_count,
+                    self._current_topic_index,
                 )
         except Exception as e:
             logger.debug("Failed to load heartbeat state: %s", e)

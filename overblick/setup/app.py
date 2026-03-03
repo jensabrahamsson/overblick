@@ -58,6 +58,7 @@ def create_setup_app(base_dir: Path | None = None) -> FastAPI:
 
     # Register routes
     from .wizard import register_routes
+
     register_routes(app)
 
     return app

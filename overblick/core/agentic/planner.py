@@ -30,8 +30,8 @@ class ActionPlanner:
         self,
         llm_pipeline,
         system_prompt: str = "",
-        prompt_config: Optional[PlanningPromptConfig] = None,
-        valid_actions: Optional[set[str]] = None,
+        prompt_config: PlanningPromptConfig | None = None,
+        valid_actions: set[str] | None = None,
         audit_action: str = "agent_planning",
         complexity: str = "ultra",
     ):
@@ -141,7 +141,7 @@ class ActionPlanner:
         return ActionPlan(actions=actions, reasoning=reasoning)
 
     @staticmethod
-    def _extract_json(raw: str) -> Optional[dict]:
+    def _extract_json(raw: str) -> dict | None:
         """Extract JSON object from LLM response (handles markdown fences)."""
         # Try direct parse
         try:

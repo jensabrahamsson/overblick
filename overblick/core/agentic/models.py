@@ -9,14 +9,15 @@ Provides domain-agnostic data structures for:
 - Action plans
 """
 
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
-class GoalStatus(str, Enum):
+class GoalStatus(StrEnum):
     """Status of an agent goal."""
+
     ACTIVE = "active"
     PAUSED = "paused"
     COMPLETED = "completed"
@@ -24,7 +25,8 @@ class GoalStatus(str, Enum):
 
 class AgentGoal(BaseModel):
     """A persistent goal the agent works toward."""
-    id: Optional[int] = None
+
+    id: int | None = None
     name: str
     description: str
     priority: int = 50  # 0-100, higher = more important
@@ -32,29 +34,32 @@ class AgentGoal(BaseModel):
     progress: float = 0.0  # 0.0-1.0
     created_at: str = ""
     updated_at: str = ""
-    metadata: dict[str, Any] = {}
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class PlannedAction(BaseModel):
     """A single action in the agent's plan (domain-agnostic)."""
+
     action_type: str  # string key — plugins register handlers by key
     target: str = ""  # e.g. "PR #42", "email from alice@"
     target_number: int = 0
     repo: str = ""  # optional — used by repo-based plugins
     priority: int = 50
     reasoning: str = ""
-    params: dict[str, Any] = {}
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 class ActionPlan(BaseModel):
     """Ordered list of planned actions for a tick."""
-    actions: list[PlannedAction] = []
+
+    actions: list[PlannedAction] = Field(default_factory=list)
     reasoning: str = ""  # Overall reasoning for the plan
     tick_summary: str = ""
 
 
 class ActionOutcome(BaseModel):
     """Result of executing a planned action."""
+
     action: PlannedAction
     success: bool
     result: str = ""
@@ -64,7 +69,8 @@ class ActionOutcome(BaseModel):
 
 class TickLog(BaseModel):
     """Record of a complete agent tick cycle."""
-    id: Optional[int] = None
+
+    id: int | None = None
     tick_number: int = 0
     started_at: str = ""
     completed_at: str = ""
@@ -78,11 +84,12 @@ class TickLog(BaseModel):
 
 class AgentLearning(BaseModel):
     """A learning/insight extracted from agent experience."""
-    id: Optional[int] = None
+
+    id: int | None = None
     category: str = ""  # e.g. "dependabot", "email_classification"
     insight: str = ""
     confidence: float = 0.5
     source: str = "reflection"  # e.g. "reflection", "boss_feedback"
     source_tick: int = 0
-    source_ref: Optional[str] = None  # optional reference (email_from, PR URL)
+    source_ref: str | None = None  # optional reference (email_from, PR URL)
     created_at: str = ""

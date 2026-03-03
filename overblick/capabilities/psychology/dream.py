@@ -18,15 +18,15 @@ from typing import Any, Optional
 
 import yaml
 
+from overblick.capabilities.psychology.dream_system import DreamSystem, DreamTone, DreamType
 from overblick.core.capability import CapabilityBase, CapabilityContext
-from overblick.capabilities.psychology.dream_system import DreamSystem, DreamType, DreamTone
 
 logger = logging.getLogger(__name__)
 
 _IDENTITIES_DIR = Path(__file__).parent.parent.parent / "identities"
 
 
-def _load_dream_guidance(identity_name: str) -> Optional[dict]:
+def _load_dream_guidance(identity_name: str) -> dict | None:
     """
     Load identity-specific dream guidance from YAML.
 
@@ -52,7 +52,9 @@ def _load_dream_guidance(identity_name: str) -> Optional[dict]:
         try:
             dream_type = DreamType(type_name)
         except ValueError:
-            logger.warning("Unknown dream type '%s' in %s/dream_content.yaml", type_name, identity_name)
+            logger.warning(
+                "Unknown dream type '%s' in %s/dream_content.yaml", type_name, identity_name
+            )
             continue
 
         guidance[dream_type] = {
@@ -84,9 +86,9 @@ class DreamCapability(CapabilityBase):
 
     def __init__(self, ctx: CapabilityContext):
         super().__init__(ctx)
-        self._dream_system: Optional[DreamSystem] = None
-        self._last_dream_date: Optional[date] = None
-        self._last_dream: Optional[Any] = None  # Most recently generated Dream
+        self._dream_system: DreamSystem | None = None
+        self._last_dream_date: date | None = None
+        self._last_dream: Any | None = None  # Most recently generated Dream
 
     async def setup(self) -> None:
         """Initialize, loading identity-specific dream guidance if available."""
@@ -99,7 +101,8 @@ class DreamCapability(CapabilityBase):
             )
             logger.info(
                 "DreamCapability initialized for %s (identity-specific guidance, %d types)",
-                self.ctx.identity_name, len(content["guidance"]),
+                self.ctx.identity_name,
+                len(content["guidance"]),
             )
         else:
             self._dream_system = DreamSystem()
@@ -115,6 +118,7 @@ class DreamCapability(CapabilityBase):
 
         try:
             from zoneinfo import ZoneInfo
+
             now = datetime.now(ZoneInfo("Europe/Stockholm"))
         except Exception:
             now = datetime.now()
@@ -152,7 +156,9 @@ class DreamCapability(CapabilityBase):
                 logger.warning("Failed to persist dream to DB: %s", e)
 
         self._last_dream = dream
-        type_str = dream.dream_type.value if hasattr(dream.dream_type, "value") else str(dream.dream_type)
+        type_str = (
+            dream.dream_type.value if hasattr(dream.dream_type, "value") else str(dream.dream_type)
+        )
         logger.info("Morning dream generated for %s: %s", self.ctx.identity_name, type_str)
 
     def get_prompt_context(self) -> str:
@@ -163,8 +169,8 @@ class DreamCapability(CapabilityBase):
 
     async def generate_dream(
         self,
-        recent_topics: Optional[list[str]] = None,
-        emotional_state: Optional[Any] = None,
+        recent_topics: list[str] | None = None,
+        emotional_state: Any | None = None,
     ) -> Optional["Dream"]:
         """Generate a dream on demand. Delegates to DreamSystem."""
         if not self._dream_system:
@@ -192,11 +198,11 @@ class DreamCapability(CapabilityBase):
         return self._dream_system.get_dream_insights(days)
 
     @property
-    def last_dream(self) -> Optional[Any]:
+    def last_dream(self) -> Any | None:
         """The most recently generated Dream (set during tick)."""
         return self._last_dream
 
     @property
-    def inner(self) -> Optional[DreamSystem]:
+    def inner(self) -> DreamSystem | None:
         """Access the underlying DreamSystem (for tests)."""
         return self._dream_system

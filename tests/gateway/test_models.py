@@ -63,9 +63,7 @@ class TestChatRequest:
         assert len(request.messages) == 1
 
     def test_default_values(self):
-        request = ChatRequest(
-            messages=[ChatMessage(role="user", content="Hi")]
-        )
+        request = ChatRequest(messages=[ChatMessage(role="user", content="Hi")])
         assert request.model == "qwen3:8b"
         assert request.max_tokens == 2000
         assert request.temperature == 0.7
@@ -135,6 +133,7 @@ class TestQueuedRequest:
 
     def test_ordering_by_priority(self):
         import time
+
         high = QueuedRequest(priority=Priority.HIGH, timestamp=time.time())
         low = QueuedRequest(priority=Priority.LOW, timestamp=time.time())
         assert high < low

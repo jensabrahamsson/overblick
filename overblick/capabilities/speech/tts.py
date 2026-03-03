@@ -49,9 +49,7 @@ class TextToSpeechCapability(CapabilityBase):
             self._voice,
         )
 
-    async def synthesize(
-        self, text: str, voice: Optional[str] = None
-    ) -> Optional[bytes]:
+    async def synthesize(self, text: str, voice: str | None = None) -> bytes | None:
         """
         Synthesize text into audio bytes.
 

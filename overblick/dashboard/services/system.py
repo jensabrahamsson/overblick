@@ -34,6 +34,7 @@ class SystemService:
         """List available plugins from registry."""
         try:
             from overblick.core.plugin_registry import PluginRegistry
+
             return PluginRegistry().available_plugins()
         except Exception as e:
             logger.error("Failed to list plugins: %s", e, exc_info=True)
@@ -43,6 +44,7 @@ class SystemService:
         """Get capability bundles."""
         try:
             from overblick.capabilities import CAPABILITY_BUNDLES
+
             return dict(CAPABILITY_BUNDLES)
         except Exception as e:
             logger.error("Failed to load capability bundles: %s", e, exc_info=True)
@@ -52,6 +54,7 @@ class SystemService:
         """Get individual capability names."""
         try:
             from overblick.capabilities import CAPABILITY_REGISTRY
+
             return sorted(CAPABILITY_REGISTRY.keys())
         except Exception as e:
             logger.error("Failed to load capability registry: %s", e, exc_info=True)

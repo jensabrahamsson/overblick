@@ -19,8 +19,9 @@ logger = logging.getLogger(__name__)
 
 class ConversationEntry(BaseModel):
     """Tracks conversation history for a single conversation."""
+
     conversation_id: str
-    messages: list[dict[str, str]] = []
+    messages: list[dict[str, str]] = Field(default_factory=list)
     last_active: float = Field(default_factory=time.time)
     max_history: int = 10
 
@@ -28,7 +29,7 @@ class ConversationEntry(BaseModel):
         """Add a user message to the conversation history."""
         self.messages.append({"role": "user", "content": text})
         if len(self.messages) > self.max_history * 2:
-            self.messages = self.messages[-self.max_history * 2:]
+            self.messages = self.messages[-self.max_history * 2 :]
         self.last_active = time.time()
 
     def add_assistant_message(self, text: str) -> None:
@@ -39,7 +40,7 @@ class ConversationEntry(BaseModel):
     def get_messages(self, system_prompt: str = "") -> list[dict[str, str]]:
         """Get full message list including optional system prompt."""
         if system_prompt:
-            return [{"role": "system", "content": system_prompt}] + self.messages
+            return [{"role": "system", "content": system_prompt}, *self.messages]
         return list(self.messages)
 
     @property
@@ -105,7 +106,8 @@ class ConversationCapability(CapabilityBase):
     def cleanup_stale(self) -> int:
         """Remove stale conversations. Returns count of removed."""
         stale = [
-            cid for cid, entry in self._conversations.items()
+            cid
+            for cid, entry in self._conversations.items()
             if (time.time() - entry.last_active) > self._stale_seconds
         ]
         for cid in stale:

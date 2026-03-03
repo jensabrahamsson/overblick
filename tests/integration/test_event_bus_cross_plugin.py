@@ -192,10 +192,12 @@ class TestEventBusWithPluginSimulation:
 
         # Simulated Telegram handler
         async def telegram_notification_handler(**kwargs):
-            notifications_sent.append({
-                "to": kwargs.get("chat_id"),
-                "text": f"New email from {kwargs.get('sender')}: {kwargs.get('subject')}",
-            })
+            notifications_sent.append(
+                {
+                    "to": kwargs.get("chat_id"),
+                    "text": f"New email from {kwargs.get('sender')}: {kwargs.get('subject')}",
+                }
+            )
 
         bus.subscribe("email.classified", telegram_notification_handler)
 
@@ -219,11 +221,13 @@ class TestEventBusWithPluginSimulation:
         engagements = []
 
         async def track_engagement(**kwargs):
-            engagements.append({
-                "agent": kwargs.get("agent"),
-                "action": kwargs.get("action"),
-                "target_id": kwargs.get("target_id"),
-            })
+            engagements.append(
+                {
+                    "agent": kwargs.get("agent"),
+                    "action": kwargs.get("action"),
+                    "target_id": kwargs.get("target_id"),
+                }
+            )
 
         bus.subscribe("agent.action", track_engagement)
 

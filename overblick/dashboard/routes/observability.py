@@ -36,6 +36,7 @@ def _load_local_plugin_map() -> dict[str, list[str]]:
         return _local_plugin_cache
 
     from pathlib import Path
+
     config_path = Path(__file__).parent.parent.parent.parent / "config" / "overblick.yaml"
     if not config_path.exists():
         _local_plugin_cache = {}
@@ -43,6 +44,7 @@ def _load_local_plugin_map() -> dict[str, list[str]]:
 
     try:
         import yaml
+
         data = yaml.safe_load(config_path.read_text()) or {}
         lp = data.get("local_plugins", {})
         _local_plugin_cache = {k: list(v) for k, v in lp.items()} if lp else {}
@@ -97,17 +99,22 @@ def _agent_health_color(agent: dict, error_rate: float) -> str:
 
 # ---- Main page ----
 
+
 @router.get("/monitor", response_class=HTMLResponse)
 async def monitor_page(request: Request):
     """Render the Monitor Command Center page."""
     templates = request.app.state.templates
-    return templates.TemplateResponse("observability.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-    })
+    return templates.TemplateResponse(
+        "observability.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+        },
+    )
 
 
 # ---- Section A: Agent Health Strip ----
+
 
 @router.get("/monitor/agents-strip", response_class=HTMLResponse)
 async def agents_strip_partial(request: Request):
@@ -127,21 +134,27 @@ async def agents_strip_partial(request: Request):
         error_rate = (failures / total * 100) if total > 0 else 0.0
         color = _agent_health_color(agent, error_rate)
 
-        agent_dots.append({
-            "name": name,
-            "state": agent.get("state", "offline"),
-            "color": color,
-            "error_rate": round(error_rate, 1),
-        })
+        agent_dots.append(
+            {
+                "name": name,
+                "state": agent.get("state", "offline"),
+                "color": color,
+                "error_rate": round(error_rate, 1),
+            }
+        )
 
-    return templates.TemplateResponse("partials/obs_agents_strip.html", {
-        "request": request,
-        "agent_dots": agent_dots,
-        "supervisor_running": supervisor_status is not None,
-    })
+    return templates.TemplateResponse(
+        "partials/obs_agents_strip.html",
+        {
+            "request": request,
+            "agent_dots": agent_dots,
+            "supervisor_running": supervisor_status is not None,
+        },
+    )
 
 
 # ---- Section B: LLM Gateway ----
+
 
 @router.get("/monitor/gateway", response_class=HTMLResponse)
 async def gateway_partial(request: Request):
@@ -178,14 +191,18 @@ async def gateway_partial(request: Request):
         combined["low_priority"] = stats.get("requests_low_priority", 0)
         combined["uptime"] = _format_uptime(stats.get("uptime_seconds", 0))
 
-    return templates.TemplateResponse("partials/obs_gateway.html", {
-        "request": request,
-        "gateway": combined,
-        "gateway_available": gateway_available,
-    })
+    return templates.TemplateResponse(
+        "partials/obs_gateway.html",
+        {
+            "request": request,
+            "gateway": combined,
+            "gateway_available": gateway_available,
+        },
+    )
 
 
 # ---- Section C: Agent Fleet ----
+
 
 @router.get("/monitor/fleet", response_class=HTMLResponse)
 async def fleet_partial(request: Request):
@@ -208,23 +225,29 @@ async def fleet_partial(request: Request):
         for lp in local_plugins.get(name, []):
             if lp not in plugins:
                 plugins.append(lp)
-        fleet_rows.append({
-            "name": name,
-            "state": agent.get("state", "offline"),
-            "pid": agent.get("pid"),
-            "uptime": _format_uptime(uptime_sec),
-            "restart_count": agent.get("restart_count", 0),
-            "plugins": plugins,
-        })
+        fleet_rows.append(
+            {
+                "name": name,
+                "state": agent.get("state", "offline"),
+                "pid": agent.get("pid"),
+                "uptime": _format_uptime(uptime_sec),
+                "restart_count": agent.get("restart_count", 0),
+                "plugins": plugins,
+            }
+        )
 
-    return templates.TemplateResponse("partials/obs_fleet.html", {
-        "request": request,
-        "fleet_rows": fleet_rows,
-        "supervisor_running": supervisor_status is not None,
-    })
+    return templates.TemplateResponse(
+        "partials/obs_fleet.html",
+        {
+            "request": request,
+            "fleet_rows": fleet_rows,
+            "supervisor_running": supervisor_status is not None,
+        },
+    )
 
 
 # ---- Section D: Audit Activity ----
+
 
 @router.get("/monitor/audit-activity", response_class=HTMLResponse)
 async def audit_activity_partial(request: Request):
@@ -243,19 +266,23 @@ async def audit_activity_partial(request: Request):
     # Find max category count for proportional bars
     max_cat_count = max(categories.values()) if categories else 1
 
-    return templates.TemplateResponse("partials/obs_audit_activity.html", {
-        "request": request,
-        "hourly": hourly,
-        "categories": categories,
-        "total_24h": total_24h,
-        "events_per_hour": events_per_hour,
-        "error_rate": round(error_rate, 1),
-        "llm_24h": llm_24h,
-        "max_cat_count": max_cat_count,
-    })
+    return templates.TemplateResponse(
+        "partials/obs_audit_activity.html",
+        {
+            "request": request,
+            "hourly": hourly,
+            "categories": categories,
+            "total_24h": total_24h,
+            "events_per_hour": events_per_hour,
+            "error_rate": round(error_rate, 1),
+            "llm_24h": llm_24h,
+            "max_cat_count": max_cat_count,
+        },
+    )
 
 
 # ---- Section E: Message Routing ----
+
 
 @router.get("/monitor/routing", response_class=HTMLResponse)
 async def routing_partial(request: Request):
@@ -269,14 +296,18 @@ async def routing_partial(request: Request):
     if status:
         routing = status.get("routing", {})
 
-    return templates.TemplateResponse("partials/obs_routing.html", {
-        "request": request,
-        "routing": routing,
-        "supervisor_running": status is not None,
-    })
+    return templates.TemplateResponse(
+        "partials/obs_routing.html",
+        {
+            "request": request,
+            "routing": routing,
+            "supervisor_running": status is not None,
+        },
+    )
 
 
 # ---- Section F: Error Feed ----
+
 
 @router.get("/monitor/errors", response_class=HTMLResponse)
 async def errors_partial(request: Request):
@@ -289,7 +320,10 @@ async def errors_partial(request: Request):
     # Filter to only failures
     errors = [e for e in errors if not e.get("success", True)]
 
-    return templates.TemplateResponse("partials/obs_errors.html", {
-        "request": request,
-        "errors": errors,
-    })
+    return templates.TemplateResponse(
+        "partials/obs_errors.html",
+        {
+            "request": request,
+            "errors": errors,
+        },
+    )

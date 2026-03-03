@@ -26,10 +26,10 @@ from overblick.gateway.models import (
     ChatResponse,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_chat_response_data(content="Hello!", model="deepseek-chat", reasoning_content=None):
     """Create mock Deepseek API response JSON."""
@@ -39,11 +39,13 @@ def _make_chat_response_data(content="Hello!", model="deepseek-chat", reasoning_
     return {
         "id": "chatcmpl-test123",
         "model": model,
-        "choices": [{
-            "index": 0,
-            "message": message,
-            "finish_reason": "stop",
-        }],
+        "choices": [
+            {
+                "index": 0,
+                "message": message,
+                "finish_reason": "stop",
+            }
+        ],
         "usage": {
             "prompt_tokens": 10,
             "completion_tokens": 5,
@@ -65,6 +67,7 @@ def _make_request(model="deepseek-chat", content="Hello!"):
 # ---------------------------------------------------------------------------
 # Initialization
 # ---------------------------------------------------------------------------
+
 
 class TestDeepseekClientInit:
     def test_default_parameters(self):
@@ -94,6 +97,7 @@ class TestDeepseekClientInit:
 # ---------------------------------------------------------------------------
 # Chat completion
 # ---------------------------------------------------------------------------
+
 
 class TestDeepseekChatCompletion:
     @pytest.mark.asyncio
@@ -176,9 +180,7 @@ class TestDeepseekChatCompletion:
         mock_response.status_code = 429
         mock_response.text = "Rate limited"
         mock_response.raise_for_status = MagicMock(
-            side_effect=httpx.HTTPStatusError(
-                "429", request=MagicMock(), response=mock_response
-            )
+            side_effect=httpx.HTTPStatusError("429", request=MagicMock(), response=mock_response)
         )
 
         mock_client = AsyncMock()
@@ -232,6 +234,7 @@ class TestDeepseekChatCompletion:
 # Health check
 # ---------------------------------------------------------------------------
 
+
 class TestDeepseekHealthCheck:
     @pytest.mark.asyncio
     async def test_health_check_with_key(self):
@@ -255,6 +258,7 @@ class TestDeepseekHealthCheck:
 # ---------------------------------------------------------------------------
 # Model listing
 # ---------------------------------------------------------------------------
+
 
 class TestDeepseekListModels:
     @pytest.mark.asyncio
@@ -310,6 +314,7 @@ class TestDeepseekListModels:
 # Session lifecycle
 # ---------------------------------------------------------------------------
 
+
 class TestDeepseekClientSession:
     @pytest.mark.asyncio
     async def test_get_client_creates_with_auth(self):
@@ -354,6 +359,7 @@ class TestDeepseekClientSession:
 # Health check — new behavior (api_key-based, no HTTP call)
 # ---------------------------------------------------------------------------
 
+
 class TestDeepseekHealthCheckNew:
     """New health_check behavior: returns bool(api_key), no HTTP call."""
 
@@ -373,6 +379,7 @@ class TestDeepseekHealthCheckNew:
 # ---------------------------------------------------------------------------
 # Connectivity check (the old HTTP-based reachability test)
 # ---------------------------------------------------------------------------
+
 
 class TestDeepseekConnectivityCheck:
     """connectivity_check() does the actual HTTP call to /models."""
@@ -408,6 +415,7 @@ class TestDeepseekConnectivityCheck:
 # ---------------------------------------------------------------------------
 # DeepSeek Reasoner (deepseek-reasoner model)
 # ---------------------------------------------------------------------------
+
 
 class TestDeepseekReasonerResponse:
     """deepseek-reasoner returns reasoning_content alongside content."""
@@ -463,7 +471,9 @@ class TestDeepseekReasonerResponse:
 
         # Content should be the reasoning since content was empty
         assert response.choices[0].message.content == "Deep analysis: The pattern shows..."
-        assert response.choices[0].message.reasoning_content == "Deep analysis: The pattern shows..."
+        assert (
+            response.choices[0].message.reasoning_content == "Deep analysis: The pattern shows..."
+        )
 
     @pytest.mark.asyncio
     async def test_reasoner_no_reasoning_field(self):

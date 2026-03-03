@@ -52,20 +52,14 @@ class ResponseGenerator:
         self._max_tokens = max_tokens
 
         # Environment variable override for backward compatibility
-        if (
-            os.environ.get("OVERBLICK_RAW_LLM", "0") == "1"
-            and self._llm
-            and not self._pipeline
-        ):
+        if os.environ.get("OVERBLICK_RAW_LLM", "0") == "1" and self._llm and not self._pipeline:
             allow_raw_fallback = True
             logger.warning("OVERBLICK_RAW_LLM=1: allowing raw client fallback")
 
         # Safe-mode enforcement
         if not self._pipeline:
             if allow_raw_fallback and self._llm:
-                logger.warning(
-                    "ResponseGenerator using raw client (allow_raw_fallback=True)"
-                )
+                logger.warning("ResponseGenerator using raw client (allow_raw_fallback=True)")
             else:
                 raise ValueError(
                     "SafeLLMPipeline is required in safe mode. "
@@ -79,11 +73,11 @@ class ResponseGenerator:
     async def _call_llm(
         self,
         prompt: str,
-        temperature: Optional[float] = None,
+        temperature: float | None = None,
         skip_preflight: bool = False,
         audit_action: str = "response_gen",
         priority: str = "low",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Internal LLM call through pipeline or raw client.
 
@@ -116,9 +110,7 @@ class ResponseGenerator:
             return result.content.strip() if result.content else None
 
         # Legacy raw client path
-        assert self._llm is not None, (
-            "Raw LLM client should be available when pipeline is not"
-        )
+        assert self._llm is not None, "Raw LLM client should be available when pipeline is not"
         try:
             result = await self._llm.chat(
                 messages=messages,
@@ -139,11 +131,11 @@ class ResponseGenerator:
         post_content: str,
         agent_name: str,
         prompt_template: str,
-        existing_comments: Optional[list[str]] = None,
+        existing_comments: list[str] | None = None,
         extra_context: str = "",
         priority: str = "low",
         extra_format_vars: dict[str, str] | None = None,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a comment response to a post."""
         # Wrap external content in boundary markers to prevent injection
         safe_title = wrap_external_content(post_title, "post_title")
@@ -178,9 +170,7 @@ class ResponseGenerator:
         if extra_context:
             prompt = f"{extra_context}\n\n{prompt}"
 
-        return await self._call_llm(
-            prompt, audit_action="comment_generation", priority=priority
-        )
+        return await self._call_llm(prompt, audit_action="comment_generation", priority=priority)
 
     async def generate_reply(
         self,
@@ -190,7 +180,7 @@ class ResponseGenerator:
         prompt_template: str,
         extra_context: str = "",
         priority: str = "low",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a reply to a comment on our post."""
         safe_title = wrap_external_content(original_post_title, "post_title")
         safe_comment = wrap_external_content(comment_content[:500], "comment")
@@ -205,9 +195,7 @@ class ResponseGenerator:
         if extra_context:
             prompt = f"{extra_context}\n\n{prompt}"
 
-        return await self._call_llm(
-            prompt, audit_action="reply_generation", priority=priority
-        )
+        return await self._call_llm(prompt, audit_action="reply_generation", priority=priority)
 
     async def generate_dm_reply(
         self,
@@ -215,7 +203,7 @@ class ResponseGenerator:
         message: str,
         prompt_template: str,
         priority: str = "high",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a reply to a direct message.
 
         DM replies are time-sensitive, so priority defaults to 'high' to avoid
@@ -241,7 +229,7 @@ class ResponseGenerator:
         topic_index: int = 0,
         topic_vars: dict[str, str] | None = None,
         extra_context: str = "",
-    ) -> Optional[tuple[str, str, str]]:
+    ) -> tuple[str, str, str] | None:
         """
         Generate a heartbeat post.
 
@@ -284,7 +272,7 @@ class ResponseGenerator:
         prompt_template: str,
         extra_format_vars: dict[str, str] | None = None,
         extra_context: str = "",
-    ) -> Optional[tuple[str, str, str]]:
+    ) -> tuple[str, str, str] | None:
         """
         Generate a dream journal post from a dream.
 
@@ -303,9 +291,7 @@ class ResponseGenerator:
             "dream_tone": dream.get("tone", "contemplative"),
             "dream_content": dream.get("content", ""),
             "dream_insight": dream.get("insight", ""),
-            "dream_symbols": ", ".join(symbols)
-            if isinstance(symbols, list)
-            else str(symbols),
+            "dream_symbols": ", ".join(symbols) if isinstance(symbols, list) else str(symbols),
         }
         if extra_format_vars:
             format_vars.update(extra_format_vars)

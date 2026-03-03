@@ -13,13 +13,14 @@ import time
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 logger = logging.getLogger(__name__)
 
 
 class ProcessState(Enum):
     """Agent process lifecycle states."""
+
     PENDING = "pending"
     STARTING = "starting"
     RUNNING = "running"
@@ -35,18 +36,19 @@ class AgentProcess(BaseModel):
     Manages the lifecycle of a single agent identity running
     in its own process via `python -m overblick run <identity>`.
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     identity: str
-    plugins: list[str] = ["moltbook"]
-    ipc_socket_dir: Optional[str] = None
+    plugins: list[str] = Field(default_factory=lambda: ["moltbook"])
+    ipc_socket_dir: str | None = None
     state: ProcessState = ProcessState.PENDING
-    pid: Optional[int] = None
-    started_at: Optional[float] = None
-    stopped_at: Optional[float] = None
+    pid: int | None = None
+    started_at: float | None = None
+    stopped_at: float | None = None
     restart_count: int = 0
     max_restarts: int = 3
-    _process: Optional[asyncio.subprocess.Process] = PrivateAttr(default=None)
+    _process: asyncio.subprocess.Process | None = PrivateAttr(default=None)
 
     async def start(self) -> bool:
         """Start the agent subprocess."""
@@ -61,6 +63,7 @@ class AgentProcess(BaseModel):
             # Use venv Python if available (fallback to sys.executable)
             # Cross-platform: resolves python3 on Unix, python.exe on Windows
             from overblick.shared.platform import get_python_executable
+
             python_exe = get_python_executable()
 
             # Note: plugins are loaded from identity.yaml config, not CLI args
@@ -106,7 +109,7 @@ class AgentProcess(BaseModel):
 
             try:
                 await asyncio.wait_for(self._process.wait(), timeout=timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Force kill if graceful shutdown failed
                 logger.warning("Agent '%s' did not stop gracefully, killing", self.identity)
                 self._process.kill()
@@ -122,7 +125,7 @@ class AgentProcess(BaseModel):
             self.state = ProcessState.CRASHED
             return False
 
-    async def monitor(self) -> Optional[int]:
+    async def monitor(self) -> int | None:
         """
         Wait for process to exit. Returns exit code.
 
@@ -151,7 +154,10 @@ class AgentProcess(BaseModel):
             self.state = ProcessState.CRASHED
             logger.warning(
                 "Agent '%s' crashed (exit=%d, restarts=%d/%d)",
-                self.identity, returncode, self.restart_count, self.max_restarts,
+                self.identity,
+                returncode,
+                self.restart_count,
+                self.max_restarts,
             )
 
         self.stopped_at = time.time()

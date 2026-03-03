@@ -65,6 +65,7 @@ class PlanningPromptConfig(BaseModel):
     Plugins provide domain-specific content for these slots,
     while the core builds the full prompt structure.
     """
+
     agent_role: str = "You are an autonomous agent."
     available_actions: str = ""  # Human-readable list of action types
     safety_rules: str = ""  # Domain-specific safety constraints

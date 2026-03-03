@@ -45,21 +45,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Global instances (initialized in lifespan)
-_key_manager: Optional[APIKeyManager] = None
-_audit_log: Optional[InetAuditLog] = None
-_http_client: Optional[httpx.AsyncClient] = None
-_violation_tracker: Optional[ViolationTracker] = None
-_per_key_limiter: Optional[RateLimiter] = None
-_config: Optional[InternetGatewayConfig] = None
+_key_manager: APIKeyManager | None = None
+_audit_log: InetAuditLog | None = None
+_http_client: httpx.AsyncClient | None = None
+_violation_tracker: ViolationTracker | None = None
+_per_key_limiter: RateLimiter | None = None
+_config: InternetGatewayConfig | None = None
 
 
 def _error_json(status: int, message: str, error_type: str) -> JSONResponse:
     """OpenAI-compatible error response."""
     return JSONResponse(
         status_code=status,
-        content={
-            "error": {"message": message, "type": error_type, "code": str(status)}
-        },
+        content={"error": {"message": message, "type": error_type, "code": str(status)}},
     )
 
 
@@ -100,13 +98,7 @@ class EmbeddingRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and tear down global resources."""
-    global \
-        _key_manager, \
-        _audit_log, \
-        _http_client, \
-        _violation_tracker, \
-        _per_key_limiter, \
-        _config
+    global _key_manager, _audit_log, _http_client, _violation_tracker, _per_key_limiter, _config
 
     _config = get_inet_config()
     data_dir = _config.resolved_data_dir
@@ -201,9 +193,7 @@ app = FastAPI(
 
 
 @app.middleware("http")
-async def ensure_middleware_and_security_headers(
-    request: Request, call_next
-) -> JSONResponse:
+async def ensure_middleware_and_security_headers(request: Request, call_next) -> JSONResponse:
     """Add security headers to all responses."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -248,7 +238,7 @@ def _get_client_ip(request: Request) -> str:
     forwarded_ips = [ip.strip() for ip in forwarded_header.split(",") if ip.strip()]
 
     # Build chain: forwarded_ips + [remote_ip]
-    chain = forwarded_ips + [remote_ip]
+    chain = [*forwarded_ips, remote_ip]
 
     # Walk from rightmost to leftmost, stopping at first untrusted IP
     for ip in reversed(chain):
@@ -260,7 +250,7 @@ def _get_client_ip(request: Request) -> str:
     return chain[0] if chain else "unknown"
 
 
-def _verify_bearer_token(request: Request) -> Optional[APIKeyRecord]:
+def _verify_bearer_token(request: Request) -> APIKeyRecord | None:
     """Extract and verify Bearer token from Authorization header.
 
     Returns APIKeyRecord if valid, None otherwise.
@@ -277,8 +267,8 @@ def _verify_bearer_token(request: Request) -> Optional[APIKeyRecord]:
 async def _proxy_request(
     method: str,
     path: str,
-    body: Optional[bytes] = None,
-    headers: Optional[dict] = None,
+    body: bytes | None = None,
+    headers: dict | None = None,
 ) -> httpx.Response:
     """Forward a request to the internal gateway.
 
@@ -322,7 +312,7 @@ async def chat_completions(request: Request):
     assert _config is not None
     start_time = time.time()
     client_ip = _get_client_ip(request)
-    key_record: Optional[APIKeyRecord] = None
+    key_record: APIKeyRecord | None = None
     model_name = ""
 
     try:
@@ -337,9 +327,7 @@ async def chat_completions(request: Request):
                 status_code=401,
                 violation="auth_failure",
             )
-            return _error_json(
-                401, "Invalid or missing API key", "authentication_error"
-            )
+            return _error_json(401, "Invalid or missing API key", "authentication_error")
 
         # 2. Per-key rate limit
         if not _per_key_limiter.allow(key_record.key_id):
@@ -389,9 +377,7 @@ async def chat_completions(request: Request):
                 status_code=403,
                 violation="model_not_allowed",
             )
-            return _error_json(
-                403, "Model not allowed for this key", "permission_error"
-            )
+            return _error_json(403, "Model not allowed for this key", "permission_error")
 
         # 5. Clamp max_tokens
         effective_cap = min(
@@ -405,9 +391,7 @@ async def chat_completions(request: Request):
         # 6. Proxy to internal gateway
         proxy_body = parsed.model_dump_json().encode()
         try:
-            upstream = await _proxy_request(
-                "POST", "/v1/chat/completions", body=proxy_body
-            )
+            upstream = await _proxy_request("POST", "/v1/chat/completions", body=proxy_body)
         except httpx.ConnectError:
             logger.error("Internal gateway unreachable")
             _audit_log.log(
@@ -663,8 +647,8 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 
 def run_internet_gateway(
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    host: str | None = None,
+    port: int | None = None,
     no_tls: bool = False,
 ) -> None:
     """Start the Internet Gateway with uvicorn."""

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 class MemoryInfo(BaseModel):
     """Memory usage information."""
+
     total_mb: float = 0.0
     used_mb: float = 0.0
     available_mb: float = 0.0
@@ -21,6 +22,7 @@ class MemoryInfo(BaseModel):
 
 class CPUInfo(BaseModel):
     """CPU information."""
+
     load_1m: float = 0.0
     load_5m: float = 0.0
     load_15m: float = 0.0
@@ -29,21 +31,23 @@ class CPUInfo(BaseModel):
 
 class PowerInfo(BaseModel):
     """Power/battery information (macOS-specific)."""
+
     on_battery: bool = False
-    battery_percent: Optional[float] = None
-    time_remaining: Optional[str] = None
+    battery_percent: float | None = None
+    time_remaining: str | None = None
 
 
 class HostHealth(BaseModel):
     """Complete host health snapshot."""
+
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
     hostname: str = ""
     platform: str = ""
     uptime: str = ""
-    memory: MemoryInfo = MemoryInfo()
-    cpu: CPUInfo = CPUInfo()
-    power: PowerInfo = PowerInfo()
-    errors: list[str] = []
+    memory: MemoryInfo = Field(default_factory=MemoryInfo)
+    cpu: CPUInfo = Field(default_factory=CPUInfo)
+    power: PowerInfo = Field(default_factory=PowerInfo)
+    errors: list[str] = Field(default_factory=list)
 
     @property
     def health_grade(self) -> str:
@@ -107,16 +111,18 @@ class HostHealth(BaseModel):
 
 class HealthInquiry(BaseModel):
     """A health inquiry from one agent to the supervisor."""
+
     sender: str
     motivation: str
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
-    previous_context: Optional[str] = None
+    previous_context: str | None = None
 
 
 class HealthResponse(BaseModel):
     """A health response from the supervisor back to the inquiring agent."""
+
     responder: str
     response_text: str
     health_grade: str
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
-    health_summary: Optional[str] = None
+    health_summary: str | None = None

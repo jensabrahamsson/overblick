@@ -15,7 +15,7 @@ The router never fails — it always falls back to the default backend.
 """
 
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .backend_registry import BackendRegistry
@@ -31,10 +31,10 @@ class RequestRouter:
 
     def resolve_backend(
         self,
-        priority: Optional[str] = None,
-        complexity: Optional[str] = None,
-        explicit_backend: Optional[str] = None,
-        exclude: Optional[set[str]] = None,
+        priority: str | None = None,
+        complexity: str | None = None,
+        explicit_backend: str | None = None,
+        exclude: set[str] | None = None,
     ) -> str:
         """
         Determine which backend should handle a request.
@@ -64,9 +64,7 @@ class RequestRouter:
         # 1. Explicit backend override — always wins
         if explicit_backend:
             if explicit_backend in available:
-                logger.debug(
-                    "Router: explicit backend '%s'", explicit_backend
-                )
+                logger.debug("Router: explicit backend '%s'", explicit_backend)
                 return explicit_backend
             all_backends = set(self._registry.available_backends)
             if explicit_backend not in all_backends:
@@ -76,8 +74,7 @@ class RequestRouter:
                 )
             # Backend exists but is excluded (unhealthy) — fall back
             logger.warning(
-                "Router: explicit backend '%s' excluded (unhealthy), "
-                "falling back to default",
+                "Router: explicit backend '%s' excluded (unhealthy), " "falling back to default",
                 explicit_backend,
             )
             return self._registry.default_backend
@@ -100,9 +97,7 @@ class RequestRouter:
         if complexity == "ultra":
             for candidate in ("deepseek", "cloud"):
                 if candidate in available:
-                    logger.debug(
-                        "Router: complexity=ultra → '%s'", candidate
-                    )
+                    logger.debug("Router: complexity=ultra → '%s'", candidate)
                     return candidate
             logger.debug("Router: complexity=ultra but no deepseek/cloud, using default")
             return self._registry.default_backend
@@ -112,9 +107,7 @@ class RequestRouter:
             # Prefer cloud > deepseek > local
             for candidate in ("cloud", "deepseek"):
                 if candidate in available:
-                    logger.debug(
-                        "Router: complexity=high → '%s'", candidate
-                    )
+                    logger.debug("Router: complexity=high → '%s'", candidate)
                     return candidate
             logger.debug("Router: complexity=high but no cloud/deepseek, using default")
             return self._registry.default_backend

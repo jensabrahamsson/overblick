@@ -29,6 +29,7 @@ def _verify_password(password: str, config) -> bool:
     if config.password_hash:
         try:
             import bcrypt
+
             return bcrypt.checkpw(
                 password.encode("utf-8"),
                 config.password_hash.encode("utf-8"),
@@ -52,7 +53,7 @@ async def login_page(request: Request):
     # If no password configured, auto-login (always create fresh session)
     if not config.auth_enabled:
         session_mgr: SessionManager = request.app.state.session_manager
-        cookie_value, csrf_token = session_mgr.create_session()
+        cookie_value, _csrf_token = session_mgr.create_session()
         response = RedirectResponse("/", status_code=302)
         response.set_cookie(
             SESSION_COOKIE,
@@ -70,11 +71,14 @@ async def login_page(request: Request):
 
     # Generate double-submit CSRF token for the login form
     login_csrf = SessionManager.generate_login_csrf()
-    response = templates.TemplateResponse("login.html", {
-        "request": request,
-        "error": None,
-        "csrf_token": login_csrf,
-    })
+    response = templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "error": None,
+            "csrf_token": login_csrf,
+        },
+    )
     response.set_cookie(
         LOGIN_CSRF_COOKIE,
         login_csrf,
@@ -95,11 +99,15 @@ async def login_submit(request: Request):
     # Helper: render login with fresh CSRF (every error response needs this)
     def _login_error(error_msg: str, status_code: int = 403):
         fresh_csrf = SessionManager.generate_login_csrf()
-        resp = templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": error_msg,
-            "csrf_token": fresh_csrf,
-        }, status_code=status_code)
+        resp = templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error": error_msg,
+                "csrf_token": fresh_csrf,
+            },
+            status_code=status_code,
+        )
         resp.set_cookie(
             LOGIN_CSRF_COOKIE,
             fresh_csrf,
@@ -135,7 +143,7 @@ async def login_submit(request: Request):
 
     # Create session
     session_mgr: SessionManager = request.app.state.session_manager
-    cookie_value, session_csrf = session_mgr.create_session()
+    cookie_value, _session_csrf = session_mgr.create_session()
 
     response = RedirectResponse("/", status_code=302)
     response.set_cookie(

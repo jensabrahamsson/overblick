@@ -19,7 +19,6 @@ import pytest
 from overblick.plugins.email_agent.models import EmailClassification, EmailIntent, SenderProfile
 from overblick.plugins.email_agent.reputation import ReputationManager
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -46,6 +45,7 @@ def make_reputation(tmp_path: Path, db=None, thresholds=None):
 # ---------------------------------------------------------------------------
 # extract_domain — static
 # ---------------------------------------------------------------------------
+
 
 class TestExtractDomain:
     """Tests for ReputationManager.extract_domain()."""
@@ -75,6 +75,7 @@ class TestExtractDomain:
 # _safe_sender_name — static
 # ---------------------------------------------------------------------------
 
+
 class TestSafeSenderName:
     """Tests for ReputationManager._safe_sender_name()."""
 
@@ -88,9 +89,7 @@ class TestSafeSenderName:
 
     def test_complex_special_chars(self):
         """Complex display names with quotes and special chars are sanitised."""
-        result = ReputationManager._safe_sender_name(
-            '"Adam from S&P 500" <trade@substack.com>'
-        )
+        result = ReputationManager._safe_sender_name('"Adam from S&P 500" <trade@substack.com>')
         assert result == "trade_at_substack_com"
 
     def test_no_filesystem_dangerous_chars(self):
@@ -109,6 +108,7 @@ class TestSafeSenderName:
 # ---------------------------------------------------------------------------
 # Sender reputation
 # ---------------------------------------------------------------------------
+
 
 class TestSenderReputation:
     """Tests for get_sender_reputation() and should_auto_ignore_sender()."""
@@ -146,17 +146,23 @@ class TestSenderReputation:
     def test_should_auto_ignore_true_high_rate(self, tmp_path):
         """Auto-ignore triggered when rate >= threshold and count >= min."""
         rep = make_reputation(tmp_path)
-        assert rep.should_auto_ignore_sender({"known": True, "total": 10, "ignore_rate": 0.95}) is True
+        assert (
+            rep.should_auto_ignore_sender({"known": True, "total": 10, "ignore_rate": 0.95}) is True
+        )
 
     def test_should_auto_ignore_false_low_count(self, tmp_path):
         """Auto-ignore NOT triggered when interaction count is too low."""
         rep = make_reputation(tmp_path)
-        assert rep.should_auto_ignore_sender({"known": True, "total": 3, "ignore_rate": 1.0}) is False
+        assert (
+            rep.should_auto_ignore_sender({"known": True, "total": 3, "ignore_rate": 1.0}) is False
+        )
 
     def test_should_auto_ignore_false_low_rate(self, tmp_path):
         """Auto-ignore NOT triggered when ignore rate is below threshold."""
         rep = make_reputation(tmp_path)
-        assert rep.should_auto_ignore_sender({"known": True, "total": 10, "ignore_rate": 0.5}) is False
+        assert (
+            rep.should_auto_ignore_sender({"known": True, "total": 10, "ignore_rate": 0.5}) is False
+        )
 
     def test_should_auto_ignore_false_unknown(self, tmp_path):
         """Auto-ignore NOT triggered for unknown senders."""
@@ -167,6 +173,7 @@ class TestSenderReputation:
 # ---------------------------------------------------------------------------
 # Domain reputation
 # ---------------------------------------------------------------------------
+
 
 class TestDomainReputation:
     """Tests for get_domain_reputation() and should_auto_ignore_domain()."""
@@ -184,11 +191,16 @@ class TestDomainReputation:
     async def test_known_domain_stats_returned(self, tmp_path):
         """Known domain returns calculated stats."""
         db = MagicMock()
-        db.get_domain_stats = AsyncMock(return_value={
-            "ignore_count": 45, "notify_count": 5, "reply_count": 0,
-            "negative_feedback_count": 2, "positive_feedback_count": 0,
-            "auto_ignore": False,
-        })
+        db.get_domain_stats = AsyncMock(
+            return_value={
+                "ignore_count": 45,
+                "notify_count": 5,
+                "reply_count": 0,
+                "negative_feedback_count": 2,
+                "positive_feedback_count": 0,
+                "auto_ignore": False,
+            }
+        )
         rep = make_reputation(tmp_path, db=db)
         result = await rep.get_domain_reputation("user@spam.com")
         assert result["known"] is True
@@ -198,15 +210,24 @@ class TestDomainReputation:
     def test_should_auto_ignore_domain_via_flag(self, tmp_path):
         """Domain with auto_ignore=True is always ignored regardless of rate."""
         rep = make_reputation(tmp_path)
-        rep_data = {"known": True, "total": 5, "ignore_rate": 0.2, "positive_feedback": 0, "auto_ignore": True}
+        rep_data = {
+            "known": True,
+            "total": 5,
+            "ignore_rate": 0.2,
+            "positive_feedback": 0,
+            "auto_ignore": True,
+        }
         assert rep.should_auto_ignore_domain(rep_data) is True
 
     def test_should_auto_ignore_domain_false_has_positive_feedback(self, tmp_path):
         """Domain with positive feedback is NOT auto-ignored even at high rate."""
         rep = make_reputation(tmp_path)
         rep_data = {
-            "known": True, "total": 15, "ignore_rate": 0.93,
-            "positive_feedback": 1, "auto_ignore": False,
+            "known": True,
+            "total": 15,
+            "ignore_rate": 0.93,
+            "positive_feedback": 1,
+            "auto_ignore": False,
         }
         assert rep.should_auto_ignore_domain(rep_data) is False
 
@@ -214,6 +235,7 @@ class TestDomainReputation:
 # ---------------------------------------------------------------------------
 # Sender profile load/save/update
 # ---------------------------------------------------------------------------
+
 
 class TestSenderProfilePersistence:
     """Tests for load_sender_profile, save_sender_profile, update_sender_profile."""
@@ -246,7 +268,9 @@ class TestSenderProfilePersistence:
         """update_sender_profile() increments interaction count and intent."""
         rep = make_reputation(tmp_path)
         classification = EmailClassification(
-            intent=EmailIntent.IGNORE, confidence=0.85, reasoning="Spam",
+            intent=EmailIntent.IGNORE,
+            confidence=0.85,
+            reasoning="Spam",
         )
         await rep.update_sender_profile("spam@example.com", classification)
         profile = await rep.load_sender_profile("spam@example.com")
@@ -270,6 +294,7 @@ class TestSenderProfilePersistence:
 # ---------------------------------------------------------------------------
 # penalize_sender
 # ---------------------------------------------------------------------------
+
 
 class TestPenalizeSender:
     """Tests for ReputationManager.penalize_sender()."""

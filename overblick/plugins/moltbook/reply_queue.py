@@ -66,7 +66,9 @@ class ReplyQueueManager:
 
             if retry_count >= self._max_retries:
                 logger.warning("Queue item %d exceeded max retries, removing", queue_id)
-                await self._db.mark_reply_processed(comment_id, post_id, f"{action}_max_retries", score)
+                await self._db.mark_reply_processed(
+                    comment_id, post_id, f"{action}_max_retries", score
+                )
                 await self._db.remove_from_queue(queue_id)
                 continue
 
@@ -89,6 +91,8 @@ class ReplyQueueManager:
 
         logger.info(
             "Reply queue: %d processed, %d success, %d failed",
-            results["processed"], results["success"], results["failed"],
+            results["processed"],
+            results["success"],
+            results["failed"],
         )
         return results

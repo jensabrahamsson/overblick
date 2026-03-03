@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 class RouteStatus(Enum):
     """Status of a routed message."""
+
     PENDING = "pending"
     DELIVERED = "delivered"
     REJECTED = "rejected"
@@ -45,16 +46,17 @@ class RouteStatus(Enum):
 
 class RoutedMessage(BaseModel):
     """A message being routed between agents."""
+
     message_id: str
     source_agent: str
     target_agent: str
     message_type: str
-    payload: dict[str, Any] = {}
+    payload: dict[str, Any] = Field(default_factory=dict)
     status: RouteStatus = RouteStatus.PENDING
     created_at: float = Field(default_factory=time.time)
-    delivered_at: Optional[float] = None
-    response: Optional[dict[str, Any]] = None
-    error: Optional[str] = None
+    delivered_at: float | None = None
+    response: dict[str, Any] | None = None
+    error: str | None = None
     ttl_seconds: float = 300.0  # 5 minute default TTL
 
     @property
@@ -77,8 +79,9 @@ class RoutedMessage(BaseModel):
 
 class AgentCapabilities(BaseModel):
     """Declares what message types an agent accepts."""
+
     identity: str
-    accepted_types: set[str] = set()
+    accepted_types: set[str] = Field(default_factory=set)
     max_queue_size: int = 100
 
     def accepts(self, message_type: str) -> bool:
@@ -110,7 +113,7 @@ class MessageRouter:
     def register_agent(
         self,
         identity: str,
-        accepted_types: Optional[set[str]] = None,
+        accepted_types: set[str] | None = None,
         max_queue_size: int = 100,
     ) -> None:
         """Register an agent's message capabilities."""
@@ -135,7 +138,7 @@ class MessageRouter:
         source: str,
         target: str,
         message_type: str,
-        payload: Optional[dict[str, Any]] = None,
+        payload: dict[str, Any] | None = None,
         ttl_seconds: float = 300.0,
     ) -> RoutedMessage:
         """
@@ -178,9 +181,7 @@ class MessageRouter:
             return msg
 
         # Check queue size
-        target_pending = sum(
-            1 for m in self._pending if m.target_agent == target
-        )
+        target_pending = sum(1 for m in self._pending if m.target_agent == target)
         if target_pending >= caps.max_queue_size:
             msg.status = RouteStatus.REJECTED
             msg.error = f"Agent '{target}' queue full ({caps.max_queue_size})"
@@ -197,8 +198,8 @@ class MessageRouter:
         self,
         source: str,
         message_type: str,
-        payload: Optional[dict[str, Any]] = None,
-        exclude: Optional[set[str]] = None,
+        payload: dict[str, Any] | None = None,
+        exclude: set[str] | None = None,
     ) -> list[RoutedMessage]:
         """
         Broadcast a message to all agents that accept the message type.
@@ -251,7 +252,7 @@ class MessageRouter:
         self._pending = remaining
         return collected
 
-    def get_pending_count(self, agent: Optional[str] = None) -> int:
+    def get_pending_count(self, agent: str | None = None) -> int:
         """Get count of pending messages, optionally filtered by agent."""
         if agent:
             return sum(1 for m in self._pending if m.target_agent == agent)
@@ -298,9 +299,9 @@ class MessageRouter:
     def _cap_lists(self) -> None:
         """FIFO eviction for delivered and dead_letters lists."""
         if len(self._delivered) > self.MAX_DELIVERED:
-            self._delivered = self._delivered[-self.MAX_DELIVERED:]
+            self._delivered = self._delivered[-self.MAX_DELIVERED :]
         if len(self._dead_letters) > self.MAX_DEAD_LETTERS:
-            self._dead_letters = self._dead_letters[-self.MAX_DEAD_LETTERS:]
+            self._dead_letters = self._dead_letters[-self.MAX_DEAD_LETTERS :]
 
     def _log_route(self, msg: RoutedMessage, success: bool) -> None:
         """Log routing action to audit."""

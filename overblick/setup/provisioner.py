@@ -50,6 +50,7 @@ def provision(base_dir: Path, state: dict[str, Any]) -> dict[str, Any]:
     secrets_dir.mkdir(parents=True, exist_ok=True)
 
     from overblick.core.security.secrets_manager import SecretsManager
+
     sm = SecretsManager(secrets_dir)
 
     principal = state.get("principal", {})
@@ -143,7 +144,8 @@ def provision(base_dir: Path, state: dict[str, Any]) -> dict[str, Any]:
 
     logger.info(
         "Provisioning complete: %d characters, %d files created",
-        len(selected), len(created_files),
+        len(selected),
+        len(created_files),
     )
     return {"created_files": created_files}
 
@@ -305,8 +307,12 @@ def _build_plugin_configs(wizard_configs: dict[str, dict[str, Any]]) -> dict[str
 
         allowed_text = wc.get("email_allowed_senders", "")
         blocked_text = wc.get("email_blocked_senders", "")
-        allowed = [s.strip() for s in allowed_text.splitlines() if s.strip()] if allowed_text else []
-        blocked = [s.strip() for s in blocked_text.splitlines() if s.strip()] if blocked_text else []
+        allowed = (
+            [s.strip() for s in allowed_text.splitlines() if s.strip()] if allowed_text else []
+        )
+        blocked = (
+            [s.strip() for s in blocked_text.splitlines() if s.strip()] if blocked_text else []
+        )
         senders: dict[str, list[str]] = {}
         if allowed:
             senders["allowed"] = allowed
@@ -388,9 +394,7 @@ def _write_yaml(path: Path, data: dict) -> None:
     If the process crashes mid-write, the original file stays intact.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(
-        dir=str(path.parent), suffix=".tmp", prefix=f".{path.name}."
-    )
+    fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp", prefix=f".{path.name}.")
     try:
         with os.fdopen(fd, "w") as f:
             yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)

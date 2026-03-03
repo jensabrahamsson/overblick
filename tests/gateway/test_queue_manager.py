@@ -64,6 +64,7 @@ class TestQueueManager:
 
     async def test_priority_ordering(self, config, mock_client):
         """HIGH priority requests are processed before LOW."""
+
         async def slow_completion(request):
             await asyncio.sleep(0.1)
             return ChatResponse.from_message(

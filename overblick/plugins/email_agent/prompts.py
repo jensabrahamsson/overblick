@@ -25,16 +25,12 @@ def classification_prompt(
     # Build reputation context section
     reputation_section = ""
     if sender_reputation:
-        reputation_section = (
-            f"\nSender/domain reputation:\n{sender_reputation}\n"
-        )
+        reputation_section = f"\nSender/domain reputation:\n{sender_reputation}\n"
 
     # Build email signal section (headers like List-Unsubscribe)
     signals_section = ""
     if email_signals:
-        signals_section = (
-            f"\nEmail signals:\n{email_signals}\n"
-        )
+        signals_section = f"\nEmail signals:\n{email_signals}\n"
 
     system = (
         "You are Stål's email classification system. Given an incoming email, "
@@ -81,11 +77,7 @@ def classification_prompt(
         '"reasoning": "...", "priority": "low|normal|high|urgent"}'
     )
 
-    user = (
-        f"From: {sender}\n"
-        f"Subject: {subject}\n"
-        f"Body:\n{body}"
-    )
+    user = f"From: {sender}\n" f"Subject: {subject}\n" f"Body:\n{body}"
 
     return [
         {"role": "system", "content": system},
@@ -148,11 +140,7 @@ def notification_prompt(
         "IMPORTANT: Write the notification in Swedish."
     )
 
-    user = (
-        f"From: {sender}\n"
-        f"Subject: {subject}\n"
-        f"Body:\n{body}"
-    )
+    user = f"From: {sender}\n" f"Subject: {subject}\n" f"Body:\n{body}"
 
     return [
         {"role": "system", "content": system},

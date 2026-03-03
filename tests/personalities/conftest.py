@@ -98,9 +98,7 @@ async def generate_response(
                 attempt + 1,
                 max_retries + 1,
             )
-    raise AssertionError(
-        f"LLM returned empty content after {max_retries + 1} attempts"
-    )
+    raise AssertionError(f"LLM returned empty content after {max_retries + 1} attempts")
 
 
 @pytest.fixture

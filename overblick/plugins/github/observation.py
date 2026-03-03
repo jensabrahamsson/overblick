@@ -8,7 +8,7 @@ at a point in time.
 
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Optional
 
 from overblick.plugins.github.client import GitHubAPIClient, GitHubAPIError
@@ -57,8 +57,8 @@ def _age_hours(iso_timestamp: str) -> float:
         ts = iso_timestamp.replace("Z", "+00:00")
         dt = datetime.fromisoformat(ts)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        delta = datetime.now(timezone.utc) - dt
+            dt = dt.replace(tzinfo=UTC)
+        delta = datetime.now(UTC) - dt
         return delta.total_seconds() / 3600.0
     except (ValueError, TypeError):
         return 0.0
@@ -93,7 +93,7 @@ class ObservationCollector:
         Fetches open PRs and issues, checks CI status, and categorizes
         everything for the planner.
         """
-        observed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        observed_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # Fetch PRs and issues in parallel-ish (sequential for now)
         open_prs = await self._collect_prs(repo)
@@ -102,12 +102,10 @@ class ObservationCollector:
         # Categorize
         dependabot_prs = [pr for pr in open_prs if pr.is_dependabot]
         failing_ci = [pr for pr in open_prs if pr.ci_status == CIStatus.FAILURE]
-        stale_prs = [
-            pr for pr in open_prs
-            if pr.age_hours > self.stale_pr_hours and not pr.draft
-        ]
+        stale_prs = [pr for pr in open_prs if pr.age_hours > self.stale_pr_hours and not pr.draft]
         unanswered_issues = [
-            issue for issue in open_issues
+            issue
+            for issue in open_issues
             if issue.age_hours > self.unanswered_issue_hours
             and not issue.has_our_response
             and issue.comments_count == 0
@@ -136,8 +134,13 @@ class ObservationCollector:
         logger.info(
             "GitHub observation for %s: %d PRs, %d issues, %d dependabot, "
             "%d failing CI, %d stale, %d unanswered",
-            repo, len(open_prs), len(open_issues), len(dependabot_prs),
-            len(failing_ci), len(stale_prs), len(unanswered_issues),
+            repo,
+            len(open_prs),
+            len(open_issues),
+            len(dependabot_prs),
+            len(failing_ci),
+            len(stale_prs),
+            len(unanswered_issues),
         )
 
         return observation
@@ -157,7 +160,8 @@ class ObservationCollector:
 
             # Track in database
             await self._db.upsert_pr_tracking(
-                repo, pr.number,
+                repo,
+                pr.number,
                 title=pr.title,
                 author=pr.author,
                 is_dependabot=pr.is_dependabot,
@@ -223,7 +227,9 @@ class ObservationCollector:
         )
 
     async def _get_ci_status(
-        self, repo: str, ref: str,
+        self,
+        repo: str,
+        ref: str,
     ) -> tuple[CIStatus, list[dict[str, str]]]:
         """Get aggregated CI status for a git reference."""
         details: list[dict[str, str]] = []
@@ -306,19 +312,21 @@ class ObservationCollector:
             number = raw.get("number", 0)
             has_response = await self._db.has_responded_to_issue(repo, number)
 
-            issues.append(IssueSnapshot(
-                number=number,
-                title=raw.get("title", ""),
-                author=raw.get("user", {}).get("login", ""),
-                state=raw.get("state", "open"),
-                labels=[l.get("name", "") for l in raw.get("labels", [])],
-                body=(raw.get("body", "") or "")[:2000],
-                created_at=raw.get("created_at", ""),
-                updated_at=raw.get("updated_at", ""),
-                comments_count=raw.get("comments", 0),
-                age_hours=_age_hours(raw.get("created_at", "")),
-                has_our_response=has_response,
-            ))
+            issues.append(
+                IssueSnapshot(
+                    number=number,
+                    title=raw.get("title", ""),
+                    author=raw.get("user", {}).get("login", ""),
+                    state=raw.get("state", "open"),
+                    labels=[l.get("name", "") for l in raw.get("labels", [])],
+                    body=(raw.get("body", "") or "")[:2000],
+                    created_at=raw.get("created_at", ""),
+                    updated_at=raw.get("updated_at", ""),
+                    comments_count=raw.get("comments", 0),
+                    age_hours=_age_hours(raw.get("created_at", "")),
+                    has_our_response=has_response,
+                )
+            )
 
         return issues
 
@@ -369,8 +377,7 @@ class ObservationCollector:
             parts.append(f"\n--- FAILING CI ({len(observation.failing_ci)}) ---")
             for pr in observation.failing_ci:
                 details_str = ", ".join(
-                    f"{d['name']}:{d.get('conclusion', 'unknown')}"
-                    for d in pr.ci_details[:5]
+                    f"{d['name']}:{d.get('conclusion', 'unknown')}" for d in pr.ci_details[:5]
                 )
                 parts.append(f"  PR #{pr.number}: {pr.title} [{details_str}]")
 
@@ -390,9 +397,7 @@ class ObservationCollector:
 
         # Stale PRs
         if observation.stale_prs:
-            parts.append(
-                f"\n--- Stale PRs (>{self.stale_pr_hours:.0f}h unreviewed) ---"
-            )
+            parts.append(f"\n--- Stale PRs (>{self.stale_pr_hours:.0f}h unreviewed) ---")
             for pr in observation.stale_prs:
                 parts.append(f"  PR #{pr.number}: {pr.title} ({pr.age_hours:.0f}h old)")
 

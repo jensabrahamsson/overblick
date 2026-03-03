@@ -66,6 +66,7 @@ class TestSetup:
     @pytest.mark.asyncio
     async def test_setup_creates_table(self, db_path):
         import aiosqlite
+
         store = LearningStore(db_path=db_path, ethos_text="", llm_pipeline=None)
         await store.setup()
 

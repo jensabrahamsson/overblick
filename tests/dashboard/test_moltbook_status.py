@@ -32,7 +32,11 @@ class TestMoltbookStatusService:
     def test_get_moltbook_statuses_suspended(self, tmp_path):
         identity_dir = tmp_path / "data" / "cherry"
         identity_dir.mkdir(parents=True)
-        status = {"status": "suspended", "detail": "Banned for spam", "updated_at": "2025-01-02T00:00:00"}
+        status = {
+            "status": "suspended",
+            "detail": "Banned for spam",
+            "updated_at": "2025-01-02T00:00:00",
+        }
         (identity_dir / "moltbook_status.json").write_text(json.dumps(status))
 
         svc = SystemService(tmp_path)
@@ -76,7 +80,12 @@ class TestMoltbookStatusPartial:
     async def test_moltbook_status_with_active_agent(self, app, client, session_cookie):
         cookie_value, _ = session_cookie
         app.state.system_service.get_moltbook_statuses.return_value = [
-            {"identity": "anomal", "status": "active", "detail": "", "updated_at": "2025-01-01T00:00:00"},
+            {
+                "identity": "anomal",
+                "status": "active",
+                "detail": "",
+                "updated_at": "2025-01-01T00:00:00",
+            },
         ]
         resp = await client.get(
             "/partials/moltbook-status",
@@ -90,7 +99,12 @@ class TestMoltbookStatusPartial:
     async def test_moltbook_status_with_suspended_agent(self, app, client, session_cookie):
         cookie_value, _ = session_cookie
         app.state.system_service.get_moltbook_statuses.return_value = [
-            {"identity": "cherry", "status": "suspended", "detail": "Banned", "updated_at": "2025-01-02T00:00:00"},
+            {
+                "identity": "cherry",
+                "status": "suspended",
+                "detail": "Banned",
+                "updated_at": "2025-01-02T00:00:00",
+            },
         ]
         resp = await client.get(
             "/partials/moltbook-status",

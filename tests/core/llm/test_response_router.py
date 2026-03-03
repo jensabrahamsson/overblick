@@ -23,10 +23,10 @@ from overblick.core.llm.response_router import (
     RouterResult,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_llm_client(response_content: str):
     """Create a mock LLM client returning specific content."""
@@ -38,6 +38,7 @@ def _make_llm_client(response_content: str):
 # ---------------------------------------------------------------------------
 # RouterResult model
 # ---------------------------------------------------------------------------
+
 
 class TestRouterResult:
     def test_default_values(self):
@@ -71,6 +72,7 @@ class TestResponseVerdict:
 # Initialization
 # ---------------------------------------------------------------------------
 
+
 class TestResponseRouterInit:
     def test_init_without_llm(self):
         router = ResponseRouter()
@@ -93,6 +95,7 @@ class TestResponseRouterInit:
 # ---------------------------------------------------------------------------
 # Heuristic detection
 # ---------------------------------------------------------------------------
+
 
 class TestHeuristicDetection:
     @pytest.mark.asyncio
@@ -167,6 +170,7 @@ class TestHeuristicDetection:
 # ---------------------------------------------------------------------------
 # LLM-based inspection
 # ---------------------------------------------------------------------------
+
 
 class TestLLMInspection:
     @pytest.mark.asyncio
@@ -268,9 +272,7 @@ class TestLLMInspection:
 
     @pytest.mark.asyncio
     async def test_llm_unknown_verdict(self):
-        llm = _make_llm_client(
-            '{"verdict": "UNKNOWN", "confidence": 0.5, "reason": "not sure"}'
-        )
+        llm = _make_llm_client('{"verdict": "UNKNOWN", "confidence": 0.5, "reason": "not sure"}')
         router = ResponseRouter(llm_client=llm)
         data = "S" * 60
 
@@ -308,6 +310,7 @@ class TestLLMInspection:
 # Data conversion
 # ---------------------------------------------------------------------------
 
+
 class TestDataConversion:
     def test_string_passthrough(self):
         assert ResponseRouter._to_text("hello") == "hello"
@@ -340,6 +343,7 @@ class TestDataConversion:
 # Sync inspection
 # ---------------------------------------------------------------------------
 
+
 class TestSyncInspection:
     def test_sync_normal(self):
         router = ResponseRouter()
@@ -360,6 +364,7 @@ class TestSyncInspection:
 # ---------------------------------------------------------------------------
 # Statistics
 # ---------------------------------------------------------------------------
+
 
 class TestStatistics:
     @pytest.mark.asyncio

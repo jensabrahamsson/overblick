@@ -132,12 +132,14 @@ class TestStateManagement:
         plugin = SpegelPlugin(spegel_context)
         await plugin.setup()
         plugin._last_run = 12345.0
-        plugin._pairs.append(SpegelPair(
-            observer_name="a",
-            target_name="b",
-            profile=Profile(observer_name="a", target_name="b", profile_text="P"),
-            reflection=Reflection(target_name="b", observer_name="a", reflection_text="R"),
-        ))
+        plugin._pairs.append(
+            SpegelPair(
+                observer_name="a",
+                target_name="b",
+                profile=Profile(observer_name="a", target_name="b", profile_text="P"),
+                reflection=Reflection(target_name="b", observer_name="a", reflection_text="R"),
+            )
+        )
         plugin._save_state()
 
         plugin2 = SpegelPlugin(spegel_context)

@@ -47,7 +47,10 @@ def stal_identity():
                     "confidence_high": 0.8,
                 },
                 "relevance_consultants": [
-                    {"identity": "anomal", "keywords": ["crypto", "bitcoin", "blockchain", "ai", "tech"]},
+                    {
+                        "identity": "anomal",
+                        "keywords": ["crypto", "bitcoin", "blockchain", "ai", "tech"],
+                    },
                     {"identity": "blixt", "keywords": ["privacy", "security", "surveillance"]},
                 ],
             }
@@ -61,14 +64,16 @@ def mock_ipc_client_email():
     from overblick.supervisor.ipc import IPCMessage
 
     client = AsyncMock()
-    client.send = AsyncMock(return_value=IPCMessage(
-        msg_type="email_consultation_response",
-        payload={
-            "advised_action": "reply",
-            "reasoning": "This appears to be a legitimate meeting request",
-        },
-        sender="supervisor",
-    ))
+    client.send = AsyncMock(
+        return_value=IPCMessage(
+            msg_type="email_consultation_response",
+            payload={
+                "advised_action": "reply",
+                "reasoning": "This appears to be a legitimate meeting request",
+            },
+            sender="supervisor",
+        )
+    )
     return client
 
 
@@ -78,9 +83,11 @@ def mock_llm_pipeline_classify():
     pipeline = AsyncMock()
 
     # Default: classify as REPLY with high confidence
-    pipeline.chat = AsyncMock(return_value=PipelineResult(
-        content='{"intent": "reply", "confidence": 0.95, "reasoning": "Meeting request from colleague", "priority": "normal"}'
-    ))
+    pipeline.chat = AsyncMock(
+        return_value=PipelineResult(
+            content='{"intent": "reply", "confidence": 0.95, "reasoning": "Meeting request from colleague", "priority": "normal"}'
+        )
+    )
     return pipeline
 
 
@@ -134,12 +141,19 @@ def mock_personality_consultant():
 
 @pytest.fixture
 def stal_plugin_context(
-    stal_identity, tmp_path, mock_audit_log, mock_ipc_client_email,
-    mock_llm_pipeline_classify, mock_event_bus, mock_telegram_notifier,
-    mock_gmail_capability, mock_boss_request_capability,
+    stal_identity,
+    tmp_path,
+    mock_audit_log,
+    mock_ipc_client_email,
+    mock_llm_pipeline_classify,
+    mock_event_bus,
+    mock_telegram_notifier,
+    mock_gmail_capability,
+    mock_boss_request_capability,
     mock_personality_consultant,
 ):
     """PluginContext for Stål with all required services."""
+
     def _mock_secrets(key: str):
         secrets = {"principal_name": "Test Principal"}
         return secrets.get(key)
@@ -168,10 +182,14 @@ def stal_plugin_context(
 
 @pytest.fixture
 def stal_context_no_ipc(
-    stal_identity, tmp_path, mock_audit_log, mock_llm_pipeline_classify,
+    stal_identity,
+    tmp_path,
+    mock_audit_log,
+    mock_llm_pipeline_classify,
     mock_event_bus,
 ):
     """PluginContext for Stål WITHOUT IPC (standalone mode)."""
+
     def _mock_secrets(key: str):
         secrets = {"principal_name": "Test Principal"}
         return secrets.get(key)

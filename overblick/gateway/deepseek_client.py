@@ -53,7 +53,7 @@ class DeepseekClient:
         self.api_key = api_key
         self.model = model
         self.timeout_seconds = timeout_seconds
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client with auth headers."""
@@ -108,9 +108,7 @@ class DeepseekClient:
             data = response.json()
             return [m.get("id", "unknown") for m in data.get("data", [])]
         except httpx.ConnectError as e:
-            raise DeepseekConnectionError(
-                f"Cannot connect to Deepseek API: {e}"
-            ) from e
+            raise DeepseekConnectionError(f"Cannot connect to Deepseek API: {e}") from e
         except Exception as e:
             logger.error("Failed to list Deepseek models: %s", e, exc_info=True)
             return []
@@ -141,10 +139,7 @@ class DeepseekClient:
 
             payload = {
                 "model": selected_model,
-                "messages": [
-                    {"role": m.role, "content": m.content}
-                    for m in request.messages
-                ],
+                "messages": [{"role": m.role, "content": m.content} for m in request.messages],
                 "max_tokens": request.max_tokens,
                 "temperature": request.temperature,
                 "top_p": request.top_p,
@@ -155,12 +150,14 @@ class DeepseekClient:
                 logger.info(
                     "DeepSeek REASONER mode: model=%s, messages=%d "
                     "(reasoning_content will be captured)",
-                    selected_model, len(request.messages),
+                    selected_model,
+                    len(request.messages),
                 )
             else:
                 logger.debug(
                     "Sending request to Deepseek: model=%s, messages=%d",
-                    selected_model, len(request.messages),
+                    selected_model,
+                    len(request.messages),
                 )
 
             response = await client.post("/chat/completions", json=payload)
@@ -212,26 +209,20 @@ class DeepseekClient:
                 choices=choices
                 or [
                     ChatResponseChoice(
-                        message=ChatMessage(
-                            role="assistant", content="No response generated"
-                        )
+                        message=ChatMessage(role="assistant", content="No response generated")
                     )
                 ],
                 usage=usage,
             )
 
         except httpx.ConnectError as e:
-            logger.error(
-                "Connection to Deepseek API failed: %s", e, exc_info=True
-            )
+            logger.error("Connection to Deepseek API failed: %s", e, exc_info=True)
             raise DeepseekConnectionError(
                 f"Cannot connect to Deepseek API at {self.api_url}: {e}"
             ) from e
 
         except httpx.TimeoutException as e:
-            logger.error(
-                "Deepseek request timed out: %s", e, exc_info=True
-            )
+            logger.error("Deepseek request timed out: %s", e, exc_info=True)
             raise DeepseekTimeoutError(
                 f"Request timed out after {self.timeout_seconds}s: {e}"
             ) from e
@@ -244,12 +235,8 @@ class DeepseekClient:
                 e.response.status_code,
                 error_text,
             )
-            raise DeepseekError(
-                f"Deepseek returned error {e.response.status_code}"
-            ) from e
+            raise DeepseekError(f"Deepseek returned error {e.response.status_code}") from e
 
         except Exception as e:
-            logger.error(
-                "Unexpected error calling Deepseek: %s", e, exc_info=True
-            )
+            logger.error("Unexpected error calling Deepseek: %s", e, exc_info=True)
             raise DeepseekError(f"Failed to call Deepseek: {e}") from e

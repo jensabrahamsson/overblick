@@ -36,7 +36,7 @@ class QuietHoursChecker:
             f"{self.start_hour}:00-{self.end_hour}:00 {settings.timezone}"
         )
 
-    def is_quiet_hours(self, now: Optional[datetime] = None) -> bool:
+    def is_quiet_hours(self, now: datetime | None = None) -> bool:
         """Check if we're currently in quiet hours."""
         if not self.enabled:
             return False
@@ -57,15 +57,13 @@ class QuietHoursChecker:
         """True if LLM usage is allowed right now."""
         return not self.is_quiet_hours()
 
-    def time_until_active(self) -> Optional[int]:
+    def time_until_active(self) -> int | None:
         """Seconds until quiet hours end, or None if not quiet."""
         if not self.is_quiet_hours():
             return None
 
         now = datetime.now(self.timezone)
-        end_time = now.replace(
-            hour=self.end_hour, minute=0, second=0, microsecond=0
-        )
+        end_time = now.replace(hour=self.end_hour, minute=0, second=0, microsecond=0)
 
         if self.start_hour > self.end_hour:
             # Overnight window (e.g. 22:00-07:00): if we're past start,

@@ -66,16 +66,16 @@ class DashboardConfig(BaseModel):
     network_access: bool = False
 
     # Authentication
-    password: str = ""          # plaintext (env-var compat, legacy)
-    password_hash: str = ""     # bcrypt hash (from YAML / wizard)
+    password: str = ""  # plaintext (env-var compat, legacy)
+    password_hash: str = ""  # bcrypt hash (from YAML / wizard)
     secret_key: str = ""
     session_hours: int = 8
 
     # Rate limiting
-    login_rate_limit: int = 5        # attempts per window
-    login_rate_window: int = 900     # 15 minutes in seconds
-    api_rate_limit: int = 60         # requests per minute
-    api_rate_window: int = 60        # 1 minute in seconds
+    login_rate_limit: int = 5  # attempts per window
+    login_rate_window: int = 900  # 15 minutes in seconds
+    api_rate_limit: int = 60  # requests per minute
+    api_rate_window: int = 60  # 1 minute in seconds
 
     # Polling interval for htmx (seconds)
     poll_interval: int = 5
@@ -132,7 +132,7 @@ class DashboardConfig(BaseModel):
 
 
 # Singleton
-_config: Optional[DashboardConfig] = None
+_config: DashboardConfig | None = None
 
 
 def get_config() -> DashboardConfig:

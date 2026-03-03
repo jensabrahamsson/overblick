@@ -20,7 +20,6 @@ from overblick.identities import _deep_merge, _build_identity, _load_yaml
 from overblick.setup.provisioner import _build_plugin_configs, provision
 from overblick.setup.wizard import _uc_to_plugin_key, _derive_provisioner_state, _USE_CASE_MAP
 
-
 # ---------------------------------------------------------------------------
 # _deep_merge tests
 # ---------------------------------------------------------------------------
@@ -343,7 +342,10 @@ class TestProvisionerPluginsYaml:
         }
 
     def test_plugins_yaml_created(
-        self, tmp_path: Path, wizard_state_with_plugins: dict, _seed_master_key,
+        self,
+        tmp_path: Path,
+        wizard_state_with_plugins: dict,
+        _seed_master_key,
     ):
         provision(tmp_path, wizard_state_with_plugins)
         plugins_path = tmp_path / "config" / "stal" / "plugins.yaml"
@@ -355,18 +357,24 @@ class TestProvisionerPluginsYaml:
         assert "email_agent" in data
         assert data["email_agent"]["filter_mode"] == "opt_in"
         assert data["email_agent"]["senders"]["allowed"] == [
-            "boss@example.com", "team@example.com",
+            "boss@example.com",
+            "team@example.com",
         ]
         assert data["email_agent"]["dry_run"] is True
 
     def test_plugins_yaml_in_created_files(
-        self, tmp_path: Path, wizard_state_with_plugins: dict, _seed_master_key,
+        self,
+        tmp_path: Path,
+        wizard_state_with_plugins: dict,
+        _seed_master_key,
     ):
         result = provision(tmp_path, wizard_state_with_plugins)
         assert any("plugins.yaml" in f for f in result["created_files"])
 
     def test_no_plugins_yaml_without_config(
-        self, tmp_path: Path, _seed_master_key,
+        self,
+        tmp_path: Path,
+        _seed_master_key,
     ):
         """No plugins.yaml when agent has no plugin_configs."""
         state = {
@@ -442,6 +450,7 @@ class TestIdentityLoaderDeepMerge:
 
         # Monkey-patch the identities dir for the test
         import overblick.identities as ident_mod
+
         original_dir = ident_mod._IDENTITIES_DIR
         try:
             ident_mod._IDENTITIES_DIR = tmp_path / "overblick" / "identities"

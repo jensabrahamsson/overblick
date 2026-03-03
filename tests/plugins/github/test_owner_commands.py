@@ -15,10 +15,10 @@ from overblick.plugins.github.owner_commands import (
     OwnerCommandQueue,
 )
 
-
 # ---------------------------------------------------------------------------
 # parse_command — static parsing
 # ---------------------------------------------------------------------------
+
 
 class TestParseCommand:
     """Tests for OwnerCommandQueue.parse_command() — pure function."""
@@ -111,7 +111,9 @@ class TestParseCommand:
     def test_message_id_and_timestamp_preserved(self):
         """Message ID and timestamp are stored in the command."""
         cmd = OwnerCommandQueue.parse_command(
-            "merge owner/repo#1", message_id=42, timestamp="2026-02-26T03:00:00Z",
+            "merge owner/repo#1",
+            message_id=42,
+            timestamp="2026-02-26T03:00:00Z",
         )
         assert cmd is not None
         assert cmd.message_id == 42
@@ -121,6 +123,7 @@ class TestParseCommand:
 # ---------------------------------------------------------------------------
 # OwnerCommandQueue — fetch, dedup, format
 # ---------------------------------------------------------------------------
+
 
 class TestOwnerCommandQueue:
     """Tests for OwnerCommandQueue fetch/format lifecycle."""

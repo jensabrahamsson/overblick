@@ -135,6 +135,7 @@ class TestProvisioner:
         provision(tmp_path, wizard_state)
 
         from overblick.core.security.secrets_manager import SecretsManager
+
         sm = SecretsManager(tmp_path / "config" / "secrets")
         # Principal name should still be set
         assert sm.get("anomal", "principal_name") == "Test User"

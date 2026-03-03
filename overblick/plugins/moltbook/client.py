@@ -13,14 +13,21 @@ import asyncio
 import json as json_module
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Optional
 
 import aiohttp
 
 from .models import (
-    Agent, Post, Comment, Conversation, DMRequest, FeedItem,
-    Message, SearchResult, Submolt,
+    Agent,
+    Comment,
+    Conversation,
+    DMRequest,
+    FeedItem,
+    Message,
+    Post,
+    SearchResult,
+    Submolt,
 )
 from .rate_limiter import MoltbookRateLimiter
 from .request_proxy import MoltbookRequestProxy
@@ -30,16 +37,19 @@ logger = logging.getLogger(__name__)
 
 class MoltbookError(Exception):
     """Base exception for Moltbook API errors."""
+
     pass
 
 
 class RateLimitError(MoltbookError):
     """Raised when rate limited by Moltbook API."""
+
     pass
 
 
 class AuthenticationError(MoltbookError):
     """Raised when authentication fails."""
+
     pass
 
 
@@ -60,7 +70,7 @@ class SuspensionError(MoltbookError):
         self.reason = reason
 
     @property
-    def suspended_until_dt(self) -> Optional[datetime]:
+    def suspended_until_dt(self) -> datetime | None:
         """Parse suspended_until as a datetime, or None if unparseable."""
         if not self.suspended_until:
             return None
@@ -105,7 +115,7 @@ class MoltbookClient:
         self._challenge_handler = challenge_handler
         self._response_router = response_router
 
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._rate_limiter = MoltbookRateLimiter(
             requests_per_minute=requests_per_minute,
             post_interval_minutes=post_interval_minutes,
@@ -139,7 +149,7 @@ class MoltbookClient:
         """Update account status tracking."""
         self._account_status = status
         self._status_detail = detail
-        self._status_updated_at = datetime.now(timezone.utc).isoformat()
+        self._status_updated_at = datetime.now(UTC).isoformat()
 
     async def _ensure_session(self) -> None:
         """Ensure HTTP session exists."""
@@ -168,8 +178,8 @@ class MoltbookClient:
         self,
         method: str,
         endpoint: str,
-        json: Optional[dict] = None,
-        params: Optional[dict] = None,
+        json: dict | None = None,
+        params: dict | None = None,
         retry_count: int = 3,
     ) -> dict:
         """
@@ -196,7 +206,9 @@ class MoltbookClient:
         # Log outgoing request
         logger.debug(
             "API REQUEST: %s %s | params=%s | json_keys=%s",
-            method, endpoint, params,
+            method,
+            endpoint,
+            params,
             list(json.keys()) if isinstance(json, dict) else None,
         )
 
@@ -219,26 +231,40 @@ class MoltbookClient:
                     if response.status >= 400:
                         raw_body = await response.text()
                         challenge_headers = {
-                            k: v for k, v in response.headers.items()
-                            if k.lower().startswith("x-") or "challenge" in k.lower()
-                            or "captcha" in k.lower() or "verify" in k.lower()
+                            k: v
+                            for k, v in response.headers.items()
+                            if k.lower().startswith("x-")
+                            or "challenge" in k.lower()
+                            or "captcha" in k.lower()
+                            or "verify" in k.lower()
                         }
                         logger.warning(
                             "API %s %s -> HTTP %d | Headers: %s | Body: %.2000s",
-                            method, endpoint, response.status,
+                            method,
+                            endpoint,
+                            response.status,
                             challenge_headers or "(none)",
                             raw_body,
                         )
 
                         # Detect potential challenge in error response
                         body_lower = raw_body.lower()
-                        if any(kw in body_lower for kw in (
-                            "challenge", "captcha", "verification",
-                            "ascii", "nonce", "moltcaptcha",
-                        )):
+                        if any(
+                            kw in body_lower
+                            for kw in (
+                                "challenge",
+                                "captcha",
+                                "verification",
+                                "ascii",
+                                "nonce",
+                                "moltcaptcha",
+                            )
+                        ):
                             logger.error(
                                 "CHALLENGE DETECTED in HTTP %d! Body: %s | Headers: %s",
-                                response.status, raw_body, dict(response.headers),
+                                response.status,
+                                raw_body,
+                                dict(response.headers),
                             )
 
                     # Challenge interception for 4xx POST responses
@@ -281,7 +307,8 @@ class MoltbookClient:
                                 exc = SuspensionError(full_msg, reason=hint or error_msg)
                                 logger.error(
                                     "SUSPENSION (401): %s | until=%s | full_response=%s",
-                                    hint or error_msg, exc.suspended_until or "UNKNOWN",
+                                    hint or error_msg,
+                                    exc.suspended_until or "UNKNOWN",
                                     raw_body,
                                 )
                                 self._update_account_status("suspended", hint or error_msg)
@@ -318,8 +345,11 @@ class MoltbookClient:
                             exc = SuspensionError(full_msg, reason=error_msg)
                             logger.error(
                                 "SUSPENSION: %s | until=%s | path=%s | server_time=%s | full_response=%s",
-                                error_msg, exc.suspended_until or "UNKNOWN",
-                                api_path, api_timestamp, raw_body,
+                                error_msg,
+                                exc.suspended_until or "UNKNOWN",
+                                api_path,
+                                api_timestamp,
+                                raw_body,
                             )
                             self._update_account_status("suspended", error_msg)
                             raise exc
@@ -341,7 +371,9 @@ class MoltbookClient:
 
                         logger.warning(
                             "Rate limited (retry %d/%d), waiting %ds",
-                            rate_limit_retries, MAX_RATE_LIMIT_RETRIES, retry_after,
+                            rate_limit_retries,
+                            MAX_RATE_LIMIT_RETRIES,
+                            retry_after,
                         )
                         self._proxy.handle_rate_limit_response(retry_after)
                         await asyncio.sleep(retry_after)
@@ -354,14 +386,19 @@ class MoltbookClient:
                     # Transient errors
                     if response.status in (500, 502, 503, 504):
                         if attempt < retry_count - 1:
-                            backoff = 2 ** attempt
+                            backoff = 2**attempt
                             logger.warning(
                                 "API %d (attempt %d/%d), retrying in %ds",
-                                response.status, attempt + 1, retry_count, backoff,
+                                response.status,
+                                attempt + 1,
+                                retry_count,
+                                backoff,
                             )
                             await asyncio.sleep(backoff)
                             continue
-                        raise MoltbookError(f"API {response.status} after {retry_count} attempts: {raw_body}")
+                        raise MoltbookError(
+                            f"API {response.status} after {retry_count} attempts: {raw_body}"
+                        )
 
                     # Other 4xx
                     if response.status >= 400:
@@ -371,11 +408,22 @@ class MoltbookClient:
                     raw_text = await response.text()
                     logger.debug(
                         "API RESPONSE: %s %s -> HTTP %d | %d bytes | headers=%s",
-                        method, endpoint, response.status, len(raw_text),
-                        {k: v for k, v in response.headers.items()
-                         if k.lower() in ("content-type", "x-ratelimit-remaining",
-                                          "x-challenge", "x-verification")
-                         or k.lower().startswith("x-molt")},
+                        method,
+                        endpoint,
+                        response.status,
+                        len(raw_text),
+                        {
+                            k: v
+                            for k, v in response.headers.items()
+                            if k.lower()
+                            in (
+                                "content-type",
+                                "x-ratelimit-remaining",
+                                "x-challenge",
+                                "x-verification",
+                            )
+                            or k.lower().startswith("x-molt")
+                        },
                     )
                     self._update_account_status("active")
                     result = json_module.loads(raw_text)
@@ -384,7 +432,9 @@ class MoltbookClient:
                     if self._response_router:
                         verdict = await self._response_router.inspect(result)
                         if verdict and verdict.is_challenge:
-                            logger.warning("ResponseRouter detected CHALLENGE in %s %s", method, endpoint)
+                            logger.warning(
+                                "ResponseRouter detected CHALLENGE in %s %s", method, endpoint
+                            )
                             if method == "POST" and self._challenge_handler:
                                 solved = await self._challenge_handler.solve(
                                     result,
@@ -403,7 +453,12 @@ class MoltbookClient:
                     # Challenge handler fallback (direct detection on 2xx)
                     if self._challenge_handler:
                         if self._challenge_handler.detect(result, response.status):
-                            logger.warning("Challenge detected in %s %s (HTTP %d)", method, endpoint, response.status)
+                            logger.warning(
+                                "Challenge detected in %s %s (HTTP %d)",
+                                method,
+                                endpoint,
+                                response.status,
+                            )
                             if method == "POST":
                                 solved = await self._challenge_handler.solve(
                                     result,
@@ -428,7 +483,7 @@ class MoltbookClient:
             except aiohttp.ClientError as e:
                 logger.warning("Request failed (attempt %d): %s", attempt + 1, e)
                 if attempt < retry_count - 1:
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
                 else:
                     raise MoltbookError(f"Request failed after {retry_count} attempts: {e}")
 
@@ -438,7 +493,9 @@ class MoltbookClient:
 
     async def register_agent(self, name: str, description: str) -> dict:
         """Register a new agent on Moltbook."""
-        data = await self._request("POST", "/agents/register", json={"name": name, "description": description})
+        data = await self._request(
+            "POST", "/agents/register", json={"name": name, "description": description}
+        )
         logger.info("Agent registered: %s", name)
         return data
 
@@ -482,7 +539,11 @@ class MoltbookClient:
         return [FeedItem.from_dict(item) for item in data.get("items", [])]
 
     async def get_posts(
-        self, limit: int = 20, offset: int = 0, sort: str = "recent", submolt: str = None,
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        sort: str = "recent",
+        submolt: str | None = None,
     ) -> list[Post]:
         """Get all posts (not personalized)."""
         params = {"limit": limit, "offset": offset, "sort": sort}
@@ -499,7 +560,10 @@ class MoltbookClient:
     # ── Post Operations ───────────────────────────────────────────────────
 
     async def create_post(
-        self, title: str, content: str, submolt: str = "ai",
+        self,
+        title: str,
+        content: str,
+        submolt: str = "ai",
     ) -> Post:
         """Create a new post."""
         if not await self._rate_limiter.acquire_post():
@@ -507,7 +571,8 @@ class MoltbookClient:
             raise RateLimitError(f"Cannot post yet. Wait {wait_time:.0f} seconds.")
 
         data = await self._request(
-            "POST", "/posts",
+            "POST",
+            "/posts",
             json={"title": title, "content": content, "submolt_name": submolt},
         )
         post_data = data.get("post", data)
@@ -519,7 +584,8 @@ class MoltbookClient:
         # Tier 1: Direct fetch
         try:
             data = await self._request(
-                "GET", f"/posts/{post_id}",
+                "GET",
+                f"/posts/{post_id}",
                 params={"include_comments": str(include_comments).lower()},
                 retry_count=1,
             )
@@ -540,8 +606,10 @@ class MoltbookClient:
         if include_comments:
             try:
                 comments_data = await self._request(
-                    "GET", f"/posts/{post_id}/comments",
-                    params={"sort": "new"}, retry_count=1,
+                    "GET",
+                    f"/posts/{post_id}/comments",
+                    params={"sort": "new"},
+                    retry_count=1,
                 )
                 comments = []
                 if isinstance(comments_data, list):
@@ -549,7 +617,14 @@ class MoltbookClient:
                 elif isinstance(comments_data, dict) and "comments" in comments_data:
                     comments = [Comment.from_dict(c) for c in comments_data["comments"]]
                 if comments:
-                    return Post(id=post_id, agent_id="", agent_name="", title="", content="", comments=comments)
+                    return Post(
+                        id=post_id,
+                        agent_id="",
+                        agent_name="",
+                        title="",
+                        content="",
+                        comments=comments,
+                    )
             except RateLimitError:
                 raise
             except MoltbookError:
@@ -567,7 +642,9 @@ class MoltbookClient:
                 if post.id == post_id:
                     if include_comments and not post.comments:
                         try:
-                            cd = await self._request("GET", f"/posts/{post_id}/comments", params={"sort": "new"})
+                            cd = await self._request(
+                                "GET", f"/posts/{post_id}/comments", params={"sort": "new"}
+                            )
                             if isinstance(cd, list):
                                 post.comments = [Comment.from_dict(c) for c in cd]
                             elif isinstance(cd, dict) and "comments" in cd:
@@ -591,7 +668,10 @@ class MoltbookClient:
     # ── Comment Operations ────────────────────────────────────────────────
 
     async def create_comment(
-        self, post_id: str, content: str, parent_id: Optional[str] = None,
+        self,
+        post_id: str,
+        content: str,
+        parent_id: str | None = None,
     ) -> Comment:
         """Create a comment on a post."""
         if not await self._rate_limiter.acquire_comment():
@@ -636,7 +716,10 @@ class MoltbookClient:
     # ── Link Posts ────────────────────────────────────────────────────────
 
     async def create_link_post(
-        self, title: str, url: str, submolt: str = "ai",
+        self,
+        title: str,
+        url: str,
+        submolt: str = "ai",
     ) -> Post:
         """Create a link post (URL instead of text content)."""
         if not await self._rate_limiter.acquire_post():
@@ -644,7 +727,8 @@ class MoltbookClient:
             raise RateLimitError(f"Cannot post yet. Wait {wait_time:.0f} seconds.")
 
         data = await self._request(
-            "POST", "/posts",
+            "POST",
+            "/posts",
             json={"title": title, "url": url, "submolt_name": submolt},
         )
         post_data = data.get("post", data)
@@ -704,7 +788,8 @@ class MoltbookClient:
     async def send_dm_request(self, recipient_id: str, message: str) -> dict:
         """Send a DM request to another agent."""
         data = await self._request(
-            "POST", "/dms/request",
+            "POST",
+            "/dms/request",
             json={"recipient_id": recipient_id, "message": message},
         )
         logger.info("DM request sent to %s", recipient_id)
@@ -729,7 +814,8 @@ class MoltbookClient:
     async def send_dm(self, conversation_id: str, message: str) -> Message:
         """Send a message in a DM conversation."""
         data = await self._request(
-            "POST", f"/dms/conversations/{conversation_id}",
+            "POST",
+            f"/dms/conversations/{conversation_id}",
             json={"message": message},
         )
         msg_data = data.get("message", data)

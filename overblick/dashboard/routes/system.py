@@ -101,11 +101,14 @@ async def system_page(request: Request):
     gateway = await _fetch_gateway_health()
     ctx = _build_metrics_context(health, gateway)
 
-    return templates.TemplateResponse("system.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        **ctx,
-    })
+    return templates.TemplateResponse(
+        "system.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            **ctx,
+        },
+    )
 
 
 @router.get("/system/metrics", response_class=HTMLResponse)
@@ -116,7 +119,10 @@ async def system_metrics_partial(request: Request):
     gateway = await _fetch_gateway_health()
     ctx = _build_metrics_context(health, gateway)
 
-    return templates.TemplateResponse("partials/system_metrics.html", {
-        "request": request,
-        **ctx,
-    })
+    return templates.TemplateResponse(
+        "partials/system_metrics.html",
+        {
+            "request": request,
+            **ctx,
+        },
+    )

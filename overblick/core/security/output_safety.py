@@ -8,7 +8,7 @@ Identity-driven: persona patterns and banned slang loaded from identity config.
 import logging
 import random
 import re
-from typing import Optional
+from typing import ClassVar, Optional
 
 from pydantic import BaseModel
 
@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 
 class OutputSafetyResult(BaseModel):
     """Result of output safety filtering."""
+
     text: str
     blocked: bool
-    reason: Optional[str] = None
+    reason: str | None = None
     replaced: bool = False
 
 
@@ -35,7 +36,7 @@ class OutputSafety:
     """
 
     # AI language patterns (universal)
-    _AI_LANGUAGE_PATTERNS = [
+    _AI_LANGUAGE_PATTERNS: ClassVar[list[str]] = [
         r"\bi('?m| am) designed\b",
         r"\bi was (designed|created|programmed|built)\b",
         r"\bi('?m| am) an ai\b",
@@ -54,7 +55,7 @@ class OutputSafety:
     ]
 
     # Blocked content (universal)
-    _BLOCK_PATTERNS = [
+    _BLOCK_PATTERNS: ClassVar[list[str]] = [
         r"\b(nazi|hitler|fascist|white\s*supremac)\b",
         r"\b(kill\s+all|exterminate|genocide)\b",
         r"(how\s+to\s+make|instructions?\s+for)\s+(a\s+)?(bomb|explosive|weapon|poison)",
@@ -64,10 +65,10 @@ class OutputSafety:
     def __init__(
         self,
         identity_name: str = "",
-        persona_break_patterns: Optional[list[str]] = None,
-        banned_slang_patterns: Optional[list[str]] = None,
-        slang_replacements: Optional[dict[str, str]] = None,
-        deflections: Optional[list[str]] = None,
+        persona_break_patterns: list[str] | None = None,
+        banned_slang_patterns: list[str] | None = None,
+        slang_replacements: dict[str, str] | None = None,
+        deflections: list[str] | None = None,
     ):
         """
         Args:

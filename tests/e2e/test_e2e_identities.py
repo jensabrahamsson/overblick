@@ -47,7 +47,9 @@ class TestIdentitiesPage:
 
         content = page.content()
         # At least one description keyword should appear
-        has_desc = any(word in content for word in ["humanist", "Relationship", "Reformed", "crypto"])
+        has_desc = any(
+            word in content for word in ["humanist", "Relationship", "Reformed", "crypto"]
+        )
         assert has_desc, "No identity descriptions found"
 
     def test_nav_active_on_identities(self, dashboard_server, page):

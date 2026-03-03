@@ -42,7 +42,7 @@ class SummarizerCapability(CapabilityBase):
         self._max_tokens = self.ctx.config.get("max_tokens", 500)
         logger.info("SummarizerCapability initialized for %s", self.ctx.identity_name)
 
-    async def summarize(self, text: str, max_length: int = 100) -> Optional[str]:
+    async def summarize(self, text: str, max_length: int = 100) -> str | None:
         """
         Summarize text using the LLM pipeline.
 

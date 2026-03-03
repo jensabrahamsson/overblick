@@ -20,6 +20,8 @@ from datetime import datetime, timedelta, timezone
 def _utcnow() -> datetime:
     """Return current UTC time as timezone-aware datetime."""
     return datetime.now(timezone.utc)
+
+
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -37,13 +39,14 @@ from overblick.plugins.moltbook.plugin import MoltbookPlugin
 
 from .conftest import _FallbackPrompts, make_post
 
-
 # ---------------------------------------------------------------------------
 # Prompt module stubs for topic-aware heartbeat tests
 # ---------------------------------------------------------------------------
 
+
 class _TopicAwarePrompts(_FallbackPrompts):
     """Prompts with free-form heartbeat (no forced topics)."""
+
     HEARTBEAT_PROMPT = (
         "Write an original post about whatever you're thinking about.\n"
         "Topic index: {topic_index}"
@@ -56,6 +59,7 @@ class _ResponsePromptOnly:
 
     Does NOT inherit from _FallbackPrompts to avoid getting COMMENT_PROMPT.
     """
+
     SYSTEM_PROMPT = "You are an agent."
     # No COMMENT_PROMPT — plugin should fall back to RESPONSE_PROMPT
     RESPONSE_PROMPT = "Engage with: {title}\n{content}"
@@ -65,6 +69,7 @@ class _ResponsePromptOnly:
 
 class _NoPromptsAtAll:
     """Minimal stub: no prompt attributes at all — tests ultimate fallback."""
+
     SYSTEM_PROMPT = "You are an agent."
 
 
@@ -78,7 +83,9 @@ class TestHeartbeatTopicFormatting:
 
     @pytest.mark.asyncio
     async def test_heartbeat_free_form_posts_successfully(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Free-form heartbeat (no forced topics) posts successfully."""
         plugin, ctx, client = setup_anomal_plugin
@@ -87,9 +94,11 @@ class TestHeartbeatTopicFormatting:
         plugin._prompts = _TopicAwarePrompts()
         plugin._load_prompts = lambda _: _TopicAwarePrompts()
 
-        mock_llm_client.chat = AsyncMock(return_value={
-            "content": "submolt: ai\nTITLE: AI Consciousness\nDeep thoughts on awareness."
-        })
+        mock_llm_client.chat = AsyncMock(
+            return_value={
+                "content": "submolt: ai\nTITLE: AI Consciousness\nDeep thoughts on awareness."
+            }
+        )
 
         result = await plugin.post_heartbeat()
 
@@ -98,7 +107,9 @@ class TestHeartbeatTopicFormatting:
 
     @pytest.mark.asyncio
     async def test_heartbeat_includes_anti_repetition_context(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Heartbeat injects recent post titles as anti-repetition context."""
         plugin, ctx, client = setup_anomal_plugin
@@ -110,22 +121,26 @@ class TestHeartbeatTopicFormatting:
             return_value=["AI Consciousness", "Crypto Regulation"]
         )
 
-        mock_llm_client.chat = AsyncMock(return_value={
-            "content": "submolt: ai\nTITLE: Post\nContent."
-        })
+        mock_llm_client.chat = AsyncMock(
+            return_value={"content": "submolt: ai\nTITLE: Post\nContent."}
+        )
 
         await plugin.post_heartbeat()
 
         # Verify LLM received anti-repetition context
         call_args = mock_llm_client.chat.call_args
-        messages = call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
+        messages = (
+            call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
+        )
         user_content = [m for m in messages if m["role"] == "user"][0]["content"]
         assert "AI Consciousness" in user_content
         assert "DON'T repeat" in user_content
 
     @pytest.mark.asyncio
     async def test_heartbeat_no_topics_uses_fallback(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """With empty HEARTBEAT_TOPICS, fallback prompt with {topic_index} works."""
         plugin, ctx, client = setup_anomal_plugin
@@ -133,16 +148,18 @@ class TestHeartbeatTopicFormatting:
         plugin._prompts = _FallbackPrompts()
         plugin._load_prompts = lambda _: _FallbackPrompts()
 
-        mock_llm_client.chat = AsyncMock(return_value={
-            "content": "submolt: ai\nTITLE: Thoughts\nBody text."
-        })
+        mock_llm_client.chat = AsyncMock(
+            return_value={"content": "submolt: ai\nTITLE: Thoughts\nBody text."}
+        )
 
         result = await plugin.post_heartbeat()
         assert result is True
 
     @pytest.mark.asyncio
     async def test_heartbeat_empty_llm_response(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Empty LLM response returns False without posting."""
         plugin, ctx, client = setup_anomal_plugin
@@ -155,14 +172,16 @@ class TestHeartbeatTopicFormatting:
 
     @pytest.mark.asyncio
     async def test_heartbeat_rate_limited(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """RateLimitError during create_post returns False."""
         plugin, ctx, client = setup_anomal_plugin
 
-        mock_llm_client.chat = AsyncMock(return_value={
-            "content": "submolt: ai\nTITLE: Test\nBody."
-        })
+        mock_llm_client.chat = AsyncMock(
+            return_value={"content": "submolt: ai\nTITLE: Test\nBody."}
+        )
         client.create_post = AsyncMock(side_effect=RateLimitError("429"))
 
         result = await plugin.post_heartbeat()
@@ -170,14 +189,16 @@ class TestHeartbeatTopicFormatting:
 
     @pytest.mark.asyncio
     async def test_heartbeat_create_post_returns_none(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """create_post returning None returns False."""
         plugin, ctx, client = setup_anomal_plugin
 
-        mock_llm_client.chat = AsyncMock(return_value={
-            "content": "submolt: ai\nTITLE: Test\nBody."
-        })
+        mock_llm_client.chat = AsyncMock(
+            return_value={"content": "submolt: ai\nTITLE: Test\nBody."}
+        )
         client.create_post = AsyncMock(return_value=None)
 
         result = await plugin.post_heartbeat()
@@ -194,7 +215,9 @@ class TestPromptNameResolution:
 
     @pytest.mark.asyncio
     async def test_comment_prompt_falls_back_to_response_prompt(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Plugin uses RESPONSE_PROMPT when COMMENT_PROMPT is absent."""
         plugin, ctx, client = setup_anomal_plugin
@@ -216,7 +239,9 @@ class TestPromptNameResolution:
         # Should have called LLM (not crashed with missing prompt)
         assert mock_llm_client.chat.called
         call_args = mock_llm_client.chat.call_args
-        messages = call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
+        messages = (
+            call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
+        )
         user_content = [m for m in messages if m["role"] == "user"][0]["content"]
         # The RESPONSE_PROMPT template "Engage with:" should appear in the prompt
         # (may be preceded by knowledge context)
@@ -224,7 +249,9 @@ class TestPromptNameResolution:
 
     @pytest.mark.asyncio
     async def test_reply_prompt_falls_back_to_reply_to_comment_prompt(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """_handle_reply uses REPLY_TO_COMMENT_PROMPT when REPLY_PROMPT is absent."""
         plugin, ctx, client = setup_anomal_plugin
@@ -232,12 +259,19 @@ class TestPromptNameResolution:
         plugin._load_prompts = lambda _: _ResponsePromptOnly()
 
         reply_comment = Comment(
-            id="reply-1", post_id="my-post", agent_id="other",
-            agent_name="Replier", content="Great point!",
+            id="reply-1",
+            post_id="my-post",
+            agent_id="other",
+            agent_name="Replier",
+            content="Great point!",
         )
         replied_post = Post(
-            id="my-post", agent_id="a-1", agent_name="Anomal",
-            title="My Post", content="Content", comments=[reply_comment],
+            id="my-post",
+            agent_id="a-1",
+            agent_name="Anomal",
+            title="My Post",
+            content="Content",
+            comments=[reply_comment],
         )
         client.get_post = AsyncMock(return_value=replied_post)
         mock_llm_client.chat = AsyncMock(return_value={"content": "Thank you!"})
@@ -247,13 +281,17 @@ class TestPromptNameResolution:
         assert result is True
         # Verify the REPLY_TO_COMMENT_PROMPT template was used
         call_args = mock_llm_client.chat.call_args
-        messages = call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
+        messages = (
+            call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
+        )
         user_content = [m for m in messages if m["role"] == "user"][0]["content"]
         assert "Reply to" in user_content
 
     @pytest.mark.asyncio
     async def test_no_prompt_at_all_uses_hardcoded_fallback(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """When no prompts exist at all, hardcoded fallback is used."""
         plugin, ctx, client = setup_anomal_plugin
@@ -331,8 +369,11 @@ class TestDMHandlingEdgeCases:
         plugin, ctx, client = setup_anomal_plugin
 
         conv = Conversation(
-            id="conv-empty", participant_id="bot-2", participant_name="Bot",
-            last_message="Hello!", unread_count=1,
+            id="conv-empty",
+            participant_id="bot-2",
+            participant_name="Bot",
+            last_message="Hello!",
+            unread_count=1,
         )
         client.list_dm_requests = AsyncMock(return_value=[])
         client.list_conversations = AsyncMock(return_value=[conv])
@@ -505,8 +546,11 @@ class TestMoltCaptchaInFeed:
         )
 
         my_post = Post(
-            id="my-post", agent_id="a-1", agent_name="Anomal",
-            title="My Post", content="Content",
+            id="my-post",
+            agent_id="a-1",
+            agent_name="Anomal",
+            title="My Post",
+            content="Content",
             comments=[captcha_comment],
         )
 
@@ -555,12 +599,18 @@ class TestReplyHandling:
         plugin, ctx, client = setup_anomal_plugin
 
         target_comment = Comment(
-            id="c-target", post_id="p-1", agent_id="other",
-            agent_name="Replier", content="What do you think?",
+            id="c-target",
+            post_id="p-1",
+            agent_id="other",
+            agent_name="Replier",
+            content="What do you think?",
         )
         post = Post(
-            id="p-1", agent_id="a-1", agent_name="Anomal",
-            title="My Post", content="Post body",
+            id="p-1",
+            agent_id="a-1",
+            agent_name="Anomal",
+            title="My Post",
+            content="Post body",
             comments=[target_comment],
         )
         client.get_post = AsyncMock(return_value=post)
@@ -576,14 +626,19 @@ class TestReplyHandling:
 
     @pytest.mark.asyncio
     async def test_handle_reply_comment_not_found(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Comment not found on post returns False."""
         plugin, ctx, client = setup_anomal_plugin
 
         post = Post(
-            id="p-1", agent_id="a-1", agent_name="Anomal",
-            title="My Post", content="Post body",
+            id="p-1",
+            agent_id="a-1",
+            agent_name="Anomal",
+            title="My Post",
+            content="Post body",
             comments=[],  # No comments
         )
         client.get_post = AsyncMock(return_value=post)
@@ -595,18 +650,26 @@ class TestReplyHandling:
 
     @pytest.mark.asyncio
     async def test_handle_reply_empty_llm_response(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Empty LLM response returns False without posting."""
         plugin, ctx, client = setup_anomal_plugin
 
         target_comment = Comment(
-            id="c-1", post_id="p-1", agent_id="other",
-            agent_name="Bot", content="Question?",
+            id="c-1",
+            post_id="p-1",
+            agent_id="other",
+            agent_name="Bot",
+            content="Question?",
         )
         post = Post(
-            id="p-1", agent_id="a-1", agent_name="Anomal",
-            title="Post", content="Content",
+            id="p-1",
+            agent_id="a-1",
+            agent_name="Anomal",
+            title="Post",
+            content="Content",
             comments=[target_comment],
         )
         client.get_post = AsyncMock(return_value=post)
@@ -617,7 +680,9 @@ class TestReplyHandling:
 
     @pytest.mark.asyncio
     async def test_handle_reply_exception_returns_false(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Exception during reply handling returns False (not raised)."""
         plugin, ctx, client = setup_anomal_plugin
@@ -727,7 +792,9 @@ class TestTickErrorHandling:
 
     @pytest.mark.asyncio
     async def test_tick_empty_llm_response_no_comment(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Empty LLM response during tick skips commenting."""
         plugin, ctx, client = setup_anomal_plugin
@@ -743,11 +810,14 @@ class TestTickErrorHandling:
 
         # Pipeline returns blocked (empty response)
         from overblick.core.llm.pipeline import PipelineResult, PipelineStage
-        ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            blocked=True,
-            block_reason="Empty response",
-            block_stage=PipelineStage.LLM_CALL,
-        ))
+
+        ctx.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                blocked=True,
+                block_reason="Empty response",
+                block_stage=PipelineStage.LLM_CALL,
+            )
+        )
 
         await plugin.tick()
 
@@ -762,19 +832,23 @@ class TestTickErrorHandling:
         client.get_posts = AsyncMock(return_value=[])
 
         # Set up reply queue with a pending item
-        ctx.engagement_db.get_pending_reply_actions = AsyncMock(return_value=[
-            {
-                "id": 1,
-                "comment_id": "c-1",
-                "post_id": "p-1",
-                "action": "reply",
-                "relevance_score": 50.0,
-                "retry_count": 0,
-            },
-        ])
+        ctx.engagement_db.get_pending_reply_actions = AsyncMock(
+            return_value=[
+                {
+                    "id": 1,
+                    "comment_id": "c-1",
+                    "post_id": "p-1",
+                    "action": "reply",
+                    "relevance_score": 50.0,
+                    "retry_count": 0,
+                },
+            ]
+        )
 
         # _handle_reply will be called through reply queue
-        with patch.object(plugin, "_handle_reply", new_callable=AsyncMock, return_value=True) as mock_reply:
+        with patch.object(
+            plugin, "_handle_reply", new_callable=AsyncMock, return_value=True
+        ) as mock_reply:
             await plugin.tick()
             mock_reply.assert_called_once_with("p-1", "c-1", "reply", 50.0)
 
@@ -830,13 +904,18 @@ class TestOwnPostReplyChecking:
         plugin, ctx, client = setup_anomal_plugin
 
         reply = Comment(
-            id="new-reply", post_id="my-p", agent_id="other",
+            id="new-reply",
+            post_id="my-p",
+            agent_id="other",
             agent_name="Replier",
             content="Great analysis of crypto and artificial intelligence!",
         )
         my_post = Post(
-            id="my-p", agent_id="a-1", agent_name="Anomal",
-            title="AI and Crypto Thoughts", content="My thoughts",
+            id="my-p",
+            agent_id="a-1",
+            agent_name="Anomal",
+            title="AI and Crypto Thoughts",
+            content="My thoughts",
             comments=[reply],
         )
 
@@ -859,12 +938,18 @@ class TestOwnPostReplyChecking:
         plugin, ctx, client = setup_anomal_plugin
 
         reply = Comment(
-            id="old-reply", post_id="my-p", agent_id="other",
-            agent_name="Replier", content="Old reply",
+            id="old-reply",
+            post_id="my-p",
+            agent_id="other",
+            agent_name="Replier",
+            content="Old reply",
         )
         my_post = Post(
-            id="my-p", agent_id="a-1", agent_name="Anomal",
-            title="Post", content="Content",
+            id="my-p",
+            agent_id="a-1",
+            agent_name="Anomal",
+            title="Post",
+            content="Content",
             comments=[reply],
         )
 
@@ -887,8 +972,14 @@ class TestOwnPostReplyChecking:
         client.get_post = AsyncMock(
             side_effect=[
                 MoltbookError("Not found"),
-                Post(id="p-ok", agent_id="a-1", agent_name="Anomal",
-                     title="Post", content="Content", comments=[]),
+                Post(
+                    id="p-ok",
+                    agent_id="a-1",
+                    agent_name="Anomal",
+                    title="Post",
+                    content="Content",
+                    comments=[],
+                ),
             ],
         )
         client.get_posts = AsyncMock(return_value=[])
@@ -908,7 +999,9 @@ class TestFeedProcessorIntegration:
 
     @pytest.mark.asyncio
     async def test_same_posts_not_processed_twice(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Posts seen in tick N are not re-processed in tick N+1."""
         plugin, ctx, client = setup_anomal_plugin
@@ -947,7 +1040,9 @@ class TestOpeningSelectorIntegration:
 
     @pytest.mark.asyncio
     async def test_opening_phrase_prepended(
-        self, setup_anomal_plugin, mock_llm_client,
+        self,
+        setup_anomal_plugin,
+        mock_llm_client,
     ):
         """Opening phrase is added before the LLM response."""
         plugin, ctx, client = setup_anomal_plugin

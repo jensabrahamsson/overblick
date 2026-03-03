@@ -21,7 +21,12 @@ class TestAlertFormatter:
                 errors_found=1,
                 criticals_found=0,
                 entries=[
-                    LogEntry(identity="anomal", file_path="anomal.log", level="ERROR", message="LLM timeout"),
+                    LogEntry(
+                        identity="anomal",
+                        file_path="anomal.log",
+                        level="ERROR",
+                        message="LLM timeout",
+                    ),
                 ],
             ),
         ]
@@ -47,7 +52,12 @@ class TestAlertFormatter:
                 errors_found=0,
                 criticals_found=1,
                 entries=[
-                    LogEntry(identity="stal", file_path="stal.log", level="CRITICAL", message="Database corruption"),
+                    LogEntry(
+                        identity="stal",
+                        file_path="stal.log",
+                        level="CRITICAL",
+                        message="Database corruption",
+                    ),
                 ],
             ),
         ]
@@ -114,14 +124,18 @@ class TestAlertDeduplicator:
     def test_first_alert_passes(self):
         """First alert for an entry always passes."""
         dedup = AlertDeduplicator(cooldown_seconds=3600)
-        entry = LogEntry(identity="anomal", file_path="anomal.log", level="ERROR", message="Test error")
+        entry = LogEntry(
+            identity="anomal", file_path="anomal.log", level="ERROR", message="Test error"
+        )
 
         assert dedup.should_alert(entry) is True
 
     def test_duplicate_within_cooldown_blocked(self):
         """Same error within cooldown is blocked."""
         dedup = AlertDeduplicator(cooldown_seconds=3600)
-        entry = LogEntry(identity="anomal", file_path="anomal.log", level="ERROR", message="Test error")
+        entry = LogEntry(
+            identity="anomal", file_path="anomal.log", level="ERROR", message="Test error"
+        )
 
         dedup.should_alert(entry)  # First — passes
         assert dedup.should_alert(entry) is False  # Second — blocked
@@ -138,7 +152,9 @@ class TestAlertDeduplicator:
     def test_same_error_different_identity_both_pass(self):
         """Same message from different identities are separate alerts."""
         dedup = AlertDeduplicator(cooldown_seconds=3600)
-        entry1 = LogEntry(identity="anomal", file_path="a.log", level="ERROR", message="Shared error")
+        entry1 = LogEntry(
+            identity="anomal", file_path="a.log", level="ERROR", message="Shared error"
+        )
         entry2 = LogEntry(identity="stal", file_path="b.log", level="ERROR", message="Shared error")
 
         assert dedup.should_alert(entry1) is True

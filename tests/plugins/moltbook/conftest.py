@@ -26,7 +26,6 @@ from overblick.core.plugin_base import PluginContext
 from overblick.plugins.moltbook.models import Post, Comment
 from overblick.plugins.moltbook.plugin import MoltbookPlugin
 
-
 # ---------------------------------------------------------------------------
 # Identity fixtures
 # ---------------------------------------------------------------------------

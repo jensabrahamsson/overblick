@@ -5,16 +5,16 @@ The Supervisor (aka Boss Agent) manages multiple agent processes,
 handles inter-process communication, and arbitrates permission requests.
 """
 
-from overblick.supervisor.supervisor import Supervisor, SupervisorState
+from overblick.supervisor.ipc import IPCClient, IPCMessage, IPCServer
 from overblick.supervisor.process import AgentProcess, ProcessState
-from overblick.supervisor.ipc import IPCServer, IPCClient, IPCMessage
+from overblick.supervisor.supervisor import Supervisor, SupervisorState
 
 __all__ = [
-    "Supervisor",
-    "SupervisorState",
     "AgentProcess",
-    "ProcessState",
-    "IPCServer",
     "IPCClient",
     "IPCMessage",
+    "IPCServer",
+    "ProcessState",
+    "Supervisor",
+    "SupervisorState",
 ]

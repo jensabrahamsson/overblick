@@ -27,11 +27,15 @@ class TestGoalTracker:
     async def test_setup_creates_defaults(self, mock_db):
         """First setup creates default goals."""
         # First call returns empty (no goals), second returns defaults after creation
-        mock_db.get_goals = AsyncMock(side_effect=[
-            [],  # First call: no goals exist
-            [AgentGoal(name=g.name, description=g.description, priority=g.priority)
-             for g in DEFAULT_GOALS],  # Second call: after creation
-        ])
+        mock_db.get_goals = AsyncMock(
+            side_effect=[
+                [],  # First call: no goals exist
+                [
+                    AgentGoal(name=g.name, description=g.description, priority=g.priority)
+                    for g in DEFAULT_GOALS
+                ],  # Second call: after creation
+            ]
+        )
 
         tracker = GoalTracker(db=mock_db)
         await tracker.setup(default_goals=DEFAULT_GOALS)

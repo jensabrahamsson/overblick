@@ -74,13 +74,13 @@ class LogAgentPlugin(AgenticPluginBase):
 
     def __init__(self, ctx: PluginContext):
         super().__init__(ctx)
-        self._scanner: Optional[LogScanner] = None
+        self._scanner: LogScanner | None = None
         self._formatter = AlertFormatter()
         self._deduplicator = AlertDeduplicator()
         self._state = PluginState()
         self._check_interval: int = 300  # 5 minutes default
         self._dry_run: bool = True
-        self._last_observation: Optional[LogObservation] = None
+        self._last_observation: LogObservation | None = None
 
     async def setup(self) -> None:
         """Initialize the log agent."""
@@ -133,7 +133,8 @@ class LogAgentPlugin(AgenticPluginBase):
         mode = "DRY RUN" if self._dry_run else "LIVE"
         logger.info(
             "LogAgentPlugin [%s] setup for '%s' (scanning: %s)",
-            mode, self.ctx.identity_name,
+            mode,
+            self.ctx.identity_name,
             ", ".join(scan_identities),
         )
 
@@ -168,7 +169,8 @@ class LogAgentPlugin(AgenticPluginBase):
         return {
             ActionType.SCAN_LOGS.value: _ScanLogsHandler(self._scanner),
             ActionType.ANALYZE_PATTERN.value: _AnalyzePatternHandler(
-                self.ctx.llm_pipeline, self._dry_run,
+                self.ctx.llm_pipeline,
+                self._dry_run,
             ),
             ActionType.SEND_ALERT.value: _SendAlertHandler(
                 notify_fn=self._notify_principal,
@@ -250,6 +252,7 @@ class LogAgentPlugin(AgenticPluginBase):
 
 # ── Observer ────────────────────────────────────────────────────────────
 
+
 class _LogObserver:
     """Observer that scans logs across all configured identities."""
 
@@ -295,6 +298,7 @@ class _LogObserver:
 
 # ── Action Handlers ─────────────────────────────────────────────────────
 
+
 class _ScanLogsHandler:
     """Handler for scan_logs action.
 
@@ -336,13 +340,15 @@ class _AnalyzePatternHandler:
 
         if self._dry_run:
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result="DRY RUN: would analyze error patterns",
             )
 
         if not self._llm_pipeline or not isinstance(observation, LogObservation):
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error="LLM pipeline or observation not available",
             )
 
@@ -353,22 +359,25 @@ class _AnalyzePatternHandler:
 
         if not all_entries:
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result="No entries to analyze",
             )
 
         # Format entries for LLM
         entry_text = "\n".join(
-            f"[{e.identity}] [{e.level}] {e.message[:200]}"
-            for e in all_entries[:20]
+            f"[{e.identity}] [{e.level}] {e.message[:200]}" for e in all_entries[:20]
         )
 
         messages = [
-            {"role": "system", "content": (
-                "You are a log analysis expert. Analyze these log entries "
-                "and identify patterns, root causes, and recommended actions. "
-                "Be concise (3-5 sentences)."
-            )},
+            {
+                "role": "system",
+                "content": (
+                    "You are a log analysis expert. Analyze these log entries "
+                    "and identify patterns, root causes, and recommended actions. "
+                    "Be concise (3-5 sentences)."
+                ),
+            },
             {"role": "user", "content": f"Log entries:\n{entry_text}"},
         ]
 
@@ -380,14 +389,16 @@ class _AnalyzePatternHandler:
             )
             if result and not result.blocked and result.content:
                 return ActionOutcome(
-                    action=action, success=True,
+                    action=action,
+                    success=True,
                     result=f"Analysis: {result.content.strip()[:500]}",
                 )
         except Exception as e:
             logger.error("Log agent: analysis failed: %s", e, exc_info=True)
 
         return ActionOutcome(
-            action=action, success=False,
+            action=action,
+            success=False,
             error="LLM analysis failed",
         )
 
@@ -396,8 +407,11 @@ class _SendAlertHandler:
     """Handler for send_alert action."""
 
     def __init__(
-        self, notify_fn, formatter: AlertFormatter,
-        deduplicator: AlertDeduplicator, dry_run: bool = True,
+        self,
+        notify_fn,
+        formatter: AlertFormatter,
+        deduplicator: AlertDeduplicator,
+        dry_run: bool = True,
     ):
         self._notify_fn = notify_fn
         self._formatter = formatter
@@ -409,7 +423,8 @@ class _SendAlertHandler:
 
         if not isinstance(observation, LogObservation):
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error="No log observation available",
             )
 
@@ -417,29 +432,30 @@ class _SendAlertHandler:
         alertable_results: list[LogScanResult] = []
         all_alertable_entries = []
         for result in observation.scan_results:
-            alertable_entries = [
-                e for e in result.entries
-                if self._deduplicator.would_alert(e)
-            ]
+            alertable_entries = [e for e in result.entries if self._deduplicator.would_alert(e)]
             if alertable_entries:
                 all_alertable_entries.extend(alertable_entries)
-                alertable_results.append(LogScanResult(
-                    identity=result.identity,
-                    errors_found=sum(1 for e in alertable_entries if e.level == "ERROR"),
-                    criticals_found=sum(1 for e in alertable_entries if e.level == "CRITICAL"),
-                    entries=alertable_entries,
-                ))
+                alertable_results.append(
+                    LogScanResult(
+                        identity=result.identity,
+                        errors_found=sum(1 for e in alertable_entries if e.level == "ERROR"),
+                        criticals_found=sum(1 for e in alertable_entries if e.level == "CRITICAL"),
+                        entries=alertable_entries,
+                    )
+                )
 
         if not alertable_results:
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result="No new alerts to send (all deduplicated)",
             )
 
         message = self._formatter.format_scan_summary(alertable_results)
         if not message:
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result="No alerts to send",
             )
 
@@ -448,7 +464,8 @@ class _SendAlertHandler:
             for entry in all_alertable_entries:
                 self._deduplicator.record_sent(entry)
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"DRY RUN: would send alert ({len(alertable_results)} identities)",
             )
 
@@ -459,17 +476,20 @@ class _SendAlertHandler:
                 for entry in all_alertable_entries:
                     self._deduplicator.record_sent(entry)
                 return ActionOutcome(
-                    action=action, success=True,
+                    action=action,
+                    success=True,
                     result=f"Alert sent ({len(alertable_results)} identities)",
                 )
             except Exception as e:
                 return ActionOutcome(
-                    action=action, success=False,
+                    action=action,
+                    success=False,
                     error=f"Alert send failed: {e}",
                 )
 
         return ActionOutcome(
-            action=action, success=False,
+            action=action,
+            success=False,
             error="No notification function available",
         )
 
@@ -479,7 +499,9 @@ class _SkipHandler:
 
     async def handle(self, action: Any, observation: Any) -> Any:
         from overblick.core.agentic.models import ActionOutcome
+
         return ActionOutcome(
-            action=action, success=True,
+            action=action,
+            success=True,
             result=f"Skipped: {getattr(action, 'reasoning', 'no reason given')}",
         )

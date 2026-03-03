@@ -13,17 +13,17 @@ router = APIRouter()
 
 # Identity icons — keyed by identity name (lowercase)
 _IDENTITY_ICONS: dict[str, str] = {
-    "anomal": "\U0001f9ea",     # 🧪
-    "bjork": "\U0001f332",      # 🌲
-    "blixt": "\u26a1",          # ⚡
-    "cherry": "\U0001f352",     # 🍒
-    "natt": "\U0001f319",       # 🌙
-    "prisma": "\U0001f308",     # 🌈
-    "rost": "\u2693",           # ⚓
-    "smed": "\U0001f528",       # 🔨
-    "stal": "\U0001f4e7",       # 📧
-    "supervisor": "\U0001f441", # 👁
-    "vakt": "\U0001f6e1",       # 🛡
+    "anomal": "\U0001f9ea",  # 🧪
+    "bjork": "\U0001f332",  # 🌲
+    "blixt": "\u26a1",  # ⚡
+    "cherry": "\U0001f352",  # 🍒
+    "natt": "\U0001f319",  # 🌙
+    "prisma": "\U0001f308",  # 🌈
+    "rost": "\u2693",  # ⚓
+    "smed": "\U0001f528",  # 🔨
+    "stal": "\U0001f4e7",  # 📧
+    "supervisor": "\U0001f441",  # 👁
+    "vakt": "\U0001f6e1",  # 🛡
 }
 
 
@@ -47,10 +47,13 @@ async def identities_page(request: Request):
         identity["personality_data"] = personality_map.get(pref)
         identity["icon"] = _IDENTITY_ICONS.get(identity["name"].lower(), "")
 
-    return templates.TemplateResponse("identities.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "identities": identities,
-        "personalities": personalities,
-        "capability_bundles": capability_bundles,
-    })
+    return templates.TemplateResponse(
+        "identities.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "identities": identities,
+            "personalities": personalities,
+            "capability_bundles": capability_bundles,
+        },
+    )

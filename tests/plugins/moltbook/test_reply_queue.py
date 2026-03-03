@@ -17,8 +17,14 @@ async def test_process_empty_queue(mock_engagement_db):
 @pytest.mark.asyncio
 async def test_process_queue_success(mock_engagement_db):
     mock_engagement_db.get_pending_reply_actions.return_value = [
-        {"id": 1, "comment_id": "c1", "post_id": "p1", "action": "reply",
-         "relevance_score": 0.8, "retry_count": 0},
+        {
+            "id": 1,
+            "comment_id": "c1",
+            "post_id": "p1",
+            "action": "reply",
+            "relevance_score": 0.8,
+            "retry_count": 0,
+        },
     ]
 
     callback = AsyncMock(return_value=True)
@@ -34,8 +40,14 @@ async def test_process_queue_success(mock_engagement_db):
 @pytest.mark.asyncio
 async def test_process_queue_failure(mock_engagement_db):
     mock_engagement_db.get_pending_reply_actions.return_value = [
-        {"id": 1, "comment_id": "c1", "post_id": "p1", "action": "reply",
-         "relevance_score": 0.8, "retry_count": 0},
+        {
+            "id": 1,
+            "comment_id": "c1",
+            "post_id": "p1",
+            "action": "reply",
+            "relevance_score": 0.8,
+            "retry_count": 0,
+        },
     ]
 
     callback = AsyncMock(return_value=False)
@@ -49,8 +61,14 @@ async def test_process_queue_failure(mock_engagement_db):
 @pytest.mark.asyncio
 async def test_max_retries_exceeded(mock_engagement_db):
     mock_engagement_db.get_pending_reply_actions.return_value = [
-        {"id": 1, "comment_id": "c1", "post_id": "p1", "action": "reply",
-         "relevance_score": 0.8, "retry_count": 5},
+        {
+            "id": 1,
+            "comment_id": "c1",
+            "post_id": "p1",
+            "action": "reply",
+            "relevance_score": 0.8,
+            "retry_count": 5,
+        },
     ]
 
     manager = ReplyQueueManager(engagement_db=mock_engagement_db, max_retries=3)

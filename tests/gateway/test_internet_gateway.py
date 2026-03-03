@@ -126,9 +126,7 @@ def client(
     gw._http_client = None
 
 
-def _create_key_and_header(
-    key_manager: APIKeyManager, name: str = "test"
-) -> tuple[str, dict]:
+def _create_key_and_header(key_manager: APIKeyManager, name: str = "test") -> tuple[str, dict]:
     """Helper: create a key and return (raw_key, auth_header_dict)."""
     raw_key, _ = key_manager.create_key(name=name)
     return raw_key, {"Authorization": f"Bearer {raw_key}"}
@@ -195,9 +193,7 @@ class TestAuthentication:
         )
         assert response.status_code == 200
 
-    def test_bearer_prefix_required(
-        self, client: TestClient, key_manager: APIKeyManager
-    ):
+    def test_bearer_prefix_required(self, client: TestClient, key_manager: APIKeyManager):
         raw_key, _ = _create_key_and_header(key_manager)
 
         # Missing "Bearer " prefix
@@ -283,9 +279,7 @@ class TestChatCompletions:
         proxied_body = json.loads(call_args.kwargs["content"])
         assert proxied_body["max_tokens"] <= 4096
 
-    def test_invalid_body_returns_400(
-        self, client: TestClient, key_manager: APIKeyManager
-    ):
+    def test_invalid_body_returns_400(self, client: TestClient, key_manager: APIKeyManager):
         raw_key, headers = _create_key_and_header(key_manager)
 
         response = client.post(
@@ -296,9 +290,7 @@ class TestChatCompletions:
         assert response.status_code == 400
         assert response.json()["error"]["type"] == "invalid_request_error"
 
-    def test_extra_fields_rejected(
-        self, client: TestClient, key_manager: APIKeyManager
-    ):
+    def test_extra_fields_rejected(self, client: TestClient, key_manager: APIKeyManager):
         raw_key, headers = _create_key_and_header(key_manager)
 
         response = client.post(

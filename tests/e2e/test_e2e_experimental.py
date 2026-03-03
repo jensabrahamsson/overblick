@@ -92,9 +92,7 @@ class TestCompassPageLoads:
         page.wait_for_load_state("networkidle")
 
         grid = page.locator(".compass-grid")
-        grid_style = grid.evaluate(
-            "el => getComputedStyle(el).gridTemplateColumns"
-        )
+        grid_style = grid.evaluate("el => getComputedStyle(el).gridTemplateColumns")
         # Single column should have only one value (no space-separated columns)
         column_count = len(grid_style.split(" "))
         assert column_count == 1, f"Expected 1 column at 375px, got: {grid_style}"
@@ -142,9 +140,7 @@ class TestSkuggspelPageLoads:
         # Cards should have shadow-content with italic text
         content = page.locator(".shadow-content")
         assert content.count() >= 2
-        first_style = content.first.evaluate(
-            "el => getComputedStyle(el).fontStyle"
-        )
+        first_style = content.first.evaluate("el => getComputedStyle(el).fontStyle")
         assert first_style == "italic"
 
     def test_skuggspel_accessibility(self, dashboard_server, page):
@@ -186,9 +182,7 @@ class TestSkuggspelPageLoads:
         page.wait_for_load_state("networkidle")
 
         grid = page.locator(".detail-grid")
-        grid_style = grid.evaluate(
-            "el => getComputedStyle(el).gridTemplateColumns"
-        )
+        grid_style = grid.evaluate("el => getComputedStyle(el).gridTemplateColumns")
         column_count = len(grid_style.split(" "))
         assert column_count == 1, f"Expected 1 column at 375px, got: {grid_style}"
 

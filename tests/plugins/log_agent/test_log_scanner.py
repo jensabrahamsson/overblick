@@ -83,9 +83,7 @@ class TestScanFile:
         scanner.set_offset(str(log_file), offset)
 
         # Simulate rotation: write smaller content
-        log_file.write_text(
-            "2026-02-26 04:00:00,000 - core - ERROR - New error after rotation\n"
-        )
+        log_file.write_text("2026-02-26 04:00:00,000 - core - ERROR - New error after rotation\n")
 
         entries, new_offset = scanner.scan_file(log_file, "anomal")
         assert len(entries) == 1

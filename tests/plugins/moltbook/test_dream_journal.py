@@ -19,10 +19,10 @@ from overblick.capabilities.engagement.response_gen import ResponseGenerator
 from overblick.capabilities.psychology.dream_system import Dream, DreamTone, DreamType
 from overblick.plugins.moltbook.models import Post
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_dream(**overrides) -> Dream:
     """Create a test Dream instance."""
@@ -41,6 +41,7 @@ def _make_dream(**overrides) -> Dream:
 
 class _MockPromptsWithDreamJournal:
     """Prompts module with DREAM_JOURNAL_PROMPT."""
+
     SYSTEM_PROMPT = "You are a test agent."
     COMMENT_PROMPT = "Respond to: {title}\n{content}"
     REPLY_PROMPT = "Reply to: {comment}\nOn post: {title}"
@@ -59,6 +60,7 @@ class _MockPromptsWithDreamJournal:
 
 class _MockPromptsNoDreamJournal:
     """Prompts module WITHOUT DREAM_JOURNAL_PROMPT."""
+
     SYSTEM_PROMPT = "You are a test agent."
     COMMENT_PROMPT = "Respond to: {title}\n{content}"
 
@@ -67,15 +69,18 @@ class _MockPromptsNoDreamJournal:
 # ResponseGenerator.generate_dream_post()
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateDreamPost:
     @pytest.mark.asyncio
     async def test_formats_all_dream_fields(self):
         """All dream fields are passed to the prompt template."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
-            blocked=False,
-            content="SUBMOLT: philosophy\nTITLE: Morning Fragments: Mirrors\n\nThe dream content...",
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=False,
+                content="SUBMOLT: philosophy\nTITLE: Morning Fragments: Mirrors\n\nThe dream content...",
+            )
+        )
 
         gen = ResponseGenerator(llm_pipeline=mock_pipeline, system_prompt="Test")
         dream = _make_dream()
@@ -102,9 +107,12 @@ class TestGenerateDreamPost:
     async def test_llm_failure_returns_none(self):
         """LLM returning None produces no result."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
-            blocked=False, content=None,
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=False,
+                content=None,
+            )
+        )
 
         gen = ResponseGenerator(llm_pipeline=mock_pipeline, system_prompt="Test")
         result = await gen.generate_dream_post(
@@ -117,9 +125,13 @@ class TestGenerateDreamPost:
     async def test_blocked_returns_none(self):
         """Pipeline blocking the request returns None."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
-            blocked=True, block_reason="test", block_stage=MagicMock(value="output_safety"),
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=True,
+                block_reason="test",
+                block_stage=MagicMock(value="output_safety"),
+            )
+        )
 
         gen = ResponseGenerator(llm_pipeline=mock_pipeline, system_prompt="Test")
         result = await gen.generate_dream_post(
@@ -144,10 +156,13 @@ class TestGenerateDreamPost:
 # MoltbookPlugin._maybe_post_dream_journal()
 # ---------------------------------------------------------------------------
 
+
 class TestMaybePostDreamJournal:
     """Tests for the dream journal posting mechanism in MoltbookPlugin."""
 
-    def _make_plugin(self, mock_moltbook_client, mock_response_gen, dream_cap=None, prompts_cls=None):
+    def _make_plugin(
+        self, mock_moltbook_client, mock_response_gen, dream_cap=None, prompts_cls=None
+    ):
         """Create a minimal MoltbookPlugin with mocks wired in."""
         from overblick.plugins.moltbook.plugin import MoltbookPlugin
 
@@ -176,17 +191,24 @@ class TestMaybePostDreamJournal:
     async def test_posts_dream_journal(self):
         """Happy path: dream exists, prompt exists, LLM succeeds — journal is posted."""
         mock_client = AsyncMock()
-        mock_client.create_post = AsyncMock(return_value=Post(
-            id="post-dream-001", agent_id="agent-001", agent_name="Anomal",
-            title="Morning Fragments: Mirrors", content="Dream content",
-        ))
+        mock_client.create_post = AsyncMock(
+            return_value=Post(
+                id="post-dream-001",
+                agent_id="agent-001",
+                agent_name="Anomal",
+                title="Morning Fragments: Mirrors",
+                content="Dream content",
+            )
+        )
 
         mock_gen = AsyncMock()
-        mock_gen.generate_dream_post = AsyncMock(return_value=(
-            "Morning Fragments: Mirrors",
-            "The dream was haunting and beautiful...",
-            "philosophy",
-        ))
+        mock_gen.generate_dream_post = AsyncMock(
+            return_value=(
+                "Morning Fragments: Mirrors",
+                "The dream was haunting and beautiful...",
+                "philosophy",
+            )
+        )
 
         dream_cap = MagicMock()
         dream_cap.last_dream = _make_dream()
@@ -244,7 +266,9 @@ class TestMaybePostDreamJournal:
 
         mock_gen = AsyncMock()
         plugin = self._make_plugin(
-            AsyncMock(), mock_gen, dream_cap,
+            AsyncMock(),
+            mock_gen,
+            dream_cap,
             prompts_cls=_MockPromptsNoDreamJournal,
         )
 
@@ -273,9 +297,13 @@ class TestMaybePostDreamJournal:
         dream_cap.last_dream = _make_dream()
 
         mock_gen = AsyncMock()
-        mock_gen.generate_dream_post = AsyncMock(return_value=(
-            "Title", "Content", "philosophy",
-        ))
+        mock_gen.generate_dream_post = AsyncMock(
+            return_value=(
+                "Title",
+                "Content",
+                "philosophy",
+            )
+        )
 
         mock_client = AsyncMock()
         mock_client.create_post = AsyncMock(return_value=None)
@@ -294,9 +322,13 @@ class TestMaybePostDreamJournal:
         dream_cap.last_dream = _make_dream()
 
         mock_gen = AsyncMock()
-        mock_gen.generate_dream_post = AsyncMock(return_value=(
-            "Title", "Content", "philosophy",
-        ))
+        mock_gen.generate_dream_post = AsyncMock(
+            return_value=(
+                "Title",
+                "Content",
+                "philosophy",
+            )
+        )
 
         mock_client = AsyncMock()
         mock_client.create_post = AsyncMock(side_effect=RateLimitError("rate limited"))
@@ -314,9 +346,13 @@ class TestMaybePostDreamJournal:
         dream_cap.last_dream = _make_dream()
 
         mock_gen = AsyncMock()
-        mock_gen.generate_dream_post = AsyncMock(return_value=(
-            "Title", "Content", "philosophy",
-        ))
+        mock_gen.generate_dream_post = AsyncMock(
+            return_value=(
+                "Title",
+                "Content",
+                "philosophy",
+            )
+        )
 
         mock_client = AsyncMock()
         mock_client.create_post = AsyncMock(side_effect=SuspensionError("suspended"))
@@ -340,7 +376,10 @@ class TestMaybePostDreamJournal:
         call_kwargs = mock_gen.generate_dream_post.call_args.kwargs
         dream_dict = call_kwargs["dream"]
         assert dream_dict["dream_type"] == "shadow_integration"
-        assert dream_dict["content"] == "I walked through a hall of mirrors and each reflection showed a different face."
+        assert (
+            dream_dict["content"]
+            == "I walked through a hall of mirrors and each reflection showed a different face."
+        )
         assert "mirror" in dream_dict["symbols"]
         assert call_kwargs["extra_format_vars"]["submolt_instruction"] == "Choose a submolt."
 
@@ -364,6 +403,7 @@ class TestMaybePostDreamJournal:
 # DreamCapability.last_dream integration
 # ---------------------------------------------------------------------------
 
+
 class TestDreamCapabilityLastDream:
     @pytest.mark.asyncio
     async def test_last_dream_set_after_tick(self):
@@ -379,6 +419,7 @@ class TestDreamCapabilityLastDream:
         cap = DreamCapability(ctx)
         # Set up inner dream system directly
         from overblick.capabilities.psychology.dream_system import DreamSystem
+
         cap._dream_system = DreamSystem()
 
         assert cap.last_dream is None
@@ -388,6 +429,7 @@ class TestDreamCapabilityLastDream:
         with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
             from datetime import datetime
             from zoneinfo import ZoneInfo
+
             mock_now = datetime(2026, 2, 24, 6, 30, tzinfo=ZoneInfo("Europe/Stockholm"))
             mock_dt.now.return_value = mock_now
 
@@ -399,6 +441,7 @@ class TestDreamCapabilityLastDream:
     def test_last_dream_none_initially(self):
         """last_dream is None before any dream is generated."""
         from overblick.capabilities.psychology.dream import DreamCapability
+
         ctx = MagicMock()
         ctx.identity_name = "test"
         cap = DreamCapability(ctx)

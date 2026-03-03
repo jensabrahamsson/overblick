@@ -63,7 +63,7 @@ class KontrastPlugin(PluginBase):
         self._pieces: list[KontrastPiece] = []
         self._seen_topic_hashes: set[str] = set()
         self._last_run: float = 0.0
-        self._state_file: Optional[Any] = None
+        self._state_file: Any | None = None
         self._tick_count: int = 0
 
     async def setup(self) -> None:
@@ -75,9 +75,7 @@ class KontrastPlugin(PluginBase):
         kontrast_config = raw_config.get("kontrast", {})
 
         self._feeds = kontrast_config.get("feeds", _DEFAULT_FEEDS)
-        self._interval_hours = kontrast_config.get(
-            "interval_hours", _DEFAULT_INTERVAL_HOURS
-        )
+        self._interval_hours = kontrast_config.get("interval_hours", _DEFAULT_INTERVAL_HOURS)
         self._min_articles = kontrast_config.get("min_articles", _DEFAULT_MIN_ARTICLES)
 
         # Discover available identities (or use configured subset)
@@ -212,20 +210,20 @@ class KontrastPlugin(PluginBase):
                     summary = entry.get("summary", entry.get("description", ""))[:500]
 
                     if title:
-                        articles.append({
-                            "title": title,
-                            "summary": summary,
-                            "feed": feed_name,
-                        })
+                        articles.append(
+                            {
+                                "title": title,
+                                "summary": summary,
+                                "feed": feed_name,
+                            }
+                        )
             except Exception as e:
                 logger.error("KontrastPlugin: feed error %s: %s", feed_url, e)
 
         articles = articles[:_MAX_ARTICLES]
         return articles
 
-    async def _extract_topic(
-        self, articles: list[dict[str, str]]
-    ) -> tuple[str, str]:
+    async def _extract_topic(self, articles: list[dict[str, str]]) -> tuple[str, str]:
         """Use LLM to extract the dominant topic from articles."""
         pipeline = self.ctx.llm_pipeline
         if not pipeline:
@@ -283,9 +281,7 @@ class KontrastPlugin(PluginBase):
         except (json.JSONDecodeError, KeyError):
             return articles[0]["title"], articles[0].get("summary", "")
 
-    async def _generate_perspectives(
-        self, topic: str, summary: str
-    ) -> list[PerspectiveEntry]:
+    async def _generate_perspectives(self, topic: str, summary: str) -> list[PerspectiveEntry]:
         """Generate a perspective from each identity."""
         pipeline = self.ctx.llm_pipeline
         if not pipeline:
@@ -296,9 +292,7 @@ class KontrastPlugin(PluginBase):
         for identity_name in self._identity_names:
             try:
                 identity = self.ctx.load_identity(identity_name)
-                system_prompt = self.ctx.build_system_prompt(
-                    identity, platform="Kontrast Panel"
-                )
+                system_prompt = self.ctx.build_system_prompt(identity, platform="Kontrast Panel")
 
                 safe_topic = wrap_external_content(topic, "kontrast_topic")
                 safe_summary = wrap_external_content(summary, "kontrast_summary")
@@ -363,7 +357,7 @@ class KontrastPlugin(PluginBase):
         """Get recent Kontrast pieces (newest first)."""
         return list(reversed(self._pieces[-limit:]))
 
-    def get_piece_by_hash(self, topic_hash: str) -> Optional[KontrastPiece]:
+    def get_piece_by_hash(self, topic_hash: str) -> KontrastPiece | None:
         """Get a specific piece by topic hash."""
         for piece in self._pieces:
             if piece.topic_hash == topic_hash:
@@ -397,9 +391,7 @@ class KontrastPlugin(PluginBase):
                 data = {
                     "last_run": self._last_run,
                     "seen_topic_hashes": list(self._seen_topic_hashes),
-                    "pieces": [
-                        p.model_dump() for p in self._pieces[-_MAX_PIECES_STORED:]
-                    ],
+                    "pieces": [p.model_dump() for p in self._pieces[-_MAX_PIECES_STORED:]],
                 }
                 self._state_file.parent.mkdir(parents=True, exist_ok=True)
                 self._state_file.write_text(json.dumps(data, indent=2))

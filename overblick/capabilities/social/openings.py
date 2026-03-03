@@ -7,8 +7,8 @@ Selects varied opening phrases for agent responses to avoid repetition.
 import logging
 from typing import Optional
 
-from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.capabilities.social.opening_selector import OpeningSelector
+from overblick.core.capability import CapabilityBase, CapabilityContext
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class OpeningCapability(CapabilityBase):
 
     def __init__(self, ctx: CapabilityContext):
         super().__init__(ctx)
-        self._selector: Optional[OpeningSelector] = None
+        self._selector: OpeningSelector | None = None
 
     async def setup(self) -> None:
         phrases = self.ctx.config.get("opening_phrases", None)
@@ -40,6 +40,6 @@ class OpeningCapability(CapabilityBase):
         return self._selector.select()
 
     @property
-    def inner(self) -> Optional[OpeningSelector]:
+    def inner(self) -> OpeningSelector | None:
         """Access the underlying OpeningSelector (for tests/migration)."""
         return self._selector

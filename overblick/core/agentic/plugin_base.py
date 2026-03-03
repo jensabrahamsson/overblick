@@ -24,7 +24,7 @@ from overblick.core.agentic.models import AgentGoal, TickLog
 from overblick.core.agentic.planner import ActionPlanner
 from overblick.core.agentic.protocols import ActionHandler, Observer, PlanningPromptConfig
 from overblick.core.agentic.reflection import ReflectionPipeline
-from overblick.core.database.base import DatabaseBackend, MigrationManager, Migration
+from overblick.core.database.base import DatabaseBackend, Migration, MigrationManager
 from overblick.core.plugin_base import PluginBase, PluginContext
 
 logger = logging.getLogger(__name__)
@@ -51,9 +51,9 @@ class AgenticPluginBase(PluginBase):
 
     def __init__(self, ctx: PluginContext):
         super().__init__(ctx)
-        self._agentic_db: Optional[AgenticDB] = None
-        self._goal_tracker: Optional[GoalTracker] = None
-        self._agent_loop: Optional[AgentLoop] = None
+        self._agentic_db: AgenticDB | None = None
+        self._goal_tracker: GoalTracker | None = None
+        self._agent_loop: AgentLoop | None = None
         self._max_actions_per_tick: int = 5
 
     # ── Abstract methods (plugin MUST implement) ─────────────────────────
@@ -84,7 +84,7 @@ class AgenticPluginBase(PluginBase):
         """Return domain-specific learning categories for reflection. Override in subclass."""
         return "general"
 
-    def get_valid_action_types(self) -> Optional[set[str]]:
+    def get_valid_action_types(self) -> set[str] | None:
         """Return set of valid action type strings. None = accept all."""
         return set(self.get_action_handlers().keys())
 
@@ -101,7 +101,7 @@ class AgenticPluginBase(PluginBase):
     async def setup_agentic_db(
         self,
         backend: DatabaseBackend,
-        extra_migrations: Optional[list[Migration]] = None,
+        extra_migrations: list[Migration] | None = None,
     ) -> AgenticDB:
         """
         Set up the agentic database layer.
@@ -187,7 +187,7 @@ class AgenticPluginBase(PluginBase):
 
         return self._agent_loop
 
-    async def agentic_tick(self) -> Optional[TickLog]:
+    async def agentic_tick(self) -> TickLog | None:
         """
         Run one agentic tick cycle.
 
@@ -201,11 +201,11 @@ class AgenticPluginBase(PluginBase):
         return await self._agent_loop.tick()
 
     @property
-    def goal_tracker(self) -> Optional[GoalTracker]:
+    def goal_tracker(self) -> GoalTracker | None:
         """Access the goal tracker (available after setup_agentic_loop)."""
         return self._goal_tracker
 
     @property
-    def agentic_db(self) -> Optional[AgenticDB]:
+    def agentic_db(self) -> AgenticDB | None:
         """Access the agentic DB (available after setup_agentic_db)."""
         return self._agentic_db

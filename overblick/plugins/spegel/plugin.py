@@ -49,7 +49,7 @@ class SpegelPlugin(PluginBase):
         self._configured_pairs: list[tuple[str, str]] = []
         self._pairs: list[SpegelPair] = []
         self._last_run: float = 0.0
-        self._state_file: Optional[Any] = None
+        self._state_file: Any | None = None
         self._tick_count: int = 0
 
     async def setup(self) -> None:
@@ -60,16 +60,12 @@ class SpegelPlugin(PluginBase):
         raw_config = identity.raw_config
         spegel_config = raw_config.get("spegel", {})
 
-        self._interval_hours = spegel_config.get(
-            "interval_hours", _DEFAULT_INTERVAL_HOURS
-        )
+        self._interval_hours = spegel_config.get("interval_hours", _DEFAULT_INTERVAL_HOURS)
 
         # Build identity pairs
         configured = spegel_config.get("pairs", [])
         if configured:
-            self._configured_pairs = [
-                (p["observer"], p["target"]) for p in configured
-            ]
+            self._configured_pairs = [(p["observer"], p["target"]) for p in configured]
         else:
             # Default: generate interesting cross-pairs from all identities
             identities = spegel_config.get("identities", list_identities())
@@ -133,9 +129,7 @@ class SpegelPlugin(PluginBase):
             logger.error("SpegelPlugin pipeline error: %s", e, exc_info=True)
             self._save_state()
 
-    async def _generate_pair(
-        self, observer_name: str, target_name: str
-    ) -> Optional[SpegelPair]:
+    async def _generate_pair(self, observer_name: str, target_name: str) -> SpegelPair | None:
         """Generate a complete profile + reflection pair."""
         pipeline = self.ctx.llm_pipeline
         if not pipeline:
@@ -149,9 +143,7 @@ class SpegelPlugin(PluginBase):
             return None
 
         # Step 1: Observer profiles the target
-        observer_prompt = self.ctx.build_system_prompt(
-            observer, platform="Spegel Analysis"
-        )
+        observer_prompt = self.ctx.build_system_prompt(observer, platform="Spegel Analysis")
 
         # Gather target's personality summary for the observer
         target_summary = self._build_target_summary(target)
@@ -183,9 +175,7 @@ class SpegelPlugin(PluginBase):
         )
 
         if profile_result.blocked or not profile_result.content:
-            logger.warning(
-                "SpegelPlugin: profile %s->%s blocked", observer_name, target_name
-            )
+            logger.warning("SpegelPlugin: profile %s->%s blocked", observer_name, target_name)
             return None
 
         profile = Profile(
@@ -197,9 +187,7 @@ class SpegelPlugin(PluginBase):
         )
 
         # Step 2: Target reflects on the profile
-        target_prompt = self.ctx.build_system_prompt(
-            target, platform="Spegel Reflection"
-        )
+        target_prompt = self.ctx.build_system_prompt(target, platform="Spegel Reflection")
 
         reflection_messages = [
             {"role": "system", "content": target_prompt},
@@ -229,9 +217,7 @@ class SpegelPlugin(PluginBase):
         )
 
         if reflection_result.blocked or not reflection_result.content:
-            logger.warning(
-                "SpegelPlugin: reflection %s blocked", target_name
-            )
+            logger.warning("SpegelPlugin: reflection %s blocked", target_name)
             return None
 
         reflection = Reflection(
@@ -271,18 +257,14 @@ class SpegelPlugin(PluginBase):
                 parts.append(f"Background: {'. '.join(sentences)}.")
         return "\n".join(parts) if parts else f"{target.display_name} is an agent."
 
-    def _build_default_pairs(
-        self, identities: list[str]
-    ) -> list[tuple[str, str]]:
+    def _build_default_pairs(self, identities: list[str]) -> list[tuple[str, str]]:
         """Build interesting cross-pairs from available identities.
 
         Instead of all N*(N-1) pairs, pick a diverse selection.
         """
         if len(identities) <= 4:
             # Small enough to do all pairs
-            return [
-                (a, b) for a in identities for b in identities if a != b
-            ]
+            return [(a, b) for a in identities for b in identities if a != b]
 
         # For larger sets, create a ring + a few cross-links
         pairs: list[tuple[str, str]] = []
@@ -309,11 +291,7 @@ class SpegelPlugin(PluginBase):
 
     def get_pairs_for_identity(self, name: str) -> list[SpegelPair]:
         """Get all pairs involving a specific identity."""
-        return [
-            p
-            for p in self._pairs
-            if p.observer_name == name or p.target_name == name
-        ]
+        return [p for p in self._pairs if p.observer_name == name or p.target_name == name]
 
     def _is_run_time(self) -> bool:
         if self._last_run == 0.0:
@@ -336,9 +314,7 @@ class SpegelPlugin(PluginBase):
             try:
                 data = {
                     "last_run": self._last_run,
-                    "pairs": [
-                        p.model_dump() for p in self._pairs[-_MAX_PAIRS_STORED:]
-                    ],
+                    "pairs": [p.model_dump() for p in self._pairs[-_MAX_PAIRS_STORED:]],
                 }
                 self._state_file.parent.mkdir(parents=True, exist_ok=True)
                 self._state_file.write_text(json.dumps(data, indent=2))

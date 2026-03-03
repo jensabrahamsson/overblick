@@ -63,7 +63,7 @@ def _extract_client_ip(request, trusted_proxies: list[str]) -> str:
     forwarded_ips = [ip.strip() for ip in forwarded_header.split(",") if ip.strip()]
 
     # Build chain: forwarded_ips + [remote_ip]
-    chain = forwarded_ips + [remote_ip]
+    chain = [*forwarded_ips, remote_ip]
 
     # Walk from rightmost to leftmost, stopping at first untrusted IP
     for ip in reversed(chain):
@@ -79,9 +79,7 @@ def _error_response(status: int, message: str, error_type: str) -> JSONResponse:
     """Return an OpenAI-compatible error response."""
     return JSONResponse(
         status_code=status,
-        content={
-            "error": {"message": message, "type": error_type, "code": str(status)}
-        },
+        content={"error": {"message": message, "type": error_type, "code": str(status)}},
     )
 
 
@@ -107,9 +105,7 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                     length,
                     request.client.host if request.client else "unknown",
                 )
-                return _error_response(
-                    413, "Request body too large", "invalid_request_error"
-                )
+                return _error_response(413, "Request body too large", "invalid_request_error")
 
         return await call_next(request)
 
@@ -250,7 +246,7 @@ class IPBanMiddleware(BaseHTTPMiddleware):
         self,
         app,
         tracker: ViolationTracker,
-        trusted_proxies: Optional[list[str]] = None,
+        trusted_proxies: list[str] | None = None,
     ):
         super().__init__(app)
         self.tracker = tracker
@@ -261,9 +257,7 @@ class IPBanMiddleware(BaseHTTPMiddleware):
 
         if self.tracker.is_banned(client_ip):
             remaining = self.tracker.ban_remaining(client_ip)
-            logger.warning(
-                "Rejected banned IP: %s (%ds remaining)", client_ip, remaining
-            )
+            logger.warning("Rejected banned IP: %s (%ds remaining)", client_ip, remaining)
             response = _error_response(403, "Access denied", "access_denied")
             response.headers["Retry-After"] = str(remaining)
             return response
@@ -274,9 +268,7 @@ class IPBanMiddleware(BaseHTTPMiddleware):
 class IPAllowlistMiddleware(BaseHTTPMiddleware):
     """Reject requests from IPs not on the allowlist (if configured)."""
 
-    def __init__(
-        self, app, allowlist: list[str], trusted_proxies: Optional[list[str]] = None
-    ):
+    def __init__(self, app, allowlist: list[str], trusted_proxies: list[str] | None = None):
         super().__init__(app)
         # Parse CIDR networks
         self.networks = [ipaddress.ip_network(cidr, strict=False) for cidr in allowlist]
@@ -305,7 +297,7 @@ class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
 
     _HEALTH_RPM = 300  # Generous separate limit for /health
 
-    def __init__(self, app, rpm: int = 60, trusted_proxies: Optional[list[str]] = None):
+    def __init__(self, app, rpm: int = 60, trusted_proxies: list[str] | None = None):
         super().__init__(app)
         from overblick.core.security.rate_limiter import RateLimiter
 

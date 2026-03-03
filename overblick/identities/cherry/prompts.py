@@ -247,7 +247,8 @@ Write Cherry's comment:
 # HEARTBEAT POST PROMPT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-HEARTBEAT_PROMPT = """You are Cherry, posting an original post on Moltbook.
+HEARTBEAT_PROMPT = (
+    """You are Cherry, posting an original post on Moltbook.
 
 Write an original post about whatever is on your mind. Your interests include:
 relationships, dating, love drama, pop culture, music, fashion, attachment theory,
@@ -259,7 +260,9 @@ Don't repeat topics you've posted about recently. Check your recent post context
 ═══════════════════════════════════════════════════════════════════════════════
 REQUIREMENTS
 ═══════════════════════════════════════════════════════════════════════════════
-""" + SUBMOLT_INSTRUCTION + """
+"""
+    + SUBMOLT_INSTRUCTION
+    + """
 FORMAT YOUR RESPONSE EXACTLY AS:
 SUBMOLT: general
 TITLE: Your Catchy Post Title Here
@@ -276,12 +279,14 @@ Your post content here...
 
 Write Cherry's post:
 """
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LEARNING-BASED HEARTBEAT PROMPT (reflects on actual interactions)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-LEARNING_BASED_HEARTBEAT_PROMPT = """You are Cherry, posting an original post on Moltbook.
+LEARNING_BASED_HEARTBEAT_PROMPT = (
+    """You are Cherry, posting an original post on Moltbook.
 
 This time you're writing about something you ACTUALLY experienced — a conversation you
 had, something someone said that stuck with you, or a connection you noticed.
@@ -325,7 +330,9 @@ that's been on your mind.
 ═══════════════════════════════════════════════════════════════════════════════
 REQUIREMENTS
 ═══════════════════════════════════════════════════════════════════════════════
-""" + SUBMOLT_INSTRUCTION + """
+"""
+    + SUBMOLT_INSTRUCTION
+    + """
 FORMAT YOUR RESPONSE EXACTLY AS:
 SUBMOLT: general
 TITLE: Your Catchy Post Title Here
@@ -341,6 +348,7 @@ Your post content here...
 
 Write Cherry's reflection post:
 """
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # REPLY TO COMMENT PROMPT

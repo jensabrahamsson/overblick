@@ -5,7 +5,10 @@ from unittest.mock import AsyncMock, patch
 
 from overblick.dashboard.auth import SESSION_COOKIE
 from overblick.capabilities.monitoring.models import (
-    HostHealth, MemoryInfo, CPUInfo, PowerInfo,
+    HostHealth,
+    MemoryInfo,
+    CPUInfo,
+    PowerInfo,
 )
 
 
@@ -15,7 +18,9 @@ def _fake_host_health() -> HostHealth:
         hostname="testhost.local",
         platform="darwin",
         uptime="3 days, 2:15",
-        memory=MemoryInfo(total_mb=16384.0, used_mb=10240.0, available_mb=6144.0, percent_used=62.5),
+        memory=MemoryInfo(
+            total_mb=16384.0, used_mb=10240.0, available_mb=6144.0, percent_used=62.5
+        ),
         cpu=CPUInfo(load_1m=2.1, load_5m=1.8, load_15m=1.5, core_count=8),
         power=PowerInfo(on_battery=False, battery_percent=85.0, time_remaining=None),
         errors=[],
@@ -44,8 +49,10 @@ class TestSystemPage:
     async def test_system_renders_authenticated(self, client, session_cookie):
         """Authenticated user sees the system health page."""
         cookie_value, _ = session_cookie
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
+        with (
+            patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()),
+            patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()),
+        ):
             resp = await client.get("/system", cookies={SESSION_COOKIE: cookie_value})
 
         assert resp.status_code == 200
@@ -62,8 +69,10 @@ class TestSystemPage:
     async def test_system_shows_hostname(self, client, session_cookie):
         """Page displays host information."""
         cookie_value, _ = session_cookie
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
+        with (
+            patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()),
+            patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()),
+        ):
             resp = await client.get("/system", cookies={SESSION_COOKIE: cookie_value})
 
         assert "testhost.local" in resp.text
@@ -73,8 +82,10 @@ class TestSystemPage:
     async def test_system_shows_gauges(self, client, session_cookie):
         """Page displays RAM, CPU, and Battery gauges."""
         cookie_value, _ = session_cookie
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
+        with (
+            patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()),
+            patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()),
+        ):
             resp = await client.get("/system", cookies={SESSION_COOKIE: cookie_value})
 
         assert "RAM" in resp.text
@@ -85,8 +96,10 @@ class TestSystemPage:
     async def test_system_shows_gateway_stats(self, client, session_cookie):
         """Page displays LLM Gateway status when available."""
         cookie_value, _ = session_cookie
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
+        with (
+            patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()),
+            patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()),
+        ):
             resp = await client.get("/system", cookies={SESSION_COOKIE: cookie_value})
 
         assert "LLM Gateway" in resp.text
@@ -99,8 +112,10 @@ class TestSystemMetricsPartial:
     async def test_metrics_partial_returns_html(self, client, session_cookie):
         """Metrics partial returns valid HTML fragment."""
         cookie_value, _ = session_cookie
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
+        with (
+            patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()),
+            patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()),
+        ):
             resp = await client.get("/system/metrics", cookies={SESSION_COOKIE: cookie_value})
 
         assert resp.status_code == 200
@@ -113,8 +128,10 @@ class TestSystemMetricsPartial:
         health = _fake_host_health()
         health.power = PowerInfo()  # No battery info
 
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=health), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
+        with (
+            patch(_HEALTH_FN, new_callable=AsyncMock, return_value=health),
+            patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()),
+        ):
             resp = await client.get("/system/metrics", cookies={SESSION_COOKIE: cookie_value})
 
         assert "gauge-sublabel\">Battery</text>" not in resp.text
@@ -125,8 +142,10 @@ class TestSystemGracefulDegradation:
     async def test_gateway_unavailable(self, client, session_cookie):
         """Page shows 'Unavailable' when Gateway is down."""
         cookie_value, _ = session_cookie
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=None):
+        with (
+            patch(_HEALTH_FN, new_callable=AsyncMock, return_value=_fake_host_health()),
+            patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=None),
+        ):
             resp = await client.get("/system", cookies={SESSION_COOKIE: cookie_value})
 
         assert resp.status_code == 200
@@ -136,8 +155,10 @@ class TestSystemGracefulDegradation:
     async def test_inspect_failure_returns_defaults(self, client, session_cookie):
         """Page still renders when host inspection fails."""
         cookie_value, _ = session_cookie
-        with patch(_HEALTH_FN, new_callable=AsyncMock, return_value=HostHealth()), \
-             patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()):
+        with (
+            patch(_HEALTH_FN, new_callable=AsyncMock, return_value=HostHealth()),
+            patch(_GATEWAY_FN, new_callable=AsyncMock, return_value=_fake_gateway_health()),
+        ):
             resp = await client.get("/system", cookies={SESSION_COOKIE: cookie_value})
 
         assert resp.status_code == 200

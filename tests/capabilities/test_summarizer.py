@@ -39,9 +39,11 @@ class TestSummarizerCapability:
     @pytest.mark.asyncio
     async def test_summarize_with_pipeline(self):
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="This is a summary of the text.",
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content="This is a summary of the text.",
+            )
+        )
         ctx = make_ctx(llm_pipeline=pipeline)
         cap = SummarizerCapability(ctx)
         await cap.setup()
@@ -91,9 +93,12 @@ class TestSummarizerCapability:
     @pytest.mark.asyncio
     async def test_summarize_pipeline_blocked(self):
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=PipelineResult(
-            blocked=True, block_reason="Safety check failed",
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                blocked=True,
+                block_reason="Safety check failed",
+            )
+        )
         ctx = make_ctx(llm_pipeline=pipeline)
         cap = SummarizerCapability(ctx)
         await cap.setup()

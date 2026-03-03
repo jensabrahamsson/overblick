@@ -18,12 +18,37 @@ from overblick.plugins.github.prompts import code_question_prompt, issue_respons
 logger = logging.getLogger(__name__)
 
 # Keywords suggesting a code-related question
-_CODE_KEYWORDS = frozenset({
-    "code", "function", "class", "method", "bug", "error", "traceback",
-    "exception", "import", "module", "file", "line", "syntax", "return",
-    "variable", "parameter", "argument", "type", "implementation",
-    "stack", "debug", "fix", "patch", "diff", "commit", "PR", "pull request",
-})
+_CODE_KEYWORDS = frozenset(
+    {
+        "code",
+        "function",
+        "class",
+        "method",
+        "bug",
+        "error",
+        "traceback",
+        "exception",
+        "import",
+        "module",
+        "file",
+        "line",
+        "syntax",
+        "return",
+        "variable",
+        "parameter",
+        "argument",
+        "type",
+        "implementation",
+        "stack",
+        "debug",
+        "fix",
+        "patch",
+        "diff",
+        "commit",
+        "PR",
+        "pull request",
+    }
+)
 
 
 class ResponseGenerator:
@@ -47,9 +72,9 @@ class ResponseGenerator:
     async def generate(
         self,
         event: GitHubEvent,
-        existing_comments: Optional[list[dict]] = None,
+        existing_comments: list[dict] | None = None,
         branch: str = "main",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Generate a response for a GitHub event.
 
@@ -84,7 +109,7 @@ class ResponseGenerator:
         event: GitHubEvent,
         comments_text: str,
         branch: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate response with code context."""
         question = event.body or event.issue_title
 
@@ -97,7 +122,9 @@ class ResponseGenerator:
         code_text = CodeContextBuilder.format_context(context)
         safe_question = wrap_external_content(question, "github_question")
         safe_issue = wrap_external_content(event.issue_title, "github_issue")
-        safe_comments = wrap_external_content(comments_text, "github_comments") if comments_text else ""
+        safe_comments = (
+            wrap_external_content(comments_text, "github_comments") if comments_text else ""
+        )
 
         messages = code_question_prompt(
             system_prompt=self._system_prompt,
@@ -126,11 +153,13 @@ class ResponseGenerator:
         self,
         event: GitHubEvent,
         comments_text: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate response without code context."""
         safe_title = wrap_external_content(event.issue_title, "github_issue_title")
         safe_body = wrap_external_content(event.body[:3000], "github_issue_body")
-        safe_comments = wrap_external_content(comments_text, "github_comments") if comments_text else ""
+        safe_comments = (
+            wrap_external_content(comments_text, "github_comments") if comments_text else ""
+        )
 
         messages = issue_response_prompt(
             system_prompt=self._system_prompt,
@@ -162,7 +191,7 @@ class ResponseGenerator:
         return matches >= 2
 
     @staticmethod
-    def _format_comments(comments: Optional[list[dict]]) -> str:
+    def _format_comments(comments: list[dict] | None) -> str:
         """Format existing comments for prompt context."""
         if not comments:
             return ""

@@ -42,6 +42,10 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-cov>=5.0",
     "aiosqlite>=0.20",
+    "ruff>=0.6",
+    "black>=24.0",
+    "mypy>=1.10",
+    "pre-commit>=3.0",
 ]
 
 [project.urls]
@@ -66,6 +70,66 @@ filterwarnings = [
     "ignore::DeprecationWarning:starlette.templating",
     "ignore::DeprecationWarning:httpx._client",
 ]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = [
+    "__pycache__",
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "venv",
+    "*.pyc",
+]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",  # default errors, pyflakes, warnings
+    "I",            # import order
+    "UP",           # pyupgrade
+    "C4",           # comprehensions
+    "RUF",          # ruff-specific rules
+]
+ignore = [
+    "E501",  # line length (handled by black)
+    "F401",  # unused import (many existing)
+    "F821",  # undefined name (some false positives)
+    "RUF001",  # non-breaking hyphen in string
+    "RUF002",  # en dash in docstring
+    "RUF003",  # en dash in comment
+    "UP007",   # use X|Y syntax (requires Python 3.10, we have 3.13 but many existing)
+    "UP035",   # typing.List deprecated
+    "E741",    # ambiguous variable name 'l'
+]
+unfixable = [
+    "F401",  # unused imports (can be fixed manually)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+skip-string-normalization = true
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+disable_error_code = ["misc"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["overblick"]

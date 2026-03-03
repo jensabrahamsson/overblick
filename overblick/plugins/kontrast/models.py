@@ -26,7 +26,7 @@ class KontrastPiece(BaseModel):
     topic: str
     topic_hash: str = ""
     source_summary: str = ""
-    perspectives: list[PerspectiveEntry] = []
+    perspectives: list[PerspectiveEntry] = Field(default_factory=list)
     created_at: float = Field(default_factory=time.time)
     article_count: int = 0
 

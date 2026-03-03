@@ -32,22 +32,26 @@ async def skuggspel_page(request: Request, page: int = Query(default=1, ge=1)):
         data_errors = [f"Failed to load skuggspel data: {e}"]
 
     total = len(all_posts)
-    posts = all_posts[:page * _PAGE_SIZE]
+    posts = all_posts[: page * _PAGE_SIZE]
     has_more = total > page * _PAGE_SIZE
 
-    return templates.TemplateResponse("skuggspel.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "posts": posts,
-        "page": page,
-        "has_more": has_more,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "skuggspel.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "posts": posts,
+            "page": page,
+            "has_more": has_more,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if skuggspel plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("skuggspel")
 
 
@@ -57,6 +61,7 @@ def _load_posts(request: Request) -> list:
     from pathlib import Path
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
+
     posts = []
     data_root = resolve_data_root(request)
     if not data_root.exists():

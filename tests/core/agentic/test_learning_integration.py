@@ -33,9 +33,11 @@ class TestReflectionWithLearningStore:
         store._reviewer.review = AsyncMock(return_value=(LearningStatus.APPROVED, "Good"))
 
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=_make_llm_result(
-            '{"learnings": [{"category": "pattern", "insight": "Tests should be fast", "confidence": 0.8}]}'
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=_make_llm_result(
+                '{"learnings": [{"category": "pattern", "insight": "Tests should be fast", "confidence": 0.8}]}'
+            )
+        )
 
         reflection = ReflectionPipeline(
             db=mock_agentic_db,
@@ -58,9 +60,11 @@ class TestReflectionWithLearningStore:
     async def test_backward_compat_without_store(self, mock_agentic_db):
         """Without learning_store, falls back to AgenticDB."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=_make_llm_result(
-            '{"learnings": [{"category": "general", "insight": "Legacy path works", "confidence": 0.5}]}'
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=_make_llm_result(
+                '{"learnings": [{"category": "general", "insight": "Legacy path works", "confidence": 0.5}]}'
+            )
+        )
 
         reflection = ReflectionPipeline(
             db=mock_agentic_db,
@@ -128,9 +132,11 @@ class TestAgentLoopWithLearningStore:
     @pytest.mark.asyncio
     async def test_backward_compat_without_store(self, mock_agentic_db):
         """Without learning_store, reads from AgenticDB."""
-        mock_agentic_db.get_learnings = AsyncMock(return_value=[
-            AgentLearning(category="test", insight="DB learning", confidence=0.5),
-        ])
+        mock_agentic_db.get_learnings = AsyncMock(
+            return_value=[
+                AgentLearning(category="test", insight="DB learning", confidence=0.5),
+            ]
+        )
 
         observer = AsyncMock()
         observer.observe = AsyncMock(return_value={"items": ["a"]})

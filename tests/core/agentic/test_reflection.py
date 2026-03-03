@@ -19,15 +19,27 @@ class TestReflectionPipeline:
     async def test_reflect_stores_learnings(self, mock_agentic_db):
         """Reflection extracts and stores learnings from LLM response."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content=json.dumps({
-                "learnings": [
-                    {"category": "testing", "insight": "Tests are important", "confidence": 0.9},
-                    {"category": "general", "insight": "Logging helps debug", "confidence": 0.7},
-                ],
-                "tick_summary": "Two actions executed successfully",
-            }),
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content=json.dumps(
+                    {
+                        "learnings": [
+                            {
+                                "category": "testing",
+                                "insight": "Tests are important",
+                                "confidence": 0.9,
+                            },
+                            {
+                                "category": "general",
+                                "insight": "Logging helps debug",
+                                "confidence": 0.7,
+                            },
+                        ],
+                        "tick_summary": "Two actions executed successfully",
+                    }
+                ),
+            )
+        )
 
         reflection = ReflectionPipeline(
             db=mock_agentic_db,
@@ -38,7 +50,8 @@ class TestReflectionPipeline:
         outcomes = [
             ActionOutcome(
                 action=PlannedAction(action_type="test", target="t1"),
-                success=True, result="OK",
+                success=True,
+                result="OK",
             ),
         ]
 
@@ -75,7 +88,8 @@ class TestReflectionPipeline:
         outcomes = [
             ActionOutcome(
                 action=PlannedAction(action_type="test"),
-                success=True, result="OK",
+                success=True,
+                result="OK",
             ),
         ]
 
@@ -96,7 +110,8 @@ class TestReflectionPipeline:
         outcomes = [
             ActionOutcome(
                 action=PlannedAction(action_type="test"),
-                success=True, result="OK",
+                success=True,
+                result="OK",
             ),
         ]
 
@@ -108,14 +123,18 @@ class TestReflectionPipeline:
     async def test_reflect_skips_empty_insight(self, mock_agentic_db):
         """Learnings with empty insight are not stored."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content=json.dumps({
-                "learnings": [
-                    {"category": "test", "insight": "", "confidence": 0.5},
-                    {"category": "test", "insight": "Real insight", "confidence": 0.8},
-                ],
-            }),
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content=json.dumps(
+                    {
+                        "learnings": [
+                            {"category": "test", "insight": "", "confidence": 0.5},
+                            {"category": "test", "insight": "Real insight", "confidence": 0.8},
+                        ],
+                    }
+                ),
+            )
+        )
 
         reflection = ReflectionPipeline(
             db=mock_agentic_db,
@@ -125,7 +144,8 @@ class TestReflectionPipeline:
         outcomes = [
             ActionOutcome(
                 action=PlannedAction(action_type="test"),
-                success=True, result="OK",
+                success=True,
+                result="OK",
             ),
         ]
 
@@ -136,9 +156,11 @@ class TestReflectionPipeline:
     async def test_reflect_handles_invalid_json(self, mock_agentic_db):
         """Reflection handles unparseable LLM responses."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="This is not JSON at all",
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content="This is not JSON at all",
+            )
+        )
 
         reflection = ReflectionPipeline(
             db=mock_agentic_db,
@@ -148,7 +170,8 @@ class TestReflectionPipeline:
         outcomes = [
             ActionOutcome(
                 action=PlannedAction(action_type="test"),
-                success=True, result="OK",
+                success=True,
+                result="OK",
             ),
         ]
 
@@ -158,9 +181,7 @@ class TestReflectionPipeline:
 
     def test_extract_json_with_prefix(self):
         """Extract JSON from text with surrounding content."""
-        data = ReflectionPipeline._extract_json(
-            'Some text before {"learnings": []} and after'
-        )
+        data = ReflectionPipeline._extract_json('Some text before {"learnings": []} and after')
         assert data == {"learnings": []}
 
     def test_extract_json_returns_none_for_garbage(self):

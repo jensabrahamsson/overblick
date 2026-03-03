@@ -13,7 +13,7 @@ from collections import deque
 from typing import Any, Optional
 
 from .config import GatewayConfig, get_config
-from .models import ChatRequest, ChatResponse, Priority, QueuedRequest, GatewayStats
+from .models import ChatRequest, ChatResponse, GatewayStats, Priority, QueuedRequest
 from .ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
@@ -33,8 +33,8 @@ class QueueManager:
 
     def __init__(
         self,
-        config: Optional[GatewayConfig] = None,
-        client: Optional[OllamaClient] = None,
+        config: GatewayConfig | None = None,
+        client: OllamaClient | None = None,
         registry: Optional["BackendRegistry"] = None,
     ):
         """Initialize the queue manager."""
@@ -48,7 +48,7 @@ class QueueManager:
 
         self._semaphore = asyncio.Semaphore(self.config.max_concurrent_requests)
 
-        self._worker_task: Optional[asyncio.Task] = None
+        self._worker_task: asyncio.Task | None = None
         self._running = False
 
         self._stats = {
@@ -93,7 +93,7 @@ class QueueManager:
         self,
         request: ChatRequest,
         priority: Priority = Priority.LOW,
-        backend: Optional[str] = None,
+        backend: str | None = None,
     ) -> ChatResponse:
         """
         Submit a request to the queue and wait for completion.
@@ -131,8 +131,12 @@ class QueueManager:
             backend=backend,
         )
 
-        logger.debug("Submitting request %s with priority %s (backend=%s)",
-                      queued.request_id, priority.name, backend or "default")
+        logger.debug(
+            "Submitting request %s with priority %s (backend=%s)",
+            queued.request_id,
+            priority.name,
+            backend or "default",
+        )
 
         try:
             self._queue.put_nowait(queued)
@@ -146,7 +150,7 @@ class QueueManager:
                 timeout=self.config.request_timeout_seconds,
             )
             return response
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("Request %s timed out", queued.request_id, exc_info=True)
             raise
 
@@ -161,7 +165,7 @@ class QueueManager:
                         self._queue.get(),
                         timeout=1.0,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 await self._process_request(queued)
@@ -196,7 +200,9 @@ class QueueManager:
 
                 logger.info(
                     "Processing request %s (priority=%s, model=%s, backend=%s)",
-                    queued.request_id, queued.priority.name, queued.request.model,
+                    queued.request_id,
+                    queued.priority.name,
+                    queued.request.model,
                     queued.backend or "default",
                 )
 

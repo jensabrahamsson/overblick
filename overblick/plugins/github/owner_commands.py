@@ -51,6 +51,7 @@ _VERB_TO_ACTION: dict[str, str] = {
 @dataclass
 class OwnerCommand:
     """A parsed owner command from Telegram."""
+
     verb: str
     repo: str
     number: int
@@ -74,12 +75,13 @@ class OwnerCommandQueue:
     parses them into OwnerCommand objects, and formats them as planning
     context that the agentic planner injects into its prompt.
     """
+
     pending_commands: list[OwnerCommand] = field(default_factory=list)
     processed_message_ids: set[int] = field(default_factory=set)
     _max_processed_ids: int = field(default=10_000, repr=False, init=False)
 
     @staticmethod
-    def parse_command(text: str, message_id: int = 0, timestamp: str = "") -> Optional[OwnerCommand]:
+    def parse_command(text: str, message_id: int = 0, timestamp: str = "") -> OwnerCommand | None:
         """Parse a single text message into an OwnerCommand, or None if not a command."""
         if not text:
             return None
@@ -139,13 +141,15 @@ class OwnerCommandQueue:
                 self.pending_commands.append(cmd)
                 logger.info(
                     "GitHub agent: owner command parsed: %s %s#%d",
-                    cmd.verb, cmd.repo, cmd.number,
+                    cmd.verb,
+                    cmd.repo,
+                    cmd.number,
                 )
 
         # Prevent unbounded growth of processed IDs set
         if len(self.processed_message_ids) > self._max_processed_ids:
             sorted_ids = sorted(self.processed_message_ids)
-            keep = sorted_ids[len(sorted_ids) // 2:]  # Keep newer half
+            keep = sorted_ids[len(sorted_ids) // 2 :]  # Keep newer half
             self.processed_message_ids = set(keep)
 
         return new_commands

@@ -53,9 +53,7 @@ class TestResponseGenerator:
         assert gen._pipeline is None
 
     def test_initialization_no_llm(self):
-        with pytest.raises(
-            ValueError, match="SafeLLMPipeline is required in safe mode"
-        ):
+        with pytest.raises(ValueError, match="SafeLLMPipeline is required in safe mode"):
             ResponseGenerator(system_prompt="Test")
 
     def test_initialization_both_uses_pipeline(self):
@@ -186,9 +184,7 @@ class TestResponseGenerator:
 
     @pytest.mark.asyncio
     async def test_generate_heartbeat(self):
-        pipeline = make_pipeline(
-            "submolt: ai\nTITLE: My Thoughts\nThis is my heartbeat post."
-        )
+        pipeline = make_pipeline("submolt: ai\nTITLE: My Thoughts\nThis is my heartbeat post.")
         gen = ResponseGenerator(llm_pipeline=pipeline, system_prompt="Test")
 
         result = await gen.generate_heartbeat(
@@ -210,9 +206,7 @@ class TestResponseGenerator:
     @pytest.mark.asyncio
     async def test_generate_heartbeat_higher_temp(self):
         pipeline = make_pipeline("submolt: general\nTITLE: Test\nContent")
-        gen = ResponseGenerator(
-            llm_pipeline=pipeline, system_prompt="Test", temperature=0.7
-        )
+        gen = ResponseGenerator(llm_pipeline=pipeline, system_prompt="Test", temperature=0.7)
 
         await gen.generate_heartbeat(
             prompt_template="Write",
@@ -288,9 +282,7 @@ class TestResponseGenerator:
     async def test_parse_post_output_no_title(self):
         gen = ResponseGenerator(llm_pipeline=make_pipeline(), system_prompt="Test")
 
-        title, body, submolt = gen._parse_post_output(
-            "First line becomes title\nSecond line"
-        )
+        title, body, submolt = gen._parse_post_output("First line becomes title\nSecond line")
 
         assert "First line" in title
         assert body == "Second line"
@@ -298,9 +290,7 @@ class TestResponseGenerator:
     @pytest.mark.asyncio
     async def test_generate_with_legacy_client(self):
         client = make_llm_client("Legacy response")
-        gen = ResponseGenerator(
-            llm_client=client, system_prompt="Test", allow_raw_fallback=True
-        )
+        gen = ResponseGenerator(llm_client=client, system_prompt="Test", allow_raw_fallback=True)
 
         result = await gen.generate_comment(
             post_title="Test",
@@ -316,9 +306,7 @@ class TestResponseGenerator:
     async def test_generate_legacy_client_failure(self):
         client = AsyncMock()
         client.chat = AsyncMock(side_effect=Exception("LLM error"))
-        gen = ResponseGenerator(
-            llm_client=client, system_prompt="Test", allow_raw_fallback=True
-        )
+        gen = ResponseGenerator(llm_client=client, system_prompt="Test", allow_raw_fallback=True)
 
         result = await gen.generate_comment(
             post_title="Test",
@@ -332,9 +320,7 @@ class TestResponseGenerator:
     @pytest.mark.asyncio
     async def test_custom_temperature(self):
         pipeline = make_pipeline("Response")
-        gen = ResponseGenerator(
-            llm_pipeline=pipeline, system_prompt="Test", temperature=0.5
-        )
+        gen = ResponseGenerator(llm_pipeline=pipeline, system_prompt="Test", temperature=0.5)
 
         await gen.generate_comment(
             post_title="Test",

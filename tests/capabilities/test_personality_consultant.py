@@ -49,11 +49,13 @@ class TestPersonalityConsultantCapability:
 
     @pytest.mark.asyncio
     async def test_setup_custom_config(self):
-        ctx = make_ctx(config={
-            "default_consultant": "anomal",
-            "temperature": 0.9,
-            "max_tokens": 1200,
-        })
+        ctx = make_ctx(
+            config={
+                "default_consultant": "anomal",
+                "temperature": 0.9,
+                "max_tokens": 1200,
+            }
+        )
         cap = PersonalityConsultantCapability(ctx)
         await cap.setup()
         assert cap._default_consultant == "anomal"
@@ -64,21 +66,26 @@ class TestPersonalityConsultantCapability:
     async def test_consult_returns_response(self):
         """Happy path: pipeline returns advice from consultant."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"tone": "warm", "guidance": "The sender sounds stressed."}',
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"tone": "warm", "guidance": "The sender sounds stressed."}',
+            )
+        )
         ctx = make_ctx(llm_pipeline=pipeline)
         cap = PersonalityConsultantCapability(ctx)
         await cap.setup()
 
         # Mock personality loading
         mock_personality = _mock_personality()
-        with patch(
-            "overblick.identities.load_identity",
-            return_value=mock_personality,
-        ), patch(
-            "overblick.identities.build_system_prompt",
-            return_value="You are Cherry, a relationship expert.",
+        with (
+            patch(
+                "overblick.identities.load_identity",
+                return_value=mock_personality,
+            ),
+            patch(
+                "overblick.identities.build_system_prompt",
+                return_value="You are Cherry, a relationship expert.",
+            ),
         ):
             result = await cap.consult(
                 query="Should this reply be warm?",
@@ -100,20 +107,25 @@ class TestPersonalityConsultantCapability:
     async def test_consult_uses_default_consultant(self):
         """When no consultant_name given, uses default from config."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="Some advice.",
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content="Some advice.",
+            )
+        )
         ctx = make_ctx(llm_pipeline=pipeline, config={"default_consultant": "blixt"})
         cap = PersonalityConsultantCapability(ctx)
         await cap.setup()
 
         mock_personality = _mock_personality("blixt")
-        with patch(
-            "overblick.identities.load_identity",
-            return_value=mock_personality,
-        ), patch(
-            "overblick.identities.build_system_prompt",
-            return_value="You are Blixt.",
+        with (
+            patch(
+                "overblick.identities.load_identity",
+                return_value=mock_personality,
+            ),
+            patch(
+                "overblick.identities.build_system_prompt",
+                return_value="You are Blixt.",
+            ),
         ):
             result = await cap.consult(query="Give me advice.")
 
@@ -125,20 +137,25 @@ class TestPersonalityConsultantCapability:
     async def test_consult_caches_personality(self):
         """Second call to same personality doesn't reload from disk."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="Advice.",
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content="Advice.",
+            )
+        )
         ctx = make_ctx(llm_pipeline=pipeline)
         cap = PersonalityConsultantCapability(ctx)
         await cap.setup()
 
         mock_personality = _mock_personality()
-        with patch(
-            "overblick.identities.load_identity",
-            return_value=mock_personality,
-        ) as mock_load, patch(
-            "overblick.identities.build_system_prompt",
-            return_value="You are Cherry.",
+        with (
+            patch(
+                "overblick.identities.load_identity",
+                return_value=mock_personality,
+            ) as mock_load,
+            patch(
+                "overblick.identities.build_system_prompt",
+                return_value="You are Cherry.",
+            ),
         ):
             await cap.consult(query="First question.", consultant_name="cherry")
             await cap.consult(query="Second question.", consultant_name="cherry")
@@ -159,7 +176,8 @@ class TestPersonalityConsultantCapability:
             side_effect=FileNotFoundError("No such personality"),
         ):
             result = await cap.consult(
-                query="Hello?", consultant_name="nonexistent",
+                query="Hello?",
+                consultant_name="nonexistent",
             )
 
         assert result is None
@@ -169,19 +187,25 @@ class TestPersonalityConsultantCapability:
     async def test_consult_blocked_returns_none(self):
         """If pipeline blocks the response, returns None."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=PipelineResult(
-            blocked=True, block_reason="Output safety triggered",
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                blocked=True,
+                block_reason="Output safety triggered",
+            )
+        )
         ctx = make_ctx(llm_pipeline=pipeline)
         cap = PersonalityConsultantCapability(ctx)
         await cap.setup()
 
-        with patch(
-            "overblick.identities.load_identity",
-            return_value=_mock_personality(),
-        ), patch(
-            "overblick.identities.build_system_prompt",
-            return_value="You are Cherry.",
+        with (
+            patch(
+                "overblick.identities.load_identity",
+                return_value=_mock_personality(),
+            ),
+            patch(
+                "overblick.identities.build_system_prompt",
+                return_value="You are Cherry.",
+            ),
         ):
             result = await cap.consult(query="Test.", consultant_name="cherry")
 
@@ -206,12 +230,15 @@ class TestPersonalityConsultantCapability:
         cap = PersonalityConsultantCapability(ctx)
         await cap.setup()
 
-        with patch(
-            "overblick.identities.load_identity",
-            return_value=_mock_personality(),
-        ), patch(
-            "overblick.identities.build_system_prompt",
-            return_value="You are Cherry.",
+        with (
+            patch(
+                "overblick.identities.load_identity",
+                return_value=_mock_personality(),
+            ),
+            patch(
+                "overblick.identities.build_system_prompt",
+                return_value="You are Cherry.",
+            ),
         ):
             result = await cap.consult(query="Test.", consultant_name="cherry")
 
@@ -221,19 +248,24 @@ class TestPersonalityConsultantCapability:
     async def test_consult_includes_context_in_message(self):
         """Context parameter is appended to the user message."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="Got it.",
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content="Got it.",
+            )
+        )
         ctx = make_ctx(llm_pipeline=pipeline)
         cap = PersonalityConsultantCapability(ctx)
         await cap.setup()
 
-        with patch(
-            "overblick.identities.load_identity",
-            return_value=_mock_personality(),
-        ), patch(
-            "overblick.identities.build_system_prompt",
-            return_value="You are Cherry.",
+        with (
+            patch(
+                "overblick.identities.load_identity",
+                return_value=_mock_personality(),
+            ),
+            patch(
+                "overblick.identities.build_system_prompt",
+                return_value="You are Cherry.",
+            ),
         ):
             await cap.consult(
                 query="Tone check?",
@@ -251,19 +283,24 @@ class TestPersonalityConsultantCapability:
     async def test_consult_skip_preflight_and_low_priority(self):
         """Verify internal consultation uses skip_preflight and low priority."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="Advice.",
-        ))
+        pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content="Advice.",
+            )
+        )
         ctx = make_ctx(llm_pipeline=pipeline)
         cap = PersonalityConsultantCapability(ctx)
         await cap.setup()
 
-        with patch(
-            "overblick.identities.load_identity",
-            return_value=_mock_personality(),
-        ), patch(
-            "overblick.identities.build_system_prompt",
-            return_value="You are Cherry.",
+        with (
+            patch(
+                "overblick.identities.load_identity",
+                return_value=_mock_personality(),
+            ),
+            patch(
+                "overblick.identities.build_system_prompt",
+                return_value="You are Cherry.",
+            ),
         ):
             await cap.consult(query="Test.", consultant_name="cherry")
 
@@ -290,12 +327,15 @@ class TestDiscoverConsultants:
         def _load(name):
             return {"anomal": mock_anomal, "cherry": mock_cherry}.get(name)
 
-        with patch(
-            "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
-            side_effect=_load,
-        ), patch(
-            "overblick.identities.list_identities",
-            return_value=["anomal", "cherry", "stal"],
+        with (
+            patch(
+                "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
+                side_effect=_load,
+            ),
+            patch(
+                "overblick.identities.list_identities",
+                return_value=["anomal", "cherry", "stal"],
+            ),
         ):
             result = cap.discover_consultants()
 
@@ -318,12 +358,15 @@ class TestDiscoverConsultants:
         def _load(name):
             return {"anomal": mock_anomal, "stal": mock_stal}.get(name)
 
-        with patch(
-            "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
-            side_effect=_load,
-        ), patch(
-            "overblick.identities.list_identities",
-            return_value=["anomal", "stal"],
+        with (
+            patch(
+                "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
+                side_effect=_load,
+            ),
+            patch(
+                "overblick.identities.list_identities",
+                return_value=["anomal", "stal"],
+            ),
         ):
             result = cap.discover_consultants()
 
@@ -344,12 +387,15 @@ class TestDiscoverConsultants:
         def _load(name):
             return {"anomal": mock_anomal, "supervisor": mock_supervisor}.get(name)
 
-        with patch(
-            "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
-            side_effect=_load,
-        ), patch(
-            "overblick.identities.list_identities",
-            return_value=["anomal", "supervisor"],
+        with (
+            patch(
+                "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
+                side_effect=_load,
+            ),
+            patch(
+                "overblick.identities.list_identities",
+                return_value=["anomal", "supervisor"],
+            ),
         ):
             result = cap.discover_consultants(exclude={"supervisor"})
 
@@ -370,12 +416,15 @@ class TestDiscoverConsultants:
         def _load(name):
             return {"anomal": mock_anomal, "empty": mock_empty}.get(name)
 
-        with patch(
-            "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
-            side_effect=_load,
-        ), patch(
-            "overblick.identities.list_identities",
-            return_value=["anomal", "empty"],
+        with (
+            patch(
+                "overblick.capabilities.consulting.personality_consultant.PersonalityConsultantCapability._load_identity",
+                side_effect=_load,
+            ),
+            patch(
+                "overblick.identities.list_identities",
+                return_value=["anomal", "empty"],
+            ),
         ):
             result = cap.discover_consultants()
 
@@ -384,15 +433,27 @@ class TestDiscoverConsultants:
 
     def test_score_match_counts_keywords(self):
         """score_match() counts keyword occurrences in text."""
-        assert PersonalityConsultantCapability.score_match(
-            "Bitcoin and blockchain technology", ["bitcoin", "blockchain", "defi"],
-        ) == 2
+        assert (
+            PersonalityConsultantCapability.score_match(
+                "Bitcoin and blockchain technology",
+                ["bitcoin", "blockchain", "defi"],
+            )
+            == 2
+        )
 
-        assert PersonalityConsultantCapability.score_match(
-            "A nice day for a picnic", ["bitcoin", "blockchain"],
-        ) == 0
+        assert (
+            PersonalityConsultantCapability.score_match(
+                "A nice day for a picnic",
+                ["bitcoin", "blockchain"],
+            )
+            == 0
+        )
 
         # Case-insensitive
-        assert PersonalityConsultantCapability.score_match(
-            "BITCOIN and BLOCKCHAIN", ["bitcoin", "blockchain"],
-        ) == 2
+        assert (
+            PersonalityConsultantCapability.score_match(
+                "BITCOIN and BLOCKCHAIN",
+                ["bitcoin", "blockchain"],
+            )
+            == 2
+        )

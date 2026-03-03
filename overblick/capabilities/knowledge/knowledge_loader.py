@@ -45,7 +45,7 @@ class KnowledgeLoader:
             except Exception as e:
                 logger.warning("Could not load %s: %s", path, e)
 
-    def get_knowledge(self, category: Optional[str] = None) -> list[str]:
+    def get_knowledge(self, category: str | None = None) -> list[str]:
         """Get knowledge items, optionally filtered by category."""
         if category:
             return self._knowledge.get(category, [])

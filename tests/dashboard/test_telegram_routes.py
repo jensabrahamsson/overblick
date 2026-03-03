@@ -63,12 +63,14 @@ class TestTelegramRoute:
     def test_telegram_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when no identity has telegram."""
         from overblick.dashboard.routes import telegram
+
         monkeypatch.chdir(tmp_path)
         assert telegram.has_data() is False
 
     def test_telegram_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when telegram is configured."""
         from overblick.dashboard.routes import telegram
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "cherry"
         ids.mkdir(parents=True)

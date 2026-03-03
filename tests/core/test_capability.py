@@ -10,6 +10,7 @@ from overblick.core.plugin_base import PluginContext
 
 class ConcreteCapability(CapabilityBase):
     """Test capability implementation."""
+
     name = "test_cap"
 
     async def setup(self) -> None:
@@ -25,6 +26,7 @@ class ConcreteCapability(CapabilityBase):
 
 class MinimalCapability(CapabilityBase):
     """Minimal capability — only setup is abstract."""
+
     name = "minimal"
 
     async def setup(self) -> None:
@@ -60,7 +62,8 @@ class TestCapabilityContext:
             audit_log="mock_audit",
         )
         cap_ctx = CapabilityContext.from_plugin_context(
-            plugin_ctx, config={"key": "val"},
+            plugin_ctx,
+            config={"key": "val"},
         )
         assert cap_ctx.identity_name == "anomal"
         assert cap_ctx.llm_client == "mock_llm"

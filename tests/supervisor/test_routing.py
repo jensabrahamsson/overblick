@@ -24,10 +24,10 @@ from overblick.supervisor.routing import (
     RoutedMessage,
 )
 
-
 # ---------------------------------------------------------------------------
 # AgentCapabilities tests
 # ---------------------------------------------------------------------------
+
 
 class TestAgentCapabilities:
     """Test agent capability declarations."""
@@ -54,6 +54,7 @@ class TestAgentCapabilities:
 # ---------------------------------------------------------------------------
 # RoutedMessage tests
 # ---------------------------------------------------------------------------
+
 
 class TestRoutedMessage:
     """Test routed message dataclass."""
@@ -109,6 +110,7 @@ class TestRoutedMessage:
 # ---------------------------------------------------------------------------
 # MessageRouter tests
 # ---------------------------------------------------------------------------
+
 
 class TestMessageRouter:
     """Test message routing functionality."""
@@ -186,6 +188,7 @@ class TestMessageRouter:
 # Broadcast tests
 # ---------------------------------------------------------------------------
 
+
 class TestBroadcast:
     """Test broadcast messaging."""
 
@@ -235,6 +238,7 @@ class TestBroadcast:
 # Queue management tests
 # ---------------------------------------------------------------------------
 
+
 class TestQueueManagement:
     """Test queue overflow and expiration."""
 
@@ -270,6 +274,7 @@ class TestQueueManagement:
 # ---------------------------------------------------------------------------
 # Statistics tests
 # ---------------------------------------------------------------------------
+
 
 class TestRoutingStats:
     """Test routing statistics."""
@@ -310,6 +315,7 @@ class TestRoutingStats:
 # ---------------------------------------------------------------------------
 # Audit integration
 # ---------------------------------------------------------------------------
+
 
 class TestRoutingAudit:
     """Test routing audit logging."""

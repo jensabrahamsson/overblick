@@ -77,6 +77,7 @@ def _scenarios_dir() -> Path:
 # Result container
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ScenarioResult:
     """
@@ -97,6 +98,7 @@ class ScenarioResult:
 # ---------------------------------------------------------------------------
 # Core assertion engine
 # ---------------------------------------------------------------------------
+
 
 def check_assertions(
     response: str,
@@ -147,26 +149,21 @@ def check_assertions(
     if mnc is not None:
         for forbidden in mnc:
             if forbidden.lower() in response_lower:
-                hard_failures.append(
-                    f"must_not_contain: found forbidden string {forbidden!r}"
-                )
+                hard_failures.append(f"must_not_contain: found forbidden string {forbidden!r}")
 
     # --- check_banned_words (hard) ---
     if assertions.get("check_banned_words", False):
         banned_words = personality.get_banned_words()
         violations = find_banned_word_violations(response, banned_words)
         if violations:
-            hard_failures.append(
-                f"check_banned_words: found banned words {violations!r}"
-            )
+            hard_failures.append(f"check_banned_words: found banned words {violations!r}")
 
     # --- min_length (hard) ---
     min_len = assertions.get("min_length")
     if min_len is not None:
         if len(response) < min_len:
             hard_failures.append(
-                f"min_length: response is {len(response)} chars, "
-                f"minimum is {min_len}"
+                f"min_length: response is {len(response)} chars, " f"minimum is {min_len}"
             )
 
     # --- max_length (hard) ---
@@ -174,16 +171,13 @@ def check_assertions(
     if max_len is not None:
         if len(response) > max_len:
             hard_failures.append(
-                f"max_length: response is {len(response)} chars, "
-                f"maximum is {max_len}"
+                f"max_length: response is {len(response)} chars, " f"maximum is {max_len}"
             )
 
     # --- must_contain_question (hard) ---
     if assertions.get("must_contain_question", False):
         if "?" not in response:
-            hard_failures.append(
-                "must_contain_question: no '?' found in response"
-            )
+            hard_failures.append("must_contain_question: no '?' found in response")
 
     # --- tone_keywords (soft) ---
     tone = assertions.get("tone_keywords")
@@ -193,8 +187,7 @@ def check_assertions(
             tone_matches = [kw for kw in expected if kw.lower() in response_lower]
             if not tone_matches:
                 soft_failures.append(
-                    f"tone_keywords: none of {expected!r} found "
-                    f"(prompt tuning signal)"
+                    f"tone_keywords: none of {expected!r} found " f"(prompt tuning signal)"
                 )
 
     # --- Build result ---
@@ -235,6 +228,7 @@ def apply_scenario_result(result: ScenarioResult, response: str) -> None:
 
     if result.is_soft_failure:
         import warnings
+
         warnings.warn(
             f"Soft assertion failed (prompt tuning signal):\n"
             f"{detail}\nResponse: {response[:500]}",
@@ -242,14 +236,13 @@ def apply_scenario_result(result: ScenarioResult, response: str) -> None:
         )
         return  # Soft failures are warnings, not test failures
     else:
-        raise AssertionError(
-            f"Hard assertion failed:\n{detail}\nResponse: {response[:500]}"
-        )
+        raise AssertionError(f"Hard assertion failed:\n{detail}\nResponse: {response[:500]}")
 
 
 # ---------------------------------------------------------------------------
 # Banned word detection
 # ---------------------------------------------------------------------------
+
 
 def find_banned_word_violations(
     response: str,
@@ -280,6 +273,7 @@ def find_banned_word_violations(
 # ---------------------------------------------------------------------------
 # Similarity
 # ---------------------------------------------------------------------------
+
 
 def jaccard_similarity(text_a: str, text_b: str) -> float:
     """
@@ -314,6 +308,7 @@ def jaccard_similarity(text_a: str, text_b: str) -> float:
 # ---------------------------------------------------------------------------
 # YAML loaders
 # ---------------------------------------------------------------------------
+
 
 def _load_yaml_file(path: Path) -> Any:
     """Load a YAML file, raising FileNotFoundError if it does not exist."""
@@ -377,11 +372,7 @@ def load_conversations(personality_name: str) -> list[dict[str, Any]]:
     Raises:
         FileNotFoundError: If the conversation file does not exist.
     """
-    path = (
-        _scenarios_dir()
-        / "conversations"
-        / f"{personality_name}_conversations.yaml"
-    )
+    path = _scenarios_dir() / "conversations" / f"{personality_name}_conversations.yaml"
     data = _load_yaml_file(path)
 
     if isinstance(data, dict):
@@ -413,11 +404,7 @@ def load_forum_posts(personality_name: str) -> list[dict[str, Any]]:
     Raises:
         FileNotFoundError: If the forum post file does not exist.
     """
-    path = (
-        _scenarios_dir()
-        / "forum_posts"
-        / f"{personality_name}_posts.yaml"
-    )
+    path = _scenarios_dir() / "forum_posts" / f"{personality_name}_posts.yaml"
     data = _load_yaml_file(path)
 
     if isinstance(data, dict):

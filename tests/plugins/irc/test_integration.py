@@ -12,7 +12,6 @@ import pytest
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.irc.models import ConversationState, IRCConversation, IRCTurn
 
-
 # ---------------------------------------------------------------------------
 # TestGenerateTurn — tests for _generate_turn()
 # ---------------------------------------------------------------------------
@@ -79,7 +78,9 @@ class TestGenerateTurn:
 
         # Add existing turns to the conversation
         turns = [
-            IRCTurn(identity="cherry", display_name="Cherry", content="Opening thought.", turn_number=0),
+            IRCTurn(
+                identity="cherry", display_name="Cherry", content="Opening thought.", turn_number=0
+            ),
             IRCTurn(identity="anomal", display_name="Anomal", content="My reply.", turn_number=1),
         ]
         irc_plugin._current_conversation = irc_plugin._current_conversation.model_copy(
@@ -173,8 +174,10 @@ class TestRunTurns:
         """Turns should be added to the conversation."""
         self._setup_plugin(irc_plugin, mock_ctx)
 
-        with patch("overblick.identities.build_system_prompt", return_value="Prompt"), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch("overblick.identities.build_system_prompt", return_value="Prompt"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             await irc_plugin._run_turns(max_turns=2)
 
         assert irc_plugin._current_conversation.turn_count == 2
@@ -184,9 +187,11 @@ class TestRunTurns:
         """Conversation should be saved to disk after each turn."""
         self._setup_plugin(irc_plugin, mock_ctx)
 
-        with patch("overblick.identities.build_system_prompt", return_value="Prompt"), \
-             patch("asyncio.sleep", new_callable=AsyncMock), \
-             patch.object(irc_plugin, "_save_conversation") as mock_save:
+        with (
+            patch("overblick.identities.build_system_prompt", return_value="Prompt"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+            patch.object(irc_plugin, "_save_conversation") as mock_save,
+        ):
             await irc_plugin._run_turns(max_turns=3)
 
         assert mock_save.call_count == 3
@@ -196,13 +201,16 @@ class TestRunTurns:
         """irc.new_turn event should be emitted for each turn."""
         self._setup_plugin(irc_plugin, mock_ctx)
 
-        with patch("overblick.identities.build_system_prompt", return_value="Prompt"), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch("overblick.identities.build_system_prompt", return_value="Prompt"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             await irc_plugin._run_turns(max_turns=2)
 
         # Filter for irc.new_turn calls
         new_turn_calls = [
-            call for call in mock_ctx.event_bus.emit.call_args_list
+            call
+            for call in mock_ctx.event_bus.emit.call_args_list
             if call.args[0] == "irc.new_turn"
         ]
         assert len(new_turn_calls) == 2
@@ -212,8 +220,10 @@ class TestRunTurns:
         """Should not exceed the requested max_turns."""
         self._setup_plugin(irc_plugin, mock_ctx)
 
-        with patch("overblick.identities.build_system_prompt", return_value="Prompt"), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch("overblick.identities.build_system_prompt", return_value="Prompt"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             await irc_plugin._run_turns(max_turns=1)
 
         assert irc_plugin._current_conversation.turn_count == 1
@@ -223,8 +233,10 @@ class TestRunTurns:
         """When conversation reaches max_turns, state should become COMPLETED."""
         self._setup_plugin(irc_plugin, mock_ctx, max_turns=2)
 
-        with patch("overblick.identities.build_system_prompt", return_value="Prompt"), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch("overblick.identities.build_system_prompt", return_value="Prompt"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             # Run enough turns to hit max_turns
             await irc_plugin._run_turns(max_turns=3)
 
@@ -238,8 +250,10 @@ class TestRunTurns:
             return_value=PipelineResult(blocked=True, block_reason="Blocked")
         )
 
-        with patch("overblick.identities.build_system_prompt", return_value="Prompt"), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with (
+            patch("overblick.identities.build_system_prompt", return_value="Prompt"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
             await irc_plugin._run_turns(max_turns=3)
 
         assert irc_plugin._current_conversation.turn_count == 0
@@ -268,17 +282,22 @@ class TestConversationFlow:
             identity.interests = {}
             irc_plugin._identities[name] = identity
 
-        with patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False), \
-             patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=True), \
-             patch("overblick.identities.build_system_prompt", return_value="Prompt"), \
-             patch("asyncio.sleep", new_callable=AsyncMock), \
-             patch("overblick.plugins.irc.plugin.select_topic", return_value={
-                 "id": "test-topic",
-                 "topic": "Test Topic",
-                 "description": "A test.",
-                 "tags": ["AI"],
-             }), \
-             patch("overblick.plugins.irc.plugin.select_participants") as mock_parts:
+        with (
+            patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False),
+            patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=True),
+            patch("overblick.identities.build_system_prompt", return_value="Prompt"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+            patch(
+                "overblick.plugins.irc.plugin.select_topic",
+                return_value={
+                    "id": "test-topic",
+                    "topic": "Test Topic",
+                    "description": "A test.",
+                    "tags": ["AI"],
+                },
+            ),
+            patch("overblick.plugins.irc.plugin.select_participants") as mock_parts,
+        ):
             # select_participants returns identity objects
             mock_parts.return_value = list(irc_plugin._identities.values())
             await irc_plugin.tick()
@@ -298,9 +317,15 @@ class TestConversationFlow:
             topic="Persistence",
             participants=["anomal", "cherry"],
             turns=[
-                IRCTurn(identity="anomal", display_name="Anomal", content="First turn.", turn_number=0),
-                IRCTurn(identity="cherry", display_name="Cherry", content="Second turn.", turn_number=1),
-                IRCTurn(identity="anomal", display_name="Anomal", content="Third turn.", turn_number=2),
+                IRCTurn(
+                    identity="anomal", display_name="Anomal", content="First turn.", turn_number=0
+                ),
+                IRCTurn(
+                    identity="cherry", display_name="Cherry", content="Second turn.", turn_number=1
+                ),
+                IRCTurn(
+                    identity="anomal", display_name="Anomal", content="Third turn.", turn_number=2
+                ),
             ],
             state=ConversationState.COMPLETED,
         )
@@ -332,7 +357,9 @@ class TestConversationFlow:
             topic="Teardown Test",
             participants=["anomal", "cherry"],
             turns=[
-                IRCTurn(identity="anomal", display_name="Anomal", content="Active turn.", turn_number=0),
+                IRCTurn(
+                    identity="anomal", display_name="Anomal", content="Active turn.", turn_number=0
+                ),
             ],
         )
         irc_plugin._current_conversation = conv

@@ -47,7 +47,7 @@ class IssueResponder:
         response_gen: ResponseGenerator,
         llm_pipeline=None,
         dry_run: bool = True,
-        respond_to_labels: Optional[list[str]] = None,
+        respond_to_labels: list[str] | None = None,
         max_response_age_hours: int = 168,
     ):
         self._client = client
@@ -112,7 +112,8 @@ class IssueResponder:
         existing_comments = []
         try:
             existing_comments = await self._client.list_issue_comments(
-                repo, issue.number,
+                repo,
+                issue.number,
             )
         except GitHubAPIError as e:
             logger.debug("Failed to fetch comments for %s#%d: %s", repo, issue.number, e)
@@ -135,7 +136,10 @@ class IssueResponder:
         if self._dry_run:
             logger.info(
                 "DRY RUN: would respond to %s#%d: %s (response: %d chars)",
-                repo, issue.number, issue.title, len(response_text),
+                repo,
+                issue.number,
+                issue.title,
+                len(response_text),
             )
             return ActionOutcome(
                 action=action,
@@ -146,18 +150,22 @@ class IssueResponder:
         # Post comment
         try:
             result = await self._client.create_comment(
-                repo, issue.number, response_text,
+                repo,
+                issue.number,
+                response_text,
             )
             comment_id = result.get("id", 0)
 
             # Record in DB
             content_hash = hashlib.sha256(response_text.encode()).hexdigest()[:16]
-            await self._db.record_comment(CommentRecord(
-                github_comment_id=comment_id,
-                repo=repo,
-                issue_number=issue.number,
-                content_hash=content_hash,
-            ))
+            await self._db.record_comment(
+                CommentRecord(
+                    github_comment_id=comment_id,
+                    repo=repo,
+                    issue_number=issue.number,
+                    content_hash=content_hash,
+                )
+            )
 
             logger.info("Responded to %s#%d: %s", repo, issue.number, issue.title)
 

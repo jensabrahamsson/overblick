@@ -66,7 +66,8 @@ class TestRunner:
                 cwd=str(self._workspace),
             )
             stdout, _ = await asyncio.wait_for(
-                proc.communicate(), timeout=self._timeout,
+                proc.communicate(),
+                timeout=self._timeout,
             )
 
             duration = time.monotonic() - start
@@ -82,12 +83,14 @@ class TestRunner:
                 "Tests %s: %d passed, %d failed, %d errors (%.1fs)",
                 "PASSED" if passed else "FAILED",
                 result.total - result.failures - result.errors,
-                result.failures, result.errors, duration,
+                result.failures,
+                result.errors,
+                duration,
             )
 
             return result
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             duration = time.monotonic() - start
             logger.error("Tests timed out after %ds", self._timeout)
             try:
@@ -113,10 +116,13 @@ class TestRunner:
     def _build_command(self, test_path: str) -> list[str]:
         """Build the pytest command as a list of arguments."""
         cmd = [
-            "python", "-m", "pytest",
+            "python",
+            "-m",
+            "pytest",
             test_path or "tests/",
             "-v",
-            "-m", "not llm and not e2e",
+            "-m",
+            "not llm and not e2e",
             "--tb=short",
             "-q",
         ]

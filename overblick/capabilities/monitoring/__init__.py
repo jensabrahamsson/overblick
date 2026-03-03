@@ -15,11 +15,11 @@ from overblick.capabilities.monitoring.models import (
 )
 
 __all__ = [
-    "HostInspectionCapability",
-    "HostHealth",
-    "MemoryInfo",
     "CPUInfo",
-    "PowerInfo",
     "HealthInquiry",
     "HealthResponse",
+    "HostHealth",
+    "HostInspectionCapability",
+    "MemoryInfo",
+    "PowerInfo",
 ]

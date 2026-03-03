@@ -20,15 +20,21 @@ from overblick.plugins.github.response_gen import ResponseGenerator
 def mock_code_context_builder():
     """Mock CodeContextBuilder that returns predefined context."""
     builder = AsyncMock(spec=CodeContextBuilder)
-    builder.build_context = AsyncMock(return_value=CodeContext(
-        repo="test/repo",
-        question="How does auth work?",
-        files=[
-            CachedFile(repo="test/repo", path="src/auth.py", sha="abc",
-                       content="class AuthMiddleware:\n    def verify(self, token): ..."),
-        ],
-        total_size=100,
-    ))
+    builder.build_context = AsyncMock(
+        return_value=CodeContext(
+            repo="test/repo",
+            question="How does auth work?",
+            files=[
+                CachedFile(
+                    repo="test/repo",
+                    path="src/auth.py",
+                    sha="abc",
+                    content="class AuthMiddleware:\n    def verify(self, token): ...",
+                ),
+            ],
+            total_size=100,
+        )
+    )
     return builder
 
 
@@ -78,10 +84,7 @@ class TestResponseGenerator:
 
     def test_format_comments_limits_to_five(self):
         """Only last 5 comments are included."""
-        comments = [
-            {"user": {"login": f"user{i}"}, "body": f"Comment {i}"}
-            for i in range(10)
-        ]
+        comments = [{"user": {"login": f"user{i}"}, "body": f"Comment {i}"} for i in range(10)]
         result = ResponseGenerator._format_comments(comments)
         assert "@user5:" in result
         assert "@user9:" in result
@@ -98,12 +101,15 @@ class TestResponseGenerator:
 
     @pytest.mark.asyncio
     async def test_generate_code_question(
-        self, response_gen, mock_llm_pipeline_github, mock_code_context_builder,
+        self,
+        response_gen,
+        mock_llm_pipeline_github,
+        mock_code_context_builder,
     ):
         """Code questions trigger code context building."""
-        mock_llm_pipeline_github.chat = AsyncMock(return_value=PipelineResult(
-            content="The auth middleware verifies tokens using JWT."
-        ))
+        mock_llm_pipeline_github.chat = AsyncMock(
+            return_value=PipelineResult(content="The auth middleware verifies tokens using JWT.")
+        )
 
         event = GitHubEvent(
             event_id="test/1",
@@ -123,12 +129,15 @@ class TestResponseGenerator:
 
     @pytest.mark.asyncio
     async def test_generate_general_issue(
-        self, response_gen, mock_llm_pipeline_github, mock_code_context_builder,
+        self,
+        response_gen,
+        mock_llm_pipeline_github,
+        mock_code_context_builder,
     ):
         """General issues skip code context."""
-        mock_llm_pipeline_github.chat = AsyncMock(return_value=PipelineResult(
-            content="Great idea! Dark mode would improve readability."
-        ))
+        mock_llm_pipeline_github.chat = AsyncMock(
+            return_value=PipelineResult(content="Great idea! Dark mode would improve readability.")
+        )
 
         event = GitHubEvent(
             event_id="test/1",
@@ -149,9 +158,13 @@ class TestResponseGenerator:
     @pytest.mark.asyncio
     async def test_generate_returns_none_on_failure(self, response_gen, mock_llm_pipeline_github):
         """Returns None when LLM fails."""
-        mock_llm_pipeline_github.chat = AsyncMock(return_value=PipelineResult(
-            content=None, blocked=True, block_reason="safety",
-        ))
+        mock_llm_pipeline_github.chat = AsyncMock(
+            return_value=PipelineResult(
+                content=None,
+                blocked=True,
+                block_reason="safety",
+            )
+        )
 
         event = GitHubEvent(
             event_id="test/1",

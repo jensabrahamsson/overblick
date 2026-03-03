@@ -6,10 +6,10 @@ workspace state, and observations. Generic agentic models are
 re-exported from core for convenience.
 """
 
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Re-export core agentic models for convenience
 from overblick.core.agentic.models import (  # noqa: F401
@@ -22,13 +22,14 @@ from overblick.core.agentic.models import (  # noqa: F401
     TickLog,
 )
 
-
 # ---------------------------------------------------------------------------
 # Bug status lifecycle
 # ---------------------------------------------------------------------------
 
-class BugStatus(str, Enum):
+
+class BugStatus(StrEnum):
     """Lifecycle status of a tracked bug."""
+
     NEW = "new"
     ANALYZING = "analyzing"
     FIXING = "fixing"
@@ -39,8 +40,9 @@ class BugStatus(str, Enum):
     SKIPPED = "skipped"
 
 
-class BugSource(str, Enum):
+class BugSource(StrEnum):
     """Where a bug was discovered."""
+
     GITHUB_ISSUE = "github_issue"
     LOG_ERROR = "log_error"
     IPC_REPORT = "ipc_report"
@@ -50,9 +52,11 @@ class BugSource(str, Enum):
 # Bug report
 # ---------------------------------------------------------------------------
 
+
 class BugReport(BaseModel):
     """A tracked bug report."""
-    id: Optional[int] = None
+
+    id: int | None = None
     source: BugSource
     source_ref: str = ""  # e.g. "issue#42", "log:anomal/agent.log:142"
     title: str
@@ -90,13 +94,15 @@ class BugReport(BaseModel):
 # Fix attempt record
 # ---------------------------------------------------------------------------
 
+
 class FixAttempt(BaseModel):
     """Record of a single fix attempt."""
-    id: Optional[int] = None
+
+    id: int | None = None
     bug_id: int
     attempt_number: int = 1
     analysis: str = ""
-    files_changed: list[str] = []
+    files_changed: list[str] = Field(default_factory=list)
     tests_passed: bool = False
     test_output: str = ""
     opencode_output: str = ""
@@ -110,8 +116,10 @@ class FixAttempt(BaseModel):
 # Workspace state
 # ---------------------------------------------------------------------------
 
+
 class WorkspaceState(BaseModel):
     """Current state of the git workspace."""
+
     cloned: bool = False
     current_branch: str = ""
     is_clean: bool = True
@@ -124,8 +132,10 @@ class WorkspaceState(BaseModel):
 # Log error entry
 # ---------------------------------------------------------------------------
 
+
 class LogErrorEntry(BaseModel):
     """An error found by the log watcher."""
+
     file_path: str
     line_number: int = 0
     identity: str = ""
@@ -144,11 +154,13 @@ class LogErrorEntry(BaseModel):
 # Opencode result
 # ---------------------------------------------------------------------------
 
+
 class OpencodeResult(BaseModel):
     """Parsed result from an opencode invocation."""
+
     success: bool = False
     output: str = ""
-    files_changed: list[str] = []
+    files_changed: list[str] = Field(default_factory=list)
     error: str = ""
     duration_seconds: float = 0.0
 
@@ -157,8 +169,10 @@ class OpencodeResult(BaseModel):
 # Test run result
 # ---------------------------------------------------------------------------
 
+
 class TestRunResult(BaseModel):
     """Result of running pytest in the workspace."""
+
     passed: bool = False
     total: int = 0
     failures: int = 0
@@ -172,12 +186,14 @@ class TestRunResult(BaseModel):
 # Observation
 # ---------------------------------------------------------------------------
 
+
 class DevAgentObservation(BaseModel):
     """Complete world-state snapshot for the dev agent."""
-    bugs: list[BugReport] = []
-    workspace: WorkspaceState = WorkspaceState()
-    recent_fixes: list[FixAttempt] = []
-    pending_prs: list[str] = []  # PR URLs
+
+    bugs: list[BugReport] = Field(default_factory=list)
+    workspace: WorkspaceState = Field(default_factory=WorkspaceState)
+    recent_fixes: list[FixAttempt] = Field(default_factory=list)
+    pending_prs: list[str] = Field(default_factory=list)  # PR URLs
     log_errors_found: int = 0
     ipc_messages_received: int = 0
 
@@ -186,8 +202,10 @@ class DevAgentObservation(BaseModel):
 # Action types
 # ---------------------------------------------------------------------------
 
-class ActionType(str, Enum):
+
+class ActionType(StrEnum):
     """Types of actions the dev agent can take."""
+
     ANALYZE_BUG = "analyze_bug"
     FIX_BUG = "fix_bug"
     RUN_TESTS = "run_tests"

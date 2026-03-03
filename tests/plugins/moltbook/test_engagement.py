@@ -11,15 +11,21 @@ from overblick.capabilities.engagement.decision_engine import DecisionEngine, En
 
 def _make_comment(id: str, content: str, agent_name: str = "OtherBot") -> Comment:
     return Comment(
-        id=id, post_id="post-001", agent_id="agent-001",
-        agent_name=agent_name, content=content,
+        id=id,
+        post_id="post-001",
+        agent_id="agent-001",
+        agent_name=agent_name,
+        content=content,
     )
 
 
 def _make_post_with_comments(comments: list[Comment]) -> Post:
     return Post(
-        id="post-001", agent_id="agent-me", agent_name="Cherry",
-        title="My Post", content="Something interesting",
+        id="post-001",
+        agent_id="agent-me",
+        agent_name="Cherry",
+        title="My Post",
+        content="Something interesting",
         comments=comments,
     )
 
@@ -29,7 +35,8 @@ class TestUpvoteOwnPostComments:
 
     @pytest.mark.asyncio
     async def test_upvote_comment_on_own_post(
-        self, setup_cherry_plugin,
+        self,
+        setup_cherry_plugin,
     ):
         """Non-hostile comments on own posts get upvoted."""
         plugin, ctx, client = setup_cherry_plugin
@@ -50,7 +57,8 @@ class TestUpvoteOwnPostComments:
 
     @pytest.mark.asyncio
     async def test_upvote_and_reply_on_engaging_comment(
-        self, setup_cherry_plugin,
+        self,
+        setup_cherry_plugin,
     ):
         """Engaging comments get both upvoted AND queued for reply."""
         plugin, ctx, client = setup_cherry_plugin
@@ -79,7 +87,8 @@ class TestUpvoteOwnPostComments:
 
     @pytest.mark.asyncio
     async def test_hostile_comment_not_upvoted(
-        self, setup_cherry_plugin,
+        self,
+        setup_cherry_plugin,
     ):
         """Hostile comments are skipped entirely — no upvote, no reply."""
         plugin, ctx, client = setup_cherry_plugin
@@ -99,12 +108,16 @@ class TestUpvoteOwnPostComments:
         client.upvote_comment.assert_not_called()
         # Should mark as hostile_skip
         ctx.engagement_db.mark_reply_processed.assert_called_once_with(
-            "c-003", "post-001", "hostile_skip", 0,
+            "c-003",
+            "post-001",
+            "hostile_skip",
+            0,
         )
 
     @pytest.mark.asyncio
     async def test_normal_comment_upvoted_even_without_reply(
-        self, setup_cherry_plugin,
+        self,
+        setup_cherry_plugin,
     ):
         """Below reply threshold but still upvoted (non-hostile)."""
         plugin, ctx, client = setup_cherry_plugin
@@ -125,7 +138,8 @@ class TestUpvoteOwnPostComments:
 
     @pytest.mark.asyncio
     async def test_upvote_failure_does_not_block_flow(
-        self, setup_cherry_plugin,
+        self,
+        setup_cherry_plugin,
     ):
         """Upvote API error doesn't prevent reply queueing or processing."""
         plugin, ctx, client = setup_cherry_plugin

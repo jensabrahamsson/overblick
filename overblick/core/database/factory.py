@@ -35,14 +35,15 @@ def create_backend(
 
     if config.backend == "sqlite":
         from overblick.core.database.sqlite_backend import SQLiteBackend
+
         return SQLiteBackend(config, identity)
 
     elif config.backend == "postgresql":
         from overblick.core.database.pg_backend import PostgreSQLBackend
+
         return PostgreSQLBackend(config, identity)
 
     else:
         raise ValueError(
-            f"Unknown database backend: {config.backend!r}. "
-            f"Supported: 'sqlite', 'postgresql'"
+            f"Unknown database backend: {config.backend!r}. " f"Supported: 'sqlite', 'postgresql'"
         )

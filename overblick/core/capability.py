@@ -28,7 +28,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional
 
-from pydantic import BaseModel, ConfigDict, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 if TYPE_CHECKING:
     from overblick.core.plugin_base import PluginContext
@@ -43,6 +43,7 @@ class CapabilityContext(BaseModel):
     A subset of PluginContext — capabilities get only what they need.
     This prevents capabilities from depending on plugin-specific state.
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     identity_name: str
@@ -63,7 +64,7 @@ class CapabilityContext(BaseModel):
     engagement_db: Any = None
 
     # Capability-specific config from identity YAML
-    config: dict[str, Any] = {}
+    config: dict[str, Any] = Field(default_factory=dict)
 
     # Secrets getter (callable that returns secret value by key)
     _secrets_getter: Any = PrivateAttr(default=None)
@@ -83,7 +84,7 @@ class CapabilityContext(BaseModel):
     def from_plugin_context(
         cls,
         ctx: "PluginContext",
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ) -> "CapabilityContext":
         """Create a CapabilityContext from a PluginContext."""
         cap_ctx = cls(
@@ -271,8 +272,8 @@ class CapabilityRegistry:
         self,
         name: str,
         ctx: "PluginContext",
-        config: Optional[dict[str, Any]] = None,
-    ) -> Optional[CapabilityBase]:
+        config: dict[str, Any] | None = None,
+    ) -> CapabilityBase | None:
         """Create a single capability instance from a PluginContext."""
         cls = self._registry.get(name)
         if not cls:
@@ -286,7 +287,7 @@ class CapabilityRegistry:
         self,
         names: list[str],
         ctx: "PluginContext",
-        configs: Optional[dict[str, dict[str, Any]]] = None,
+        configs: dict[str, dict[str, Any]] | None = None,
     ) -> list[CapabilityBase]:
         """Create multiple capabilities, resolving bundles."""
         configs = configs or {}
@@ -301,7 +302,7 @@ class CapabilityRegistry:
     @classmethod
     def default(cls) -> "CapabilityRegistry":
         """Create a registry pre-loaded with all built-in capabilities."""
-        from overblick.capabilities import CAPABILITY_REGISTRY, CAPABILITY_BUNDLES
+        from overblick.capabilities import CAPABILITY_BUNDLES, CAPABILITY_REGISTRY
 
         registry = cls()
         for name, cap_cls in CAPABILITY_REGISTRY.items():

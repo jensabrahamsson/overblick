@@ -84,7 +84,10 @@ async def test_llm_connection(llm_config: dict[str, Any]) -> dict[str, Any]:
     Returns dict with 'success', 'provider' (which backend responded), and 'error'.
     """
     messages = [
-        {"role": "system", "content": "You are a helpful assistant. Respond in one short sentence."},
+        {
+            "role": "system",
+            "content": "You are a helpful assistant. Respond in one short sentence.",
+        },
         {"role": "user", "content": "Say hello."},
     ]
 
@@ -107,7 +110,8 @@ def build_onboarding_prompt(identity_name: str) -> str | None:
     Loads the identity's base prompt and injects onboarding context.
     """
     try:
-        from overblick.identities import load_identity, build_system_prompt
+        from overblick.identities import build_system_prompt, load_identity
+
         identity = load_identity(identity_name)
         base_prompt = build_system_prompt(identity, platform="onboarding")
     except Exception as e:
@@ -186,6 +190,7 @@ async def _call_gateway(
                 content = choices[0].get("message", {}).get("content", "")
                 # Strip think tokens
                 from overblick.core.llm.client import LLMClient
+
                 return LLMClient.strip_think_tokens(content).strip()
     return None
 
@@ -221,5 +226,6 @@ async def _call_ollama(
             if choices:
                 content = choices[0].get("message", {}).get("content", "")
                 from overblick.core.llm.client import LLMClient
+
                 return LLMClient.strip_think_tokens(content).strip()
     return None

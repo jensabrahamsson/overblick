@@ -7,7 +7,13 @@ import pytest
 from overblick.core.event_bus import EventBus
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.core.plugin_base import PluginContext
-from overblick.identities import Personality, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.identities import (
+    Personality,
+    LLMSettings,
+    QuietHoursSettings,
+    ScheduleSettings,
+    SecuritySettings,
+)
 from overblick.plugins.skuggspel.plugin import SkuggspelPlugin
 
 
@@ -55,8 +61,12 @@ def mock_event_bus():
 
 @pytest.fixture
 def skuggspel_context(
-    skuggspel_identity, tmp_path, mock_llm_client, mock_audit_log,
-    mock_pipeline_skuggspel, mock_event_bus,
+    skuggspel_identity,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_pipeline_skuggspel,
+    mock_event_bus,
 ):
     """Full plugin context for skuggspel tests."""
     ctx = PluginContext(

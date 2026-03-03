@@ -21,10 +21,10 @@ from fastapi.security import APIKeyHeader
 
 from .backend_registry import BackendRegistry
 from .config import get_config
-from .deepseek_client import DeepseekError, DeepseekConnectionError, DeepseekTimeoutError
-from .models import ChatRequest, ChatResponse, Priority, GatewayStats
+from .deepseek_client import DeepseekConnectionError, DeepseekError, DeepseekTimeoutError
+from .models import ChatRequest, ChatResponse, GatewayStats, Priority
+from .ollama_client import OllamaConnectionError, OllamaError, OllamaTimeoutError
 from .queue_manager import QueueManager
-from .ollama_client import OllamaError, OllamaConnectionError, OllamaTimeoutError
 from .router import RequestRouter
 
 logging.basicConfig(
@@ -35,9 +35,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Global instances
-_queue_manager: Optional[QueueManager] = None
-_backend_registry: Optional[BackendRegistry] = None
-_router: Optional[RequestRouter] = None
+_queue_manager: QueueManager | None = None
+_backend_registry: BackendRegistry | None = None
+_router: RequestRouter | None = None
 
 
 def get_queue_manager() -> QueueManager:
@@ -105,7 +105,12 @@ app = FastAPI(
 )
 
 # Allowed origins for the gateway (localhost only)
-_ALLOWED_ORIGINS = {"http://127.0.0.1", "http://localhost", "https://127.0.0.1", "https://localhost"}
+_ALLOWED_ORIGINS = {
+    "http://127.0.0.1",
+    "http://localhost",
+    "https://127.0.0.1",
+    "https://localhost",
+}
 
 
 @app.middleware("http")
@@ -119,6 +124,7 @@ async def check_origin(request, call_next):
     if origin:
         # Parse origin to check host (ignore port)
         from urllib.parse import urlparse
+
         parsed = urlparse(origin)
         origin_base = f"{parsed.scheme}://{parsed.hostname}"
         if origin_base not in _ALLOWED_ORIGINS:
@@ -134,7 +140,7 @@ async def check_origin(request, call_next):
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-async def verify_api_key(api_key: Optional[str] = Security(_api_key_header)) -> None:
+async def verify_api_key(api_key: str | None = Security(_api_key_header)) -> None:
     """Verify API key if one is configured."""
     config = get_config()
     if not config.api_key:
@@ -230,7 +236,7 @@ async def get_stats() -> GatewayStats:
 
 @app.get("/models", dependencies=[Depends(verify_api_key)])
 async def list_models(
-    backend: Optional[str] = Query(default=None, description="Backend to list models from"),
+    backend: str | None = Query(default=None, description="Backend to list models from"),
 ) -> dict:
     """List available models from a specific backend (or default)."""
     registry = get_backend_registry()
@@ -249,12 +255,16 @@ async def list_models(
         )
 
 
-@app.post("/v1/chat/completions", response_model=ChatResponse, dependencies=[Depends(verify_api_key)])
+@app.post(
+    "/v1/chat/completions", response_model=ChatResponse, dependencies=[Depends(verify_api_key)]
+)
 async def chat_completion(
     request: ChatRequest,
     priority: str = Query(default="low", description="Priority: high or low"),
-    backend: Optional[str] = Query(default=None, description="Backend to route to"),
-    complexity: Optional[str] = Query(default=None, description="Complexity: ultra, high, or low (for backend routing)"),
+    backend: str | None = Query(default=None, description="Backend to route to"),
+    complexity: str | None = Query(
+        default=None, description="Complexity: ultra, high, or low (for backend routing)"
+    ),
 ) -> ChatResponse:
     """
     OpenAI-compatible chat completion endpoint with priority queuing.
@@ -311,8 +321,11 @@ async def chat_completion(
 
     logger.info(
         "Received chat request: model=%s, messages=%d, priority=%s, backend=%s, complexity=%s",
-        request.model, len(request.messages), prio.name,
-        resolved_backend or "default", complexity or "none",
+        request.model,
+        len(request.messages),
+        prio.name,
+        resolved_backend or "default",
+        complexity or "none",
     )
 
     try:
@@ -333,16 +346,21 @@ async def chat_completion(
                 if fallback != resolved_backend:
                     logger.warning(
                         "Backend '%s' failed (%s), retrying with '%s'",
-                        resolved_backend, type(e).__name__, fallback,
+                        resolved_backend,
+                        type(e).__name__,
+                        fallback,
                     )
                     try:
-                        fb_backend = None if fallback == _backend_registry.default_backend else fallback
+                        fb_backend = (
+                            None if fallback == _backend_registry.default_backend else fallback
+                        )
                         response = await qm.submit(request, prio, backend=fb_backend)
                         return response
                     except Exception as retry_err:
                         logger.warning(
                             "Fallback backend '%s' also failed: %s",
-                            fallback, retry_err,
+                            fallback,
+                            retry_err,
                         )
             raise  # No fallback available — propagate to outer handler
 
@@ -353,7 +371,7 @@ async def chat_completion(
             detail="Queue is full. Try again later.",
         )
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Request timed out", exc_info=True)
         raise HTTPException(
             status_code=504,
@@ -426,7 +444,7 @@ async def generic_exception_handler(request, exc):
     )
 
 
-def run_server(host: Optional[str] = None, port: Optional[int] = None) -> None:
+def run_server(host: str | None = None, port: int | None = None) -> None:
     """Run the gateway server with uvicorn."""
     import uvicorn
 

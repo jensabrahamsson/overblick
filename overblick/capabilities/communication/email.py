@@ -30,10 +30,11 @@ logger = logging.getLogger(__name__)
 
 class EmailMessage(BaseModel):
     """Email message to send."""
+
     to: str
     subject: str
     body: str
-    from_email: Optional[str] = None
+    from_email: str | None = None
     html: bool = False
 
 
@@ -54,7 +55,7 @@ class EmailCapability:
 
     def __init__(self, ctx):
         self.ctx = ctx
-        self._smtp_config: Optional[dict] = None
+        self._smtp_config: dict | None = None
         logger.info("EmailCapability initialized for %s", ctx.identity_name)
 
     async def setup(self) -> None:
@@ -94,7 +95,7 @@ class EmailCapability:
         to: str,
         subject: str,
         body: str,
-        from_email: Optional[str] = None,
+        from_email: str | None = None,
         html: bool = False,
     ) -> bool:
         """

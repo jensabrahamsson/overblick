@@ -25,7 +25,6 @@ from overblick.core.plugin_registry import (
     _KNOWN_PLUGINS,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -91,9 +90,7 @@ class NotAPlugin:
 class TestPluginRegistryLoad:
     """Tests for PluginRegistry.load()."""
 
-    def test_load_known_plugin_success(
-        self, registry, plugin_ctx, _cleanup_known_plugins
-    ):
+    def test_load_known_plugin_success(self, registry, plugin_ctx, _cleanup_known_plugins):
         """Loading a known plugin should import it, instantiate it, and store it."""
         # Create a fake module containing MockPlugin
         fake_module = types.ModuleType("fake_plugin_module")
@@ -109,9 +106,7 @@ class TestPluginRegistryLoad:
         assert plugin.ctx is plugin_ctx
         assert plugin.ctx.identity_name == "test-agent"
 
-    def test_load_stores_plugin_in_loaded(
-        self, registry, plugin_ctx, _cleanup_known_plugins
-    ):
+    def test_load_stores_plugin_in_loaded(self, registry, plugin_ctx, _cleanup_known_plugins):
         """After loading, the plugin should be retrievable via get()."""
         fake_module = types.ModuleType("fake_plugin_module")
         fake_module.MockPlugin = MockPlugin
@@ -174,9 +169,7 @@ class TestPluginRegistryLoad:
             with pytest.raises(TypeError, match="must inherit from PluginBase"):
                 registry.load("not_plugin", plugin_ctx)
 
-    def test_load_multiple_plugins(
-        self, registry, plugin_ctx, _cleanup_known_plugins
-    ):
+    def test_load_multiple_plugins(self, registry, plugin_ctx, _cleanup_known_plugins):
         """Loading multiple distinct plugins should all be tracked."""
         fake_module = types.ModuleType("fake_multi")
         fake_module.MockPlugin = MockPlugin
@@ -192,9 +185,7 @@ class TestPluginRegistryLoad:
         assert registry.get("multi_b") is b
         assert a is not b  # Separate instances
 
-    def test_load_same_plugin_twice_overwrites(
-        self, registry, plugin_ctx, _cleanup_known_plugins
-    ):
+    def test_load_same_plugin_twice_overwrites(self, registry, plugin_ctx, _cleanup_known_plugins):
         """Loading the same plugin name twice should overwrite the first instance."""
         fake_module = types.ModuleType("fake_overwrite")
         fake_module.MockPlugin = MockPlugin
@@ -223,9 +214,7 @@ class TestPluginRegistryRegister:
         assert "custom_test" in _KNOWN_PLUGINS
         assert _KNOWN_PLUGINS["custom_test"] == ("my.custom.module", "CustomClass")
 
-    def test_register_makes_plugin_loadable(
-        self, registry, plugin_ctx, _cleanup_known_plugins
-    ):
+    def test_register_makes_plugin_loadable(self, registry, plugin_ctx, _cleanup_known_plugins):
         """A registered plugin should be loadable via load()."""
         fake_module = types.ModuleType("custom_module")
         fake_module.MockPlugin = MockPlugin
@@ -237,9 +226,7 @@ class TestPluginRegistryRegister:
 
         assert isinstance(plugin, MockPlugin)
 
-    def test_register_appears_in_available_plugins(
-        self, registry, _cleanup_known_plugins
-    ):
+    def test_register_appears_in_available_plugins(self, registry, _cleanup_known_plugins):
         """A newly registered plugin should appear in available_plugins()."""
         registry.register("zzz_test_plugin", "some.module", "SomeClass")
         available = registry.available_plugins()
@@ -303,9 +290,7 @@ class TestPluginRegistryAllLoaded:
         loaded["hacked"] = "injected"
         assert "hacked" not in registry.all_loaded()
 
-    def test_all_loaded_contains_loaded_plugins(
-        self, registry, plugin_ctx, _cleanup_known_plugins
-    ):
+    def test_all_loaded_contains_loaded_plugins(self, registry, plugin_ctx, _cleanup_known_plugins):
         """all_loaded() should contain all plugins loaded so far."""
         fake_module = types.ModuleType("fake_all")
         fake_module.MockPlugin = MockPlugin
@@ -409,6 +394,7 @@ class TestPluginRegistrySecurity:
 
         class EvilClass:
             """A class pretending to be a plugin."""
+
             def __init__(self, ctx):
                 pass
 
@@ -430,9 +416,9 @@ class TestPluginRegistrySecurity:
             assert isinstance(module_path, str)
             assert isinstance(class_name, str)
             # Module paths must start with overblick.plugins
-            assert module_path.startswith("overblick.plugins."), (
-                f"Plugin '{name}' has unexpected module path: {module_path}"
-            )
+            assert module_path.startswith(
+                "overblick.plugins."
+            ), f"Plugin '{name}' has unexpected module path: {module_path}"
 
     def test_load_does_not_use_eval_or_exec(self, registry, plugin_ctx, _cleanup_known_plugins):
         """Verify the load path uses importlib, not eval or exec."""
@@ -443,8 +429,9 @@ class TestPluginRegistrySecurity:
 
         registry.register("safe_test", "safe_module", "MockPlugin")
 
-        with patch("overblick.core.plugin_registry.importlib.import_module",
-                    return_value=fake_module) as mock_import:
+        with patch(
+            "overblick.core.plugin_registry.importlib.import_module", return_value=fake_module
+        ) as mock_import:
             plugin = registry.load("safe_test", plugin_ctx)
             mock_import.assert_called_once_with("safe_module")
 
@@ -457,9 +444,7 @@ class TestPluginRegistrySecurity:
 class TestPluginRegistryIsolation:
     """Tests verifying that registry instances are isolated."""
 
-    def test_separate_instances_have_separate_loaded(
-        self, plugin_ctx, _cleanup_known_plugins
-    ):
+    def test_separate_instances_have_separate_loaded(self, plugin_ctx, _cleanup_known_plugins):
         """Two PluginRegistry instances should not share loaded plugins."""
         reg_a = PluginRegistry()
         reg_b = PluginRegistry()

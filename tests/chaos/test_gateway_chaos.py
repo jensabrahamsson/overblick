@@ -59,6 +59,7 @@ def small_queue_config():
 # Network failures
 # ---------------------------------------------------------------------------
 
+
 class TestNetworkFailures:
     """Backend fails mid-request."""
 
@@ -85,6 +86,7 @@ class TestNetworkFailures:
     @pytest.mark.asyncio
     async def test_backend_timeout(self, small_queue_config):
         """Backend takes too long to respond."""
+
         async def slow_response(*args, **kwargs):
             await asyncio.sleep(100)  # Never returns in time
 
@@ -135,6 +137,7 @@ class TestNetworkFailures:
 # Concurrent access
 # ---------------------------------------------------------------------------
 
+
 class TestConcurrentAccess:
     """Many simultaneous requests."""
 
@@ -160,10 +163,7 @@ class TestConcurrentAccess:
         await qm.start()
 
         try:
-            tasks = [
-                qm.submit(_make_request(f"msg-{i}"), priority="low")
-                for i in range(50)
-            ]
+            tasks = [qm.submit(_make_request(f"msg-{i}"), priority="low") for i in range(50)]
             results = await asyncio.gather(*tasks, return_exceptions=True)
             # Not all may succeed, but the system should not deadlock or crash
             # Count both successes and expected exceptions (not hangs)
@@ -178,8 +178,10 @@ class TestConcurrentAccess:
             backends={
                 "local": {"enabled": True, "type": "ollama", "host": "127.0.0.1", "port": 11434},
                 "deepseek": {
-                    "enabled": True, "type": "deepseek",
-                    "api_key": "sk-test", "api_url": "https://api.deepseek.com/v1",
+                    "enabled": True,
+                    "type": "deepseek",
+                    "api_key": "sk-test",
+                    "api_url": "https://api.deepseek.com/v1",
                 },
             },
         )
@@ -199,12 +201,14 @@ class TestConcurrentAccess:
 # Resource exhaustion
 # ---------------------------------------------------------------------------
 
+
 class TestResourceExhaustion:
     """Queue at max capacity."""
 
     @pytest.mark.asyncio
     async def test_queue_full_rejection(self, small_queue_config):
         """When queue is full, new requests should be rejected."""
+
         async def never_respond(*a, **kw):
             await asyncio.sleep(1000)
 
@@ -221,9 +225,7 @@ class TestResourceExhaustion:
             tasks = []
             for i in range(10):
                 tasks.append(
-                    asyncio.create_task(
-                        qm.submit(_make_request(f"fill-{i}"), priority="low")
-                    )
+                    asyncio.create_task(qm.submit(_make_request(f"fill-{i}"), priority="low"))
                 )
 
             # Wait a bit for queue to fill
@@ -240,6 +242,7 @@ class TestResourceExhaustion:
 # ---------------------------------------------------------------------------
 # Corrupt data
 # ---------------------------------------------------------------------------
+
 
 class TestCorruptData:
     """Malformed inputs."""

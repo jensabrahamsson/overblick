@@ -8,8 +8,8 @@ the SafeLLMPipeline for full security enforcement.
 import logging
 from typing import Optional
 
-from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.capabilities.engagement.response_gen import ResponseGenerator
+from overblick.core.capability import CapabilityBase, CapabilityContext
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class ComposerCapability(CapabilityBase):
 
     def __init__(self, ctx: CapabilityContext):
         super().__init__(ctx)
-        self._generator: Optional[ResponseGenerator] = None
+        self._generator: ResponseGenerator | None = None
 
     async def setup(self) -> None:
         system_prompt = self.ctx.config.get("system_prompt", f"You are {self.ctx.identity_name}.")
@@ -57,9 +57,9 @@ class ComposerCapability(CapabilityBase):
         post_content: str,
         agent_name: str,
         prompt_template: str,
-        existing_comments: Optional[list[str]] = None,
+        existing_comments: list[str] | None = None,
         extra_context: str = "",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a comment response to a post."""
         if not self._generator:
             return None
@@ -78,7 +78,7 @@ class ComposerCapability(CapabilityBase):
         comment_content: str,
         commenter_name: str,
         prompt_template: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a reply to a comment."""
         if not self._generator:
             return None
@@ -93,7 +93,7 @@ class ComposerCapability(CapabilityBase):
         self,
         prompt_template: str,
         topic_index: int = 0,
-    ) -> Optional[tuple[str, str, str]]:
+    ) -> tuple[str, str, str] | None:
         """Generate a heartbeat post."""
         if not self._generator:
             return None
@@ -103,6 +103,6 @@ class ComposerCapability(CapabilityBase):
         )
 
     @property
-    def inner(self) -> Optional[ResponseGenerator]:
+    def inner(self) -> ResponseGenerator | None:
         """Access the underlying ResponseGenerator (for tests/migration)."""
         return self._generator
