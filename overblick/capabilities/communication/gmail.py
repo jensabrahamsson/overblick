@@ -192,7 +192,7 @@ class GmailCapability:
                 )
 
             status, data = imap.uid("search", "", search_criteria)
-            if status != "OK" or not data[0]:
+            if status != "OK" or not data or not data[0]:
                 return []
 
             uids = data[0].split()
@@ -213,7 +213,7 @@ class GmailCapability:
         """Fetch and parse a single message by IMAP UID."""
         uid_str = uid.decode()
         status, data = imap.uid("fetch", uid_str, "(RFC822)")
-        if status != "OK" or not data[0]:
+        if status != "OK" or not data or not data[0]:
             return None
 
         raw_bytes = data[0][1]

@@ -57,10 +57,10 @@ class TestCapabilityContext:
             identity_name="anomal",
             data_dir=tmp_path / "data",
             log_dir=tmp_path / "logs",
-            llm_client="mock_llm",
             event_bus="mock_bus",
             audit_log="mock_audit",
         )
+        plugin_ctx.llm_client = "mock_llm"  # llm_client is a property, must use setter
         cap_ctx = CapabilityContext.from_plugin_context(
             plugin_ctx,
             config={"key": "val"},
