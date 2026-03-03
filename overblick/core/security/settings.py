@@ -31,7 +31,7 @@ SAFE_MODE = _env_bool("OVERBLICK_SAFE_MODE", default=True)
 
 When True:
     • SafeLLMPipeline runs with strict=True (requires preflight, output safety, rate limiting).
-    • Missing security components cause pipeline to raise SecurityError.
+    • Missing security components cause pipeline to raise ConfigError.
     • skip_preflight and skip_output_safety are only allowed for trusted internal content.
 
 When False:
@@ -49,7 +49,7 @@ RAW_LLM = _env_bool("OVERBLICK_RAW_LLM", default=False)
 """Allow plugins direct access to ctx.llm_client (default False).
 
 When False:
-    • PluginContext.llm_client raises AttributeError.
+    • PluginContext.llm_client raises RuntimeError.
     • Plugins must use PluginContext.llm_pipeline for all LLM calls.
     • Prevents plugins from bypassing SafeLLMPipeline security.
 
@@ -85,12 +85,12 @@ ALLOW_RAW_FALLBACK = _env_bool("OVERBLICK_ALLOW_RAW_FALLBACK", default=False)
 """Allow raw LLM fallback when SafeLLMPipeline fails (default False).
 
 When True:
-    • If SafeLLMPipeline raises SecurityError, the call may fall back to raw LLM client.
+    • If SafeLLMPipeline raises ConfigError, the call may fall back to raw LLM client.
     • Used only in trusted supervisor handlers (health, email, research).
     • Never exposed to untrusted plugin code.
 
 When False:
-    • Pipeline failures propagate as SecurityError (fail‑closed).
+    • Pipeline failures propagate as ConfigError (fail‑closed).
 """
 
 
