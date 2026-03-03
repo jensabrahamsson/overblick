@@ -790,14 +790,11 @@ class EmailAgentPlugin(PluginBase):
             result = await self.ctx.llm_pipeline.chat(
                 messages=messages,
                 audit_action="email_notification",
-                skip_preflight=True,
             )
             if not result or result.blocked or not result.content:
                 return False
 
-            notification_text = (
-                f"*Email from {sender}*\n" f"_{subject}_\n\n" f"{result.content.strip()}"
-            )
+            notification_text = f"*Email from {sender}*\n_{subject}_\n\n{result.content.strip()}"
 
             notifier = self.ctx.get_capability("telegram_notifier")
             if not notifier:
@@ -838,10 +835,14 @@ class EmailAgentPlugin(PluginBase):
         subject = email.get("subject", "")
         snippet = email.get("snippet", email.get("body", "")[:200])
 
+        safe_sender = wrap_external_content(sender, "email_sender")
+        safe_subject = wrap_external_content(subject, "email_subject")
+        safe_snippet = wrap_external_content(snippet, "email_snippet")
+
         messages = boss_consultation_prompt(
-            sender=sender,
-            subject=subject,
-            snippet=snippet,
+            sender=safe_sender,
+            subject=safe_subject,
+            snippet=safe_snippet,
             reasoning=classification.reasoning,
             tentative_intent=classification.intent.value,
             confidence=classification.confidence,
@@ -852,7 +853,6 @@ class EmailAgentPlugin(PluginBase):
             result = await self.ctx.llm_pipeline.chat(
                 messages=messages,
                 audit_action="email_boss_question",
-                skip_preflight=True,
             )
             if result and not result.blocked and result.content:
                 question = result.content.strip()
@@ -1025,17 +1025,18 @@ class EmailAgentPlugin(PluginBase):
                 )
             return "neutral", "", False
 
+        safe_subject = wrap_external_content(original_email_subject, "email_subject")
+
         messages = feedback_classification_prompt(
             feedback_text=feedback_text,
             original_notification=original_notification,
-            original_email_subject=original_email_subject,
+            original_email_subject=safe_subject,
         )
 
         try:
             result = await self.ctx.llm_pipeline.chat(
                 messages=messages,
                 audit_action="feedback_classification",
-                skip_preflight=True,
             )
             if result and not result.blocked and result.content:
                 return self._parse_feedback_classification(result.content)

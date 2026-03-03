@@ -31,7 +31,7 @@ import logging
 import re
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -476,7 +476,7 @@ def load_identity(name: str) -> "Identity":
         return result
 
     raise FileNotFoundError(
-        f"No identity found for '{name}'. " f"Searched: {dir_based}, {standalone}, {legacy_file}"
+        f"No identity found for '{name}'. Searched: {dir_based}, {standalone}, {legacy_file}"
     )
 
 
@@ -562,7 +562,7 @@ def build_system_prompt(
     identity: "Identity",
     platform: str = "Moltbook",
     model_slug: str = "",
-    secrets_getter: callable | None = None,
+    secrets_getter: Callable[[str], str] | None = None,
 ) -> str:
     """
     Build a generic system prompt from identity data.

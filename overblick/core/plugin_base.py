@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SkipValidation
+from overblick.core.security.settings import raw_llm
 
 if TYPE_CHECKING:
     from overblick.core.db.engagement_db import EngagementDB
@@ -119,14 +120,12 @@ class PluginContext(BaseModel):
         """
         Raw LLM client access — disabled in safe mode.
 
-        In safe mode (OVERBLICK_RAW_LLM=0), accessing this property raises
+        In safe mode (RAW_LLM=False), accessing this property raises
         RuntimeError. Use ctx.llm_pipeline for secure LLM calls.
 
         Set OVERBLICK_RAW_LLM=1 to allow raw access (not recommended).
         """
-        import os
-
-        if os.environ.get("OVERBLICK_RAW_LLM", "0") == "0":
+        if not raw_llm():
             raise RuntimeError(
                 "Raw LLM client access is disabled in safe mode. "
                 "Use ctx.llm_pipeline for secure LLM calls. "

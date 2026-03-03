@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 
 from overblick.core.exceptions import ConfigError
 from overblick.core.security.input_sanitizer import sanitize as sanitize_input
+from overblick.core.security.settings import safe_mode
 
 logger = logging.getLogger(__name__)
 
@@ -102,10 +103,9 @@ class SafeLLMPipeline:
         self._identity_name = identity_name
         self._rate_limit_key = rate_limit_key
 
-        # Safe by default: if strict not explicitly set, check environment variable
+        # Safe by default: if strict not explicitly set, use central safe-mode setting
         if strict is None:
-            env_val = os.environ.get("OVERBLICK_SAFE_MODE", "1").lower()
-            strict = env_val not in ("0", "false", "off", "no")
+            strict = safe_mode()
 
         self._strict = strict
 
