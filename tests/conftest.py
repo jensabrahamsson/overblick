@@ -3,11 +3,27 @@ Shared test fixtures for Överblick tests.
 """
 
 import asyncio
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def disable_safe_mode_for_unit_tests(monkeypatch):
+    """Disable safe mode globally for unit tests.
+
+    SafeLLMPipeline strict mode requires all security components (preflight,
+    output_safety, rate_limiter). Unit tests that test isolated pipeline
+    behaviour instantiate the pipeline with only the components under test.
+    Setting OVERBLICK_SAFE_MODE=0 lets them do so without raising ConfigError.
+
+    Integration and security tests that need strict mode should pass
+    strict=True explicitly when constructing SafeLLMPipeline.
+    """
+    monkeypatch.setenv("OVERBLICK_SAFE_MODE", "0")
 
 
 @pytest.fixture

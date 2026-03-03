@@ -387,8 +387,10 @@ class SafeLLMPipeline:
                 return (False, result.text, None)
         except Exception as e:
             logger.error("Output safety error: %s", e, exc_info=True)
-            # Fail CLOSED — block if output safety crashes (security-first)
-            return (True, "", "Output safety unavailable")
+            # Fail CLOSED — block if output safety crashes (security-first).
+            # Return a neutral deflection so callers always get a safe string,
+            # preventing plugins from falling back to raw/unsafe content.
+            return (True, "I'm not able to respond to that right now.", "Output safety unavailable")
 
         return None
 
