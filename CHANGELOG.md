@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **IPC token semantics**: Renamed `_encrypt_token`/`_decrypt_token` to `_obfuscate_token`/`_deobfuscate_token` with documentation clarifying security properties (obfuscation, not encryption).
 - **Centralized security settings**: Created `overblick/core/security/settings.py` with unified environment variable parsing and helper functions (`safe_mode()`, `raw_llm()`, `strict_capabilities()`), replacing direct `os.environ` reads.
 - **Email agent security hardening**: Removed `skip_preflight=True` from notification, boss consultation, and feedback classification calls; added boundary markers for external content in boss consultation and feedback classification prompts.
+- **Output safety fail-closed deflection**: `SafeLLMPipeline._run_output_safety()` now returns a neutral deflection string on crash instead of an empty string, preventing plugins from falling back to raw/unsafe content.
 
 ## [0.0.1] - 2025-02-12
 
