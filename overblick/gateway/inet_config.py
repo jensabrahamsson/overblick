@@ -57,6 +57,9 @@ class InternetGatewayConfig(BaseModel):
 
     # IP filtering
     ip_allowlist: list[str] = []  # CIDR notation, empty = all allowed
+    trusted_proxies: list[
+        str
+    ] = []  # CIDR notation for trusted proxy IPs (for X-Forwarded-For validation)
 
     # Rate limiting
     global_rpm: int = 60
@@ -120,13 +123,17 @@ class InternetGatewayConfig(BaseModel):
             port=_get_env_int("PORT", 8201),
             tls_cert_path=_get_env("TLS_CERT_PATH", ""),
             tls_key_path=_get_env("TLS_KEY_PATH", ""),
-            tls_auto_selfsigned=_get_env("TLS_AUTO_SELFSIGNED", "true").lower() == "true",
-            internal_gateway_url=_get_env("INTERNAL_GATEWAY_URL", "http://127.0.0.1:8200"),
+            tls_auto_selfsigned=_get_env("TLS_AUTO_SELFSIGNED", "true").lower()
+            == "true",
+            internal_gateway_url=_get_env(
+                "INTERNAL_GATEWAY_URL", "http://127.0.0.1:8200"
+            ),
             internal_api_key=_get_env(
                 "INTERNAL_API_KEY",
                 os.getenv("OVERBLICK_GATEWAY_KEY", ""),
             ),
             ip_allowlist=_get_env_list("IP_ALLOWLIST"),
+            trusted_proxies=_get_env_list("TRUSTED_PROXIES"),
             global_rpm=_get_env_int("GLOBAL_RPM", 60),
             per_key_rpm=_get_env_int("PER_KEY_RPM", 30),
             max_request_bytes=_get_env_int("MAX_REQUEST_BYTES", 65_536),

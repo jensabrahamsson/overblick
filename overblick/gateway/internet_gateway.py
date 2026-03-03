@@ -10,6 +10,7 @@ Usage:
     python -m overblick internet-gateway --no-tls  # dev mode, localhost only
 """
 
+import ipaddress
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -34,6 +35,7 @@ from .inet_middleware import (
     ViolationTracker,
 )
 from .inet_models import APIKeyRecord
+from .inet_violation_db import SQLiteBanStore
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,12 +57,15 @@ def _error_json(status: int, message: str, error_type: str) -> JSONResponse:
     """OpenAI-compatible error response."""
     return JSONResponse(
         status_code=status,
-        content={"error": {"message": message, "type": error_type, "code": str(status)}},
+        content={
+            "error": {"message": message, "type": error_type, "code": str(status)}
+        },
     )
 
 
 class ProxiedChatRequest(BaseModel):
     """Strict request body for chat completions (extra fields forbidden)."""
+
     model: str = Field(default="qwen3:8b")
     messages: list[dict[str, str]] = Field(...)
     max_tokens: int = Field(default=2000, ge=1, le=32768)
@@ -85,6 +90,7 @@ class ProxiedChatRequest(BaseModel):
 
 class EmbeddingRequest(BaseModel):
     """Strict request body for embeddings (extra fields forbidden)."""
+
     input: str | list[str] = Field(...)
     model: str = Field(default="nomic-embed-text")
 
@@ -94,7 +100,13 @@ class EmbeddingRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and tear down global resources."""
-    global _key_manager, _audit_log, _http_client, _violation_tracker, _per_key_limiter, _config
+    global \
+        _key_manager, \
+        _audit_log, \
+        _http_client, \
+        _violation_tracker, \
+        _per_key_limiter, \
+        _config
 
     _config = get_inet_config()
     data_dir = _config.resolved_data_dir
@@ -104,10 +116,12 @@ async def lifespan(app: FastAPI):
     _audit_log = InetAuditLog(data_dir / "audit.db")
     _audit_log.start_background_cleanup()
 
+    ban_store = SQLiteBanStore(data_dir / "violations.db")
     _violation_tracker = ViolationTracker(
         window_seconds=_config.auto_ban_window,
         threshold=_config.auto_ban_threshold,
         ban_duration=_config.auto_ban_duration,
+        ban_store=ban_store,
     )
 
     # Per-key rate limiter (keyed by key_id)
@@ -125,15 +139,28 @@ async def lifespan(app: FastAPI):
     app.state.violation_tracker = _violation_tracker
 
     # Add middleware stack (outermost first = added last)
-    app.add_middleware(GlobalRateLimitMiddleware, rpm=_config.global_rpm)
+    app.add_middleware(
+        GlobalRateLimitMiddleware,
+        rpm=_config.global_rpm,
+        trusted_proxies=_config.trusted_proxies,
+    )
     if _config.ip_allowlist:
-        app.add_middleware(IPAllowlistMiddleware, allowlist=_config.ip_allowlist)
-    app.add_middleware(IPBanMiddleware, tracker=_violation_tracker)
+        app.add_middleware(
+            IPAllowlistMiddleware,
+            allowlist=_config.ip_allowlist,
+            trusted_proxies=_config.trusted_proxies,
+        )
+    app.add_middleware(
+        IPBanMiddleware,
+        tracker=_violation_tracker,
+        trusted_proxies=_config.trusted_proxies,
+    )
     app.add_middleware(RequestSizeLimitMiddleware, max_bytes=_config.max_request_bytes)
 
     logger.info(
         "Internet Gateway starting on %s:%d (TLS: %s, internal: %s)",
-        _config.host, _config.port,
+        _config.host,
+        _config.port,
         "enabled" if _config.tls_enabled else "disabled",
         _config.internal_gateway_url,
     )
@@ -152,6 +179,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Error closing audit log: %s", e)
     try:
+        if _violation_tracker:
+            _violation_tracker.close()
+    except Exception as e:
+        logger.warning("Error closing violation tracker: %s", e)
+    try:
         if _key_manager:
             _key_manager.close()
     except Exception as e:
@@ -169,7 +201,9 @@ app = FastAPI(
 
 
 @app.middleware("http")
-async def ensure_middleware_and_security_headers(request: Request, call_next) -> JSONResponse:
+async def ensure_middleware_and_security_headers(
+    request: Request, call_next
+) -> JSONResponse:
     """Add security headers to all responses."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -179,8 +213,51 @@ async def ensure_middleware_and_security_headers(request: Request, call_next) ->
 
 
 def _get_client_ip(request: Request) -> str:
-    """Extract client IP from request."""
-    return request.client.host if request.client else "unknown"
+    """Extract client IP from request with X-Forwarded-For validation.
+
+    Respects trusted_proxies configuration. If no trusted proxies are configured,
+    X-Forwarded-For is ignored for security.
+    """
+    if not _config or not _config.trusted_proxies:
+        # No trusted proxies configured — ignore X-Forwarded-For for security
+        return request.client.host if request.client else "unknown"
+
+    # Parse trusted proxy networks (CIDR)
+    trusted_networks = []
+    for cidr in _config.trusted_proxies:
+        try:
+            trusted_networks.append(ipaddress.ip_network(cidr, strict=False))
+        except ValueError:
+            logger.warning("Invalid trusted_proxy CIDR: %s", cidr)
+
+    # Helper to check if IP is trusted
+    def is_trusted(ip_str: str) -> bool:
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return False
+        return any(ip in net for net in trusted_networks)
+
+    # Get remote IP (the immediate connection)
+    remote_ip = request.client.host if request.client else None
+    if remote_ip is None:
+        return "unknown"
+
+    # Parse X-Forwarded-For header (comma-separated, leftmost is original client)
+    forwarded_header = request.headers.get("x-forwarded-for", "")
+    forwarded_ips = [ip.strip() for ip in forwarded_header.split(",") if ip.strip()]
+
+    # Build chain: forwarded_ips + [remote_ip]
+    chain = forwarded_ips + [remote_ip]
+
+    # Walk from rightmost to leftmost, stopping at first untrusted IP
+    for ip in reversed(chain):
+        if is_trusted(ip):
+            continue
+        return ip
+
+    # All IPs in chain are trusted — return the original client (leftmost)
+    return chain[0] if chain else "unknown"
 
 
 def _verify_bearer_token(request: Request) -> Optional[APIKeyRecord]:
@@ -188,6 +265,7 @@ def _verify_bearer_token(request: Request) -> Optional[APIKeyRecord]:
 
     Returns APIKeyRecord if valid, None otherwise.
     """
+    assert _key_manager is not None
     auth_header = request.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
@@ -206,10 +284,12 @@ async def _proxy_request(
 
     Strips auth headers and adds internal API key if configured.
     """
+    assert _http_client is not None
+    assert _config is not None
     proxy_headers = {"Content-Type": "application/json"}
 
     # Add internal API key if configured
-    if _config and _config.internal_api_key:
+    if _config.internal_api_key:
         proxy_headers["X-API-Key"] = _config.internal_api_key
 
     return await _http_client.request(
@@ -222,6 +302,7 @@ async def _proxy_request(
 
 # --- Health endpoint (no auth) ---
 
+
 @app.get("/health")
 async def health():
     """Public health check — reveals nothing about internals."""
@@ -230,9 +311,15 @@ async def health():
 
 # --- Chat completions (auth required) ---
 
+
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
     """Proxy chat completion requests to internal gateway."""
+    assert _audit_log is not None
+    assert _per_key_limiter is not None
+    assert _violation_tracker is not None
+    assert _key_manager is not None
+    assert _config is not None
     start_time = time.time()
     client_ip = _get_client_ip(request)
     key_record: Optional[APIKeyRecord] = None
@@ -244,18 +331,27 @@ async def chat_completions(request: Request):
         if not key_record:
             _record_violation(client_ip, "auth_failure")
             _audit_log.log(
-                source_ip=client_ip, method="POST", path="/v1/chat/completions",
-                status_code=401, violation="auth_failure",
+                source_ip=client_ip,
+                method="POST",
+                path="/v1/chat/completions",
+                status_code=401,
+                violation="auth_failure",
             )
-            return _error_json(401, "Invalid or missing API key", "authentication_error")
+            return _error_json(
+                401, "Invalid or missing API key", "authentication_error"
+            )
 
         # 2. Per-key rate limit
         if not _per_key_limiter.allow(key_record.key_id):
             retry_after = _per_key_limiter.retry_after(key_record.key_id)
             _audit_log.log(
-                key_id=key_record.key_id, key_name=key_record.name,
-                source_ip=client_ip, method="POST", path="/v1/chat/completions",
-                status_code=429, violation="rate_limit",
+                key_id=key_record.key_id,
+                key_name=key_record.name,
+                source_ip=client_ip,
+                method="POST",
+                path="/v1/chat/completions",
+                status_code=429,
+                violation="rate_limit",
             )
             response = _error_json(429, "Rate limit exceeded", "rate_limit_error")
             response.headers["Retry-After"] = str(int(retry_after) + 1)
@@ -269,9 +365,13 @@ async def chat_completions(request: Request):
             parsed = ProxiedChatRequest.model_validate_json(body)
         except (ValueError, pydantic.ValidationError):
             _audit_log.log(
-                key_id=key_record.key_id, key_name=key_record.name,
-                source_ip=client_ip, method="POST", path="/v1/chat/completions",
-                status_code=400, error="Invalid request body",
+                key_id=key_record.key_id,
+                key_name=key_record.name,
+                source_ip=client_ip,
+                method="POST",
+                path="/v1/chat/completions",
+                status_code=400,
+                error="Invalid request body",
             )
             return _error_json(400, "Invalid request body", "invalid_request_error")
 
@@ -280,11 +380,18 @@ async def chat_completions(request: Request):
         # 4. Permission checks
         if key_record.allowed_models and parsed.model not in key_record.allowed_models:
             _audit_log.log(
-                key_id=key_record.key_id, key_name=key_record.name,
-                source_ip=client_ip, method="POST", path="/v1/chat/completions",
-                model=model_name, status_code=403, violation="model_not_allowed",
+                key_id=key_record.key_id,
+                key_name=key_record.name,
+                source_ip=client_ip,
+                method="POST",
+                path="/v1/chat/completions",
+                model=model_name,
+                status_code=403,
+                violation="model_not_allowed",
             )
-            return _error_json(403, "Model not allowed for this key", "permission_error")
+            return _error_json(
+                403, "Model not allowed for this key", "permission_error"
+            )
 
         # 5. Clamp max_tokens
         effective_cap = min(
@@ -298,21 +405,33 @@ async def chat_completions(request: Request):
         # 6. Proxy to internal gateway
         proxy_body = parsed.model_dump_json().encode()
         try:
-            upstream = await _proxy_request("POST", "/v1/chat/completions", body=proxy_body)
+            upstream = await _proxy_request(
+                "POST", "/v1/chat/completions", body=proxy_body
+            )
         except httpx.ConnectError:
             logger.error("Internal gateway unreachable")
             _audit_log.log(
-                key_id=key_record.key_id, key_name=key_record.name,
-                source_ip=client_ip, method="POST", path="/v1/chat/completions",
-                model=model_name, status_code=502, error="upstream_unreachable",
+                key_id=key_record.key_id,
+                key_name=key_record.name,
+                source_ip=client_ip,
+                method="POST",
+                path="/v1/chat/completions",
+                model=model_name,
+                status_code=502,
+                error="upstream_unreachable",
             )
             return _error_json(502, "Service temporarily unavailable", "server_error")
         except httpx.TimeoutException:
             logger.error("Internal gateway timeout")
             _audit_log.log(
-                key_id=key_record.key_id, key_name=key_record.name,
-                source_ip=client_ip, method="POST", path="/v1/chat/completions",
-                model=model_name, status_code=504, error="upstream_timeout",
+                key_id=key_record.key_id,
+                key_name=key_record.name,
+                source_ip=client_ip,
+                method="POST",
+                path="/v1/chat/completions",
+                model=model_name,
+                status_code=504,
+                error="upstream_timeout",
             )
             return _error_json(504, "Request timed out", "server_error")
 
@@ -322,10 +441,15 @@ async def chat_completions(request: Request):
         if upstream.status_code >= 500:
             # Mask internal errors
             _audit_log.log(
-                key_id=key_record.key_id, key_name=key_record.name,
-                source_ip=client_ip, method="POST", path="/v1/chat/completions",
-                model=model_name, status_code=502,
-                latency_ms=latency_ms, error=f"upstream_{upstream.status_code}",
+                key_id=key_record.key_id,
+                key_name=key_record.name,
+                source_ip=client_ip,
+                method="POST",
+                path="/v1/chat/completions",
+                model=model_name,
+                status_code=502,
+                latency_ms=latency_ms,
+                error=f"upstream_{upstream.status_code}",
             )
             return _error_json(502, "Service temporarily unavailable", "server_error")
 
@@ -349,10 +473,15 @@ async def chat_completions(request: Request):
 
         # 9. Audit success
         _audit_log.log(
-            key_id=key_record.key_id, key_name=key_record.name,
-            source_ip=client_ip, method="POST", path="/v1/chat/completions",
-            model=model_name, status_code=upstream.status_code,
-            request_tokens=req_tokens, response_tokens=resp_tokens,
+            key_id=key_record.key_id,
+            key_name=key_record.name,
+            source_ip=client_ip,
+            method="POST",
+            path="/v1/chat/completions",
+            model=model_name,
+            status_code=upstream.status_code,
+            request_tokens=req_tokens,
+            response_tokens=resp_tokens,
             latency_ms=latency_ms,
         )
 
@@ -369,26 +498,40 @@ async def chat_completions(request: Request):
             _audit_log.log(
                 key_id=key_record.key_id if key_record else "",
                 key_name=key_record.name if key_record else "",
-                source_ip=client_ip, method="POST", path="/v1/chat/completions",
-                model=model_name, status_code=500,
-                latency_ms=latency_ms, error="internal_error",
+                source_ip=client_ip,
+                method="POST",
+                path="/v1/chat/completions",
+                model=model_name,
+                status_code=500,
+                latency_ms=latency_ms,
+                error="internal_error",
             )
         return _error_json(500, "Internal server error", "server_error")
 
 
 # --- Embeddings (auth required) ---
 
+
 @app.post("/v1/embeddings")
 async def embeddings(request: Request):
     """Proxy embedding requests to internal gateway."""
+    assert _audit_log is not None
+    assert _violation_tracker is not None
+    assert _per_key_limiter is not None
+    assert _key_manager is not None
+    assert _http_client is not None
+    assert _config is not None
     client_ip = _get_client_ip(request)
 
     key_record = _verify_bearer_token(request)
     if not key_record:
         _record_violation(client_ip, "auth_failure")
         _audit_log.log(
-            source_ip=client_ip, method="POST", path="/v1/embeddings",
-            status_code=401, violation="auth_failure",
+            source_ip=client_ip,
+            method="POST",
+            path="/v1/embeddings",
+            status_code=401,
+            violation="auth_failure",
         )
         return _error_json(401, "Invalid or missing API key", "authentication_error")
 
@@ -420,9 +563,13 @@ async def embeddings(request: Request):
 
     _key_manager.update_usage(key_record.key_id, ip=client_ip)
     _audit_log.log(
-        key_id=key_record.key_id, key_name=key_record.name,
-        source_ip=client_ip, method="POST", path="/v1/embeddings",
-        model=parsed.model, status_code=upstream.status_code,
+        key_id=key_record.key_id,
+        key_name=key_record.name,
+        source_ip=client_ip,
+        method="POST",
+        path="/v1/embeddings",
+        model=parsed.model,
+        status_code=upstream.status_code,
     )
 
     return JSONResponse(status_code=upstream.status_code, content=upstream.json())
@@ -430,17 +577,26 @@ async def embeddings(request: Request):
 
 # --- Models list (auth required) ---
 
+
 @app.get("/v1/models")
 async def list_models(request: Request):
     """Proxy model listing to internal gateway."""
+    assert _audit_log is not None
+    assert _violation_tracker is not None
+    assert _per_key_limiter is not None
+    assert _http_client is not None
+    assert _config is not None
     client_ip = _get_client_ip(request)
 
     key_record = _verify_bearer_token(request)
     if not key_record:
         _record_violation(client_ip, "auth_failure")
         _audit_log.log(
-            source_ip=client_ip, method="GET", path="/v1/models",
-            status_code=401, violation="auth_failure",
+            source_ip=client_ip,
+            method="GET",
+            path="/v1/models",
+            status_code=401,
+            violation="auth_failure",
         )
         return _error_json(401, "Invalid or missing API key", "authentication_error")
 
@@ -459,8 +615,11 @@ async def list_models(request: Request):
         return _error_json(502, "Service temporarily unavailable", "server_error")
 
     _audit_log.log(
-        key_id=key_record.key_id, key_name=key_record.name,
-        source_ip=client_ip, method="GET", path="/v1/models",
+        key_id=key_record.key_id,
+        key_name=key_record.name,
+        source_ip=client_ip,
+        method="GET",
+        path="/v1/models",
         status_code=upstream.status_code,
     )
 
@@ -469,6 +628,7 @@ async def list_models(request: Request):
 
 # --- Catch-all for undefined routes ---
 
+
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def catch_all(request: Request, path: str):
     """Return 404 for any undefined route — reveals nothing."""
@@ -476,6 +636,7 @@ async def catch_all(request: Request, path: str):
 
 
 # --- Helpers ---
+
 
 def _proxy_headers() -> dict:
     """Build headers for proxied requests."""
@@ -499,6 +660,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 
 # --- Server entry point ---
+
 
 def run_internet_gateway(
     host: Optional[str] = None,
@@ -539,7 +701,8 @@ def run_internet_gateway(
 
     logger.info(
         "Starting Internet Gateway on %s:%d (TLS: %s)",
-        effective_host, effective_port,
+        effective_host,
+        effective_port,
         "enabled" if ssl_kwargs else "disabled",
     )
 

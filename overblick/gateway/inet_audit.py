@@ -16,7 +16,7 @@ import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +64,16 @@ class InetAuditLog:
         self._db_path = db_path
         self._retention_days = retention_days
         self._cleanup_task: Optional[asyncio.Task] = None
+        self._conn: Optional[sqlite3.Connection] = None
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), timeout=10, check_same_thread=False)
+        assert self._conn is not None
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
         self._write_executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="inet-audit-write",
+            max_workers=1,
+            thread_name_prefix="inet-audit-write",
         )
 
     def _log_sync(
@@ -89,7 +92,9 @@ class InetAuditLog:
         violation: str,
     ) -> int:
         """Synchronous log write (runs in executor thread)."""
-        cursor = self._conn.execute(
+        assert self._conn is not None
+        conn = self._conn
+        cursor = conn.execute(
             """
             INSERT INTO inet_audit
                 (timestamp, key_id, key_name, source_ip, method, path,
@@ -98,13 +103,24 @@ class InetAuditLog:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                time.time(), key_id, key_name, source_ip, method, path,
-                model, status_code, request_tokens, response_tokens,
-                latency_ms, error, violation,
+                time.time(),
+                key_id,
+                key_name,
+                source_ip,
+                method,
+                path,
+                model,
+                status_code,
+                request_tokens,
+                response_tokens,
+                latency_ms,
+                error,
+                violation,
             ),
         )
-        self._conn.commit()
-        return cursor.lastrowid
+        conn.commit()
+        assert cursor.lastrowid is not None
+        return cast(int, cursor.lastrowid)
 
     def log(
         self,
@@ -127,16 +143,34 @@ class InetAuditLog:
             loop.run_in_executor(
                 self._write_executor,
                 self._log_sync,
-                key_id, key_name, source_ip, method, path,
-                model, status_code, request_tokens, response_tokens,
-                latency_ms, error, violation,
+                key_id,
+                key_name,
+                source_ip,
+                method,
+                path,
+                model,
+                status_code,
+                request_tokens,
+                response_tokens,
+                latency_ms,
+                error,
+                violation,
             )
         except RuntimeError:
             # No event loop — write synchronously
             self._log_sync(
-                key_id, key_name, source_ip, method, path,
-                model, status_code, request_tokens, response_tokens,
-                latency_ms, error, violation,
+                key_id,
+                key_name,
+                source_ip,
+                method,
+                path,
+                model,
+                status_code,
+                request_tokens,
+                response_tokens,
+                latency_ms,
+                error,
+                violation,
             )
 
     def query(
@@ -149,6 +183,8 @@ class InetAuditLog:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Query audit entries with optional filters."""
+        assert self._conn is not None
+        conn = self._conn
         conditions: list[str] = []
         params: list[Any] = []
 
@@ -168,7 +204,7 @@ class InetAuditLog:
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         params.extend([limit, offset])
 
-        cursor = self._conn.execute(
+        cursor = conn.execute(
             f"""
             SELECT id, timestamp, key_id, key_name, source_ip, method, path,
                    model, status_code, request_tokens, response_tokens,
@@ -186,7 +222,9 @@ class InetAuditLog:
 
     def count_violations(self, source_ip: str, since: float) -> int:
         """Count violations from an IP since a given timestamp."""
-        cursor = self._conn.execute(
+        assert self._conn is not None
+        conn = self._conn
+        cursor = conn.execute(
             """
             SELECT COUNT(*) FROM inet_audit
             WHERE source_ip = ? AND violation != '' AND timestamp >= ?
@@ -197,16 +235,20 @@ class InetAuditLog:
 
     def _trim_old_entries(self) -> int:
         """Remove entries older than the retention period."""
+        assert self._conn is not None
+        conn = self._conn
         cutoff = time.time() - (self._retention_days * 86400)
-        cursor = self._conn.execute(
-            "DELETE FROM inet_audit WHERE timestamp < ?", (cutoff,),
+        cursor = conn.execute(
+            "DELETE FROM inet_audit WHERE timestamp < ?",
+            (cutoff,),
         )
         deleted = cursor.rowcount
         if deleted > 0:
-            self._conn.commit()
+            conn.commit()
             logger.info(
                 "Internet gateway audit: trimmed %d entries older than %d days",
-                deleted, self._retention_days,
+                deleted,
+                self._retention_days,
             )
         return deleted
 

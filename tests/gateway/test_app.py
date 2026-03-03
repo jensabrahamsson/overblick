@@ -2,6 +2,7 @@
 
 import asyncio
 import pytest
+from typing import Generator
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 
@@ -20,9 +21,11 @@ class TestFastAPIApp:
         registry.health_check_all = AsyncMock(return_value={"local": True})
         registry.get_client = MagicMock()
         registry.get_model = MagicMock(return_value="qwen3:8b")
-        registry.get_backend_info = MagicMock(return_value={
-            "local": {"type": "ollama", "model": "qwen3:8b"},
-        })
+        registry.get_backend_info = MagicMock(
+            return_value={
+                "local": {"type": "ollama", "model": "qwen3:8b"},
+            }
+        )
         mock_client = AsyncMock()
         mock_client.health_check = AsyncMock(return_value=True)
         mock_client.list_models = AsyncMock(return_value=["qwen3:8b"])
@@ -37,28 +40,43 @@ class TestFastAPIApp:
         qm.client = AsyncMock()
         qm.client.health_check = AsyncMock(return_value=True)
         qm.client.list_models = AsyncMock(return_value=["qwen3:8b"])
-        qm.submit = AsyncMock(return_value=ChatResponse.from_message(
-            model="qwen3:8b",
-            content="Test response",
-        ))
-        qm.get_stats = MagicMock(return_value=MagicMock(
-            queue_size=0,
-            requests_processed=10,
-            requests_high_priority=5,
-            requests_low_priority=5,
-            avg_response_time_ms=100.0,
-            is_processing=False,
-            uptime_seconds=3600.0,
-        ))
+        qm.submit = AsyncMock(
+            return_value=ChatResponse.from_message(
+                model="qwen3:8b",
+                content="Test response",
+            )
+        )
+        qm.get_stats = MagicMock(
+            return_value=MagicMock(
+                queue_size=0,
+                requests_processed=10,
+                requests_high_priority=5,
+                requests_low_priority=5,
+                avg_response_time_ms=100.0,
+                is_processing=False,
+                uptime_seconds=3600.0,
+            )
+        )
         return qm
 
     @pytest.fixture
-    def client(self, mock_queue_manager, mock_backend_registry):
-        with patch("overblick.gateway.app._queue_manager", mock_queue_manager), \
-             patch("overblick.gateway.app._backend_registry", mock_backend_registry), \
-             patch("overblick.gateway.app.get_queue_manager", return_value=mock_queue_manager), \
-             patch("overblick.gateway.app.get_backend_registry", return_value=mock_backend_registry):
+    def client(
+        self, mock_queue_manager, mock_backend_registry
+    ) -> Generator[TestClient, None, None]:
+        with (
+            patch("overblick.gateway.app._queue_manager", mock_queue_manager),
+            patch("overblick.gateway.app._backend_registry", mock_backend_registry),
+            patch(
+                "overblick.gateway.app.get_queue_manager",
+                return_value=mock_queue_manager,
+            ),
+            patch(
+                "overblick.gateway.app.get_backend_registry",
+                return_value=mock_backend_registry,
+            ),
+        ):
             from overblick.gateway.app import app
+
             with TestClient(app, raise_server_exceptions=False) as client:
                 yield client
 
@@ -74,8 +92,12 @@ class TestFastAPIApp:
         assert data["backends"]["local"]["model"] == "qwen3:8b"
         assert data["backends"]["local"]["default"] is True
 
-    def test_health_check_degraded(self, client, mock_queue_manager, mock_backend_registry):
-        mock_backend_registry.health_check_all = AsyncMock(return_value={"local": False})
+    def test_health_check_degraded(
+        self, client, mock_queue_manager, mock_backend_registry
+    ):
+        mock_backend_registry.health_check_all = AsyncMock(
+            return_value={"local": False}
+        )
 
         response = client.get("/health")
 
@@ -140,9 +162,7 @@ class TestFastAPIApp:
         assert response.status_code == 503
 
     def test_chat_completion_timeout(self, client, mock_queue_manager):
-        mock_queue_manager.submit = AsyncMock(
-            side_effect=asyncio.TimeoutError()
-        )
+        mock_queue_manager.submit = AsyncMock(side_effect=asyncio.TimeoutError())
 
         payload = {
             "model": "qwen3:8b",
@@ -226,9 +246,11 @@ class TestOriginMiddleware:
         registry.health_check_all = AsyncMock(return_value={"local": True})
         registry.get_client = MagicMock()
         registry.get_model = MagicMock(return_value="qwen3:8b")
-        registry.get_backend_info = MagicMock(return_value={
-            "local": {"type": "ollama", "model": "qwen3:8b"},
-        })
+        registry.get_backend_info = MagicMock(
+            return_value={
+                "local": {"type": "ollama", "model": "qwen3:8b"},
+            }
+        )
         mock_client = AsyncMock()
         mock_client.health_check = AsyncMock(return_value=True)
         mock_client.list_models = AsyncMock(return_value=["qwen3:8b"])
@@ -244,12 +266,23 @@ class TestOriginMiddleware:
         return qm
 
     @pytest.fixture
-    def client(self, mock_queue_manager, mock_backend_registry):
-        with patch("overblick.gateway.app._queue_manager", mock_queue_manager), \
-             patch("overblick.gateway.app._backend_registry", mock_backend_registry), \
-             patch("overblick.gateway.app.get_queue_manager", return_value=mock_queue_manager), \
-             patch("overblick.gateway.app.get_backend_registry", return_value=mock_backend_registry):
+    def client(
+        self, mock_queue_manager, mock_backend_registry
+    ) -> Generator[TestClient, None, None]:
+        with (
+            patch("overblick.gateway.app._queue_manager", mock_queue_manager),
+            patch("overblick.gateway.app._backend_registry", mock_backend_registry),
+            patch(
+                "overblick.gateway.app.get_queue_manager",
+                return_value=mock_queue_manager,
+            ),
+            patch(
+                "overblick.gateway.app.get_backend_registry",
+                return_value=mock_backend_registry,
+            ),
+        ):
             from overblick.gateway.app import app
+
             with TestClient(app, raise_server_exceptions=False) as client:
                 yield client
 

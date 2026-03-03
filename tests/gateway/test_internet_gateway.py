@@ -3,6 +3,7 @@
 import json
 import time
 from pathlib import Path
+from typing import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -17,7 +18,7 @@ from overblick.gateway.internet_gateway import app, _error_json
 
 
 @pytest.fixture(autouse=True)
-def _reset():
+def _reset() -> Generator[None, None, None]:
     """Reset config singleton before each test."""
     reset_inet_config()
     yield
@@ -43,7 +44,7 @@ def test_config(tmp_path: Path) -> InternetGatewayConfig:
 
 
 @pytest.fixture
-def key_manager(tmp_path: Path) -> APIKeyManager:
+def key_manager(tmp_path: Path) -> Generator[APIKeyManager, None, None]:
     """Create a key manager with temp database."""
     mgr = APIKeyManager(tmp_path / "keys.db")
     yield mgr
@@ -51,7 +52,7 @@ def key_manager(tmp_path: Path) -> APIKeyManager:
 
 
 @pytest.fixture
-def audit_log(tmp_path: Path) -> InetAuditLog:
+def audit_log(tmp_path: Path) -> Generator[InetAuditLog, None, None]:
     """Create an audit log with temp database."""
     audit = InetAuditLog(tmp_path / "audit.db")
     yield audit
@@ -72,11 +73,13 @@ def mock_upstream_response():
         "object": "chat.completion",
         "created": int(time.time()),
         "model": "qwen3:8b",
-        "choices": [{
-            "index": 0,
-            "message": {"role": "assistant", "content": "Hello!"},
-            "finish_reason": "stop",
-        }],
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello!"},
+                "finish_reason": "stop",
+            }
+        ],
         "usage": {
             "prompt_tokens": 10,
             "completion_tokens": 5,
@@ -92,7 +95,7 @@ def client(
     key_manager: APIKeyManager,
     audit_log: InetAuditLog,
     violation_tracker: ViolationTracker,
-) -> TestClient:
+) -> Generator[TestClient, None, None]:
     """Create a test client with mocked dependencies."""
     import overblick.gateway.internet_gateway as gw
     from overblick.core.security.rate_limiter import RateLimiter
@@ -123,7 +126,9 @@ def client(
     gw._http_client = None
 
 
-def _create_key_and_header(key_manager: APIKeyManager, name: str = "test") -> tuple[str, dict]:
+def _create_key_and_header(
+    key_manager: APIKeyManager, name: str = "test"
+) -> tuple[str, dict]:
     """Helper: create a key and return (raw_key, auth_header_dict)."""
     raw_key, _ = key_manager.create_key(name=name)
     return raw_key, {"Authorization": f"Bearer {raw_key}"}
@@ -165,7 +170,10 @@ class TestAuthentication:
         assert response.status_code == 401
 
     def test_valid_key_accepted(
-        self, client: TestClient, key_manager: APIKeyManager, mock_upstream_response: dict,
+        self,
+        client: TestClient,
+        key_manager: APIKeyManager,
+        mock_upstream_response: dict,
     ):
         import overblick.gateway.internet_gateway as gw
 
@@ -175,16 +183,21 @@ class TestAuthentication:
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
         mock_resp.json.return_value = mock_upstream_response
-        gw._http_client.request.return_value = mock_resp
+        gw._http_client.request.return_value = mock_resp  # type: ignore
 
         response = client.post(
             "/v1/chat/completions",
             headers=headers,
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hello"}]},
+            json={
+                "model": "qwen3:8b",
+                "messages": [{"role": "user", "content": "hello"}],
+            },
         )
         assert response.status_code == 200
 
-    def test_bearer_prefix_required(self, client: TestClient, key_manager: APIKeyManager):
+    def test_bearer_prefix_required(
+        self, client: TestClient, key_manager: APIKeyManager
+    ):
         raw_key, _ = _create_key_and_header(key_manager)
 
         # Missing "Bearer " prefix
@@ -211,7 +224,10 @@ class TestChatCompletions:
     """Tests for the /v1/chat/completions proxy endpoint."""
 
     def test_successful_proxy(
-        self, client: TestClient, key_manager: APIKeyManager, mock_upstream_response: dict,
+        self,
+        client: TestClient,
+        key_manager: APIKeyManager,
+        mock_upstream_response: dict,
     ):
         import overblick.gateway.internet_gateway as gw
 
@@ -220,12 +236,15 @@ class TestChatCompletions:
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
         mock_resp.json.return_value = mock_upstream_response
-        gw._http_client.request.return_value = mock_resp
+        gw._http_client.request.return_value = mock_resp  # type: ignore
 
         response = client.post(
             "/v1/chat/completions",
             headers=headers,
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hello"}]},
+            json={
+                "model": "qwen3:8b",
+                "messages": [{"role": "user", "content": "hello"}],
+            },
         )
 
         assert response.status_code == 200
@@ -234,7 +253,10 @@ class TestChatCompletions:
         assert data["choices"][0]["message"]["content"] == "Hello!"
 
     def test_max_tokens_clamped(
-        self, client: TestClient, key_manager: APIKeyManager, mock_upstream_response: dict,
+        self,
+        client: TestClient,
+        key_manager: APIKeyManager,
+        mock_upstream_response: dict,
     ):
         import overblick.gateway.internet_gateway as gw
 
@@ -243,7 +265,7 @@ class TestChatCompletions:
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
         mock_resp.json.return_value = mock_upstream_response
-        gw._http_client.request.return_value = mock_resp
+        gw._http_client.request.return_value = mock_resp  # type: ignore
 
         response = client.post(
             "/v1/chat/completions",
@@ -257,11 +279,13 @@ class TestChatCompletions:
 
         assert response.status_code == 200
         # Verify the proxied request had clamped tokens
-        call_args = gw._http_client.request.call_args
+        call_args = gw._http_client.request.call_args  # type: ignore
         proxied_body = json.loads(call_args.kwargs["content"])
         assert proxied_body["max_tokens"] <= 4096
 
-    def test_invalid_body_returns_400(self, client: TestClient, key_manager: APIKeyManager):
+    def test_invalid_body_returns_400(
+        self, client: TestClient, key_manager: APIKeyManager
+    ):
         raw_key, headers = _create_key_and_header(key_manager)
 
         response = client.post(
@@ -272,7 +296,9 @@ class TestChatCompletions:
         assert response.status_code == 400
         assert response.json()["error"]["type"] == "invalid_request_error"
 
-    def test_extra_fields_rejected(self, client: TestClient, key_manager: APIKeyManager):
+    def test_extra_fields_rejected(
+        self, client: TestClient, key_manager: APIKeyManager
+    ):
         raw_key, headers = _create_key_and_header(key_manager)
 
         response = client.post(
@@ -287,7 +313,9 @@ class TestChatCompletions:
         assert response.status_code == 400
 
     def test_model_not_allowed_returns_403(
-        self, client: TestClient, key_manager: APIKeyManager,
+        self,
+        client: TestClient,
+        key_manager: APIKeyManager,
     ):
         raw_key, record = key_manager.create_key(
             name="restricted",
@@ -307,7 +335,9 @@ class TestChatCompletions:
         assert "not allowed" in response.json()["error"]["message"].lower()
 
     def test_upstream_500_returns_502(
-        self, client: TestClient, key_manager: APIKeyManager,
+        self,
+        client: TestClient,
+        key_manager: APIKeyManager,
     ):
         import overblick.gateway.internet_gateway as gw
 
@@ -316,7 +346,7 @@ class TestChatCompletions:
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 500
         mock_resp.json.return_value = {"detail": "Internal error"}
-        gw._http_client.request.return_value = mock_resp
+        gw._http_client.request.return_value = mock_resp  # type: ignore
 
         response = client.post(
             "/v1/chat/completions",
@@ -330,12 +360,14 @@ class TestChatCompletions:
         assert data["error"]["type"] == "server_error"
 
     def test_upstream_connection_error_returns_502(
-        self, client: TestClient, key_manager: APIKeyManager,
+        self,
+        client: TestClient,
+        key_manager: APIKeyManager,
     ):
         import overblick.gateway.internet_gateway as gw
 
         raw_key, headers = _create_key_and_header(key_manager)
-        gw._http_client.request.side_effect = httpx.ConnectError("Connection refused")
+        gw._http_client.request.side_effect = httpx.ConnectError("Connection refused")  # type: ignore
 
         response = client.post(
             "/v1/chat/completions",
@@ -345,12 +377,14 @@ class TestChatCompletions:
         assert response.status_code == 502
 
     def test_upstream_timeout_returns_504(
-        self, client: TestClient, key_manager: APIKeyManager,
+        self,
+        client: TestClient,
+        key_manager: APIKeyManager,
     ):
         import overblick.gateway.internet_gateway as gw
 
         raw_key, headers = _create_key_and_header(key_manager)
-        gw._http_client.request.side_effect = httpx.TimeoutException("Timed out")
+        gw._http_client.request.side_effect = httpx.TimeoutException("Timed out")  # type: ignore
 
         response = client.post(
             "/v1/chat/completions",
@@ -364,7 +398,10 @@ class TestRateLimiting:
     """Tests for per-key rate limiting."""
 
     def test_rate_limit_exceeded(
-        self, client: TestClient, key_manager: APIKeyManager, mock_upstream_response: dict,
+        self,
+        client: TestClient,
+        key_manager: APIKeyManager,
+        mock_upstream_response: dict,
     ):
         import overblick.gateway.internet_gateway as gw
         from overblick.core.security.rate_limiter import RateLimiter
@@ -377,7 +414,7 @@ class TestRateLimiting:
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
         mock_resp.json.return_value = mock_upstream_response
-        gw._http_client.request.return_value = mock_resp
+        gw._http_client.request.return_value = mock_resp  # type: ignore
 
         # First request should succeed
         r1 = client.post(
@@ -404,7 +441,10 @@ class TestErrorMasking:
         response = client.get("/internal/secret/path")
         assert response.status_code == 404
         data = response.json()
-        assert "internal" not in json.dumps(data).lower() or "invalid_request_error" in data["error"]["type"]
+        assert (
+            "internal" not in json.dumps(data).lower()
+            or "invalid_request_error" in data["error"]["type"]
+        )
 
     def test_no_openapi_docs(self, client: TestClient):
         response = client.get("/docs")
@@ -432,14 +472,14 @@ class TestViolationTracker:
         tracker = ViolationTracker(threshold=5, window_seconds=300, ban_duration=3600)
         for _ in range(4):
             result = tracker.record_violation("1.2.3.4")
-        assert result is False
+        assert result is False  # type: ignore
         assert tracker.is_banned("1.2.3.4") is False
 
     def test_at_threshold_triggers_ban(self):
         tracker = ViolationTracker(threshold=5, window_seconds=300, ban_duration=3600)
         for i in range(5):
             result = tracker.record_violation("1.2.3.4")
-        assert result is True
+        assert result is True  # type: ignore
         assert tracker.is_banned("1.2.3.4") is True
 
     def test_ban_expires(self):
@@ -468,8 +508,11 @@ class TestAuditLogging:
     """Tests for audit trail writing."""
 
     def test_audit_entry_written(
-        self, client: TestClient, key_manager: APIKeyManager,
-        audit_log: InetAuditLog, mock_upstream_response: dict,
+        self,
+        client: TestClient,
+        key_manager: APIKeyManager,
+        audit_log: InetAuditLog,
+        mock_upstream_response: dict,
     ):
         import overblick.gateway.internet_gateway as gw
 
@@ -478,7 +521,7 @@ class TestAuditLogging:
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
         mock_resp.json.return_value = mock_upstream_response
-        gw._http_client.request.return_value = mock_resp
+        gw._http_client.request.return_value = mock_resp  # type: ignore
 
         client.post(
             "/v1/chat/completions",
@@ -488,6 +531,7 @@ class TestAuditLogging:
 
         # Give the async write a moment (it's fire-and-forget)
         import time
+
         time.sleep(0.1)
 
         entries = audit_log.query(limit=10)
@@ -497,7 +541,9 @@ class TestAuditLogging:
         assert entry["status_code"] == 200
 
     def test_auth_failure_logged(
-        self, client: TestClient, audit_log: InetAuditLog,
+        self,
+        client: TestClient,
+        audit_log: InetAuditLog,
     ):
         client.post(
             "/v1/chat/completions",
@@ -506,6 +552,7 @@ class TestAuditLogging:
         )
 
         import time
+
         time.sleep(0.1)
 
         entries = audit_log.query(violation="auth_failure", limit=10)

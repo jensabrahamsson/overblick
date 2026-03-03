@@ -8,6 +8,7 @@ revoke, rotate, and list operations with timing-safe verification.
 import logging
 import secrets
 import sqlite3
+import threading
 import time
 from pathlib import Path
 from typing import Optional
@@ -59,10 +60,30 @@ class APIKeyManager:
     def __init__(self, db_path: Path):
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db_path = db_path
-        self._conn = sqlite3.connect(str(db_path), timeout=10, check_same_thread=False)
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.executescript(_SCHEMA)
-        self._conn.commit()
+        self._local = threading.local()
+        self._connections = []
+        self._lock = threading.Lock()
+
+        # Initialize schema in a thread-safe manner
+        with self._lock:
+            conn = sqlite3.connect(str(db_path), timeout=10, check_same_thread=True)
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.executescript(_SCHEMA)
+            conn.commit()
+            conn.close()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """Get thread-local SQLite connection."""
+        if not hasattr(self._local, "conn"):
+            conn = sqlite3.connect(
+                str(self._db_path), timeout=10, check_same_thread=True
+            )
+            conn.execute("PRAGMA journal_mode=WAL")
+            # Schema already exists from initialization
+            self._local.conn = conn
+            with self._lock:
+                self._connections.append(conn)
+        return self._local.conn
 
     def create_key(
         self,
@@ -92,7 +113,7 @@ class APIKeyManager:
         models_json = json.dumps(allowed_models or [])
         backends_json = json.dumps(allowed_backends or [])
 
-        self._conn.execute(
+        self._get_conn().execute(
             """
             INSERT INTO api_keys
                 (key_id, name, key_hash, key_prefix, created_at, expires_at,
@@ -100,11 +121,19 @@ class APIKeyManager:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                key_id, name, key_hash, key_prefix, now, expires_at,
-                models_json, backends_json, max_tokens_cap, requests_per_minute,
+                key_id,
+                name,
+                key_hash,
+                key_prefix,
+                now,
+                expires_at,
+                models_json,
+                backends_json,
+                max_tokens_cap,
+                requests_per_minute,
             ),
         )
-        self._conn.commit()
+        self._get_conn().commit()
 
         record = APIKeyRecord(
             key_id=key_id,
@@ -119,7 +148,9 @@ class APIKeyManager:
             requests_per_minute=requests_per_minute,
         )
 
-        logger.info("Created API key '%s' (id: %s, prefix: %s)", name, key_id, key_prefix)
+        logger.info(
+            "Created API key '%s' (id: %s, prefix: %s)", name, key_id, key_prefix
+        )
         return raw_key, record
 
     def verify_key(self, raw_key: str) -> Optional[APIKeyRecord]:
@@ -141,7 +172,7 @@ class APIKeyManager:
 
         prefix = raw_key[:_DISPLAY_PREFIX_LENGTH]
 
-        cursor = self._conn.execute(
+        cursor = self._get_conn().execute(
             """
             SELECT key_id, name, key_hash, key_prefix, created_at, expires_at,
                    revoked, allowed_models, allowed_backends, max_tokens_cap,
@@ -202,11 +233,11 @@ class APIKeyManager:
         Returns:
             True if key was found and revoked, False if not found.
         """
-        cursor = self._conn.execute(
+        cursor = self._get_conn().execute(
             "UPDATE api_keys SET revoked = 1 WHERE key_id = ?",
             (key_id,),
         )
-        self._conn.commit()
+        self._get_conn().commit()
 
         if cursor.rowcount > 0:
             logger.info("Revoked API key: %s", key_id)
@@ -226,7 +257,7 @@ class APIKeyManager:
         """
         import json
 
-        cursor = self._conn.execute(
+        cursor = self._get_conn().execute(
             """
             SELECT name, allowed_models, allowed_backends, max_tokens_cap, requests_per_minute
             FROM api_keys
@@ -256,12 +287,12 @@ class APIKeyManager:
 
         # Atomic: revoke old + insert new in one transaction
         try:
-            self._conn.execute("BEGIN IMMEDIATE")
-            self._conn.execute(
+            self._get_conn().execute("BEGIN IMMEDIATE")
+            self._get_conn().execute(
                 "UPDATE api_keys SET revoked = 1 WHERE key_id = ?",
                 (key_id,),
             )
-            self._conn.execute(
+            self._get_conn().execute(
                 """
                 INSERT INTO api_keys
                     (key_id, name, key_hash, key_prefix, created_at, expires_at,
@@ -269,13 +300,21 @@ class APIKeyManager:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    new_key_id, name, key_hash, key_prefix, now, None,
-                    models_json_new, backends_json_new, max_tokens_cap, rpm,
+                    new_key_id,
+                    name,
+                    key_hash,
+                    key_prefix,
+                    now,
+                    None,
+                    models_json_new,
+                    backends_json_new,
+                    max_tokens_cap,
+                    rpm,
                 ),
             )
-            self._conn.execute("COMMIT")
+            self._get_conn().execute("COMMIT")
         except Exception:
-            self._conn.execute("ROLLBACK")
+            self._get_conn().execute("ROLLBACK")
             raise
 
         record = APIKeyRecord(
@@ -293,7 +332,10 @@ class APIKeyManager:
 
         logger.info(
             "Rotated API key '%s': %s -> %s (prefix: %s)",
-            name, key_id, new_key_id, key_prefix,
+            name,
+            key_id,
+            new_key_id,
+            key_prefix,
         )
         return raw_key, record
 
@@ -304,7 +346,7 @@ class APIKeyManager:
         """
         import json
 
-        cursor = self._conn.execute(
+        cursor = self._get_conn().execute(
             """
             SELECT key_id, name, key_hash, key_prefix, created_at, expires_at,
                    revoked, allowed_models, allowed_backends, max_tokens_cap,
@@ -325,28 +367,30 @@ class APIKeyManager:
             except (json.JSONDecodeError, TypeError):
                 allowed_backends = []
 
-            results.append(APIKeyRecord(
-                key_id=row[0],
-                name=row[1],
-                key_hash="[hidden]",  # Never expose hash in listings
-                key_prefix=row[3],
-                created_at=row[4],
-                expires_at=row[5],
-                revoked=bool(row[6]),
-                allowed_models=allowed_models,
-                allowed_backends=allowed_backends,
-                max_tokens_cap=row[9],
-                requests_per_minute=row[10],
-                total_requests=row[11],
-                total_tokens_used=row[12],
-                last_used_ip=row[13],
-            ))
+            results.append(
+                APIKeyRecord(
+                    key_id=row[0],
+                    name=row[1],
+                    key_hash="[hidden]",  # Never expose hash in listings
+                    key_prefix=row[3],
+                    created_at=row[4],
+                    expires_at=row[5],
+                    revoked=bool(row[6]),
+                    allowed_models=allowed_models,
+                    allowed_backends=allowed_backends,
+                    max_tokens_cap=row[9],
+                    requests_per_minute=row[10],
+                    total_requests=row[11],
+                    total_tokens_used=row[12],
+                    last_used_ip=row[13],
+                )
+            )
 
         return results
 
     def update_usage(self, key_id: str, tokens: int = 0, ip: str = "") -> None:
         """Update usage statistics for a key."""
-        self._conn.execute(
+        self._get_conn().execute(
             """
             UPDATE api_keys
             SET total_requests = total_requests + 1,
@@ -356,10 +400,17 @@ class APIKeyManager:
             """,
             (tokens, ip, key_id),
         )
-        self._conn.commit()
+        self._get_conn().commit()
 
     def close(self) -> None:
-        """Close the database connection."""
-        if self._conn:
-            self._conn.close()
-            self._conn = None
+        """Close all thread-local database connections."""
+        with self._lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()
+        # Clear thread-local storage
+        if hasattr(self._local, "conn"):
+            del self._local.conn

@@ -2,6 +2,7 @@
 
 import time
 from pathlib import Path
+from typing import Generator
 
 import pytest
 
@@ -9,7 +10,7 @@ from overblick.gateway.inet_auth import APIKeyManager
 
 
 @pytest.fixture
-def key_manager(tmp_path: Path) -> APIKeyManager:
+def key_manager(tmp_path: Path) -> Generator[APIKeyManager, None, None]:
     """Create a key manager with temporary database."""
     manager = APIKeyManager(tmp_path / "test_keys.db")
     yield manager
@@ -78,11 +79,11 @@ class TestAPIKeyManager:
         raw_key, record = key_manager.create_key(name="expired")
 
         # Manually expire the key
-        key_manager._conn.execute(
+        key_manager._get_conn().execute(
             "UPDATE api_keys SET expires_at = ? WHERE key_id = ?",
             (time.time() - 1, record.key_id),
         )
-        key_manager._conn.commit()
+        key_manager._get_conn().commit()
 
         result = key_manager.verify_key(raw_key)
         assert result is None

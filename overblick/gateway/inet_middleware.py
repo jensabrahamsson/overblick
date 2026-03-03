@@ -14,6 +14,7 @@ import ipaddress
 import logging
 import time
 from collections import defaultdict
+from typing import Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -22,11 +23,65 @@ from starlette.responses import JSONResponse, Response
 logger = logging.getLogger(__name__)
 
 
+def _extract_client_ip(request, trusted_proxies: list[str]) -> str:
+    """Extract client IP from request with X-Forwarded-For validation.
+
+    Args:
+        request: Starlette Request object
+        trusted_proxies: List of CIDR strings for trusted proxy IPs.
+
+    Returns:
+        Client IP as string, or "unknown" if unable to determine.
+    """
+    if not trusted_proxies:
+        # No trusted proxies configured — ignore X-Forwarded-For for security
+        return request.client.host if request.client else "unknown"
+
+    # Parse trusted proxy networks (CIDR)
+    trusted_networks = []
+    for cidr in trusted_proxies:
+        try:
+            trusted_networks.append(ipaddress.ip_network(cidr, strict=False))
+        except ValueError:
+            logger.warning("Invalid trusted_proxy CIDR: %s", cidr)
+
+    # Helper to check if IP is trusted
+    def is_trusted(ip_str: str) -> bool:
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return False
+        return any(ip in net for net in trusted_networks)
+
+    # Get remote IP (the immediate connection)
+    remote_ip = request.client.host if request.client else None
+    if remote_ip is None:
+        return "unknown"
+
+    # Parse X-Forwarded-For header (comma-separated, leftmost is original client)
+    forwarded_header = request.headers.get("x-forwarded-for", "")
+    forwarded_ips = [ip.strip() for ip in forwarded_header.split(",") if ip.strip()]
+
+    # Build chain: forwarded_ips + [remote_ip]
+    chain = forwarded_ips + [remote_ip]
+
+    # Walk from rightmost to leftmost, stopping at first untrusted IP
+    for ip in reversed(chain):
+        if is_trusted(ip):
+            continue
+        return ip
+
+    # All IPs in chain are trusted — return the original client (leftmost)
+    return chain[0] if chain else "unknown"
+
+
 def _error_response(status: int, message: str, error_type: str) -> JSONResponse:
     """Return an OpenAI-compatible error response."""
     return JSONResponse(
         status_code=status,
-        content={"error": {"message": message, "type": error_type, "code": str(status)}},
+        content={
+            "error": {"message": message, "type": error_type, "code": str(status)}
+        },
     )
 
 
@@ -43,13 +98,18 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
             try:
                 length = int(content_length)
             except ValueError:
-                return _error_response(400, "Invalid Content-Length header", "invalid_request_error")
+                return _error_response(
+                    400, "Invalid Content-Length header", "invalid_request_error"
+                )
             if length > self.max_bytes:
                 logger.warning(
                     "Request too large: %d bytes from %s",
-                    length, request.client.host if request.client else "unknown",
+                    length,
+                    request.client.host if request.client else "unknown",
                 )
-                return _error_response(413, "Request body too large", "invalid_request_error")
+                return _error_response(
+                    413, "Request body too large", "invalid_request_error"
+                )
 
         return await call_next(request)
 
@@ -67,15 +127,20 @@ class ViolationTracker:
         threshold: int = 10,
         ban_duration: int = 3600,
         max_tracked_ips: int = 50_000,
+        ban_store=None,
     ):
         self.window_seconds = window_seconds
         self.threshold = threshold
         self.ban_duration = ban_duration
         self.max_tracked_ips = max_tracked_ips
+        self._ban_store = ban_store
         # ip -> list of violation timestamps
         self._violations: dict[str, list[float]] = defaultdict(list)
         # ip -> ban expiry timestamp
         self._bans: dict[str, float] = {}
+        if self._ban_store is not None:
+            self._bans.update(self._ban_store.load_bans())
+            logger.info("Loaded %d persistent bans from store", len(self._bans))
 
     def record_violation(self, ip: str) -> bool:
         """Record a violation and return True if IP should be banned."""
@@ -92,10 +157,16 @@ class ViolationTracker:
         self._violations[ip].append(now)
 
         if len(self._violations[ip]) >= self.threshold:
-            self._bans[ip] = now + self.ban_duration
+            expires = now + self.ban_duration
+            self._bans[ip] = expires
+            if self._ban_store is not None:
+                self._ban_store.add_ban(ip, expires)
             logger.warning(
                 "Auto-banned IP %s: %d violations in %ds (ban duration: %ds)",
-                ip, len(self._violations[ip]), self.window_seconds, self.ban_duration,
+                ip,
+                len(self._violations[ip]),
+                self.window_seconds,
+                self.ban_duration,
             )
             return True
 
@@ -109,6 +180,8 @@ class ViolationTracker:
         if time.time() > expires:
             del self._bans[ip]
             self._violations.pop(ip, None)
+            if self._ban_store is not None:
+                self._ban_store.remove_ban(ip)
             return False
         return True
 
@@ -135,14 +208,23 @@ class ViolationTracker:
 
         # Purge IPs with no recent violations (and not banned)
         stale_ips = [
-            ip for ip, ts_list in self._violations.items()
+            ip
+            for ip, ts_list in self._violations.items()
             if ip not in self._bans and all(t <= cutoff for t in ts_list)
         ]
         for ip in stale_ips:
             del self._violations[ip]
             removed += 1
 
+        if self._ban_store is not None:
+            removed += self._ban_store.cleanup_expired()
+
         return removed
+
+    def close(self) -> None:
+        """Close persistent ban store if any."""
+        if self._ban_store is not None:
+            self._ban_store.close()
 
     def _evict_oldest(self) -> None:
         """Evict the oldest violation entries to stay within max_tracked_ips."""
@@ -164,16 +246,24 @@ class ViolationTracker:
 class IPBanMiddleware(BaseHTTPMiddleware):
     """Reject requests from banned IPs."""
 
-    def __init__(self, app, tracker: ViolationTracker):
+    def __init__(
+        self,
+        app,
+        tracker: ViolationTracker,
+        trusted_proxies: Optional[list[str]] = None,
+    ):
         super().__init__(app)
         self.tracker = tracker
+        self.trusted_proxies = trusted_proxies or []
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = _extract_client_ip(request, self.trusted_proxies)
 
         if self.tracker.is_banned(client_ip):
             remaining = self.tracker.ban_remaining(client_ip)
-            logger.warning("Rejected banned IP: %s (%ds remaining)", client_ip, remaining)
+            logger.warning(
+                "Rejected banned IP: %s (%ds remaining)", client_ip, remaining
+            )
             response = _error_response(403, "Access denied", "access_denied")
             response.headers["Retry-After"] = str(remaining)
             return response
@@ -184,17 +274,20 @@ class IPBanMiddleware(BaseHTTPMiddleware):
 class IPAllowlistMiddleware(BaseHTTPMiddleware):
     """Reject requests from IPs not on the allowlist (if configured)."""
 
-    def __init__(self, app, allowlist: list[str]):
+    def __init__(
+        self, app, allowlist: list[str], trusted_proxies: Optional[list[str]] = None
+    ):
         super().__init__(app)
         # Parse CIDR networks
         self.networks = [ipaddress.ip_network(cidr, strict=False) for cidr in allowlist]
+        self.trusted_proxies = trusted_proxies or []
 
     async def dispatch(self, request: Request, call_next) -> Response:
         if not self.networks:
             # No allowlist configured — allow all
             return await call_next(request)
 
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = _extract_client_ip(request, self.trusted_proxies)
 
         try:
             addr = ipaddress.ip_address(client_ip)
@@ -212,7 +305,7 @@ class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
 
     _HEALTH_RPM = 300  # Generous separate limit for /health
 
-    def __init__(self, app, rpm: int = 60):
+    def __init__(self, app, rpm: int = 60, trusted_proxies: Optional[list[str]] = None):
         super().__init__(app)
         from overblick.core.security.rate_limiter import RateLimiter
 
@@ -223,6 +316,7 @@ class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
             refill_rate=self._HEALTH_RPM / 60.0,
         )
         self.rpm = rpm
+        self.trusted_proxies = trusted_proxies or []
 
     async def dispatch(self, request: Request, call_next) -> Response:
         # Health checks use a separate, generous rate limit
@@ -233,9 +327,10 @@ class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
 
         if not self.limiter.allow("global"):
             retry_after = self.limiter.retry_after("global")
+            client_ip = _extract_client_ip(request, self.trusted_proxies)
             logger.warning(
                 "Global rate limit exceeded from %s",
-                request.client.host if request.client else "unknown",
+                client_ip,
             )
             response = _error_response(429, "Rate limit exceeded", "rate_limit_error")
             response.headers["Retry-After"] = str(int(retry_after) + 1)
