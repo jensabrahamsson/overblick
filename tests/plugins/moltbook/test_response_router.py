@@ -13,7 +13,7 @@ class TestPreFilter:
     """Tests for the cheap pre-filter that skips obvious non-challenges."""
 
     def setup_method(self):
-        self.router = ResponseRouter(llm_client=AsyncMock())
+        self.router = ResponseRouter(allow_raw_fallback=True, llm_client=AsyncMock())
 
     def test_normal_post_response_not_suspicious(self):
         """Standard post creation response should be filtered out."""
@@ -87,7 +87,7 @@ class TestLLMClassification:
         llm = AsyncMock()
         llm.chat = AsyncMock(return_value={"content": "CHALLENGE"})
 
-        router = ResponseRouter(llm_client=llm)
+        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
         data = {
             "success": True,
             "comment": {
@@ -103,7 +103,7 @@ class TestLLMClassification:
     async def test_normal_response_after_prefilter(self):
         """Normal response → pre-filtered → None returned, no LLM call."""
         llm = AsyncMock()
-        router = ResponseRouter(llm_client=llm)
+        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
 
         verdict = await router.inspect({"success": True, "post": {"id": "p1"}})
         assert verdict is None
@@ -115,7 +115,7 @@ class TestLLMClassification:
         llm = AsyncMock()
         llm.chat = AsyncMock(return_value={"content": "NORMAL"})
 
-        router = ResponseRouter(llm_client=llm)
+        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
         # Has 'verification' key to pass pre-filter, but LLM says normal
         data = {"verification": "email_verified", "user": "test"}
 
@@ -128,7 +128,7 @@ class TestLLMClassification:
         llm = AsyncMock()
         llm.chat = AsyncMock(side_effect=Exception("LLM down"))
 
-        router = ResponseRouter(llm_client=llm)
+        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
         data = {"verification": {"question": "test"}}
 
         verdict = await router.inspect(data)
@@ -140,7 +140,7 @@ class TestLLMClassification:
         llm = AsyncMock()
         llm.chat = AsyncMock(return_value={"content": "NORMAL"})
 
-        router = ResponseRouter(llm_client=llm)
+        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
         data = {"verification": {"nonce": "abc"}}
 
         await router.inspect(data)
@@ -152,7 +152,7 @@ class TestLLMClassification:
         llm = AsyncMock()
         llm.chat = AsyncMock(return_value={"content": "NORMAL"})
 
-        router = ResponseRouter(llm_client=llm, max_response_size=100)
+        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm, max_response_size=100)
         data = {"verification": {"data": "x" * 500}}
 
         await router.inspect(data)
@@ -165,7 +165,7 @@ class TestLLMClassification:
         llm = AsyncMock()
         llm.chat = AsyncMock(return_value={"content": "CHALLENGE"})
 
-        router = ResponseRouter(llm_client=llm)
+        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
 
         # Normal response (filtered)
         await router.inspect({"post": {"id": "1"}})

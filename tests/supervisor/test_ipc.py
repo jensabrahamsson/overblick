@@ -414,10 +414,10 @@ class TestReadIPCToken:
         # The server writes encrypted token on start; simulate by calling
         # the internal write mechanism via start/stop
         # Instead, test read_ipc_token with a known token
-        from overblick.supervisor.ipc import _encrypt_token
+        from overblick.supervisor.ipc import _obfuscate_token
 
         token_path = tmp_path / "overblick-read_test.token"
-        token_path.write_bytes(_encrypt_token(token))
+        token_path.write_bytes(_obfuscate_token(token))
         result = read_ipc_token("read_test", socket_dir=tmp_path)
         assert result == token
 

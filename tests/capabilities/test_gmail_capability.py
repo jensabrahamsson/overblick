@@ -101,8 +101,9 @@ def _mock_imap(search_uids=None, fetch_data=None):
                 return ("OK", [uid_bytes])
             elif cmd == "fetch":
                 uid_arg = args[0]
-                if fetch_data and uid_arg in fetch_data:
-                    return ("OK", [(b"1 (RFC822 {1234})", fetch_data[uid_arg])])
+                uid_key = uid_arg.encode() if isinstance(uid_arg, str) else uid_arg
+                if fetch_data and uid_key in fetch_data:
+                    return ("OK", [(b"1 (RFC822 {1234})", fetch_data[uid_key])])
                 return ("OK", None)
             elif cmd == "store":
                 return ("OK", [b"1"])
@@ -468,7 +469,7 @@ class TestMarkAsRead:
 
         assert result is True
         # Verify IMAP store was called with \\Seen
-        mock_imap.uid.assert_called_with("store", b"42", "+FLAGS", "\\Seen")
+        mock_imap.uid.assert_called_with("store", "42", "+FLAGS", "\\Seen")
 
     @pytest.mark.asyncio
     async def test_mark_as_read_unknown_message(self):
