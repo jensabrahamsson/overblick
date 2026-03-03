@@ -10,6 +10,7 @@ from typing import Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.core.security.input_sanitizer import wrap_external_content
+from overblick.core.security.settings import raw_llm
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,8 @@ class SummarizerCapability(CapabilityBase):
             return ""
 
         pipeline = self.ctx.llm_pipeline
-        llm_client = self.ctx.llm_client
+        # Only use raw client when RAW_LLM is explicitly enabled and no pipeline exists
+        llm_client = self.ctx.llm_client if (not pipeline and raw_llm()) else None
 
         safe_text = wrap_external_content(text[:3000], "summarize_input")
         prompt = _SUMMARIZE_PROMPT.format(text=safe_text, max_length=max_length)

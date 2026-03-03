@@ -115,27 +115,25 @@ class MoltbookPlugin(PluginBase):
                 engagement_db=self.ctx.engagement_db,
             )
             response_router = ResponseRouter(llm_pipeline=self.ctx.llm_pipeline)
-        elif self.ctx.llm_client:
-            # Fallback to raw client (only if RAW_LLM=True)
-            import os
-
-            if raw_llm():
-                logger.warning("Using raw LLM client for challenge handler (RAW_LLM=True)")
-                self._challenge_handler = PerContentChallengeHandler(
-                    llm_client=self.ctx.llm_client,
-                    api_key=api_key,
-                    base_url="https://www.moltbook.com/api/v1",
-                    audit_log=self.ctx.audit_log,
-                    engagement_db=self.ctx.engagement_db,
-                    allow_raw_fallback=True,
-                )
-                response_router = ResponseRouter(
-                    llm_client=self.ctx.llm_client, allow_raw_fallback=True
-                )
-            else:
-                logger.warning(
-                    "No LLM pipeline available and raw client disabled; challenge handling disabled"
-                )
+        elif raw_llm() and self.ctx._llm_client:
+            # Fallback to raw client — only when OVERBLICK_RAW_LLM=1 (explicit opt-in)
+            logger.warning("Using raw LLM client for challenge handler (RAW_LLM=True)")
+            self._challenge_handler = PerContentChallengeHandler(
+                llm_client=self.ctx._llm_client,
+                api_key=api_key,
+                base_url="https://www.moltbook.com/api/v1",
+                audit_log=self.ctx.audit_log,
+                engagement_db=self.ctx.engagement_db,
+                allow_raw_fallback=True,
+            )
+            response_router = ResponseRouter(
+                llm_client=self.ctx._llm_client, allow_raw_fallback=True
+            )
+        elif self.ctx._llm_client:
+            # Has raw client but safe mode prevents use — disable challenge handling
+            logger.warning(
+                "No LLM pipeline and raw client disabled (OVERBLICK_RAW_LLM=0); challenge handling disabled"
+            )
         else:
             logger.warning("No LLM client or pipeline available; challenge handling disabled")
 
