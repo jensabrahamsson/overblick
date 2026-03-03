@@ -279,7 +279,7 @@ llm:
 1. **Input Sanitizer** — Strips null bytes, control chars, normalizes unicode
 2. **Boundary Markers** — External content wrapped in `<<<EXTERNAL_*_START>>>` / `<<<EXTERNAL_*_END>>>` markers
 3. **Preflight Checker** — Blocks jailbreak/injection attempts before LLM call
-4. **SafeLLM Pipeline** — All security stages in one pipeline, fail-closed
+4. **SafeLLM Pipeline** — All security stages in one pipeline, fail-closed, safe-by-default (strict=True)
 5. **Output Safety** — Scans LLM responses for AI leakage and persona breaks
 6. **Audit Log** — Every action logged with structured JSON
 
@@ -288,6 +288,7 @@ llm:
 - `RateLimiter` — Token bucket rate limiting
 - `PermissionChecker` — Default-deny permission system
 - IPC authentication — HMAC-signed messages between processes
+- **Plugin capability system** — Declarative resource access control (beta: warnings only)
 
 ## Identity System
 

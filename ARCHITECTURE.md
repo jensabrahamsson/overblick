@@ -580,7 +580,7 @@ Indexed on timestamp, action, and category for fast queries. WAL journal mode fo
 
 **File:** `overblick/core/llm/pipeline.py`
 
-The single secure interface for all LLM interactions. Consolidates the entire security chain:
+The single secure interface for all LLM interactions. Consolidates the entire security chain, with safe-by-default mode (`strict=True`) requiring all security components (preflight checker, output safety, rate limiter). Use environment variable `OVERBLICK_SAFE_MODE=0` to opt-out (e.g., for tests).
 
 ```
 Input Sanitize → Preflight Check → Rate Limit → LLM Call → Output Safety → Audit
@@ -629,6 +629,34 @@ sm = SecretsManager(secrets_dir=Path("config/secrets"))
 sm.get("anomal", "api_key")           # Decrypt and return
 sm.set("anomal", "api_key", "sk_xxx") # Encrypt and save
 ```
+
+### Plugin Capability System
+
+**File:** `overblick/core/plugin_capability_checker.py`
+
+Minimal permission system for plugin resource access (beta: warnings only). Plugins declare required capabilities; users grant them per identity and per plugin in identity YAML.
+
+**Standard capabilities:**
+- `network_outbound`, `network_inbound`
+- `filesystem_read`, `filesystem_write`
+- `shell_execute`
+- `email_send`, `email_receive`
+- `secrets_access`
+- `llm_high_priority`, `llm_unlimited`
+- `database_write`, `ipc_send`
+
+**Example identity configuration:**
+```yaml
+plugin_capabilities:
+  telegram:
+    network_outbound: true
+    secrets_access: true
+  email_agent:
+    email_send: true
+    secrets_access: true
+```
+
+Missing grants trigger warnings in logs. Future: integrate with permission system for runtime blocking.
 
 ---
 

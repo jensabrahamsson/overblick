@@ -8,7 +8,7 @@
 
 ## Architecture
 - **Core:** Orchestrator, identity system, plugin registry, event bus, scheduler, capability system, permission system
-- **Security:** SafeLLMPipeline (fail-closed), preflight checks, output safety, audit log, secrets manager, input sanitizer with boundary markers, rate limiter
+- **Security:** SafeLLMPipeline (fail-closed, safe-by-default), preflight checks, output safety, audit log, secrets manager, input sanitizer with boundary markers, rate limiter, plugin capability system
 - **LLM:** Abstract client with Ollama, LLM Gateway, and Cloud provider backends. Cloud LLM stub supports future integration with OpenAI, Anthropic, etc. SafeLLMPipeline wraps ALL LLM calls (sanitize → preflight → rate limit → LLM → output safety → audit).
 - **Database:** Abstract backend (SQLite + PostgreSQL) with migration system
 - **Learning:** Per-identity knowledge acquisition (`LearningStore`) with ethos-gated LLM review, embedding-based semantic retrieval, and SQLite persistence. Injected into all plugins via `PluginContext.learning_store`. Replaces the old `safe_learning` capability.
@@ -94,7 +94,7 @@ python -m overblick manage supervisor-logs
 
 ## Key Principles
 - **Perfection:** Every module tested, every edge case handled, every prompt tuned
-- **Security-first:** Fail-closed pipeline, Fernet-encrypted secrets, boundary markers for external content, authenticated IPC, default-deny permissions
+- **Security-first:** Fail-closed pipeline, Fernet-encrypted secrets, boundary markers for external content, authenticated IPC, default-deny permissions, safe-by-default mode, plugin capability warnings
 - **Plugin isolation:** Plugins only access framework through PluginContext
 - **Identity-driven:** Characters are reusable building blocks in the identity stable — unified YAML with both character and operational config
 - **No cross-contamination:** Each identity has isolated data/, logs/, secrets/
@@ -118,6 +118,42 @@ python -m overblick manage supervisor-logs
   - `telegram_bot_token` — Telegram Bot API token (for TelegramNotifier capability)
   - `telegram_chat_id` — target chat ID for notifications
 - Capabilities load their secrets via `ctx.get_secret()` in `setup()` and degrade gracefully if secrets are missing (e.g. TelegramNotifier sets `configured=False`)
+
+## Latest Security Updates (Beta Preparation)
+
+### Safe-by-Default Mode
+- **SafeLLMPipeline** now defaults to `strict=True` (requires all security components: preflight checker, output safety, rate limiter)
+- Environment variable `OVERBLICK_SAFE_MODE=0` to opt-out (e.g., for tests)
+- Supervisor handlers explicitly use `strict=False` for internal trusted content (research, email, health)
+- Main agent pipelines use `strict=True` for maximum security
+
+### Plugin Capability System
+- Minimal permission system for plugin resource access (beta: warnings only, no blocking)
+- Plugins declare `REQUIRED_CAPABILITIES` class variable (e.g., `["network_outbound", "secrets_access"]`)
+- Users grant capabilities per identity and per plugin in identity YAML:
+  ```yaml
+  plugin_capabilities:
+    telegram:
+      network_outbound: true
+      secrets_access: true
+    email_agent:
+      email_send: true
+      secrets_access: true
+  ```
+- Standard capabilities: `network_outbound`, `filesystem_write`, `secrets_access`, `email_send`, `shell_execute`, `database_write`, etc.
+- Missing grants trigger warnings in logs; plugins still load but capabilities may fail at runtime
+
+### Security Documentation
+- **SECURITY.md** – Comprehensive threat model, security guarantees, limitations, responsible disclosure process
+- **CHANGELOG.md** – Breaking changes, migration notes, security updates clearly marked
+- **Security reporting**: Report vulnerabilities to security@overblick.ai
+
+### Key Security Improvements
+- **Fail-closed enforcement**: Pipeline crashes block requests (not pass through)
+- **Input validation**: Client IP header validation with trusted proxy CIDR ranges
+- **Boundary markers**: External content wrapped with injection-resistant markers (`<<<EXTERNAL_*_START>>>`)
+- **Audit logging**: All security decisions logged with structured JSON
+- **Skip flags documented**: `skip_preflight` and `skip_output_safety` marked "internal use only" – never expose to untrusted input paths
 
 ## Development Agent Team ("Team Tage Erlander")
 The `.claude/agents/` directory contains a full development team of specialized Claude Code agents. Use the `/team` skill to activate them for structured development.
