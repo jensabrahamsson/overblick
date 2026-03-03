@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Moltbook security upgrade**: `ChallengeHandler` and `ResponseRouter` updated to use `SafeLLMPipeline`
 - **Strict capability enforcement**: Capability system raises `PermissionError` when `OVERBLICK_STRICT_CAPABILITIES=1`
 - **Skip flags documentation**: Added security warning to `SafeLLMPipeline.chat()` about internal use only
+- **Mutable defaults fix**: Converted all Pydantic model mutable defaults (`list[...] = []`, `dict[...] = {}`) to `Field(default_factory=...)` across 58 instances in 20+ files, eliminating shared mutable state security risk.
+- **IPC token semantics**: Renamed `_encrypt_token`/`_decrypt_token` to `_obfuscate_token`/`_deobfuscate_token` with documentation clarifying security properties (obfuscation, not encryption).
+- **Centralized security settings**: Created `overblick/core/security/settings.py` with unified environment variable parsing and helper functions (`safe_mode()`, `raw_llm()`, `strict_capabilities()`), replacing direct `os.environ` reads.
+- **Email agent security hardening**: Removed `skip_preflight=True` from notification, boss consultation, and feedback classification calls; added boundary markers for external content in boss consultation and feedback classification prompts.
 
 ## [0.0.1] - 2025-02-12
 

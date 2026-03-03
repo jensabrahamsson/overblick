@@ -142,6 +142,8 @@
 
 Överblick now enables **strict mode by default** (since version 0.1.0-beta):
 
+**Centralized security settings**: All security-related environment variables are defined in `overblick/core/security/settings.py`. This module provides consistent defaults, boolean parsing, and helper functions (`safe_mode()`, `raw_llm()`, `strict_capabilities()`). Plugins should import from this module rather than reading environment variables directly.
+
 - `SafeLLMPipeline(strict=True)` requires all security components
 - Missing preflight checker, output safety, or rate limiter raises `ConfigError`
 - **Opt-out**: Set environment variable `OVERBLICK_SAFE_MODE=0`

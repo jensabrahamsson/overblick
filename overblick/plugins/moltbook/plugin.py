@@ -24,6 +24,7 @@ from typing import Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityRegistry
 from overblick.core.plugin_base import PluginBase, PluginContext
+from overblick.core.security.settings import raw_llm
 
 from .challenge_handler import PerContentChallengeHandler
 from .challenge_solver import MoltCaptchaSolver, is_challenge_text
@@ -115,11 +116,11 @@ class MoltbookPlugin(PluginBase):
             )
             response_router = ResponseRouter(llm_pipeline=self.ctx.llm_pipeline)
         elif self.ctx.llm_client:
-            # Fallback to raw client (only if OVERBLICK_RAW_LLM=1)
+            # Fallback to raw client (only if RAW_LLM=True)
             import os
 
-            if os.environ.get("OVERBLICK_RAW_LLM", "0") == "1":
-                logger.warning("Using raw LLM client for challenge handler (OVERBLICK_RAW_LLM=1)")
+            if raw_llm():
+                logger.warning("Using raw LLM client for challenge handler (RAW_LLM=True)")
                 self._challenge_handler = PerContentChallengeHandler(
                     llm_client=self.ctx.llm_client,
                     api_key=api_key,

@@ -109,4 +109,19 @@ def allow_raw_access() -> bool:
 
 def enforce_capabilities() -> bool:
     """Return True if capability grants are enforced."""
-    return STRICT_CAPABILITIES
+    return _env_bool("OVERBLICK_STRICT_CAPABILITIES", default=False)
+
+
+def safe_mode() -> bool:
+    """Return safe‑by‑default mode (reads environment variable each call)."""
+    return _env_bool("OVERBLICK_SAFE_MODE", default=True)
+
+
+def raw_llm() -> bool:
+    """Return raw LLM client access permission (reads environment variable each call)."""
+    return _env_bool("OVERBLICK_RAW_LLM", default=False)
+
+
+def strict_capabilities() -> bool:
+    """Return strict capability enforcement (reads environment variable each call)."""
+    return _env_bool("OVERBLICK_STRICT_CAPABILITIES", default=False)

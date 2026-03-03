@@ -14,6 +14,7 @@ import logging
 from typing import Any, Optional, Union
 
 from overblick.core.security.input_sanitizer import wrap_external_content
+from overblick.core.security.settings import raw_llm
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +53,9 @@ class ResponseGenerator:
         self._max_tokens = max_tokens
 
         # Environment variable override for backward compatibility
-        if os.environ.get("OVERBLICK_RAW_LLM", "0") == "1" and self._llm and not self._pipeline:
+        if raw_llm() and self._llm and not self._pipeline:
             allow_raw_fallback = True
-            logger.warning("OVERBLICK_RAW_LLM=1: allowing raw client fallback")
+            logger.warning("RAW_LLM=True: allowing raw client fallback")
 
         # Safe-mode enforcement
         if not self._pipeline:
