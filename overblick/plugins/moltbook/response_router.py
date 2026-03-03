@@ -24,11 +24,22 @@ logger = logging.getLogger(__name__)
 
 # Strings that suggest a response might contain a hidden challenge.
 # Used for the cheap pre-filter before LLM classification.
-_SUSPICIOUS_STRINGS = frozenset({
-    "verification", "challenge", "captcha", "verify",
-    "solve", "prove", "nonce", "time_limit", "deadline",
-    "obfuscated", "answer_url", "respond_url",
-})
+_SUSPICIOUS_STRINGS = frozenset(
+    {
+        "verification",
+        "challenge",
+        "captcha",
+        "verify",
+        "solve",
+        "prove",
+        "nonce",
+        "time_limit",
+        "deadline",
+        "obfuscated",
+        "answer_url",
+        "respond_url",
+    }
+)
 
 _ROUTER_SYSTEM = (
     "You are a JSON response classifier for the Moltbook social network API. "
@@ -58,8 +69,33 @@ class RouterVerdict:
 class ResponseRouter:
     """LLM-based response classifier for hidden challenge detection."""
 
-    def __init__(self, llm_client, max_response_size: int = 5000):
-        self._llm = llm_client
+    def __init__(
+        self,
+        llm_pipeline=None,
+        max_response_size: int = 5000,
+        *,
+        llm_client=None,
+        allow_raw_fallback: bool = False,
+    ):
+        import os
+
+        # Safe-mode enforcement
+        if not llm_pipeline:
+            if allow_raw_fallback and llm_client:
+                logger.warning(
+                    "ResponseRouter using raw client (allow_raw_fallback=True)"
+                )
+                self._llm = llm_client
+            else:
+                raise ValueError(
+                    "SafeLLMPipeline is required in safe mode. "
+                    "Provide llm_pipeline or set allow_raw_fallback=True."
+                )
+        else:
+            self._llm = llm_pipeline
+            if llm_client:
+                logger.debug("Both pipeline and raw client provided; using pipeline")
+
         self._max_response_size = max_response_size
         self._stats = {
             "inspections_total": 0,
@@ -100,7 +136,11 @@ class ResponseRouter:
         return bool(keys_lower & _SUSPICIOUS_STRINGS)
 
     def _collect_keys(
-        self, obj: dict, keys: set, depth: int, max_depth: int,
+        self,
+        obj: dict,
+        keys: set,
+        depth: int,
+        max_depth: int,
     ) -> None:
         """Recursively collect dict keys up to max_depth."""
         if depth > max_depth or not isinstance(obj, dict):
@@ -119,7 +159,10 @@ class ResponseRouter:
 
         messages = [
             {"role": "system", "content": _ROUTER_SYSTEM},
-            {"role": "user", "content": f"Classify this API response:\n```json\n{response_str}\n```"},
+            {
+                "role": "user",
+                "content": f"Classify this API response:\n```json\n{response_str}\n```",
+            },
         ]
 
         try:
@@ -133,10 +176,28 @@ class ResponseRouter:
             logger.debug("ResponseRouter LLM classification failed: %s", e)
             return RouterVerdict(is_challenge=False, reason=f"LLM error: {e}")
 
-        if not result or not result.get("content"):
-            return RouterVerdict(is_challenge=False, reason="LLM returned empty response")
+        # Handle both pipeline result and raw client result
+        if hasattr(result, "blocked"):
+            # Pipeline result
+            if result.blocked:
+                logger.warning(
+                    "ResponseRouter: Pipeline blocked at %s: %s",
+                    result.block_stage.value if result.block_stage else "unknown",
+                    result.block_reason,
+                )
+                return RouterVerdict(
+                    is_challenge=False, reason=f"Blocked: {result.block_reason}"
+                )
+            content = result.content
+        else:
+            # Raw client result (dict)
+            if not result or not result.get("content"):
+                return RouterVerdict(
+                    is_challenge=False, reason="LLM returned empty response"
+                )
+            content = result["content"]
 
-        answer = result["content"].strip().upper()
+        answer = content.strip().upper()
         is_challenge = "CHALLENGE" in answer
 
         if is_challenge:
@@ -145,7 +206,7 @@ class ResponseRouter:
 
         return RouterVerdict(
             is_challenge=is_challenge,
-            reason=f"LLM verdict: {result['content'].strip()}",
+            reason=f"LLM verdict: {content.strip()}",
         )
 
     def get_stats(self) -> dict:

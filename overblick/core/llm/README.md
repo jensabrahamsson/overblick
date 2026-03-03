@@ -71,6 +71,11 @@ result = await pipeline.chat(
 
 **Graceful degradation** (`strict=False`): skips missing stages with a warning. Allows local development without the full security stack.
 
+**Safe by default**: Överblick now enables `strict=True` by default. Use environment variable `OVERBLICK_SAFE_MODE=0` to opt-out. When safe mode is enabled:
+- `PluginContext.llm_client` raises RuntimeError when accessed (set `OVERBLICK_RAW_LLM=1` for raw access)
+- `ResponseGenerator` requires `llm_pipeline` or explicit `allow_raw_fallback=True`
+- All plugins should use `ctx.llm_pipeline` for secure LLM calls with full security chain
+
 ### LLMClient (`client.py`)
 
 Abstract base class. All backends implement:

@@ -13,10 +13,12 @@ Users grant capabilities per identity and per plugin in identity YAML:
         secrets_access: true
 
 Missing grants trigger warnings in logs. For beta, plugins still load but capabilities
-may fail at runtime.
+may fail at runtime. Set OVERBLICK_STRICT_CAPABILITIES=1 to raise PermissionError for
+missing grants (recommended for production).
 """
 
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,7 @@ class PluginCapabilityChecker:
     Checks plugin capability grants against requirements.
 
     Minimal implementation for beta safety — logs warnings but doesn't block.
+    Set OVERBLICK_STRICT_CAPABILITIES=1 to raise PermissionError for missing grants.
     Future: integrate with permission system for runtime checks.
     """
 
@@ -67,6 +70,9 @@ class PluginCapabilityChecker:
 
         Returns:
             True if all required capabilities are granted (or warning logged)
+
+        Raises:
+            PermissionError: If OVERBLICK_STRICT_CAPABILITIES=1 and missing grants
         """
         if not required_capabilities:
             return True
@@ -89,6 +95,14 @@ class PluginCapabilityChecker:
             granted = plugin_grants.get(cap, False)
             if not granted:
                 missing.append(cap)
+
+        strict = os.environ.get("OVERBLICK_STRICT_CAPABILITIES", "0") == "1"
+        if strict and (missing or warned):
+            raise PermissionError(
+                f"Plugin '{plugin_name}' missing capability grants: {missing}. "
+                f"Unknown capabilities: {warned}. "
+                f"Add to identity YAML under 'plugin_capabilities' section."
+            )
 
         if missing:
             logger.warning(

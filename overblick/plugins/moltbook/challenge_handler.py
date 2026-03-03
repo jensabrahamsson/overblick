@@ -113,15 +113,35 @@ class PerContentChallengeHandler:
 
     def __init__(
         self,
-        llm_client,
+        llm_pipeline=None,
         http_session: Optional[aiohttp.ClientSession] = None,
         api_key: str = "",
         base_url: str = "",
         timeout: int = 45,
         audit_log=None,
         engagement_db=None,
+        *,
+        llm_client=None,
+        allow_raw_fallback: bool = False,
     ):
-        self._llm = llm_client
+        import os
+
+        # Safe-mode enforcement
+        if not llm_pipeline:
+            if allow_raw_fallback and llm_client:
+                logger.warning(
+                    "ChallengeHandler using raw client (allow_raw_fallback=True)"
+                )
+                self._llm = llm_client
+            else:
+                raise ValueError(
+                    "SafeLLMPipeline is required in safe mode. "
+                    "Provide llm_pipeline or set allow_raw_fallback=True."
+                )
+        else:
+            self._llm = llm_pipeline
+            if llm_client:
+                logger.debug("Both pipeline and raw client provided; using pipeline")
         self._session = http_session
         self._api_key = api_key
         self._base_url = base_url.rstrip("/") if base_url else ""
@@ -384,9 +404,26 @@ class PerContentChallengeHandler:
             logger.warning("CHALLENGE: LLM (complexity=%s) failed: %s", complexity, e)
             return None
 
-        if not result or not result.get("content"):
-            return None
-        return result["content"].strip()
+        # Handle both pipeline result and raw client result
+        if hasattr(result, "blocked"):
+            # Pipeline result
+            if result.blocked:
+                logger.warning(
+                    "CHALLENGE: Pipeline blocked at %s: %s",
+                    result.block_stage.value if result.block_stage else "unknown",
+                    result.block_reason,
+                )
+                return None
+            content = result.content
+        else:
+            # Raw client result (dict)
+            if not result or not result.get("content"):
+                return None
+            content = result["content"]
+
+        if content:
+            return content.strip()
+        return None
 
     async def _try_submit(
         self,

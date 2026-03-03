@@ -53,3 +53,14 @@ Per-identity Fernet-encrypted secrets storage. Accessed via `ctx.get_secret("key
 - **Boundary markers**: External content is always clearly marked as untrusted
 - **Per-identity isolation**: Each identity has its own secrets, audit log, and data
 - **Non-blocking audit**: SQLite writes are offloaded to background threads
+- **Safe by default**: Strict mode enabled by default (`OVERBLICK_SAFE_MODE=1`)
+
+## Safe by Default Configuration
+
+Överblick now enables **strict mode by default** (since version 0.1.0-beta):
+
+- `SafeLLMPipeline(strict=True)` requires all security components
+- Missing preflight checker, output safety, or rate limiter raises `ConfigError`
+- **Opt-out**: Set environment variable `OVERBLICK_SAFE_MODE=0`
+- **Raw LLM client protection**: `PluginContext.llm_client` disabled by default (requires `OVERBLICK_RAW_LLM=1`)
+- **ResponseGenerator pipeline enforcement**: Requires `SafeLLMPipeline` or explicit `allow_raw_fallback=True`

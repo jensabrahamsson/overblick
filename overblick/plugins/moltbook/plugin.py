@@ -104,15 +104,43 @@ class MoltbookPlugin(PluginBase):
 
         # Create challenge handler and LLM-based response router
         response_router = None
-        if self.ctx.llm_client:
+        if self.ctx.llm_pipeline:
+            # Use SafeLLMPipeline (preferred, secure)
             self._challenge_handler = PerContentChallengeHandler(
-                llm_client=self.ctx.llm_client,
+                llm_pipeline=self.ctx.llm_pipeline,
                 api_key=api_key,
                 base_url="https://www.moltbook.com/api/v1",
                 audit_log=self.ctx.audit_log,
                 engagement_db=self.ctx.engagement_db,
             )
-            response_router = ResponseRouter(llm_client=self.ctx.llm_client)
+            response_router = ResponseRouter(llm_pipeline=self.ctx.llm_pipeline)
+        elif self.ctx.llm_client:
+            # Fallback to raw client (only if OVERBLICK_RAW_LLM=1)
+            import os
+
+            if os.environ.get("OVERBLICK_RAW_LLM", "0") == "1":
+                logger.warning(
+                    "Using raw LLM client for challenge handler (OVERBLICK_RAW_LLM=1)"
+                )
+                self._challenge_handler = PerContentChallengeHandler(
+                    llm_client=self.ctx.llm_client,
+                    api_key=api_key,
+                    base_url="https://www.moltbook.com/api/v1",
+                    audit_log=self.ctx.audit_log,
+                    engagement_db=self.ctx.engagement_db,
+                    allow_raw_fallback=True,
+                )
+                response_router = ResponseRouter(
+                    llm_client=self.ctx.llm_client, allow_raw_fallback=True
+                )
+            else:
+                logger.warning(
+                    "No LLM pipeline available and raw client disabled; challenge handling disabled"
+                )
+        else:
+            logger.warning(
+                "No LLM client or pipeline available; challenge handling disabled"
+            )
 
         # Create Moltbook client
         self._client = MoltbookClient(
@@ -120,7 +148,8 @@ class MoltbookPlugin(PluginBase):
             agent_id=agent_id,
             identity_name=identity.name,
             requests_per_minute=identity.schedule.get("requests_per_minute", 100)
-                if hasattr(identity.schedule, "get") else 100,
+            if hasattr(identity.schedule, "get")
+            else 100,
             challenge_handler=self._challenge_handler,
             response_router=response_router,
         )
@@ -144,7 +173,6 @@ class MoltbookPlugin(PluginBase):
             system_prompt=system_prompt,
             temperature=identity.llm.temperature,
             max_tokens=identity.llm.max_tokens,
-            llm_client=self.ctx.llm_client,  # Legacy fallback
         )
 
         # Feed processor
@@ -221,9 +249,13 @@ class MoltbookPlugin(PluginBase):
                 return
             state_file = data_dir / "dream_state.json"
             state_file.parent.mkdir(parents=True, exist_ok=True)
-            state_file.write_text(json.dumps({
-                "dream_journal_posted_date": self._dream_journal_posted_date.isoformat(),
-            }))
+            state_file.write_text(
+                json.dumps(
+                    {
+                        "dream_journal_posted_date": self._dream_journal_posted_date.isoformat(),
+                    }
+                )
+            )
         except Exception as e:
             logger.debug("Failed to persist dream date: %s", e)
 
@@ -256,22 +288,33 @@ class MoltbookPlugin(PluginBase):
 
         # Circuit breaker: skip ticks when API is failing consecutively
         if self._consecutive_api_failures >= 3:
-            backoff = min(2 ** (self._consecutive_api_failures - 3), self._max_backoff_multiplier)
+            backoff = min(
+                2 ** (self._consecutive_api_failures - 3), self._max_backoff_multiplier
+            )
             if self._tick_count % backoff != 0:
                 logger.debug(
                     "Circuit breaker active (%d failures, skipping %d/%d ticks)",
-                    self._consecutive_api_failures, backoff - 1, backoff,
+                    self._consecutive_api_failures,
+                    backoff - 1,
+                    backoff,
                 )
                 return
 
         # Check suspension backoff — skip all activity until suspension expires
         if self._suspended_until and datetime.now(timezone.utc) < self._suspended_until:
-            remaining = (self._suspended_until - datetime.now(timezone.utc)).total_seconds() / 3600
-            logger.debug("Suspended backoff active (%.1fh remaining), skipping tick", remaining)
+            remaining = (
+                self._suspended_until - datetime.now(timezone.utc)
+            ).total_seconds() / 3600
+            logger.debug(
+                "Suspended backoff active (%.1fh remaining), skipping tick", remaining
+            )
             return
 
         # Check quiet hours
-        if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
+        if (
+            self.ctx.quiet_hours_checker
+            and self.ctx.quiet_hours_checker.is_quiet_hours()
+        ):
             logger.debug("Quiet hours active, skipping tick")
             return
 
@@ -281,7 +324,9 @@ class MoltbookPlugin(PluginBase):
         # Apply mood cycle threshold offset to engagement decisions
         mood_cap = self._capabilities.get("mood_cycle")
         if mood_cap and self._decision_engine:
-            base_threshold = self.ctx.identity.raw_config.get("engagement_threshold", 35.0)
+            base_threshold = self.ctx.identity.raw_config.get(
+                "engagement_threshold", 35.0
+            )
             offset = mood_cap.get_threshold_offset()
             self._decision_engine._threshold = base_threshold + offset
 
@@ -300,7 +345,8 @@ class MoltbookPlugin(PluginBase):
 
             # Step 2-4: THINK -> DECIDE -> ACT for each new post
             agent_name = self.ctx.identity.raw_config.get(
-                "agent_name", self.ctx.identity.name,
+                "agent_name",
+                self.ctx.identity.name,
             )
             for post in new_posts:
                 if self._comments_this_cycle >= self._max_comments_per_cycle:
@@ -308,7 +354,11 @@ class MoltbookPlugin(PluginBase):
 
                 # Check if post contains a MoltCaptcha challenge directed at us
                 if is_challenge_text(post.content, agent_name):
-                    logger.info("MoltCaptcha challenge in post %s from %s", post.id, post.agent_name)
+                    logger.info(
+                        "MoltCaptcha challenge in post %s from %s",
+                        post.id,
+                        post.agent_name,
+                    )
                     await self._handle_moltcaptcha(post.id, post)
                     continue
 
@@ -324,7 +374,9 @@ class MoltbookPlugin(PluginBase):
                 elif decision.action == "upvote":
                     try:
                         await self._client.upvote_post(post.id)
-                        await self.ctx.engagement_db.record_engagement(post.id, "upvote", decision.score)
+                        await self.ctx.engagement_db.record_engagement(
+                            post.id, "upvote", decision.score
+                        )
                     except SuspensionError:
                         raise
                     except MoltbookError as e:
@@ -357,19 +409,22 @@ class MoltbookPlugin(PluginBase):
                 self._suspended_until = dt
                 logger.error(
                     "Account SUSPENDED until %s (from API). Reason: %s",
-                    e.suspended_until, e.reason,
+                    e.suspended_until,
+                    e.reason,
                 )
             else:
                 self._suspended_until = datetime.now(timezone.utc) + timedelta(hours=1)
                 logger.warning(
                     "Account SUSPENDED — no expiry in response, backing off 1h (until %s). Reason: %s",
-                    self._suspended_until.isoformat(), e.reason,
+                    self._suspended_until.isoformat(),
+                    e.reason,
                 )
             self.ctx.audit_log.log(
                 action="suspension_detected",
                 details={
                     "reason": e.reason,
-                    "suspended_until": e.suspended_until or self._suspended_until.isoformat(),
+                    "suspended_until": e.suspended_until
+                    or self._suspended_until.isoformat(),
                     "identity": self.ctx.identity.name,
                 },
             )
@@ -380,19 +435,31 @@ class MoltbookPlugin(PluginBase):
             self._consecutive_api_failures += 1
             logger.error(
                 "Moltbook error during tick (failure %d): %s",
-                self._consecutive_api_failures, e, exc_info=True,
+                self._consecutive_api_failures,
+                e,
+                exc_info=True,
             )
             await asyncio.to_thread(self._persist_status)
         except Exception as e:
             self._consecutive_api_failures += 1
-            logger.error("Unexpected error in tick (failure %d): %s", self._consecutive_api_failures, e, exc_info=True)
+            logger.error(
+                "Unexpected error in tick (failure %d): %s",
+                self._consecutive_api_failures,
+                e,
+                exc_info=True,
+            )
 
     async def _engage_with_post(self, post, decision) -> None:
         """Generate and post a comment on a post."""
         prompts = self._prompts or self._load_prompts(self.ctx.identity.name)
         comment_prompt = getattr(
-            prompts, "COMMENT_PROMPT",
-            getattr(prompts, "RESPONSE_PROMPT", "Respond to this post:\nTitle: {title}\n{content}"),
+            prompts,
+            "COMMENT_PROMPT",
+            getattr(
+                prompts,
+                "RESPONSE_PROMPT",
+                "Respond to this post:\nTitle: {title}\n{content}",
+            ),
         )
 
         existing = [c.content for c in (post.comments or [])[:3]]
@@ -407,11 +474,14 @@ class MoltbookPlugin(PluginBase):
         if self.ctx.learning_store:
             try:
                 relevant = await self.ctx.learning_store.get_relevant(
-                    context=post.content, limit=8,
+                    context=post.content,
+                    limit=8,
                 )
                 if relevant:
                     learnings_text = "\n".join(f"- {l.content}" for l in relevant)
-                    extra_context += f"\n\nRelevant things you've learned:\n{learnings_text}\n"
+                    extra_context += (
+                        f"\n\nRelevant things you've learned:\n{learnings_text}\n"
+                    )
             except Exception as e:
                 logger.debug("Could not fetch relevant learnings: %s", e)
 
@@ -425,8 +495,7 @@ class MoltbookPlugin(PluginBase):
             extra_format_vars={
                 "category": getattr(post, "submolt", "general"),
                 "opening_instruction": (
-                    "START DIRECTLY with your actual point. "
-                    "No opening phrase needed."
+                    "START DIRECTLY with your actual point. No opening phrase needed."
                 ),
             },
         )
@@ -446,7 +515,9 @@ class MoltbookPlugin(PluginBase):
 
         try:
             comment = await self._client.create_comment(post.id, response)
-            await self.ctx.engagement_db.record_engagement(post.id, "comment", decision.score)
+            await self.ctx.engagement_db.record_engagement(
+                post.id, "comment", decision.score
+            )
             if comment.id:
                 await self.ctx.engagement_db.track_my_comment(comment.id, post.id)
             self._comments_this_cycle += 1
@@ -459,7 +530,10 @@ class MoltbookPlugin(PluginBase):
             # LEARN: Extract and propose learnings
             if self.ctx.learning_store:
                 from overblick.core.learning import LearningExtractor
-                candidates = LearningExtractor.extract(post.content, source_agent=post.agent_name)
+
+                candidates = LearningExtractor.extract(
+                    post.content, source_agent=post.agent_name
+                )
                 for c in candidates:
                     await self.ctx.learning_store.propose(
                         content=c["content"],
@@ -470,9 +544,10 @@ class MoltbookPlugin(PluginBase):
 
             # Upvote interesting comments from other agents on this post
             agent_name = self.ctx.identity.raw_config.get(
-                "agent_name", self.ctx.identity.name,
+                "agent_name",
+                self.ctx.identity.name,
             )
-            for other_comment in (post.comments or []):
+            for other_comment in post.comments or []:
                 if not other_comment.id:
                     continue
                 if getattr(other_comment, "agent_name", "") == agent_name:
@@ -506,7 +581,9 @@ class MoltbookPlugin(PluginBase):
         Checks at most 3 recent posts per tick to limit API calls.
         """
         max_posts_to_check = self.ctx.identity.raw_config.get("reply_check_limit", 3)
-        my_post_ids = await self.ctx.engagement_db.get_my_post_ids(limit=max_posts_to_check)
+        my_post_ids = await self.ctx.engagement_db.get_my_post_ids(
+            limit=max_posts_to_check
+        )
         if not my_post_ids:
             return
 
@@ -524,13 +601,19 @@ class MoltbookPlugin(PluginBase):
 
                     # Check for MoltCaptcha challenge directed at us
                     agent_name = self.ctx.identity.raw_config.get(
-                        "agent_name", self.ctx.identity.name,
+                        "agent_name",
+                        self.ctx.identity.name,
                     )
                     if is_challenge_text(comment.content, agent_name):
-                        logger.info("MoltCaptcha challenge detected from %s", comment.agent_name)
+                        logger.info(
+                            "MoltCaptcha challenge detected from %s", comment.agent_name
+                        )
                         await self._handle_moltcaptcha(post.id, comment)
                         await self.ctx.engagement_db.mark_reply_processed(
-                            comment.id, post_id, "challenge_solved", 0,
+                            comment.id,
+                            post_id,
+                            "challenge_solved",
+                            0,
                         )
                         continue
 
@@ -543,7 +626,10 @@ class MoltbookPlugin(PluginBase):
                     # Hostile/spam: skip entirely — no upvote, no reply
                     if decision.hostile:
                         await self.ctx.engagement_db.mark_reply_processed(
-                            comment.id, post_id, "hostile_skip", 0,
+                            comment.id,
+                            post_id,
+                            "hostile_skip",
+                            0,
                         )
                         continue
 
@@ -562,7 +648,10 @@ class MoltbookPlugin(PluginBase):
                         )
                     else:
                         await self.ctx.engagement_db.mark_reply_processed(
-                            comment.id, post_id, "skip", decision.score,
+                            comment.id,
+                            post_id,
+                            "skip",
+                            decision.score,
                         )
 
             except MoltbookError as e:
@@ -584,12 +673,15 @@ class MoltbookPlugin(PluginBase):
             return
 
         agent_name = self.ctx.identity.raw_config.get(
-            "agent_name", self.ctx.identity.name,
+            "agent_name",
+            self.ctx.identity.name,
         )
 
         for post_id in post_ids:
             try:
-                my_comment_ids = await self.ctx.engagement_db.get_my_comment_ids_for_post(post_id)
+                my_comment_ids = (
+                    await self.ctx.engagement_db.get_my_comment_ids_for_post(post_id)
+                )
                 if not my_comment_ids:
                     continue
 
@@ -619,7 +711,10 @@ class MoltbookPlugin(PluginBase):
 
                     if decision.hostile:
                         await self.ctx.engagement_db.mark_reply_processed(
-                            comment.id, post_id, "hostile_skip", 0,
+                            comment.id,
+                            post_id,
+                            "hostile_skip",
+                            0,
                         )
                         continue
 
@@ -638,7 +733,10 @@ class MoltbookPlugin(PluginBase):
                         )
                     else:
                         await self.ctx.engagement_db.mark_reply_processed(
-                            comment.id, post_id, "skip", decision.score,
+                            comment.id,
+                            post_id,
+                            "skip",
+                            decision.score,
                         )
 
             except MoltbookError as e:
@@ -662,7 +760,9 @@ class MoltbookPlugin(PluginBase):
             return
 
         prompts = self._prompts or self._load_prompts(self.ctx.identity.name)
-        dm_prompt = getattr(prompts, "DM_PROMPT", "Reply to this DM from {sender}:\n{message}\n\nReply:")
+        dm_prompt = getattr(
+            prompts, "DM_PROMPT", "Reply to this DM from {sender}:\n{message}\n\nReply:"
+        )
 
         try:
             # Approve pending DM requests
@@ -697,15 +797,24 @@ class MoltbookPlugin(PluginBase):
                 )
 
                 if not response:
-                    logger.warning("Empty DM reply generated for conv %s, skipping", conv.id)
+                    logger.warning(
+                        "Empty DM reply generated for conv %s, skipping", conv.id
+                    )
                     continue
 
                 await self._client.send_dm(conv.id, response)
                 self.ctx.audit_log.log(
                     action="dm_replied",
-                    details={"conversation_id": conv.id, "participant": conv.participant_name},
+                    details={
+                        "conversation_id": conv.id,
+                        "participant": conv.participant_name,
+                    },
                 )
-                logger.info("DM replied to %s in conversation %s", conv.participant_name, conv.id)
+                logger.info(
+                    "DM replied to %s in conversation %s",
+                    conv.participant_name,
+                    conv.id,
+                )
 
         except SuspensionError:
             raise  # Let tick() handle the 24h backoff
@@ -714,7 +823,9 @@ class MoltbookPlugin(PluginBase):
                 self._dm_consecutive_404s += 1
                 if self._dm_consecutive_404s >= 3:
                     self._dms_supported = False
-                    self._dm_disabled_until = datetime.now(timezone.utc) + timedelta(hours=6)
+                    self._dm_disabled_until = datetime.now(timezone.utc) + timedelta(
+                        hours=6
+                    )
                     logger.warning(
                         "DM endpoint returned 404 %d times — disabling until %s",
                         self._dm_consecutive_404s,
@@ -743,7 +854,9 @@ class MoltbookPlugin(PluginBase):
 
         solution = solver.solve(parsed)
         if solution:
-            parent_id = getattr(source, "id", None) if hasattr(source, "agent_name") else None
+            parent_id = (
+                getattr(source, "id", None) if hasattr(source, "agent_name") else None
+            )
             await self._client.create_comment(post_id, solution, parent_id=parent_id)
             self.ctx.audit_log.log(
                 action="moltcaptcha_solved",
@@ -754,13 +867,17 @@ class MoltbookPlugin(PluginBase):
             logger.error("MoltCaptcha solving failed for challenge: %s", parsed)
 
     async def _handle_reply(
-        self, post_id: str, comment_id: str, action: str, score: float,
+        self,
+        post_id: str,
+        comment_id: str,
+        action: str,
+        score: float,
     ) -> bool:
         """Handle a reply action from the queue."""
         try:
             post = await self._client.get_post(post_id, include_comments=True)
             comment = None
-            for c in (post.comments or []):
+            for c in post.comments or []:
                 if c.id == comment_id:
                     comment = c
                     break
@@ -771,8 +888,13 @@ class MoltbookPlugin(PluginBase):
 
             prompts = self._prompts or self._load_prompts(self.ctx.identity.name)
             reply_prompt = getattr(
-                prompts, "REPLY_PROMPT",
-                getattr(prompts, "REPLY_TO_COMMENT_PROMPT", "Reply to: {comment}\nOn post: {title}"),
+                prompts,
+                "REPLY_PROMPT",
+                getattr(
+                    prompts,
+                    "REPLY_TO_COMMENT_PROMPT",
+                    "Reply to: {comment}\nOn post: {title}",
+                ),
             )
 
             # Enrich reply with capability context and relevant learnings
@@ -780,11 +902,14 @@ class MoltbookPlugin(PluginBase):
             if self.ctx.learning_store:
                 try:
                     relevant = await self.ctx.learning_store.get_relevant(
-                        context=comment.content, limit=5,
+                        context=comment.content,
+                        limit=5,
                     )
                     if relevant:
                         learnings_text = "\n".join(f"- {l.content}" for l in relevant)
-                        extra_context += f"\n\nRelevant things you've learned:\n{learnings_text}\n"
+                        extra_context += (
+                            f"\n\nRelevant things you've learned:\n{learnings_text}\n"
+                        )
                 except Exception as e:
                     logger.debug("Could not fetch relevant learnings for reply: %s", e)
 
@@ -797,7 +922,9 @@ class MoltbookPlugin(PluginBase):
             )
 
             if response:
-                await self._client.create_comment(post_id, response, parent_id=comment_id)
+                await self._client.create_comment(
+                    post_id, response, parent_id=comment_id
+                )
                 return True
 
         except Exception as e:
@@ -807,7 +934,10 @@ class MoltbookPlugin(PluginBase):
 
     async def post_heartbeat(self) -> bool:
         """Post a heartbeat (called by scheduler)."""
-        if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
+        if (
+            self.ctx.quiet_hours_checker
+            and self.ctx.quiet_hours_checker.is_quiet_hours()
+        ):
             return False
 
         # Dream priority: if a dream journal hasn't been posted yet today, skip
@@ -838,7 +968,9 @@ class MoltbookPlugin(PluginBase):
             learnings_text = "\n".join(f"- {l.content}" for l in approved)
             interactions_text = "(no recent interactions)"
             try:
-                interactions = await self.ctx.engagement_db.get_recent_interactions(limit=5)
+                interactions = await self.ctx.engagement_db.get_recent_interactions(
+                    limit=5
+                )
                 if interactions:
                     interactions_text = "\n".join(
                         f"- {i['action']} on post {i['post_id'][:8]}... (score: {i.get('relevance_score', 'N/A')})"
@@ -853,10 +985,13 @@ class MoltbookPlugin(PluginBase):
             )
             topic_index = 0
             topic_vars: dict[str, str] = {}
-            logger.info("Using learning-based heartbeat prompt (%d learnings)", len(approved))
+            logger.info(
+                "Using learning-based heartbeat prompt (%d learnings)", len(approved)
+            )
         else:
             heartbeat_prompt = getattr(
-                prompts, "HEARTBEAT_PROMPT",
+                prompts,
+                "HEARTBEAT_PROMPT",
                 "Write a short post about topic {topic_index}.",
             )
             # Topic rotation
@@ -869,13 +1004,17 @@ class MoltbookPlugin(PluginBase):
                     "topic_example": topic.get("example", ""),
                 }
                 logger.info(
-                    "Heartbeat topic #%d: %s", topic_index, topic.get("id", "unknown"),
+                    "Heartbeat topic #%d: %s",
+                    topic_index,
+                    topic.get("id", "unknown"),
                 )
 
         # Anti-repetition: inject recent post titles as context (window=20)
         extra_context = self._gather_capability_context()
         try:
-            recent_titles = await self.ctx.engagement_db.get_recent_heartbeat_titles(limit=20)
+            recent_titles = await self.ctx.engagement_db.get_recent_heartbeat_titles(
+                limit=20
+            )
             if recent_titles:
                 titles_text = "\n".join(f"- {t}" for t in recent_titles)
                 extra_context += f"\n\nYour recent posts (DON'T repeat these topics):\n{titles_text}\n"
@@ -895,7 +1034,11 @@ class MoltbookPlugin(PluginBase):
         title, content, submolt = result
 
         # Use topic-specified submolt if available and not already set by LLM
-        if not use_learning_prompt and heartbeat_topics and topic_index < len(heartbeat_topics):
+        if (
+            not use_learning_prompt
+            and heartbeat_topics
+            and topic_index < len(heartbeat_topics)
+        ):
             topic_submolt = heartbeat_topics[topic_index].get("submolt")
             if topic_submolt and submolt in ("ai", "general"):
                 submolt = topic_submolt
@@ -903,7 +1046,10 @@ class MoltbookPlugin(PluginBase):
         try:
             post = await self._client.create_post(title, content, submolt=submolt)
             if not post:
-                logger.error("MoltbookPlugin: create_post returned None for heartbeat '%s'", title)
+                logger.error(
+                    "MoltbookPlugin: create_post returned None for heartbeat '%s'",
+                    title,
+                )
                 return False
             await self._heartbeat.record_heartbeat(post.id, title)
             await self.ctx.engagement_db.track_my_post(post.id, title)
@@ -916,8 +1062,11 @@ class MoltbookPlugin(PluginBase):
             self.ctx.audit_log.log(
                 action="heartbeat_posted",
                 details={
-                    "post_id": post.id, "title": title, "submolt": submolt,
-                    "topic_index": topic_index, "learning_based": use_learning_prompt,
+                    "post_id": post.id,
+                    "title": title,
+                    "submolt": submolt,
+                    "topic_index": topic_index,
+                    "learning_based": use_learning_prompt,
                 },
             )
             return True
@@ -994,7 +1143,9 @@ class MoltbookPlugin(PluginBase):
                 action="dream_journal_posted",
                 details={"post_id": post.id, "title": title, "submolt": submolt},
             )
-            logger.info("Dream journal posted for %s: %s", self.ctx.identity.name, title)
+            logger.info(
+                "Dream journal posted for %s: %s", self.ctx.identity.name, title
+            )
             return True
 
         except RateLimitError:
@@ -1019,7 +1170,9 @@ class MoltbookPlugin(PluginBase):
             await self._client.close()
         logger.info("MoltbookPlugin teardown complete")
 
-    async def _setup_capabilities(self, enabled_modules: list[str], system_prompt: str) -> None:
+    async def _setup_capabilities(
+        self, enabled_modules: list[str], system_prompt: str
+    ) -> None:
         """Load and setup capabilities from enabled_modules list.
 
         If shared capabilities are available in ctx.capabilities (created by
@@ -1045,6 +1198,7 @@ class MoltbookPlugin(PluginBase):
 
         # Build per-capability configs (centralized to avoid drift)
         from overblick.core.capability import build_capability_configs
+
         configs = build_capability_configs(identity, system_prompt)
 
         resolved = registry.resolve(enabled_modules)
@@ -1070,13 +1224,16 @@ class MoltbookPlugin(PluginBase):
 
     async def _tick_capabilities(self) -> None:
         """Tick all enabled capabilities concurrently."""
+
         async def _safe_tick(cap):
             try:
                 await cap.tick()
             except Exception as e:
                 logger.warning("Capability tick error (%s): %s", cap.name, e)
 
-        enabled = [c for c in self._capabilities.values() if getattr(c, "enabled", False)]
+        enabled = [
+            c for c in self._capabilities.values() if getattr(c, "enabled", False)
+        ]
         if enabled:
             await asyncio.gather(*[_safe_tick(c) for c in enabled])
 
@@ -1100,7 +1257,10 @@ class MoltbookPlugin(PluginBase):
         """Load identity-specific prompts module."""
         try:
             import importlib
-            return importlib.import_module(f"overblick.identities.{identity_name}.prompts")
+
+            return importlib.import_module(
+                f"overblick.identities.{identity_name}.prompts"
+            )
         except ImportError:
             logger.warning("No prompts module for identity %s", identity_name)
             return _FallbackPrompts()
@@ -1108,6 +1268,7 @@ class MoltbookPlugin(PluginBase):
 
 class _FallbackPrompts:
     """Minimal fallback prompts when identity module not found."""
+
     SYSTEM_PROMPT = "You are a helpful AI agent on a social platform."
     COMMENT_PROMPT = "Respond to this post:\nTitle: {title}\n{content}"
     REPLY_PROMPT = "Reply to: {comment}\nOn post: {title}"

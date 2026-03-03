@@ -41,15 +41,36 @@ class ResponseGenerator:
         max_tokens: int = 2000,
         *,
         llm_client=None,
+        allow_raw_fallback: bool = False,
     ):
+        import os
+
         self._pipeline = llm_pipeline
         self._llm = llm_client
         self._system_prompt = system_prompt
         self._temperature = temperature
         self._max_tokens = max_tokens
 
-        if not self._pipeline and not self._llm:
-            raise ValueError("Either llm_pipeline or llm_client must be provided")
+        # Environment variable override for backward compatibility
+        if (
+            os.environ.get("OVERBLICK_RAW_LLM", "0") == "1"
+            and self._llm
+            and not self._pipeline
+        ):
+            allow_raw_fallback = True
+            logger.warning("OVERBLICK_RAW_LLM=1: allowing raw client fallback")
+
+        # Safe-mode enforcement
+        if not self._pipeline:
+            if allow_raw_fallback and self._llm:
+                logger.warning(
+                    "ResponseGenerator using raw client (allow_raw_fallback=True)"
+                )
+            else:
+                raise ValueError(
+                    "SafeLLMPipeline is required in safe mode. "
+                    "Provide llm_pipeline or set allow_raw_fallback=True."
+                )
 
         if self._pipeline and self._llm:
             logger.debug("Both pipeline and raw client provided; using pipeline")
@@ -95,6 +116,9 @@ class ResponseGenerator:
             return result.content.strip() if result.content else None
 
         # Legacy raw client path
+        assert self._llm is not None, (
+            "Raw LLM client should be available when pipeline is not"
+        )
         try:
             result = await self._llm.chat(
                 messages=messages,
@@ -115,7 +139,7 @@ class ResponseGenerator:
         post_content: str,
         agent_name: str,
         prompt_template: str,
-        existing_comments: list[str] = None,
+        existing_comments: Optional[list[str]] = None,
         extra_context: str = "",
         priority: str = "low",
         extra_format_vars: dict[str, str] | None = None,
@@ -154,7 +178,9 @@ class ResponseGenerator:
         if extra_context:
             prompt = f"{extra_context}\n\n{prompt}"
 
-        return await self._call_llm(prompt, audit_action="comment_generation", priority=priority)
+        return await self._call_llm(
+            prompt, audit_action="comment_generation", priority=priority
+        )
 
     async def generate_reply(
         self,
@@ -179,7 +205,9 @@ class ResponseGenerator:
         if extra_context:
             prompt = f"{extra_context}\n\n{prompt}"
 
-        return await self._call_llm(prompt, audit_action="reply_generation", priority=priority)
+        return await self._call_llm(
+            prompt, audit_action="reply_generation", priority=priority
+        )
 
     async def generate_dm_reply(
         self,
@@ -202,7 +230,9 @@ class ResponseGenerator:
         )
 
         return await self._call_llm(
-            prompt, audit_action="generate_dm_reply", priority=priority,
+            prompt,
+            audit_action="generate_dm_reply",
+            priority=priority,
         )
 
     async def generate_heartbeat(
@@ -273,7 +303,9 @@ class ResponseGenerator:
             "dream_tone": dream.get("tone", "contemplative"),
             "dream_content": dream.get("content", ""),
             "dream_insight": dream.get("insight", ""),
-            "dream_symbols": ", ".join(symbols) if isinstance(symbols, list) else str(symbols),
+            "dream_symbols": ", ".join(symbols)
+            if isinstance(symbols, list)
+            else str(symbols),
         }
         if extra_format_vars:
             format_vars.update(extra_format_vars)
@@ -323,7 +355,7 @@ class ResponseGenerator:
             stripped = line.strip()
             for prefix in ("TITLE: ", "Title: ", "title: "):
                 if stripped.startswith(prefix):
-                    title = stripped[len(prefix):].strip()
+                    title = stripped[len(prefix) :].strip()
                     body_start = i + 1
                     break
             else:

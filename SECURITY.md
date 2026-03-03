@@ -152,6 +152,17 @@
 - Code analysis where injection risk is minimal
 - **Never** expose skip flags to untrusted input paths
 
+**Raw LLM client protection**: Plugin access to raw LLM client (`ctx.llm_client`) is disabled by default.
+- Default: `OVERBLICK_RAW_LLM=0` (raises RuntimeError when accessed)
+- Migration: `OVERBLICK_RAW_LLM=1` allows raw access (not recommended for production)
+- Use `ctx.llm_pipeline` for secure LLM calls with full security chain
+- `ResponseGenerator` requires `llm_pipeline` or explicit `allow_raw_fallback=True`
+
+**Strict capability enforcement**: Capability system warns by default.
+- Default: `OVERBLICK_STRICT_CAPABILITIES=0` (warnings only)
+- Strict: `OVERBLICK_STRICT_CAPABILITIES=1` (raises PermissionError for missing grants)
+- Configure grants in identity YAML under `plugin_capabilities:` section
+
 ## Beta Testing Security Guidelines
 
 If you're testing Överblick in external beta:

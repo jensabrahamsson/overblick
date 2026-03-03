@@ -307,7 +307,7 @@ The sole framework interface. Provides controlled access to everything a plugin 
 | `data_dir` | `Path` | Isolated data directory |
 | `log_dir` | `Path` | Log directory |
 | `llm_pipeline` | `SafeLLMPipeline` | **Preferred** — full security chain |
-| `llm_client` | `LLMClient` | Raw LLM (use pipeline instead) |
+| `llm_client` | `LLMClient` | Raw LLM — disabled in safe mode (`OVERBLICK_RAW_LLM=0`), raises RuntimeError. Use `llm_pipeline` for secure calls. |
 | `event_bus` | `EventBus` | Pub/sub communication |
 | `scheduler` | `Scheduler` | Periodic task registration |
 | `audit_log` | `AuditLog` | Structured action logging |

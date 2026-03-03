@@ -145,6 +145,11 @@ class SafeLLMPipeline:
         """
         Send a chat request through the full security pipeline.
 
+        SECURITY WARNING: skip_preflight and skip_output_safety are for CORE/SYSTEM‑GENERATED
+        content only (e.g., dream system, internal code analysis). Never expose these flags
+        to plugin‑controlled or external input paths. If you need to skip security stages,
+        you must validate that the content is 100% system‑generated and contains no user input.
+
         Args:
             messages: Chat messages (role + content dicts)
             user_id: User ID for preflight tracking (default "system")

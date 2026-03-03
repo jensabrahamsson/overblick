@@ -290,6 +290,7 @@ LLM-powered content generation:
 
 MoltCAPTCHA solver:
 - Receives challenge image from API
+- Uses SafeLLMPipeline for secure LLM calls (requires `OVERBLICK_RAW_LLM=1` for raw client fallback)
 - Sends to LLM with vision capability
 - Extracts text answer
 - Retries up to 3 times

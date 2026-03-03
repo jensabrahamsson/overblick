@@ -57,7 +57,7 @@ class PluginContext(BaseModel):
     # Framework services (set by orchestrator before plugin.setup())
     # SkipValidation preserves the type annotation for IDE/mypy while allowing
     # mock objects in tests without Pydantic instance checks at runtime.
-    llm_client: Annotated[Optional["LLMClient"], SkipValidation] = None
+    # llm_client: Annotated[Optional["LLMClient"], SkipValidation] = None  # Replaced by property
     event_bus: Annotated[Optional["EventBus"], SkipValidation] = None
     scheduler: Annotated[Optional["Scheduler"], SkipValidation] = None
     audit_log: Annotated[Optional["AuditLog"], SkipValidation] = None
@@ -85,6 +85,7 @@ class PluginContext(BaseModel):
 
     # Secrets accessor — Callable[[str], Optional[str]]
     _secrets_getter: Any = PrivateAttr(default=None)
+    _llm_client: Any = PrivateAttr(default=None)
 
     def get_secret(self, key: str) -> Optional[str]:
         """
@@ -111,6 +112,35 @@ class PluginContext(BaseModel):
             Capability instance or None if not registered
         """
         return self.capabilities.get(name)
+
+    @property
+    def llm_client(self) -> Optional["LLMClient"]:
+        """
+        Raw LLM client access — disabled in safe mode.
+
+        In safe mode (OVERBLICK_RAW_LLM=0), accessing this property raises
+        RuntimeError. Use ctx.llm_pipeline for secure LLM calls.
+
+        Set OVERBLICK_RAW_LLM=1 to allow raw access (not recommended).
+        """
+        import os
+
+        if os.environ.get("OVERBLICK_RAW_LLM", "0") == "0":
+            raise RuntimeError(
+                "Raw LLM client access is disabled in safe mode. "
+                "Use ctx.llm_pipeline for secure LLM calls. "
+                "Set OVERBLICK_RAW_LLM=1 to allow raw access (not recommended)."
+            )
+        logger.warning(
+            "Raw LLM client accessed by identity '%s' (security bypass). "
+            "Use ctx.llm_pipeline for secure LLM calls.",
+            self.identity_name,
+        )
+        return self._llm_client
+
+    @llm_client.setter
+    def llm_client(self, value: Optional["LLMClient"]) -> None:
+        self._llm_client = value
 
     def load_identity(self, name: str) -> Any:
         """

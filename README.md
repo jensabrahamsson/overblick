@@ -289,6 +289,22 @@ llm:
 - `PermissionChecker` — Default-deny permission system
 - IPC authentication — HMAC-signed messages between processes
 - **Plugin capability system** — Declarative resource access control (beta: warnings only)
+- **Raw LLM client protection** — Plugin access to raw LLM client disabled by default
+
+### Security Environment Variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OVERBLICK_SAFE_MODE` | `1` (safe) | Enable safe-by-default mode (strict=True) for SafeLLMPipeline |
+| `OVERBLICK_RAW_LLM` | `0` (disabled) | Allow plugins to access raw LLM client via `ctx.llm_client` (not recommended) |
+| `OVERBLICK_STRICT_CAPABILITIES` | `0` (warnings) | Block plugins missing required capability grants (PermissionError) |
+
+**Safe mode (`OVERBLICK_SAFE_MODE=1`)**:
+- `SafeLLMPipeline` requires all security components (preflight checker, output safety, rate limiter)
+- `ResponseGenerator` requires pipeline (`llm_pipeline`) or explicit `allow_raw_fallback=True`
+- `PluginContext.llm_client` raises RuntimeError when accessed
+
+**Migration**: For backward compatibility during beta, set `OVERBLICK_RAW_LLM=1` and `OVERBLICK_SAFE_MODE=0`. For production, use default values.
 
 ## Identity System
 

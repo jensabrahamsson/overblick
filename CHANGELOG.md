@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Warnings logged when capabilities missing from identity YAML
   - Standard capabilities: `network_outbound`, `filesystem_write`, `secrets_access`, etc.
   - Configuration: `plugin_capabilities:` section in identity YAML
+  - Strict mode: `OVERBLICK_STRICT_CAPABILITIES=1` raises `PermissionError` for missing grants
 
 ### Changed
 - **Breaking**: `SafeLLMPipeline(strict=False)` now requires explicit `strict=False` parameter
@@ -42,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Input validation**: Client IP header validation with trusted proxy CIDR ranges
 - **Boundary markers**: External content wrapped with injection-resistant markers
 - **Audit logging**: All security decisions logged with structured JSON
+- **Raw LLM client protection**: `PluginContext.llm_client` disabled by default (requires `OVERBLICK_RAW_LLM=1`)
+- **ResponseGenerator pipeline enforcement**: Requires `SafeLLMPipeline` or explicit `allow_raw_fallback=True`
+- **Moltbook security upgrade**: `ChallengeHandler` and `ResponseRouter` updated to use `SafeLLMPipeline`
+- **Strict capability enforcement**: Capability system raises `PermissionError` when `OVERBLICK_STRICT_CAPABILITIES=1`
+- **Skip flags documentation**: Added security warning to `SafeLLMPipeline.chat()` about internal use only
 
 ## [0.0.1] - 2025-02-12
 
@@ -76,9 +82,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
          secrets_access: true
      ```
 
-3. **Security documentation**
-   - Review `SECURITY.md` for threat model and reporting process
-   - Understand what Överblick does NOT protect against (malicious plugins, etc.)
+ 3. **Security documentation**
+    - Review `SECURITY.md` for threat model and reporting process
+    - Understand what Överblick does NOT protect against (malicious plugins, etc.)
+
+ 4. **Raw LLM client migration**
+    - Plugins accessing `ctx.llm_client` will now raise RuntimeError
+    - Use `ctx.llm_pipeline` for secure LLM calls
+    - For temporary backward compatibility, set `OVERBLICK_RAW_LLM=1`
+    - `ResponseGenerator` now requires `llm_pipeline` or `allow_raw_fallback=True`
 
 ## Reporting Issues
 

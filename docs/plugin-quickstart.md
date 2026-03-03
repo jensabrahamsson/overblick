@@ -71,6 +71,7 @@ class MyPlugin(PluginBase):
         self._last_run = time.time()
 
         # Access the LLM via the safe pipeline (NEVER use llm_client directly)
+        # In safe mode (OVERBLICK_RAW_LLM=0), ctx.llm_client raises RuntimeError
         pipeline = self.ctx.llm_pipeline
         if not pipeline:
             logger.warning("MyPlugin: no LLM pipeline available")
@@ -191,7 +192,7 @@ async def test_tick_skips_when_not_run_time(plugin):
 | `ctx.data_dir` | Path | Isolated data directory for this identity |
 | `ctx.log_dir` | Path | Isolated log directory |
 | `ctx.llm_pipeline` | SafeLLMPipeline | Secure LLM interface (preferred) |
-| `ctx.llm_client` | LLMClient | Raw LLM client (avoid in plugins) |
+| `ctx.llm_client` | LLMClient | Raw LLM client — disabled in safe mode (`OVERBLICK_RAW_LLM=0`), raises RuntimeError. Use `llm_pipeline` for secure calls. |
 | `ctx.audit_log` | AuditLog | Action audit logger |
 | `ctx.event_bus` | EventBus | Pub/sub event system |
 | `ctx.scheduler` | Scheduler | Periodic task scheduler |

@@ -128,7 +128,7 @@ python -m overblick manage supervisor-logs
 - Main agent pipelines use `strict=True` for maximum security
 
 ### Plugin Capability System
-- Minimal permission system for plugin resource access (beta: warnings only, no blocking)
+- Minimal permission system for plugin resource access (beta: warnings by default, blocking in strict mode)
 - Plugins declare `REQUIRED_CAPABILITIES` class variable (e.g., `["network_outbound", "secrets_access"]`)
 - Users grant capabilities per identity and per plugin in identity YAML:
   ```yaml
@@ -142,6 +142,7 @@ python -m overblick manage supervisor-logs
   ```
 - Standard capabilities: `network_outbound`, `filesystem_write`, `secrets_access`, `email_send`, `shell_execute`, `database_write`, etc.
 - Missing grants trigger warnings in logs; plugins still load but capabilities may fail at runtime
+- Set `OVERBLICK_STRICT_CAPABILITIES=1` to raise `PermissionError` for missing grants (recommended for production)
 
 ### Security Documentation
 - **SECURITY.md** – Comprehensive threat model, security guarantees, limitations, responsible disclosure process
@@ -154,6 +155,8 @@ python -m overblick manage supervisor-logs
 - **Boundary markers**: External content wrapped with injection-resistant markers (`<<<EXTERNAL_*_START>>>`)
 - **Audit logging**: All security decisions logged with structured JSON
 - **Skip flags documented**: `skip_preflight` and `skip_output_safety` marked "internal use only" – never expose to untrusted input paths
+- **Raw LLM client protection**: Plugin access to `ctx.llm_client` is disabled by default (`OVERBLICK_RAW_LLM=0`). Plugins must use `ctx.llm_pipeline` for secure LLM calls. Set `OVERBLICK_RAW_LLM=1` to allow raw access (not recommended).
+- **Strict capability enforcement**: Capability system warns by default; set `OVERBLICK_STRICT_CAPABILITIES=1` to block plugins missing required capability grants.
 
 ## Development Agent Team ("Team Tage Erlander")
 The `.claude/agents/` directory contains a full development team of specialized Claude Code agents. Use the `/team` skill to activate them for structured development.

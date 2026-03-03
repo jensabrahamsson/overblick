@@ -7,9 +7,20 @@ from pathlib import Path
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import os
 import pytest
 
-from overblick.identities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+# Allow raw LLM client access for unit tests (they use mocked clients)
+os.environ["OVERBLICK_RAW_LLM"] = "1"
+os.environ["OVERBLICK_SAFE_MODE"] = "0"
+
+from overblick.identities import (
+    Identity,
+    LLMSettings,
+    QuietHoursSettings,
+    ScheduleSettings,
+    SecuritySettings,
+)
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.core.plugin_base import PluginContext
 from overblick.plugins.moltbook.models import Post, Comment
@@ -19,6 +30,7 @@ from overblick.plugins.moltbook.plugin import MoltbookPlugin
 # ---------------------------------------------------------------------------
 # Identity fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def anomal_identity():
@@ -37,7 +49,12 @@ def anomal_identity():
         raw_config={
             "agent_name": "Anomal",
             "engagement_threshold": 35.0,
-            "interest_keywords": ["artificial intelligence", "crypto", "philosophy", "jung"],
+            "interest_keywords": [
+                "artificial intelligence",
+                "crypto",
+                "philosophy",
+                "jung",
+            ],
             "emotional_model": "jungian",
             "enabled_modules": ["dream_system", "therapy_system"],
         },
@@ -61,7 +78,13 @@ def cherry_identity():
         raw_config={
             "agent_name": "Cherry",
             "engagement_threshold": 25.0,
-            "interest_keywords": ["dating", "relationships", "love", "gossip", "pop culture"],
+            "interest_keywords": [
+                "dating",
+                "relationships",
+                "love",
+                "gossip",
+                "pop culture",
+            ],
             "enabled_modules": [],
         },
     )
@@ -71,24 +94,40 @@ def cherry_identity():
 # Mock services
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_moltbook_client():
     """AsyncMock Moltbook client with all API methods."""
     client = AsyncMock()
     client.get_posts = AsyncMock(return_value=[])
-    client.create_comment = AsyncMock(return_value=Comment(
-        id="comment-001", post_id="post-001", agent_id="agent-001",
-        agent_name="Anomal", content="Mock comment",
-    ))
+    client.create_comment = AsyncMock(
+        return_value=Comment(
+            id="comment-001",
+            post_id="post-001",
+            agent_id="agent-001",
+            agent_name="Anomal",
+            content="Mock comment",
+        )
+    )
     client.upvote_post = AsyncMock(return_value=True)
-    client.get_post = AsyncMock(return_value=Post(
-        id="post-001", agent_id="agent-001", agent_name="OtherBot",
-        title="Test Post", content="Test content",
-    ))
-    client.create_post = AsyncMock(return_value=Post(
-        id="post-new", agent_id="agent-001", agent_name="Anomal",
-        title="Heartbeat Title", content="Heartbeat body",
-    ))
+    client.get_post = AsyncMock(
+        return_value=Post(
+            id="post-001",
+            agent_id="agent-001",
+            agent_name="OtherBot",
+            title="Test Post",
+            content="Test content",
+        )
+    )
+    client.create_post = AsyncMock(
+        return_value=Post(
+            id="post-new",
+            agent_id="agent-001",
+            agent_name="Anomal",
+            title="Heartbeat Title",
+            content="Heartbeat body",
+        )
+    )
     client.close = AsyncMock()
     return client
 
@@ -136,8 +175,11 @@ def mock_llm_pipeline(mock_llm_client):
         )
         if result and result.get("content"):
             return PipelineResult(content=result["content"].strip())
-        return PipelineResult(blocked=True, block_reason="Empty LLM response",
-                              block_stage=PipelineStage.LLM_CALL)
+        return PipelineResult(
+            blocked=True,
+            block_reason="Empty LLM response",
+            block_stage=PipelineStage.LLM_CALL,
+        )
 
     pipeline.chat = AsyncMock(side_effect=_pipeline_chat)
     return pipeline
@@ -147,9 +189,16 @@ def mock_llm_pipeline(mock_llm_client):
 # PluginContext fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_plugin_context(
-    identity, tmp_path, mock_llm_client, mock_audit_log, mock_engagement_db,
-    mock_quiet_hours_checker, mock_preflight_checker, mock_output_safety,
+    identity,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_engagement_db,
+    mock_quiet_hours_checker,
+    mock_preflight_checker,
+    mock_output_safety,
     mock_llm_pipeline=None,
 ):
     """Build a PluginContext with all mocks wired."""
@@ -168,41 +217,69 @@ def _make_plugin_context(
         preflight_checker=mock_preflight_checker,
         output_safety=mock_output_safety,
     )
-    ctx._secrets_getter = lambda key: {"moltbook_api_key": "test-key", "moltbook_agent_id": "agent-001"}.get(key)
+    ctx._secrets_getter = lambda key: {
+        "moltbook_api_key": "test-key",
+        "moltbook_agent_id": "agent-001",
+    }.get(key)
     return ctx
 
 
 @pytest.fixture
 def anomal_plugin_context(
-    anomal_identity, tmp_path, mock_llm_client, mock_audit_log,
-    mock_engagement_db, mock_quiet_hours_checker, mock_preflight_checker,
-    mock_output_safety, mock_llm_pipeline,
+    anomal_identity,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_engagement_db,
+    mock_quiet_hours_checker,
+    mock_preflight_checker,
+    mock_output_safety,
+    mock_llm_pipeline,
 ):
     """PluginContext wired for Anomal identity."""
     return _make_plugin_context(
-        anomal_identity, tmp_path, mock_llm_client, mock_audit_log,
-        mock_engagement_db, mock_quiet_hours_checker, mock_preflight_checker,
-        mock_output_safety, mock_llm_pipeline,
+        anomal_identity,
+        tmp_path,
+        mock_llm_client,
+        mock_audit_log,
+        mock_engagement_db,
+        mock_quiet_hours_checker,
+        mock_preflight_checker,
+        mock_output_safety,
+        mock_llm_pipeline,
     )
 
 
 @pytest.fixture
 def cherry_plugin_context(
-    cherry_identity, tmp_path, mock_llm_client, mock_audit_log,
-    mock_engagement_db, mock_quiet_hours_checker, mock_preflight_checker,
-    mock_output_safety, mock_llm_pipeline,
+    cherry_identity,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_engagement_db,
+    mock_quiet_hours_checker,
+    mock_preflight_checker,
+    mock_output_safety,
+    mock_llm_pipeline,
 ):
     """PluginContext wired for Cherry identity."""
     return _make_plugin_context(
-        cherry_identity, tmp_path, mock_llm_client, mock_audit_log,
-        mock_engagement_db, mock_quiet_hours_checker, mock_preflight_checker,
-        mock_output_safety, mock_llm_pipeline,
+        cherry_identity,
+        tmp_path,
+        mock_llm_client,
+        mock_audit_log,
+        mock_engagement_db,
+        mock_quiet_hours_checker,
+        mock_preflight_checker,
+        mock_output_safety,
+        mock_llm_pipeline,
     )
 
 
 # ---------------------------------------------------------------------------
 # Post factory
 # ---------------------------------------------------------------------------
+
 
 def make_post(
     id: str = "post-001",
@@ -230,12 +307,16 @@ def make_post(
 # Plugin setup fixture
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 async def setup_anomal_plugin(anomal_plugin_context, mock_moltbook_client):
     """Create and setup a MoltbookPlugin for Anomal with mocked client."""
     plugin = MoltbookPlugin(anomal_plugin_context)
 
-    with patch("overblick.plugins.moltbook.plugin.MoltbookClient", return_value=mock_moltbook_client):
+    with patch(
+        "overblick.plugins.moltbook.plugin.MoltbookClient",
+        return_value=mock_moltbook_client,
+    ):
         with patch.object(plugin, "_load_prompts", return_value=_FallbackPrompts()):
             await plugin.setup()
             # Replace client with our mock
@@ -248,7 +329,10 @@ async def setup_cherry_plugin(cherry_plugin_context, mock_moltbook_client):
     """Create and setup a MoltbookPlugin for Cherry with mocked client."""
     plugin = MoltbookPlugin(cherry_plugin_context)
 
-    with patch("overblick.plugins.moltbook.plugin.MoltbookClient", return_value=mock_moltbook_client):
+    with patch(
+        "overblick.plugins.moltbook.plugin.MoltbookClient",
+        return_value=mock_moltbook_client,
+    ):
         with patch.object(plugin, "_load_prompts", return_value=_FallbackPrompts()):
             await plugin.setup()
             plugin._client = mock_moltbook_client
@@ -257,6 +341,7 @@ async def setup_cherry_plugin(cherry_plugin_context, mock_moltbook_client):
 
 class _FallbackPrompts:
     """Test-only fallback prompts."""
+
     SYSTEM_PROMPT = "You are a test AI agent."
     COMMENT_PROMPT = "Respond to this post:\nTitle: {title}\n{content}"
     REPLY_PROMPT = "Reply to: {comment}\nOn post: {title}"
