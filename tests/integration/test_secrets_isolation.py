@@ -192,11 +192,14 @@ class TestSecretsBulkImport:
 
     def test_load_plaintext_secrets(self, secrets_mgr):
         """load_plaintext_secrets encrypts and stores all provided secrets."""
-        secrets_mgr.load_plaintext_secrets("anomal", {
-            "api_key": "key_123",
-            "bot_token": "bot_456",
-            "webhook_url": "https://example.com",
-        })
+        secrets_mgr.load_plaintext_secrets(
+            "anomal",
+            {
+                "api_key": "key_123",
+                "bot_token": "bot_456",
+                "webhook_url": "https://example.com",
+            },
+        )
 
         assert secrets_mgr.get("anomal", "api_key") == "key_123"
         assert secrets_mgr.get("anomal", "bot_token") == "bot_456"
@@ -213,7 +216,10 @@ class TestSecretsKeyringFailure:
 
         secrets_dir = tmp_path / "secrets"
         sm = SecretsManager(secrets_dir=secrets_dir)
-        with patch("keyring.get_password", side_effect=Exception("no keyring")):
+        with (
+            patch("keyring.get_password", side_effect=Exception("no keyring")),
+            patch("keyring.set_password", side_effect=Exception("no keyring")),
+        ):
             key = sm._get_or_create_master_key()
 
         assert key is not None
@@ -234,7 +240,10 @@ class TestSecretsKeyringFailure:
         (secrets_dir / "anomal.yaml").write_text("api_key: encrypted_value\n")
 
         sm = SecretsManager(secrets_dir=secrets_dir)
-        with patch("keyring.get_password", side_effect=Exception("no keyring")):
+        with (
+            patch("keyring.get_password", side_effect=Exception("no keyring")),
+            patch("keyring.set_password", side_effect=Exception("no keyring")),
+        ):
             with pytest.raises(RuntimeError, match="Keyring is unavailable"):
                 sm._get_or_create_master_key()
 
@@ -251,7 +260,10 @@ class TestSecretsKeyringFailure:
         key_file.chmod(0o600)
 
         sm = SecretsManager(secrets_dir=secrets_dir)
-        with patch("keyring.get_password", side_effect=Exception("no keyring")):
+        with (
+            patch("keyring.get_password", side_effect=Exception("no keyring")),
+            patch("keyring.set_password", side_effect=Exception("no keyring")),
+        ):
             result = sm._get_or_create_master_key()
 
         assert result == key
