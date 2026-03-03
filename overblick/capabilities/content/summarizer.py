@@ -70,7 +70,6 @@ class SummarizerCapability(CapabilityBase):
                     messages=[{"role": "user", "content": prompt}],
                     temperature=self._temperature,
                     max_tokens=self._max_tokens,
-                    skip_preflight=True,
                     audit_action="summarize",
                 )
                 if result.blocked:

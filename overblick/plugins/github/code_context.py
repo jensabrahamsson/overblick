@@ -177,7 +177,6 @@ class CodeContextBuilder:
             result = await self._llm_pipeline.chat(
                 messages=messages,
                 audit_action="github_file_selection",
-                skip_preflight=True,
                 skip_output_safety=True,
                 complexity="low",
             )
