@@ -241,7 +241,6 @@ class DependabotHandler:
             result = await self._llm_pipeline.chat(
                 messages=messages,
                 audit_action="github_dependabot_review",
-                skip_preflight=True,
                 complexity="ultra",
                 priority="low",
             )

@@ -138,7 +138,6 @@ class ResponseGenerator:
             result = await self._llm_pipeline.chat(
                 messages=messages,
                 audit_action="github_code_response",
-                skip_preflight=True,
                 complexity="high",
                 priority="high",
             )
@@ -172,7 +171,6 @@ class ResponseGenerator:
             result = await self._llm_pipeline.chat(
                 messages=messages,
                 audit_action="github_issue_response",
-                skip_preflight=True,
                 complexity="high",
                 priority="high",
             )
