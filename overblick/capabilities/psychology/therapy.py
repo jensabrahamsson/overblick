@@ -15,6 +15,7 @@ from overblick.capabilities.psychology.therapy_system import (
     TherapySystem,
 )
 from overblick.core.capability import CapabilityBase, CapabilityContext
+from overblick.core.security.settings import raw_llm
 
 logger = logging.getLogger(__name__)
 
@@ -47,16 +48,20 @@ class TherapyCapability(CapabilityBase):
                 self.ctx.identity_name,
             )
         else:
+            # TherapySystem handles llm_client=None gracefully (template fallback).
+            # Only pass the raw client if RAW_LLM is explicitly enabled.
+            raw_client = self.ctx.llm_client if raw_llm() else None
             system_prompt = self.ctx.config.get("system_prompt", "")
             self._therapy_system = TherapySystem(
-                llm_client=self.ctx.llm_client,
+                llm_client=raw_client,
                 system_prompt=system_prompt,
                 therapy_day=therapy_day,
             )
             logger.info(
-                "TherapyCapability (LLM/Jungian-Freudian) initialized for %s (day=%s)",
+                "TherapyCapability (LLM/Jungian-Freudian) initialized for %s (day=%s, raw_llm=%s)",
                 self.ctx.identity_name,
                 TherapySystem._day_name(therapy_day),
+                raw_llm(),
             )
 
     def is_therapy_day(self) -> bool:

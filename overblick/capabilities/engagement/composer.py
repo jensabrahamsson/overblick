@@ -10,6 +10,7 @@ from typing import Optional
 
 from overblick.capabilities.engagement.response_gen import ResponseGenerator
 from overblick.core.capability import CapabilityBase, CapabilityContext
+from overblick.core.security.settings import raw_llm
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,8 @@ class ComposerCapability(CapabilityBase):
 
         # Prefer pipeline (secure), fall back to raw client
         pipeline = self.ctx.llm_pipeline
-        llm_client = self.ctx.llm_client if not pipeline else None
+        # Only use raw client when RAW_LLM is explicitly enabled and no pipeline exists
+        llm_client = self.ctx.llm_client if (not pipeline and raw_llm()) else None
 
         if not pipeline and not llm_client:
             logger.warning("ComposerCapability: no LLM available for %s", self.ctx.identity_name)
