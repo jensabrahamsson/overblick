@@ -18,6 +18,7 @@ Usage:
 """
 
 import logging
+import os
 import time
 from enum import Enum
 from typing import Any, Optional
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 class PipelineStage(Enum):
     """Which stage of the pipeline blocked or produced the result."""
+
     INPUT_SANITIZE = "input_sanitize"
     PREFLIGHT = "preflight"
     RATE_LIMIT = "rate_limit"
@@ -47,6 +49,7 @@ class PipelineResult(BaseModel):
     Contains either the final safe content or information about
     why the request was blocked.
     """
+
     content: Optional[str] = None
     blocked: bool = False
     block_reason: Optional[str] = None
@@ -89,7 +92,7 @@ class SafeLLMPipeline:
         rate_limiter: Any = None,
         identity_name: str = "",
         rate_limit_key: str = "llm_pipeline",
-        strict: bool = False,
+        strict: Optional[bool] = None,
     ):
         self._llm = llm_client
         self._audit = audit_log
@@ -98,10 +101,16 @@ class SafeLLMPipeline:
         self._rate_limiter = rate_limiter
         self._identity_name = identity_name
         self._rate_limit_key = rate_limit_key
+
+        # Safe by default: if strict not explicitly set, check environment variable
+        if strict is None:
+            env_val = os.environ.get("OVERBLICK_SAFE_MODE", "1").lower()
+            strict = env_val not in ("0", "false", "off", "no")
+
         self._strict = strict
 
         # In strict mode, require critical security components
-        if strict:
+        if self._strict:
             missing = []
             if not preflight_checker:
                 missing.append("preflight_checker")
@@ -242,6 +251,7 @@ class SafeLLMPipeline:
         reasoning_content = raw_response.get("reasoning_content")
         # Safety net: strip any remaining think tokens that the client missed
         from overblick.core.llm.client import LLMClient
+
         content = LLMClient.strip_think_tokens(content)
         stage_timings["llm_call"] = (time.monotonic() - t0) * 1000
         stages.append(PipelineStage.LLM_CALL)
@@ -286,7 +296,8 @@ class SafeLLMPipeline:
         )
         logger.debug(
             "Pipeline complete in %.1fms — timings: %s",
-            duration, stage_timings,
+            duration,
+            stage_timings,
         )
 
         if self._audit:
@@ -312,10 +323,12 @@ class SafeLLMPipeline:
         """Sanitize all message content."""
         sanitized = []
         for msg in messages:
-            sanitized.append({
-                "role": msg.get("role", "user"),
-                "content": sanitize_input(msg.get("content", "")),
-            })
+            sanitized.append(
+                {
+                    "role": msg.get("role", "user"),
+                    "content": sanitize_input(msg.get("content", "")),
+                }
+            )
         return sanitized
 
     async def _run_preflight(

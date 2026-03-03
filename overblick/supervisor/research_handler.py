@@ -93,6 +93,7 @@ class ResearchHandler:
                 audit_log=self._audit_log,
                 rate_limiter=RateLimiter(max_tokens=5, refill_rate=0.2),
                 identity_name="supervisor",
+                strict=False,  # Internal supervisor handler uses trusted content
             )
 
             self._initialized = True
@@ -129,7 +130,8 @@ class ResearchHandler:
 
         logger.info(
             "Research request from '%s': %s",
-            sender, query[:100],
+            sender,
+            query[:100],
         )
 
         if self._audit_log:
@@ -233,7 +235,8 @@ class ResearchHandler:
                     if resp.status != 200:
                         logger.warning(
                             "DuckDuckGo API returned %d for query: %s",
-                            resp.status, query[:50],
+                            resp.status,
+                            query[:50],
                         )
                         return ""
 
@@ -281,7 +284,10 @@ class ResearchHandler:
         return result[:_MAX_SEARCH_CONTEXT]
 
     async def _summarize(
-        self, query: str, context: str, search_results: str,
+        self,
+        query: str,
+        context: str,
+        search_results: str,
     ) -> Optional[str]:
         """Summarize search results using LLM via SafeLLMPipeline."""
         if not self._llm_pipeline or not self._system_prompt:

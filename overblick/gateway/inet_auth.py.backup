@@ -1,0 +1,409 @@
+"""
+API key management for the Internet Gateway.
+
+Stores API keys in SQLite with bcrypt hashing. Provides create, verify,
+revoke, rotate, and list operations with timing-safe verification.
+"""
+
+import logging
+import secrets
+import sqlite3
+import threading
+import time
+from pathlib import Path
+from typing import Optional
+
+import bcrypt
+
+from .inet_models import APIKeyRecord
+
+logger = logging.getLogger(__name__)
+
+_KEY_PREFIX = "sk-ob-"
+_KEY_HEX_LENGTH = 32  # 32 hex chars = 128 bits of entropy
+_KEY_ID_LENGTH = 8
+_DISPLAY_PREFIX_LENGTH = 12  # "sk-ob-xxxx" for display
+
+# Pre-computed dummy hash for timing-safe comparison when key not found.
+# This ensures verify_key always runs at least one bcrypt compare.
+_DUMMY_HASH = bcrypt.hashpw(b"dummy-key-for-timing-safety", bcrypt.gensalt()).decode()
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS api_keys (
+    key_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    key_hash TEXT NOT NULL,
+    key_prefix TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    expires_at REAL,
+    revoked INTEGER NOT NULL DEFAULT 0,
+    allowed_models TEXT NOT NULL DEFAULT '[]',
+    allowed_backends TEXT NOT NULL DEFAULT '[]',
+    max_tokens_cap INTEGER NOT NULL DEFAULT 4096,
+    requests_per_minute INTEGER NOT NULL DEFAULT 30,
+    total_requests INTEGER NOT NULL DEFAULT 0,
+    total_tokens_used INTEGER NOT NULL DEFAULT 0,
+    last_used_ip TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix);
+"""
+
+
+class APIKeyManager:
+    """Manages API keys for the Internet Gateway.
+
+    Keys are stored as bcrypt hashes in SQLite. The full key is only
+    returned once at creation time and cannot be retrieved afterward.
+    """
+
+    def __init__(self, db_path: Path):
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._db_path = db_path
+        self._local = threading.local()
+        self._connections = []
+        self._lock = threading.Lock()
+
+        # Initialize schema in a thread-safe manner
+        with self._lock:
+            conn = sqlite3.connect(str(db_path), timeout=10, check_same_thread=True)
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.executescript(_SCHEMA)
+            conn.commit()
+            conn.close()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """Get thread-local SQLite connection."""
+        if not hasattr(self._local, "conn"):
+            conn = sqlite3.connect(
+                str(self._db_path), timeout=10, check_same_thread=True
+            )
+            conn.execute("PRAGMA journal_mode=WAL")
+            # Schema already exists from initialization
+            self._local.conn = conn
+            with self._lock:
+                self._connections.append(conn)
+        return self._local.conn
+
+    def create_key(
+        self,
+        name: str,
+        expires_days: Optional[int] = None,
+        allowed_models: Optional[list[str]] = None,
+        allowed_backends: Optional[list[str]] = None,
+        max_tokens_cap: int = 4096,
+        requests_per_minute: int = 30,
+    ) -> tuple[str, APIKeyRecord]:
+        """Create a new API key.
+
+        Returns:
+            Tuple of (raw_key, record). The raw_key is only available
+            at creation time — store it securely.
+        """
+        import json
+
+        key_id = secrets.token_hex(_KEY_ID_LENGTH // 2)  # 8 hex chars
+        raw_hex = secrets.token_hex(_KEY_HEX_LENGTH // 2)  # 32 hex chars
+        raw_key = f"{_KEY_PREFIX}{raw_hex}"
+        key_prefix = raw_key[:_DISPLAY_PREFIX_LENGTH]
+
+        key_hash = bcrypt.hashpw(raw_key.encode(), bcrypt.gensalt()).decode()
+        now = time.time()
+        expires_at = now + (expires_days * 86400) if expires_days else None
+        models_json = json.dumps(allowed_models or [])
+        backends_json = json.dumps(allowed_backends or [])
+
+        self._get_conn().execute(
+            """
+            INSERT INTO api_keys
+                (key_id, name, key_hash, key_prefix, created_at, expires_at,
+                 allowed_models, allowed_backends, max_tokens_cap, requests_per_minute)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                key_id,
+                name,
+                key_hash,
+                key_prefix,
+                now,
+                expires_at,
+                models_json,
+                backends_json,
+                max_tokens_cap,
+                requests_per_minute,
+            ),
+        )
+        self._get_conn().commit()
+
+        record = APIKeyRecord(
+            key_id=key_id,
+            name=name,
+            key_hash=key_hash,
+            key_prefix=key_prefix,
+            created_at=now,
+            expires_at=expires_at,
+            allowed_models=allowed_models or [],
+            allowed_backends=allowed_backends or [],
+            max_tokens_cap=max_tokens_cap,
+            requests_per_minute=requests_per_minute,
+        )
+
+        logger.info(
+            "Created API key '%s' (id: %s, prefix: %s)", name, key_id, key_prefix
+        )
+        return raw_key, record
+
+    def verify_key(self, raw_key: str) -> Optional[APIKeyRecord]:
+        """Verify an API key and return its record if valid.
+
+        Timing-safe: always performs at least one bcrypt comparison
+        even if the key prefix is not found, preventing key enumeration
+        via timing side-channels.
+
+        Returns:
+            APIKeyRecord if valid, None if invalid/expired/revoked.
+        """
+        import json
+
+        if not raw_key or not raw_key.startswith(_KEY_PREFIX):
+            # Still run a dummy bcrypt to prevent timing leak
+            bcrypt.checkpw(raw_key.encode() if raw_key else b"", _DUMMY_HASH.encode())
+            return None
+
+        prefix = raw_key[:_DISPLAY_PREFIX_LENGTH]
+
+        cursor = self._get_conn().execute(
+            """
+            SELECT key_id, name, key_hash, key_prefix, created_at, expires_at,
+                   revoked, allowed_models, allowed_backends, max_tokens_cap,
+                   requests_per_minute, total_requests, total_tokens_used, last_used_ip
+            FROM api_keys
+            WHERE key_prefix = ? AND revoked = 0
+            """,
+            (prefix,),
+        )
+        rows = cursor.fetchall()
+
+        if not rows:
+            # No matching prefix — run dummy bcrypt for timing safety
+            bcrypt.checkpw(raw_key.encode(), _DUMMY_HASH.encode())
+            return None
+
+        # Check each matching row (prefix collisions are extremely unlikely)
+        for row in rows:
+            stored_hash = row[2]
+            if bcrypt.checkpw(raw_key.encode(), stored_hash.encode()):
+                # Match found — check expiry
+                expires_at = row[5]
+                if expires_at is not None and time.time() > expires_at:
+                    logger.warning("API key '%s' has expired (id: %s)", row[1], row[0])
+                    return None
+
+                try:
+                    allowed_models = json.loads(row[7])
+                except (json.JSONDecodeError, TypeError):
+                    allowed_models = []
+                try:
+                    allowed_backends = json.loads(row[8])
+                except (json.JSONDecodeError, TypeError):
+                    allowed_backends = []
+
+                return APIKeyRecord(
+                    key_id=row[0],
+                    name=row[1],
+                    key_hash=row[2],
+                    key_prefix=row[3],
+                    created_at=row[4],
+                    expires_at=row[5],
+                    revoked=bool(row[6]),
+                    allowed_models=allowed_models,
+                    allowed_backends=allowed_backends,
+                    max_tokens_cap=row[9],
+                    requests_per_minute=row[10],
+                    total_requests=row[11],
+                    total_tokens_used=row[12],
+                    last_used_ip=row[13],
+                )
+
+        return None
+
+    def revoke_key(self, key_id: str) -> bool:
+        """Revoke an API key by ID.
+
+        Returns:
+            True if key was found and revoked, False if not found.
+        """
+        cursor = self._conn.execute(
+            "UPDATE api_keys SET revoked = 1 WHERE key_id = ?",
+            (key_id,),
+        )
+        self._conn.commit()
+
+        if cursor.rowcount > 0:
+            logger.info("Revoked API key: %s", key_id)
+            return True
+
+        logger.info("API key not found for revocation: %s", key_id)
+        return False
+
+    def rotate_key(self, key_id: str) -> Optional[tuple[str, APIKeyRecord]]:
+        """Rotate an API key: create new key with same permissions, revoke old.
+
+        Atomic: revoke + create happen in a single transaction so a crash
+        between them cannot lose the key.
+
+        Returns:
+            Tuple of (new_raw_key, new_record), or None if old key not found.
+        """
+        import json
+
+        cursor = self._conn.execute(
+            """
+            SELECT name, allowed_models, allowed_backends, max_tokens_cap, requests_per_minute
+            FROM api_keys
+            WHERE key_id = ? AND revoked = 0
+            """,
+            (key_id,),
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            logger.info("API key not found for rotation: %s", key_id)
+            return None
+
+        name, models_json, backends_json, max_tokens_cap, rpm = row
+        allowed_models = json.loads(models_json) or None
+        allowed_backends = json.loads(backends_json) or None
+
+        # Generate new key material
+        new_key_id = secrets.token_hex(_KEY_ID_LENGTH // 2)
+        raw_hex = secrets.token_hex(_KEY_HEX_LENGTH // 2)
+        raw_key = f"{_KEY_PREFIX}{raw_hex}"
+        key_prefix = raw_key[:_DISPLAY_PREFIX_LENGTH]
+        key_hash = bcrypt.hashpw(raw_key.encode(), bcrypt.gensalt()).decode()
+        now = time.time()
+        models_json_new = json.dumps(allowed_models or [])
+        backends_json_new = json.dumps(allowed_backends or [])
+
+        # Atomic: revoke old + insert new in one transaction
+        try:
+            self._conn.execute("BEGIN IMMEDIATE")
+            self._conn.execute(
+                "UPDATE api_keys SET revoked = 1 WHERE key_id = ?",
+                (key_id,),
+            )
+            self._conn.execute(
+                """
+                INSERT INTO api_keys
+                    (key_id, name, key_hash, key_prefix, created_at, expires_at,
+                     allowed_models, allowed_backends, max_tokens_cap, requests_per_minute)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_key_id,
+                    name,
+                    key_hash,
+                    key_prefix,
+                    now,
+                    None,
+                    models_json_new,
+                    backends_json_new,
+                    max_tokens_cap,
+                    rpm,
+                ),
+            )
+            self._conn.execute("COMMIT")
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
+
+        record = APIKeyRecord(
+            key_id=new_key_id,
+            name=name,
+            key_hash=key_hash,
+            key_prefix=key_prefix,
+            created_at=now,
+            expires_at=None,
+            allowed_models=allowed_models or [],
+            allowed_backends=allowed_backends or [],
+            max_tokens_cap=max_tokens_cap,
+            requests_per_minute=rpm,
+        )
+
+        logger.info(
+            "Rotated API key '%s': %s -> %s (prefix: %s)",
+            name,
+            key_id,
+            new_key_id,
+            key_prefix,
+        )
+        return raw_key, record
+
+    def list_keys(self) -> list[APIKeyRecord]:
+        """List all API keys (metadata only, never returns hashes in display).
+
+        Returns all keys including revoked ones for audit visibility.
+        """
+        import json
+
+        cursor = self._conn.execute(
+            """
+            SELECT key_id, name, key_hash, key_prefix, created_at, expires_at,
+                   revoked, allowed_models, allowed_backends, max_tokens_cap,
+                   requests_per_minute, total_requests, total_tokens_used, last_used_ip
+            FROM api_keys
+            ORDER BY created_at DESC
+            """,
+        )
+
+        results = []
+        for row in cursor.fetchall():
+            try:
+                allowed_models = json.loads(row[7])
+            except (json.JSONDecodeError, TypeError):
+                allowed_models = []
+            try:
+                allowed_backends = json.loads(row[8])
+            except (json.JSONDecodeError, TypeError):
+                allowed_backends = []
+
+            results.append(
+                APIKeyRecord(
+                    key_id=row[0],
+                    name=row[1],
+                    key_hash="[hidden]",  # Never expose hash in listings
+                    key_prefix=row[3],
+                    created_at=row[4],
+                    expires_at=row[5],
+                    revoked=bool(row[6]),
+                    allowed_models=allowed_models,
+                    allowed_backends=allowed_backends,
+                    max_tokens_cap=row[9],
+                    requests_per_minute=row[10],
+                    total_requests=row[11],
+                    total_tokens_used=row[12],
+                    last_used_ip=row[13],
+                )
+            )
+
+        return results
+
+    def update_usage(self, key_id: str, tokens: int = 0, ip: str = "") -> None:
+        """Update usage statistics for a key."""
+        self._conn.execute(
+            """
+            UPDATE api_keys
+            SET total_requests = total_requests + 1,
+                total_tokens_used = total_tokens_used + ?,
+                last_used_ip = ?
+            WHERE key_id = ?
+            """,
+            (tokens, ip, key_id),
+        )
+        self._conn.commit()
+
+    def close(self) -> None:
+        """Close the database connection."""
+        if self._conn:
+            self._conn.close()
+            self._conn = None

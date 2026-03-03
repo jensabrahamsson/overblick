@@ -47,6 +47,7 @@ class PluginContext(BaseModel):
     - Security subsystems
     - Permission checker
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     identity_name: str
@@ -125,10 +126,14 @@ class PluginContext(BaseModel):
             Loaded Identity object
         """
         from overblick.identities import load_identity
+
         return load_identity(name)
 
     def build_system_prompt(
-        self, identity: Any, platform: str = "Moltbook", model_slug: str = "",
+        self,
+        identity: Any,
+        platform: str = "Moltbook",
+        model_slug: str = "",
     ) -> str:
         """
         Build a system prompt from an identity object.
@@ -145,6 +150,7 @@ class PluginContext(BaseModel):
             System prompt string
         """
         from overblick.identities import build_system_prompt
+
         return build_system_prompt(
             identity,
             platform=platform,
@@ -268,6 +274,11 @@ class PluginBase(ABC):
         3. tick() — Called periodically by scheduler
         4. teardown() — Cleanup (async)
     """
+
+    # Capabilities required by this plugin (e.g., "network_outbound", "filesystem_write")
+    # Plugins should declare minimal capabilities needed for operation.
+    # Users must grant these capabilities in identity configuration.
+    REQUIRED_CAPABILITIES: list[str] = []
 
     def __init__(self, ctx: PluginContext):
         self.ctx = ctx

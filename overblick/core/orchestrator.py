@@ -20,6 +20,7 @@ from overblick.identities import Identity, load_identity
 from overblick.core.llm.pipeline import SafeLLMPipeline
 from overblick.core.permissions import PermissionChecker
 from overblick.core.plugin_base import PluginBase, PluginContext
+from overblick.core.plugin_capability_checker import PluginCapabilityChecker
 from overblick.core.plugin_registry import PluginRegistry
 from overblick.core.quiet_hours import QuietHoursChecker
 from overblick.core.scheduler import Scheduler
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 class OrchestratorState(Enum):
     """Orchestrator lifecycle states."""
+
     INIT = "init"
     SETUP = "setup"
     RUNNING = "running"
@@ -99,11 +101,15 @@ class Orchestrator:
     async def setup(self) -> None:
         """Initialize all framework components and plugins."""
         self._state = OrchestratorState.SETUP
-        logger.info(f"Setting up Överblick orchestrator for identity: {self._identity_name}")
+        logger.info(
+            f"Setting up Överblick orchestrator for identity: {self._identity_name}"
+        )
 
         # 1. Load identity
         self._identity = load_identity(self._identity_name)
-        logger.info(f"Identity loaded: {self._identity.display_name} v{self._identity.version}")
+        logger.info(
+            f"Identity loaded: {self._identity.display_name} v{self._identity.version}"
+        )
 
         # 2. Setup paths
         data_dir = self._base_dir / "data" / self._identity_name
@@ -122,18 +128,26 @@ class Orchestrator:
         self._audit_log.log("orchestrator_setup", category="lifecycle")
 
         # 3b. Initialize engagement database (lazy — only if moltbook is active)
-        plugin_names = list(self._identity.plugins) if self._identity.plugins else ["moltbook"]
+        plugin_names = (
+            list(self._identity.plugins) if self._identity.plugins else ["moltbook"]
+        )
         if "moltbook" in plugin_names:
             eng_db_config = DatabaseConfig(
                 sqlite_path=str(data_dir / "engagement.db"),
             )
-            self._engagement_db_backend = SQLiteBackend(eng_db_config, identity=self._identity_name)
+            self._engagement_db_backend = SQLiteBackend(
+                eng_db_config, identity=self._identity_name
+            )
             await self._engagement_db_backend.connect()
-            self._engagement_db = EngagementDB(self._engagement_db_backend, identity=self._identity_name)
+            self._engagement_db = EngagementDB(
+                self._engagement_db_backend, identity=self._identity_name
+            )
             await self._engagement_db.setup()
             logger.info("EngagementDB initialized for %s", self._identity_name)
         else:
-            logger.debug("EngagementDB skipped — no moltbook plugin for %s", self._identity_name)
+            logger.debug(
+                "EngagementDB skipped — no moltbook plugin for %s", self._identity_name
+            )
 
         # 4. Initialize quiet hours
         self._quiet_hours = QuietHoursChecker(self._identity.quiet_hours)
@@ -157,6 +171,7 @@ class Orchestrator:
             output_safety=self._output_safety,
             rate_limiter=self._rate_limiter,
             identity_name=self._identity_name,
+            strict=True,  # Main agent pipeline uses full security
         )
         logger.info("SafeLLMPipeline initialized with full security chain")
 
@@ -172,8 +187,18 @@ class Orchestrator:
         # 10. Load and setup plugins
         permissions = PermissionChecker.from_identity(self._identity)
 
+        # Capability checking for plugin resource access
+        capability_checker = PluginCapabilityChecker(
+            identity_name=self._identity_name,
+            raw_config=self._identity.raw_config,
+        )
+
         # Use plugins from identity if specified, otherwise fall back to constructor arg
-        plugin_names = list(self._identity.plugins) if self._identity.plugins else self._plugin_names
+        plugin_names = (
+            list(self._identity.plugins)
+            if self._identity.plugins
+            else self._plugin_names
+        )
 
         # Append any local plugins configured for this identity
         local_plugins = self._load_local_plugin_config()
@@ -201,10 +226,19 @@ class Orchestrator:
                 engagement_db=self._engagement_db,
                 learning_store=self._learning_store,
             )
-            ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
+            ctx._secrets_getter = lambda key, _id=self._identity_name: (
+                self._secrets.get(_id, key)
+            )
 
             try:
                 plugin = self._registry.load(plugin_name, ctx)
+
+                # Check plugin capabilities (warnings only for beta)
+                if hasattr(plugin, "REQUIRED_CAPABILITIES"):
+                    capability_checker.check_plugin(
+                        plugin_name, plugin.REQUIRED_CAPABILITIES
+                    )
+
                 await plugin.setup()
                 self._plugins.append(plugin)
                 self._audit_log.log(
@@ -214,7 +248,9 @@ class Orchestrator:
                 )
                 logger.info(f"Plugin '{plugin_name}' loaded and ready")
             except Exception as e:
-                logger.error(f"Failed to load plugin '{plugin_name}': {e}", exc_info=True)
+                logger.error(
+                    f"Failed to load plugin '{plugin_name}': {e}", exc_info=True
+                )
                 self._audit_log.log(
                     "plugin_load_failed",
                     category="lifecycle",
@@ -242,11 +278,14 @@ class Orchestrator:
 
         # Register signal handlers — cross-platform (Unix signals / Windows signal.signal)
         from overblick.shared.platform import register_shutdown_signals
+
         register_shutdown_signals(self._shutdown_event)
 
         self._audit_log.log("orchestrator_started", category="lifecycle")
         self._audit_log.start_background_cleanup()
-        logger.info(f"Överblick orchestrator running as '{self._identity.display_name}'")
+        logger.info(
+            f"Överblick orchestrator running as '{self._identity.display_name}'"
+        )
         print(f"\n  [ Överblick ] {self._identity.display_name} is awake.\n")
 
         try:
@@ -256,14 +295,19 @@ class Orchestrator:
 
                 async def _guarded_tick(p=plugin):
                     import time as _time
+
                     logger.debug("Guarded tick starting for '%s'", p.name)
                     if await self._is_plugin_stopped(p.name):
-                        logger.debug("Agent '%s' stopped via control file, skipping tick", p.name)
+                        logger.debug(
+                            "Agent '%s' stopped via control file, skipping tick", p.name
+                        )
                         return
                     tick_start = _time.monotonic()
                     await p.tick()
                     tick_ms = (_time.monotonic() - tick_start) * 1000
-                    logger.debug("Guarded tick completed for '%s' (%.1fms)", p.name, tick_ms)
+                    logger.debug(
+                        "Guarded tick completed for '%s' (%.1fms)", p.name, tick_ms
+                    )
                     await self._event_bus.emit(
                         "plugin_tick",
                         plugin=p.name,
@@ -295,7 +339,8 @@ class Orchestrator:
                     )
                     logger.info(
                         "Heartbeat scheduled for '%s' every %dh",
-                        plugin.name, self._identity.schedule.heartbeat_hours,
+                        plugin.name,
+                        self._identity.schedule.heartbeat_hours,
                     )
 
             # Run scheduler and shutdown event concurrently — first to complete wins
@@ -351,7 +396,9 @@ class Orchestrator:
             try:
                 await self._engagement_db_backend.close()
             except Exception as e:
-                logger.error("Error closing engagement DB backend: %s", e, exc_info=True)
+                logger.error(
+                    "Error closing engagement DB backend: %s", e, exc_info=True
+                )
 
         # Final audit log
         if self._audit_log:
@@ -403,20 +450,30 @@ class Orchestrator:
             embed_fn=embed_fn,
         )
         await self._learning_store.setup()
-        logger.info("LearningStore initialized for %s (embeddings=%s)", self._identity_name, embed_fn is not None)
+        logger.info(
+            "LearningStore initialized for %s (embeddings=%s)",
+            self._identity_name,
+            embed_fn is not None,
+        )
 
     def _get_embed_fn(self):
         """Create an embedding function from the LLM client if it supports embeddings."""
         if self._llm_client and hasattr(self._llm_client, "embed"):
+
             async def _embed(text: str) -> list[float]:
                 return await self._llm_client.embed(text)
+
             return _embed
         return None
 
     async def _setup_capabilities(self) -> None:
         """Create shared capabilities at the orchestrator level."""
         # Determine which capabilities to create
-        cap_names = list(self._identity.capability_names) if self._identity.capability_names else []
+        cap_names = (
+            list(self._identity.capability_names)
+            if self._identity.capability_names
+            else []
+        )
 
         # Fall back to enabled_modules if no explicit capabilities
         if not cap_names and self._identity.enabled_modules:
@@ -440,6 +497,7 @@ class Orchestrator:
 
         # Build per-capability configs from identity (centralized)
         from overblick.core.capability import build_capability_configs
+
         system_prompt = f"You are {self._identity.display_name}."
         configs = build_capability_configs(self._identity, system_prompt)
 
@@ -458,7 +516,9 @@ class Orchestrator:
             identity=self._identity,
         )
         # Attach secrets getter (capabilities like 'email' need it)
-        temp_ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
+        temp_ctx._secrets_getter = lambda key, _id=self._identity_name: (
+            self._secrets.get(_id, key)
+        )
 
         resolved = registry.resolve(cap_names)
         for name in resolved:
@@ -471,7 +531,9 @@ class Orchestrator:
                 except Exception as e:
                     logger.warning("Capability '%s' setup failed: %s", name, e)
 
-        logger.info("Orchestrator created %d shared capabilities", len(self._capabilities))
+        logger.info(
+            "Orchestrator created %d shared capabilities", len(self._capabilities)
+        )
 
     async def _create_llm_client(self) -> object:
         """Create LLM client — all agents route through the LLM Gateway.
@@ -497,7 +559,8 @@ class Orchestrator:
         if await client.health_check():
             logger.info(
                 "Connected to LLM Gateway at %s (model: %s)",
-                gateway_url, llm_cfg.model,
+                gateway_url,
+                llm_cfg.model,
             )
         else:
             logger.warning(
@@ -514,7 +577,11 @@ class Orchestrator:
             return None
 
         admin_ids = set(self._identity.security.admin_user_ids)
-        deflections = self._identity.deflections if isinstance(self._identity.deflections, dict) else {}
+        deflections = (
+            self._identity.deflections
+            if isinstance(self._identity.deflections, dict)
+            else {}
+        )
 
         return PreflightChecker(
             llm_client=self._llm_client,
@@ -566,6 +633,7 @@ class Orchestrator:
 
         try:
             from overblick.supervisor.ipc import IPCClient, read_ipc_token
+
             auth_token = read_ipc_token(socket_dir=socket_dir)
 
             client = IPCClient(
@@ -599,7 +667,9 @@ class Orchestrator:
             try:
                 mod = importlib.import_module(module_path)
             except Exception as e:
-                logger.warning("Failed to import local plugin '%s': %s", candidate.name, e)
+                logger.warning(
+                    "Failed to import local plugin '%s': %s", candidate.name, e
+                )
                 continue
 
             # Find the PluginBase subclass in the module
@@ -616,7 +686,12 @@ class Orchestrator:
 
             if cls_name:
                 self._registry.register(candidate.name, module_path, cls_name)
-                logger.info("Local plugin registered: %s -> %s.%s", candidate.name, module_path, cls_name)
+                logger.info(
+                    "Local plugin registered: %s -> %s.%s",
+                    candidate.name,
+                    module_path,
+                    cls_name,
+                )
 
     def _load_local_plugin_config(self) -> list[str]:
         """Read local plugin names for the current identity from config/overblick.yaml.
@@ -636,13 +711,16 @@ class Orchestrator:
 
         try:
             import yaml
+
             with open(config_path) as f:
                 cfg = yaml.safe_load(f) or {}
             local_cfg = cfg.get("local_plugins", {})
             plugins = local_cfg.get(self._identity_name, [])
             if plugins:
                 logger.info(
-                    "Local plugins for '%s': %s", self._identity_name, plugins,
+                    "Local plugins for '%s': %s",
+                    self._identity_name,
+                    plugins,
                 )
             return list(plugins)
         except Exception as e:

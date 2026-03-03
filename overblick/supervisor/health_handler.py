@@ -93,6 +93,7 @@ class HealthInquiryHandler:
                 audit_log=self._audit_log,
                 rate_limiter=RateLimiter(max_tokens=5, refill_rate=0.2),
                 identity_name="supervisor",
+                strict=False,  # Internal supervisor handler uses trusted content
             )
 
             self._initialized = True
@@ -100,7 +101,9 @@ class HealthInquiryHandler:
             return True
 
         except Exception as e:
-            logger.error("Failed to initialize HealthInquiryHandler: %s", e, exc_info=True)
+            logger.error(
+                "Failed to initialize HealthInquiryHandler: %s", e, exc_info=True
+            )
             return False
 
     async def handle(self, msg: IPCMessage) -> Optional[IPCMessage]:
@@ -203,7 +206,9 @@ class HealthInquiryHandler:
             sender="supervisor",
         )
 
-    async def _generate_response(self, inquiry: HealthInquiry, health_summary: str) -> Optional[str]:
+    async def _generate_response(
+        self, inquiry: HealthInquiry, health_summary: str
+    ) -> Optional[str]:
         """
         Generate a response using Anomal's personality via SafeLLMPipeline.
 
@@ -216,12 +221,10 @@ class HealthInquiryHandler:
         if not self._llm_pipeline or not self._system_prompt:
             return None
 
-        user_message = (
-            f"A colleague agent ({inquiry.sender}) is asking about the host computer's health.\n\n"
-        )
+        user_message = f"A colleague agent ({inquiry.sender}) is asking about the host computer's health.\n\n"
 
         if inquiry.motivation:
-            user_message += f"Their reason for asking:\n\"{inquiry.motivation}\"\n\n"
+            user_message += f'Their reason for asking:\n"{inquiry.motivation}"\n\n'
 
         if inquiry.previous_context:
             user_message += (

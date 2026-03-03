@@ -57,7 +57,7 @@ class EmailConsultationHandler:
                 "- ask_boss: Still unclear, escalate further\n\n"
                 "IMPORTANT: Always respond in English. Internal agent communication "
                 "uses English.\n\n"
-                "Respond in JSON: {\"advised_action\": \"...\", \"reasoning\": \"...\"}"
+                'Respond in JSON: {"advised_action": "...", "reasoning": "..."}'
             )
 
             from overblick.core.llm.gateway_client import GatewayClient
@@ -77,14 +77,19 @@ class EmailConsultationHandler:
                 audit_log=self._audit_log,
                 rate_limiter=RateLimiter(max_tokens=5, refill_rate=0.2),
                 identity_name="supervisor",
+                strict=False,  # Internal supervisor handler uses trusted content
             )
 
             self._initialized = True
-            logger.info("EmailConsultationHandler initialized with Anomal's personality")
+            logger.info(
+                "EmailConsultationHandler initialized with Anomal's personality"
+            )
             return True
 
         except Exception as e:
-            logger.error("Failed to initialize EmailConsultationHandler: %s", e, exc_info=True)
+            logger.error(
+                "Failed to initialize EmailConsultationHandler: %s", e, exc_info=True
+            )
             return False
 
     async def handle(self, msg: IPCMessage) -> Optional[IPCMessage]:
@@ -108,7 +113,10 @@ class EmailConsultationHandler:
 
         logger.info(
             "Email consultation from '%s': %s (from=%s, subject=%s)",
-            sender, question[:100], email_from, email_subject[:50],
+            sender,
+            question[:100],
+            email_from,
+            email_subject[:50],
         )
 
         if self._audit_log:
@@ -129,7 +137,11 @@ class EmailConsultationHandler:
 
         # Generate advice via LLM
         advised_action, reasoning = await self._generate_advice(
-            question, email_from, email_subject, tentative_intent, confidence,
+            question,
+            email_from,
+            email_subject,
+            tentative_intent,
+            confidence,
         )
 
         duration_ms = (time.time() - start_time) * 1000
@@ -166,7 +178,10 @@ class EmailConsultationHandler:
     ) -> tuple[str, str]:
         """Generate advice using the supervisor's LLM personality."""
         if not self._llm_pipeline or not self._system_prompt:
-            return tentative_intent or "notify", "LLM unavailable, defaulting to notification"
+            return (
+                tentative_intent or "notify",
+                "LLM unavailable, defaulting to notification",
+            )
 
         user_message = (
             f"The email agent is asking for guidance:\n\n"
@@ -190,7 +205,10 @@ class EmailConsultationHandler:
         except Exception as e:
             logger.error("Email consultation LLM call failed: %s", e, exc_info=True)
 
-        return tentative_intent or "notify", "LLM call failed, using agent's tentative intent"
+        return (
+            tentative_intent or "notify",
+            "LLM call failed, using agent's tentative intent",
+        )
 
     def _parse_advice(self, raw: str, fallback_action: str) -> tuple[str, str]:
         """Parse LLM JSON advice response."""
@@ -207,7 +225,9 @@ class EmailConsultationHandler:
             if start >= 0 and end > start:
                 try:
                     data = json.loads(raw[start:end])
-                    return data.get("advised_action", fallback_action), data.get("reasoning", "")
+                    return data.get("advised_action", fallback_action), data.get(
+                        "reasoning", ""
+                    )
                 except json.JSONDecodeError:
                     pass
 
