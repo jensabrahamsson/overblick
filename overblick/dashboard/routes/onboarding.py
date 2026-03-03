@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from ..security import OnboardingNameForm, OnboardingLLMForm
+from ..security import OnboardingLLMForm, OnboardingNameForm
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,13 @@ router = APIRouter()
 
 # Wizard steps in order (LLM before personality so chat is available early)
 STEPS = [
-    "name", "llm", "personality", "plugins",
-    "secrets", "review", "verify",
+    "name",
+    "llm",
+    "personality",
+    "plugins",
+    "secrets",
+    "review",
+    "verify",
 ]
 
 # Server-side wizard state storage, keyed by session CSRF token.
@@ -66,7 +71,6 @@ def _step_url(step: int) -> str:
 async def onboard_page(request: Request):
     """Render current onboarding wizard step."""
     templates = request.app.state.templates
-    config = request.app.state.config
 
     try:
         step = int(request.query_params.get("step", "1"))
@@ -245,7 +249,10 @@ async def onboard_chat(request: Request):
     session_key = request.state.session.get("csrf_token", "anon")
     if not rate_limiter.check(f"chat:{session_key}", max_requests=20, window_seconds=600):
         return JSONResponse(
-            {"success": False, "error": "Too many requests. Please wait before sending more messages."},
+            {
+                "success": False,
+                "error": "Too many requests. Please wait before sending more messages.",
+            },
             status_code=429,
         )
 
@@ -269,6 +276,7 @@ async def onboard_chat(request: Request):
 
     # Validate identity name to prevent path traversal
     from overblick.dashboard.routes._plugin_utils import IDENTITY_NAME_RE
+
     if not IDENTITY_NAME_RE.match(identity_name):
         return JSONResponse(
             {"success": False, "error": "Invalid identity name."},
@@ -279,6 +287,7 @@ async def onboard_chat(request: Request):
     llm_config = wizard_state.get("llm", {})
 
     from overblick.shared.onboarding_chat import chat_with_identity
+
     result = await chat_with_identity(identity_name, message, llm_config)
 
     return JSONResponse(result)
@@ -297,6 +306,7 @@ async def onboard_test_llm(request: Request):
         )
 
     from overblick.shared.onboarding_chat import test_llm_connection
+
     result = await test_llm_connection(llm_config)
 
     return JSONResponse(result)

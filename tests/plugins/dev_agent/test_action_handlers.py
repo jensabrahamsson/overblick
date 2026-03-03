@@ -81,14 +81,22 @@ class TestFixBugHandler:
         workspace.commit_and_push = AsyncMock(return_value=True)
 
         opencode = AsyncMock()
-        opencode.fix_bug = AsyncMock(return_value=OpencodeResult(
-            success=True, output="Fixed", files_changed=["api.py"],
-        ))
+        opencode.fix_bug = AsyncMock(
+            return_value=OpencodeResult(
+                success=True,
+                output="Fixed",
+                files_changed=["api.py"],
+            )
+        )
 
         test_runner = AsyncMock()
-        test_runner.run_tests = AsyncMock(return_value=TestRunResult(
-            passed=True, total=10, output="10 passed",
-        ))
+        test_runner.run_tests = AsyncMock(
+            return_value=TestRunResult(
+                passed=True,
+                total=10,
+                output="10 passed",
+            )
+        )
 
         handler = FixBugHandler(mock_db, workspace, opencode, test_runner, dry_run=True)
         action = PlannedAction(action_type="fix_bug", target_number=1)
@@ -120,9 +128,13 @@ class TestFixBugHandler:
         opencode.fix_bug = AsyncMock(return_value=OpencodeResult(success=True))
 
         test_runner = AsyncMock()
-        test_runner.run_tests = AsyncMock(return_value=TestRunResult(
-            passed=False, failures=2, output="2 failed",
-        ))
+        test_runner.run_tests = AsyncMock(
+            return_value=TestRunResult(
+                passed=False,
+                failures=2,
+                output="2 failed",
+            )
+        )
 
         handler = FixBugHandler(mock_db, workspace, opencode, test_runner)
         action = PlannedAction(action_type="fix_bug", target_number=1)
@@ -136,9 +148,13 @@ class TestRunTestsHandler:
     @pytest.mark.asyncio
     async def test_success(self):
         test_runner = AsyncMock()
-        test_runner.run_tests = AsyncMock(return_value=TestRunResult(
-            passed=True, total=5, output="5 passed",
-        ))
+        test_runner.run_tests = AsyncMock(
+            return_value=TestRunResult(
+                passed=True,
+                total=5,
+                output="5 passed",
+            )
+        )
 
         handler = RunTestsHandler(test_runner)
         action = PlannedAction(action_type="run_tests")
@@ -152,9 +168,11 @@ class TestCreatePRHandler:
     @pytest.mark.asyncio
     async def test_success(self, mock_db, sample_bug, sample_observation):
         sample_bug.branch_name = "fix/1-api-500"
-        mock_db.get_fix_attempts = AsyncMock(return_value=[
-            FixAttempt(bug_id=1, tests_passed=True, files_changed=["api.py"]),
-        ])
+        mock_db.get_fix_attempts = AsyncMock(
+            return_value=[
+                FixAttempt(bug_id=1, tests_passed=True, files_changed=["api.py"]),
+            ]
+        )
 
         pr_creator = AsyncMock()
         pr_creator.create_pr = AsyncMock(return_value="https://github.com/test/pr/1")

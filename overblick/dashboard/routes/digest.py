@@ -30,23 +30,28 @@ async def digest_page(request: Request):
         data = {"digests": []}
         data_errors = [f"Failed to load digest data: {e}"]
 
-    return templates.TemplateResponse("digest.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "digests": data["digests"],
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "digest.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "digests": data["digests"],
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if ai_digest plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("ai_digest")
 
 
 def _load_digest_data(request: Request) -> dict:
     """Load AI Digest state from data directories."""
     from pathlib import Path
+
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
 
     data_root = resolve_data_root(request)
@@ -63,12 +68,14 @@ def _load_digest_data(request: Request) -> dict:
         identity_name = identity_dir.name
         try:
             state = json.loads(state_file.read_text())
-            digests.append({
-                "identity": identity_name,
-                "last_digest_date": state.get("last_digest_date", "Never"),
-                "feed_count": state.get("feed_count", 0),
-                "article_count": state.get("article_count", 0),
-            })
+            digests.append(
+                {
+                    "identity": identity_name,
+                    "last_digest_date": state.get("last_digest_date", "Never"),
+                    "feed_count": state.get("feed_count", 0),
+                    "article_count": state.get("article_count", 0),
+                }
+            )
         except Exception as e:
             logger.warning("Failed to load digest state for %s: %s", identity_name, e)
 

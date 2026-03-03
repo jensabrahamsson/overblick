@@ -9,7 +9,7 @@ import asyncio
 import logging
 import sqlite3
 
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
@@ -34,24 +34,28 @@ async def dev_page(request: Request, page: int = Query(default=1, ge=1)):
 
     all_bugs = data["bugs"]
     total = len(all_bugs)
-    bugs = all_bugs[:page * _PAGE_SIZE]
+    bugs = all_bugs[: page * _PAGE_SIZE]
     has_more = total > page * _PAGE_SIZE
 
-    return templates.TemplateResponse("dev.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "bugs": bugs,
-        "goals": data["goals"],
-        "stats": data["stats"],
-        "page": page,
-        "has_more": has_more,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "dev.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "bugs": bugs,
+            "goals": data["goals"],
+            "stats": data["stats"],
+            "page": page,
+            "has_more": has_more,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if dev_agent plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("dev_agent")
 
 
@@ -63,8 +67,12 @@ def _load_dev_data(request: Request) -> dict:
     bugs: list[dict] = []
     goals: list[dict] = []
     stats = {
-        "total_bugs": 0, "fixed": 0, "failed": 0, "in_progress": 0,
-        "fix_attempts": 0, "prs_created": 0,
+        "total_bugs": 0,
+        "fixed": 0,
+        "failed": 0,
+        "in_progress": 0,
+        "fix_attempts": 0,
+        "prs_created": 0,
     }
 
     if not data_root.exists():
@@ -88,27 +96,29 @@ def _load_dev_data(request: Request) -> dict:
                     "FROM bugs ORDER BY created_at DESC LIMIT 50"
                 ).fetchall()
                 for row in rows:
-                    bugs.append({
-                        "identity": identity_name,
-                        "title": row["title"],
-                        "status": row["status"],
-                        "priority": row["priority"],
-                        "fix_attempts": row["fix_attempts"],
-                        "pr_url": row["pr_url"],
-                        "created_at": row["created_at"],
-                        "updated_at": row["updated_at"],
-                    })
+                    bugs.append(
+                        {
+                            "identity": identity_name,
+                            "title": row["title"],
+                            "status": row["status"],
+                            "priority": row["priority"],
+                            "fix_attempts": row["fix_attempts"],
+                            "pr_url": row["pr_url"],
+                            "created_at": row["created_at"],
+                            "updated_at": row["updated_at"],
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 
             # Stats
             try:
-                stats["total_bugs"] += conn.execute(
-                    "SELECT COUNT(*) FROM bugs"
-                ).fetchone()[0]
+                stats["total_bugs"] += conn.execute("SELECT COUNT(*) FROM bugs").fetchone()[0]
                 for status, key in [
-                    ("fixed", "fixed"), ("failed", "failed"),
-                    ("analyzing", "in_progress"), ("fixing", "in_progress"),
+                    ("fixed", "fixed"),
+                    ("failed", "failed"),
+                    ("analyzing", "in_progress"),
+                    ("fixing", "in_progress"),
                 ]:
                     c = conn.execute(
                         "SELECT COUNT(*) FROM bugs WHERE status = ?", (status,)
@@ -138,14 +148,16 @@ def _load_dev_data(request: Request) -> dict:
                     "FROM agent_goals ORDER BY priority DESC"
                 ).fetchall()
                 for row in rows:
-                    goals.append({
-                        "identity": identity_name,
-                        "name": row["name"],
-                        "description": row["description"],
-                        "priority": row["priority"],
-                        "status": row["status"],
-                        "progress": row["progress"],
-                    })
+                    goals.append(
+                        {
+                            "identity": identity_name,
+                            "name": row["name"],
+                            "description": row["description"],
+                            "priority": row["priority"],
+                            "status": row["status"],
+                            "progress": row["progress"],
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 

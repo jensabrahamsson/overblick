@@ -58,16 +58,15 @@ class LearningExtractor:
             if indicator in text_lower:
                 sentences = [s.strip() for s in text.split(". ") if s.strip()]
                 for sentence in sentences:
-                    if (
-                        indicator in sentence.lower()
-                        and len(sentence) >= MIN_SENTENCE_LENGTH
-                    ):
-                        candidates.append({
-                            "content": sentence[:200].strip(),
-                            "category": "factual",
-                            "context": text[:200],
-                            "agent": source_agent,
-                        })
+                    if indicator in sentence.lower() and len(sentence) >= MIN_SENTENCE_LENGTH:
+                        candidates.append(
+                            {
+                                "content": sentence[:200].strip(),
+                                "category": "factual",
+                                "context": text[:200],
+                                "agent": source_agent,
+                            }
+                        )
                         break  # One candidate per indicator
 
         return candidates[:MAX_CANDIDATES]

@@ -52,12 +52,14 @@ class TestAgentLoop:
 
         # Planner that returns a plan
         planner = MagicMock(spec=ActionPlanner)
-        planner.plan = AsyncMock(return_value=ActionPlan(
-            actions=[
-                PlannedAction(action_type="test_action", target="t1", priority=90),
-            ],
-            reasoning="Test plan",
-        ))
+        planner.plan = AsyncMock(
+            return_value=ActionPlan(
+                actions=[
+                    PlannedAction(action_type="test_action", target="t1", priority=90),
+                ],
+                reasoning="Test plan",
+            )
+        )
 
         # Executor
         executor = ActionExecutor(
@@ -108,6 +110,7 @@ class TestAgentLoop:
         class NoneObserver:
             async def observe(self):
                 return None
+
             def format_for_planner(self, obs):
                 return ""
 
@@ -171,9 +174,11 @@ class TestAgentLoop:
     @pytest.mark.asyncio
     async def test_observer_error_returns_none(self, mock_components):
         """Observer errors result in None tick log."""
+
         class ErrorObserver:
             async def observe(self):
                 raise RuntimeError("API down")
+
             def format_for_planner(self, obs):
                 return ""
 
@@ -217,8 +222,18 @@ class TestAgentLoop:
     def test_format_recent_actions(self):
         """Format recent actions into readable text."""
         rows = [
-            {"action_type": "merge_pr", "target": "PR #42", "success": 1, "created_at": "2026-02-23"},
-            {"action_type": "notify", "target": "CI fail", "success": 0, "created_at": "2026-02-23"},
+            {
+                "action_type": "merge_pr",
+                "target": "PR #42",
+                "success": 1,
+                "created_at": "2026-02-23",
+            },
+            {
+                "action_type": "notify",
+                "target": "CI fail",
+                "success": 0,
+                "created_at": "2026-02-23",
+            },
         ]
         text = AgentLoop._format_recent_actions(rows)
         assert "[OK] merge_pr" in text

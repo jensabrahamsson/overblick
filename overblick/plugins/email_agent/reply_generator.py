@@ -48,7 +48,9 @@ class ReplyGenerator:
         self._reputation = reputation
 
     async def generate_and_send(
-        self, email: dict[str, Any], research_context: str = "",
+        self,
+        email: dict[str, Any],
+        research_context: str = "",
     ) -> bool:
         """Generate and send an email reply via the Gmail plugin event bus."""
         sender = email.get("sender", "")
@@ -74,16 +76,14 @@ class ReplyGenerator:
             history = await self._db.get_sender_history(sender, limit=5)
             if history:
                 interaction_history = "\n".join(
-                    f"- {r.email_subject}: {r.classified_intent}"
-                    for r in history[:3]
+                    f"- {r.email_subject}: {r.classified_intent}" for r in history[:3]
                 )
 
         # Consult Cherry for tone advice before generating the reply
         tone_guidance = await self._consult_tone(sender, subject, body, sender_context)
         if tone_guidance:
             research_context = (
-                f"{research_context}\n\n{tone_guidance}" if research_context
-                else tone_guidance
+                f"{research_context}\n\n{tone_guidance}" if research_context else tone_guidance
             )
 
         safe_sender = wrap_external_content(sender, "email_sender")
@@ -140,8 +140,10 @@ class ReplyGenerator:
             return False
 
     async def send_draft_notification(
-        self, email: dict[str, Any], notifier: Any,
-    ) -> Optional[tuple[int, str]]:
+        self,
+        email: dict[str, Any],
+        notifier: Any,
+    ) -> tuple[int, str] | None:
         """
         Generate a draft reply and send it as a tracked Telegram message.
 
@@ -177,8 +179,7 @@ class ReplyGenerator:
             history = await self._db.get_sender_history(sender, limit=5)
             if history:
                 interaction_history = "\n".join(
-                    f"- {r.email_subject}: {r.classified_intent}"
-                    for r in history[:3]
+                    f"- {r.email_subject}: {r.classified_intent}" for r in history[:3]
                 )
 
         # Consult for tone advice
@@ -216,7 +217,8 @@ class ReplyGenerator:
             )
             if not result or result.blocked or not result.content:
                 logger.warning(
-                    "EmailAgent: draft reply blocked or empty for email from %s", sender,
+                    "EmailAgent: draft reply blocked or empty for email from %s",
+                    sender,
                 )
                 return None
 
@@ -237,7 +239,8 @@ class ReplyGenerator:
         except Exception as e:
             logger.warning(
                 "EmailAgent: draft reply notification failed for email from %s: %s",
-                sender, e,
+                sender,
+                e,
             )
             return None
 
@@ -247,7 +250,7 @@ class ReplyGenerator:
         subject: str,
         body: str,
         sender_context: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Consult a personality (default: Cherry) for tone advice.
 
@@ -271,14 +274,15 @@ class ReplyGenerator:
                 return None
 
             advice = json.loads(
-                raw[raw.find("{"):raw.rfind("}") + 1] if "{" in raw else raw,
+                raw[raw.find("{") : raw.rfind("}") + 1] if "{" in raw else raw,
             )
             tone = advice.get("tone", "professional")
             guidance = advice.get("guidance", "")
 
             logger.info(
                 "EmailAgent: tone consultation result — tone=%s for email from %s",
-                tone, sender,
+                tone,
+                sender,
             )
 
             if tone == "warm" and guidance:
@@ -290,7 +294,7 @@ class ReplyGenerator:
             logger.debug("EmailAgent: tone consultation parse error: %s", e)
             return None
 
-    async def _request_research(self, query: str, context: str = "") -> Optional[str]:
+    async def _request_research(self, query: str, context: str = "") -> str | None:
         """Ask the supervisor for research via BossRequestCapability."""
         boss_cap = self._ctx.get_capability("boss_request")
         if not boss_cap or not boss_cap.configured:

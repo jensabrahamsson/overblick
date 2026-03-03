@@ -38,7 +38,7 @@ def analyze_text(text: str) -> StyleMetrics:
         return StyleMetrics(word_count=0)
 
     # Character counts
-    char_count = len(text)
+    len(text)
     punct_count = sum(1 for c in text if c in string.punctuation)
     question_count = text.count("?")
     exclamation_count = text.count("!")
@@ -51,7 +51,7 @@ def analyze_text(text: str) -> StyleMetrics:
     avg_word_length = sum(len(w) for w in words) / word_count
 
     # Vocabulary richness (type-token ratio)
-    unique_words = set(w.lower() for w in words)
+    unique_words = {w.lower() for w in words}
     vocabulary_richness = len(unique_words) / word_count if word_count > 0 else 0.0
 
     # Punctuation frequency (per 100 words)
@@ -83,7 +83,7 @@ def analyze_text(text: str) -> StyleMetrics:
 def compute_drift_score(
     current: StyleMetrics,
     baseline: StyleMetrics,
-    std_devs: Optional[dict[str, float]] = None,
+    std_devs: dict[str, float] | None = None,
 ) -> tuple[float, list[str]]:
     """
     Compute drift score between current metrics and baseline.
@@ -123,7 +123,7 @@ def compute_drift_score(
         else:
             z_score = 0.0
 
-        total_sq += z_score ** 2
+        total_sq += z_score**2
 
         # Flag dimensions with z-score > 1.5
         if z_score > 1.5:
@@ -162,15 +162,57 @@ def _compute_formality(words: list[str], avg_word_length: float) -> float:
     lower_words = [w.lower() for w in words]
 
     # Contraction detection
-    contractions = {"don't", "won't", "can't", "isn't", "aren't", "wasn't",
-                    "weren't", "hasn't", "haven't", "hadn't", "doesn't",
-                    "didn't", "wouldn't", "couldn't", "shouldn't", "mustn't",
-                    "i'm", "you're", "he's", "she's", "it's", "we're",
-                    "they're", "i've", "you've", "we've", "they've",
-                    "i'd", "you'd", "he'd", "she'd", "we'd", "they'd",
-                    "i'll", "you'll", "he'll", "she'll", "we'll", "they'll",
-                    "that's", "there's", "here's", "what's", "who's",
-                    "gonna", "wanna", "gotta", "kinda", "sorta"}
+    contractions = {
+        "don't",
+        "won't",
+        "can't",
+        "isn't",
+        "aren't",
+        "wasn't",
+        "weren't",
+        "hasn't",
+        "haven't",
+        "hadn't",
+        "doesn't",
+        "didn't",
+        "wouldn't",
+        "couldn't",
+        "shouldn't",
+        "mustn't",
+        "i'm",
+        "you're",
+        "he's",
+        "she's",
+        "it's",
+        "we're",
+        "they're",
+        "i've",
+        "you've",
+        "we've",
+        "they've",
+        "i'd",
+        "you'd",
+        "he'd",
+        "she'd",
+        "we'd",
+        "they'd",
+        "i'll",
+        "you'll",
+        "he'll",
+        "she'll",
+        "we'll",
+        "they'll",
+        "that's",
+        "there's",
+        "here's",
+        "what's",
+        "who's",
+        "gonna",
+        "wanna",
+        "gotta",
+        "kinda",
+        "sorta",
+    }
 
     contraction_count = sum(1 for w in lower_words if w in contractions)
     contraction_ratio = contraction_count / word_count
@@ -185,4 +227,4 @@ def _compute_formality(words: list[str], avg_word_length: float) -> float:
     contraction_score = 1.0 - min(contraction_ratio * 10, 1.0)
     pronoun_score = 1.0 - min(first_person_ratio * 10, 1.0)
 
-    return (word_length_score * 0.4 + contraction_score * 0.35 + pronoun_score * 0.25)
+    return word_length_score * 0.4 + contraction_score * 0.35 + pronoun_score * 0.25

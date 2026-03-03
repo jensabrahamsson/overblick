@@ -5,7 +5,6 @@ Provides configurable planning and reflection prompt builders.
 Plugins inject domain-specific content via PlanningPromptConfig.
 """
 
-
 from overblick.core.agentic.protocols import PlanningPromptConfig
 
 
@@ -35,10 +34,7 @@ def planning_prompt(
         extra_context: Plugin-specific extra context (owner commands, etc.)
         max_actions: Maximum number of actions to plan
     """
-    system = (
-        f"{system_prompt}\n\n"
-        f"=== AGENT ROLE ===\n{config.agent_role}\n\n"
-    )
+    system = f"{system_prompt}\n\n" f"=== AGENT ROLE ===\n{config.agent_role}\n\n"
 
     if config.available_actions:
         system += f"Available action types:\n{config.available_actions}\n\n"
@@ -125,10 +121,7 @@ def reflection_prompt(
         "}"
     )
 
-    user = (
-        f"=== TICK SUMMARY ===\n{tick_summary}\n\n"
-        f"=== ACTION OUTCOMES ===\n{action_outcomes}"
-    )
+    user = f"=== TICK SUMMARY ===\n{tick_summary}\n\n" f"=== ACTION OUTCOMES ===\n{action_outcomes}"
 
     return [
         {"role": "system", "content": system},

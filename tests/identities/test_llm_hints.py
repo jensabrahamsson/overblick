@@ -13,7 +13,19 @@ from overblick.identities import load_llm_hints, load_personality, build_system_
 # ---------------------------------------------------------------------------
 
 # All character identities that should have hints
-IDENTITIES = ["anomal", "bjork", "blixt", "cherry", "natt", "prisma", "rost", "smed", "stal", "supervisor", "vakt"]
+IDENTITIES = [
+    "anomal",
+    "bjork",
+    "blixt",
+    "cherry",
+    "natt",
+    "prisma",
+    "rost",
+    "smed",
+    "stal",
+    "supervisor",
+    "vakt",
+]
 
 # All supported model slugs
 MODEL_SLUGS = ["qwen3_8b", "phi4", "mistral", "llama3_8b", "deepseek_r1"]
@@ -26,16 +38,32 @@ IDENTITIES_DIR = Path(__file__).resolve().parent.parent.parent / "overblick" / "
 
 # Common Swedish words that should not appear in English-only hints content
 SWEDISH_WORDS = [
-    r"\bför\b", r"\boch\b", r"\beller\b", r"\bfrån\b", r"\btill\b",
-    r"\bmed\b", r"\bav\b", r"\bpå\b", r"\bvid\b", r"\beftersom\b",
-    r"\binnan\b", r"\bigen\b", r"\binte\b", r"\bsom\b", r"\bden\b",
-    r"\bdet\b", r"\bhar\b", r"\bska\b", r"\bkan\b",
+    r"\bför\b",
+    r"\boch\b",
+    r"\beller\b",
+    r"\bfrån\b",
+    r"\btill\b",
+    r"\bmed\b",
+    r"\bav\b",
+    r"\bpå\b",
+    r"\bvid\b",
+    r"\beftersom\b",
+    r"\binnan\b",
+    r"\bigen\b",
+    r"\binte\b",
+    r"\bsom\b",
+    r"\bden\b",
+    r"\bdet\b",
+    r"\bhar\b",
+    r"\bska\b",
+    r"\bkan\b",
 ]
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _load_hints_yaml(identity: str, model_slug: str) -> dict:
     """Load a hints YAML file directly from disk."""
@@ -61,16 +89,13 @@ def _all_hints_text(data: dict) -> str:
 # Parametrized fixtures
 # ---------------------------------------------------------------------------
 
-ALL_COMBINATIONS = [
-    (identity, model_slug)
-    for identity in IDENTITIES
-    for model_slug in MODEL_SLUGS
-]
+ALL_COMBINATIONS = [(identity, model_slug) for identity in IDENTITIES for model_slug in MODEL_SLUGS]
 
 
 # ---------------------------------------------------------------------------
 # Structural Tests
 # ---------------------------------------------------------------------------
+
 
 class TestHintsFilesExist:
     """Test 1: All 11 identities have hints for all 5 models (55 files total)."""
@@ -97,9 +122,9 @@ class TestHintsRequiredFields:
     def test_required_fields_present(self, identity, model_slug):
         data = _load_hints_yaml(identity, model_slug)
         for field in REQUIRED_FIELDS:
-            assert field in data, (
-                f"Missing required field '{field}' in {identity}/{model_slug}.yaml"
-            )
+            assert (
+                field in data
+            ), f"Missing required field '{field}' in {identity}/{model_slug}.yaml"
 
 
 class TestVoiceReinforcementNotEmpty:
@@ -109,9 +134,9 @@ class TestVoiceReinforcementNotEmpty:
     def test_voice_reinforcement_length(self, identity, model_slug):
         data = _load_hints_yaml(identity, model_slug)
         vr = data.get("voice_reinforcement", "")
-        assert len(vr) > 50, (
-            f"voice_reinforcement too short ({len(vr)} chars) in {identity}/{model_slug}.yaml"
-        )
+        assert (
+            len(vr) > 50
+        ), f"voice_reinforcement too short ({len(vr)} chars) in {identity}/{model_slug}.yaml"
 
 
 class TestExtraExamplesFormat:
@@ -121,16 +146,14 @@ class TestExtraExamplesFormat:
     def test_examples_have_required_keys(self, identity, model_slug):
         data = _load_hints_yaml(identity, model_slug)
         examples = data.get("extra_examples", {})
-        assert len(examples) >= 1, (
-            f"No extra_examples in {identity}/{model_slug}.yaml"
-        )
+        assert len(examples) >= 1, f"No extra_examples in {identity}/{model_slug}.yaml"
         for name, ex_data in examples.items():
-            assert "user_message" in ex_data, (
-                f"Missing 'user_message' in example '{name}' of {identity}/{model_slug}.yaml"
-            )
-            assert "response" in ex_data, (
-                f"Missing 'response' in example '{name}' of {identity}/{model_slug}.yaml"
-            )
+            assert (
+                "user_message" in ex_data
+            ), f"Missing 'user_message' in example '{name}' of {identity}/{model_slug}.yaml"
+            assert (
+                "response" in ex_data
+            ), f"Missing 'response' in example '{name}' of {identity}/{model_slug}.yaml"
 
 
 class TestAvoidListMinLength:
@@ -140,9 +163,9 @@ class TestAvoidListMinLength:
     def test_avoid_min_items(self, identity, model_slug):
         data = _load_hints_yaml(identity, model_slug)
         avoid = data.get("avoid", [])
-        assert len(avoid) >= 3, (
-            f"Too few avoid items ({len(avoid)}) in {identity}/{model_slug}.yaml"
-        )
+        assert (
+            len(avoid) >= 3
+        ), f"Too few avoid items ({len(avoid)}) in {identity}/{model_slug}.yaml"
 
 
 class TestAvoidHasInjectionRule:
@@ -154,29 +177,32 @@ class TestAvoidHasInjectionRule:
         avoid = data.get("avoid", [])
         avoid_text = " ".join(str(item).lower() for item in avoid)
         has_injection_rule = any(
-            keyword in avoid_text
-            for keyword in ["injection", "echo", "repeat", "play along"]
+            keyword in avoid_text for keyword in ["injection", "echo", "repeat", "play along"]
         )
-        assert has_injection_rule, (
-            f"No anti-injection rule in avoid list of {identity}/{model_slug}.yaml"
-        )
+        assert (
+            has_injection_rule
+        ), f"No anti-injection rule in avoid list of {identity}/{model_slug}.yaml"
 
 
 # ---------------------------------------------------------------------------
 # Slug Derivation Tests
 # ---------------------------------------------------------------------------
 
+
 class TestModelSlugDerivation:
     """Test 8: Model slug derivation matches expected mappings."""
 
-    @pytest.mark.parametrize("model_name,expected_slug", [
-        ("qwen3:8b", "qwen3_8b"),
-        ("phi4", "phi4"),
-        ("mistral", "mistral"),
-        ("llama3:8b", "llama3_8b"),
-        ("deepseek-r1:8b", "deepseek_r1"),
-        ("gemma2:9b", "gemma2_9b"),
-    ])
+    @pytest.mark.parametrize(
+        "model_name,expected_slug",
+        [
+            ("qwen3:8b", "qwen3_8b"),
+            ("phi4", "phi4"),
+            ("mistral", "mistral"),
+            ("llama3:8b", "llama3_8b"),
+            ("deepseek-r1:8b", "deepseek_r1"),
+            ("gemma2:9b", "gemma2_9b"),
+        ],
+    )
     def test_slug_derivation(self, model_name, expected_slug):
         """Verify the slug derivation algorithm produces expected results."""
         parts = model_name.replace(":", "_").replace("-", "_").split("_")[0:2]
@@ -187,15 +213,18 @@ class TestModelSlugDerivation:
 class TestLoadLlmHintsReturnsData:
     """Test 9: load_llm_hints() returns non-empty dict for known models."""
 
-    @pytest.mark.parametrize("identity_name,model_slug", [
-        ("anomal", "phi4"),
-        ("cherry", "mistral"),
-        ("blixt", "llama3_8b"),
-        ("natt", "deepseek_r1"),
-        ("smed", "qwen3_8b"),
-        ("vakt", "mistral"),
-        ("supervisor", "phi4"),
-    ])
+    @pytest.mark.parametrize(
+        "identity_name,model_slug",
+        [
+            ("anomal", "phi4"),
+            ("cherry", "mistral"),
+            ("blixt", "llama3_8b"),
+            ("natt", "deepseek_r1"),
+            ("smed", "qwen3_8b"),
+            ("vakt", "mistral"),
+            ("supervisor", "phi4"),
+        ],
+    )
     def test_load_returns_data(self, identity_name, model_slug):
         identity = load_personality(identity_name)
         hints = load_llm_hints(identity, model_slug)
@@ -216,20 +245,24 @@ class TestLoadLlmHintsUnknownModel:
 # Integration Tests
 # ---------------------------------------------------------------------------
 
+
 class TestBuildSystemPromptIncludesHints:
     """Test 11: build_system_prompt() with model_slug includes voice reinforcement."""
 
-    @pytest.mark.parametrize("identity_name,model_slug", [
-        ("anomal", "phi4"),
-        ("bjork", "mistral"),
-        ("cherry", "llama3_8b"),
-    ])
+    @pytest.mark.parametrize(
+        "identity_name,model_slug",
+        [
+            ("anomal", "phi4"),
+            ("bjork", "mistral"),
+            ("cherry", "llama3_8b"),
+        ],
+    )
     def test_prompt_includes_voice_reinforcement(self, identity_name, model_slug):
         identity = load_personality(identity_name)
         prompt = build_system_prompt(identity, model_slug=model_slug)
-        assert "VOICE REINFORCEMENT" in prompt, (
-            f"Voice reinforcement not found in system prompt for {identity_name}/{model_slug}"
-        )
+        assert (
+            "VOICE REINFORCEMENT" in prompt
+        ), f"Voice reinforcement not found in system prompt for {identity_name}/{model_slug}"
 
 
 class TestBuildSystemPromptNoHintsForUnknown:
@@ -252,14 +285,19 @@ class TestNoSwedishInContent:
         # Skip words that are legitimate English (e.g., "for", "or", "on")
         # Only check distinctly Swedish words
         swedish_only = [
-            r"\boch\b", r"\beller\b", r"\bfrån\b", r"\beftersom\b",
-            r"\binnan\b", r"\bigen\b", r"\binte\b", r"\bska\b",
+            r"\boch\b",
+            r"\beller\b",
+            r"\bfrån\b",
+            r"\beftersom\b",
+            r"\binnan\b",
+            r"\bigen\b",
+            r"\binte\b",
+            r"\bska\b",
         ]
         for pattern in swedish_only:
             matches = re.findall(pattern, text, re.IGNORECASE)
             assert not matches, (
-                f"Swedish word '{pattern}' found in {identity}/{model_slug}.yaml: "
-                f"{matches}"
+                f"Swedish word '{pattern}' found in {identity}/{model_slug}.yaml: " f"{matches}"
             )
 
 
@@ -276,6 +314,7 @@ class TestIdentityDirHasLlmHintsSubdir:
 # Consistency Tests
 # ---------------------------------------------------------------------------
 
+
 class TestAllModelsCoveredPerIdentity:
     """Test 15: Every identity has hints for every model (cross-check)."""
 
@@ -284,9 +323,9 @@ class TestAllModelsCoveredPerIdentity:
         hints_dir = IDENTITIES_DIR / identity / "llm_hints"
         existing_files = {f.stem for f in hints_dir.glob("*.yaml")}
         for model_slug in MODEL_SLUGS:
-            assert model_slug in existing_files, (
-                f"Identity '{identity}' missing hints for model '{model_slug}'"
-            )
+            assert (
+                model_slug in existing_files
+            ), f"Identity '{identity}' missing hints for model '{model_slug}'"
 
 
 class TestNoDuplicateAvoidRules:
@@ -298,9 +337,9 @@ class TestNoDuplicateAvoidRules:
         avoid = data.get("avoid", [])
         # Normalize for comparison (lowercase, strip)
         normalized = [str(item).lower().strip() for item in avoid]
-        assert len(normalized) == len(set(normalized)), (
-            f"Duplicate avoid rules in {identity}/{model_slug}.yaml"
-        )
+        assert len(normalized) == len(
+            set(normalized)
+        ), f"Duplicate avoid rules in {identity}/{model_slug}.yaml"
 
 
 class TestVoiceReinforcementMentionsModelTendency:

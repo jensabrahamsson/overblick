@@ -280,8 +280,12 @@ async def chat_loop(
             print(f"\n{BOLD}{MAGENTA}{personality.display_name}:{RESET} ", end="", flush=True)
 
             content = await stream_response(
-                session, base_url, model, messages,
-                temperature, max_tokens,
+                session,
+                base_url,
+                model,
+                messages,
+                temperature,
+                max_tokens,
             )
 
             if content is None:
@@ -311,12 +315,14 @@ def main() -> None:
         help="Personality name (e.g. natt, bjork, blixt). Omit for interactive picker.",
     )
     parser.add_argument(
-        "--list", "-l",
+        "--list",
+        "-l",
         action="store_true",
         help="List available personalities and exit",
     )
     parser.add_argument(
-        "--model", "-m",
+        "--model",
+        "-m",
         default="qwen3:8b",
         help="Ollama model name (default: qwen3:8b)",
     )
@@ -326,7 +332,8 @@ def main() -> None:
         help="Ollama base URL (default: http://localhost:11434)",
     )
     parser.add_argument(
-        "--temperature", "-t",
+        "--temperature",
+        "-t",
         type=float,
         default=0.7,
         help="LLM temperature (default: 0.7)",

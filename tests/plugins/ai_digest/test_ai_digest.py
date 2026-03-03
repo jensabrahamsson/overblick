@@ -53,15 +53,19 @@ class TestSetup:
         )
 
     @pytest.mark.asyncio
-    async def test_setup_default_feeds(self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline):
+    async def test_setup_default_feeds(
+        self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline
+    ):
         """Plugin uses default feeds when none configured."""
         from overblick.identities import Personality, LLMSettings
+
         identity = Personality(
             name="test",
             llm=LLMSettings(),
             raw_config={"ai_digest": {"recipient": "test@example.com"}},
         )
         from overblick.core.plugin_base import PluginContext
+
         ctx = PluginContext(
             identity_name="test",
             data_dir=tmp_path / "data",
@@ -293,7 +297,10 @@ class TestFetchFeeds:
         plugin = AiDigestPlugin(ai_digest_context)
         await plugin.setup()
 
-        with patch("overblick.plugins.ai_digest.plugin.feedparser.parse", side_effect=Exception("Network error")):
+        with patch(
+            "overblick.plugins.ai_digest.plugin.feedparser.parse",
+            side_effect=Exception("Network error"),
+        ):
             articles = await plugin._fetch_all_feeds()
             assert articles == []
 
@@ -335,10 +342,12 @@ class TestSendDigest:
         )
 
     @pytest.mark.asyncio
-    async def test_handles_missing_capability(self, tmp_path, mock_llm_client,
-                                               mock_audit_log, mock_pipeline):
+    async def test_handles_missing_capability(
+        self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline
+    ):
         """Logs error when email capability is not available."""
         from overblick.identities import Personality, LLMSettings
+
         identity = Personality(
             name="test",
             llm=LLMSettings(),
@@ -377,8 +386,9 @@ class TestTeardown:
         assert data["last_digest_date"] == "2026-02-14"
 
     @pytest.mark.asyncio
-    async def test_save_state_creates_missing_directory(self, tmp_path, mock_llm_client,
-                                                          mock_audit_log, mock_pipeline):
+    async def test_save_state_creates_missing_directory(
+        self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline
+    ):
         """_save_state() creates parent directories if they do not exist."""
         from overblick.identities import Personality, LLMSettings
         from unittest.mock import MagicMock
@@ -440,8 +450,7 @@ class TestSecurity:
         await plugin.setup()
 
         articles = [
-            FeedArticle(title=f"Article {i}", link=f"https://example.com/{i}")
-            for i in range(5)
+            FeedArticle(title=f"Article {i}", link=f"https://example.com/{i}") for i in range(5)
         ]
         result = await plugin._rank_articles(articles)
         # Falls back to first top_n articles when blocked
@@ -472,15 +481,12 @@ class TestSecurity:
             if not result.content or not result.content.strip(): ...
         Without this guard, _parse_selection() would raise AttributeError on None.
         """
-        ai_digest_context.llm_pipeline.chat = AsyncMock(
-            return_value=PipelineResult(content="")
-        )
+        ai_digest_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content=""))
         plugin = AiDigestPlugin(ai_digest_context)
         await plugin.setup()
 
         articles = [
-            FeedArticle(title=f"Article {i}", link=f"https://example.com/{i}")
-            for i in range(10)
+            FeedArticle(title=f"Article {i}", link=f"https://example.com/{i}") for i in range(10)
         ]
         result = await plugin._rank_articles(articles)
 
@@ -491,15 +497,12 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_handles_none_ranking_response(self, ai_digest_context):
         """Plugin falls back to first N articles when LLM returns None content."""
-        ai_digest_context.llm_pipeline.chat = AsyncMock(
-            return_value=PipelineResult(content=None)
-        )
+        ai_digest_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content=None))
         plugin = AiDigestPlugin(ai_digest_context)
         await plugin.setup()
 
         articles = [
-            FeedArticle(title=f"Article {i}", link=f"https://example.com/{i}")
-            for i in range(10)
+            FeedArticle(title=f"Article {i}", link=f"https://example.com/{i}") for i in range(10)
         ]
         result = await plugin._rank_articles(articles)
 
@@ -533,7 +536,8 @@ class TestRecipientFromSecrets:
 
     @pytest.mark.asyncio
     async def test_recipient_from_secrets_overrides_config(
-        self, ai_digest_context,
+        self,
+        ai_digest_context,
     ):
         """Secret ai_digest_recipient takes priority over config recipient."""
         ai_digest_context._secrets_getter = lambda key: (
@@ -561,10 +565,15 @@ class TestRecipientFromSecrets:
 
     @pytest.mark.asyncio
     async def test_missing_recipient_raises_with_helpful_message(
-        self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline,
+        self,
+        tmp_path,
+        mock_llm_client,
+        mock_audit_log,
+        mock_pipeline,
     ):
         """RuntimeError message guides user to set the secret."""
         from overblick.identities import Personality, LLMSettings
+
         identity = Personality(
             name="anomal",
             llm=LLMSettings(),
@@ -649,7 +658,10 @@ class TestFeedParsingEdgeCases:
         plugin = AiDigestPlugin(ai_digest_context)
         await plugin.setup()
 
-        with patch("overblick.plugins.ai_digest.plugin.feedparser.parse", side_effect=Exception("Network timeout")):
+        with patch(
+            "overblick.plugins.ai_digest.plugin.feedparser.parse",
+            side_effect=Exception("Network timeout"),
+        ):
             articles = await plugin._fetch_all_feeds()
             assert articles == []
 

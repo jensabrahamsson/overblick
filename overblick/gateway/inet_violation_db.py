@@ -46,9 +46,7 @@ class SQLiteBanStore:
     def _get_conn(self) -> sqlite3.Connection:
         """Get thread-local SQLite connection."""
         if not hasattr(self._local, "conn"):
-            conn = sqlite3.connect(
-                str(self._db_path), timeout=10, check_same_thread=True
-            )
+            conn = sqlite3.connect(str(self._db_path), timeout=10, check_same_thread=True)
             conn.execute("PRAGMA journal_mode=WAL")
             self._local.conn = conn
             with self._lock:

@@ -7,6 +7,7 @@ notify, or skip a GitHub event based on configurable factors.
 
 import logging
 import time
+from datetime import UTC
 from typing import Optional
 
 from overblick.plugins.github.models import (
@@ -37,9 +38,9 @@ class GitHubDecisionEngine:
         bot_username: str = "",
         respond_threshold: int = 50,
         notify_threshold: int = 25,
-        interest_keywords: Optional[list[str]] = None,
-        respond_labels: Optional[list[str]] = None,
-        priority_repos: Optional[list[str]] = None,
+        interest_keywords: list[str] | None = None,
+        respond_labels: list[str] | None = None,
+        priority_repos: list[str] | None = None,
         max_issue_age_hours: int = 168,
     ):
         self._bot_username = bot_username.lower()
@@ -133,22 +134,27 @@ class GitHubDecisionEngine:
 
         logger.debug(
             "GitHub decision: %s#%d score=%d action=%s factors=%s",
-            event.repo, event.issue_number, score, action.value, factors,
+            event.repo,
+            event.issue_number,
+            score,
+            action.value,
+            factors,
         )
 
         return DecisionResult(score=score, action=action, factors=factors)
 
     @staticmethod
-    def _event_age_hours(created_at: str) -> Optional[float]:
+    def _event_age_hours(created_at: str) -> float | None:
         """Parse ISO 8601 timestamp and return age in hours."""
         try:
             from datetime import datetime, timezone
+
             # GitHub uses ISO 8601 with Z suffix
             ts = created_at.replace("Z", "+00:00")
             dt = datetime.fromisoformat(ts)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            now = datetime.now(timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
+            now = datetime.now(UTC)
             return (now - dt).total_seconds() / 3600.0
         except (ValueError, TypeError):
             return None

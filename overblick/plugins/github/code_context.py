@@ -12,6 +12,7 @@ import fnmatch
 import json
 import logging
 import time
+from datetime import UTC
 from typing import Optional
 
 from overblick.plugins.github.client import GitHubAPIClient
@@ -27,7 +28,14 @@ DEFAULT_MAX_FILE_SIZE = 50_000  # 50KB
 DEFAULT_MAX_CONTEXT_CHARS = 48_000  # ~12K tokens
 DEFAULT_TREE_REFRESH_MINUTES = 60
 DEFAULT_INCLUDE_PATTERNS = ["*.py", "*.yaml", "*.yml", "*.md", "*.toml", "*.json", "*.js", "*.ts"]
-DEFAULT_EXCLUDE_PATTERNS = ["*.lock", "node_modules/*", "__pycache__/*", ".git/*", "*.min.js", "*.min.css"]
+DEFAULT_EXCLUDE_PATTERNS = [
+    "*.lock",
+    "node_modules/*",
+    "__pycache__/*",
+    ".git/*",
+    "*.min.js",
+    "*.min.css",
+]
 
 
 class CodeContextBuilder:
@@ -47,8 +55,8 @@ class CodeContextBuilder:
         max_file_size: int = DEFAULT_MAX_FILE_SIZE,
         max_context_chars: int = DEFAULT_MAX_CONTEXT_CHARS,
         tree_refresh_minutes: int = DEFAULT_TREE_REFRESH_MINUTES,
-        include_patterns: Optional[list[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
     ):
         self._client = client
         self._db = db
@@ -73,13 +81,16 @@ class CodeContextBuilder:
         meta = await self._db.get_tree_meta(repo)
         if meta:
             from datetime import datetime, timezone
+
             try:
                 last_refreshed = datetime.fromisoformat(
                     meta["last_refreshed"].replace("Z", "+00:00")
                 )
-                age_minutes = (datetime.now(timezone.utc) - last_refreshed).total_seconds() / 60
+                age_minutes = (datetime.now(UTC) - last_refreshed).total_seconds() / 60
                 if age_minutes < self._tree_refresh_minutes:
-                    logger.debug("GitHub: tree cache for %s still fresh (%.1fm old)", repo, age_minutes)
+                    logger.debug(
+                        "GitHub: tree cache for %s still fresh (%.1fm old)", repo, age_minutes
+                    )
                     return False
             except (ValueError, TypeError):
                 pass
@@ -180,10 +191,11 @@ class CodeContextBuilder:
             if len(valid) != len(selected):
                 logger.debug(
                     "GitHub: LLM selected %d files, %d valid",
-                    len(selected), len(valid),
+                    len(selected),
+                    len(valid),
                 )
 
-            return valid[:self._max_files]
+            return valid[: self._max_files]
 
         except Exception as e:
             logger.warning("GitHub: file selection failed: %s", e)
@@ -289,7 +301,9 @@ class CodeContextBuilder:
 
         logger.info(
             "GitHub: built context for %s (%d files, %d chars)",
-            repo, len(files), total_size,
+            repo,
+            len(files),
+            total_size,
         )
 
         return CodeContext(
@@ -347,11 +361,23 @@ class CodeContextBuilder:
             summary_parts.append(f"Top-level dirs: {', '.join(sorted(dir_set)[:15])}")
 
         # Key files
-        key_files = [p for p in paths if p in (
-            "README.md", "pyproject.toml", "package.json", "Cargo.toml",
-            "setup.py", "Makefile", "Dockerfile", "docker-compose.yml",
-            ".github/workflows/ci.yml", ".github/workflows/test.yml",
-        )]
+        key_files = [
+            p
+            for p in paths
+            if p
+            in (
+                "README.md",
+                "pyproject.toml",
+                "package.json",
+                "Cargo.toml",
+                "setup.py",
+                "Makefile",
+                "Dockerfile",
+                "docker-compose.yml",
+                ".github/workflows/ci.yml",
+                ".github/workflows/test.yml",
+            )
+        ]
         if key_files:
             summary_parts.append(f"Key files: {', '.join(key_files)}")
 
@@ -359,7 +385,8 @@ class CodeContextBuilder:
 
         # Cache it
         await self._db.upsert_repo_summary(
-            repo, summary,
+            repo,
+            summary,
             file_count=len(paths),
             primary_language=primary_lang,
         )

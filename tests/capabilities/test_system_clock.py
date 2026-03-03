@@ -60,8 +60,13 @@ class TestSystemClock:
         cap = SystemClockCapability(_make_ctx())
         day = cap.weekday()
         assert day in [
-            "Monday", "Tuesday", "Wednesday", "Thursday",
-            "Friday", "Saturday", "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
         ]
 
     def test_iso_format(self):
@@ -76,8 +81,7 @@ class TestSystemClock:
         ctx = cap.get_prompt_context()
         assert "Current time:" in ctx
         # Should contain a day name
-        for day in ["Monday", "Tuesday", "Wednesday", "Thursday",
-                     "Friday", "Saturday", "Sunday"]:
+        for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
             if day in ctx:
                 break
         else:

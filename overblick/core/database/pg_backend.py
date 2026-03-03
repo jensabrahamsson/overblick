@@ -9,7 +9,8 @@ Uses async connection pooling for high-performance concurrent access.
 
 import logging
 import re
-from typing import Any, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any, Optional
 
 from overblick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 # asyncpg is optional — only required when PostgreSQL is configured
 try:
     import asyncpg
+
     HAS_ASYNCPG = True
 except ImportError:
     asyncpg = None
@@ -69,9 +71,7 @@ class PostgreSQLBackend(DatabaseBackend):
         async def _init_conn(conn):
             """Set search_path for every new pool connection."""
             if schema != "public":
-                await conn.execute(
-                    f"SET search_path TO {schema}, public"
-                )
+                await conn.execute(f"SET search_path TO {schema}, public")
 
         self._pool = await asyncpg.create_pool(
             host=self._config.pg_host,
@@ -87,8 +87,10 @@ class PostgreSQLBackend(DatabaseBackend):
         self._connected = True
         logger.info(
             "PostgreSQL connected: %s@%s:%d/%s",
-            self._config.pg_user, self._config.pg_host,
-            self._config.pg_port, self._config.pg_database,
+            self._config.pg_user,
+            self._config.pg_host,
+            self._config.pg_port,
+            self._config.pg_database,
         )
 
     async def close(self) -> None:
@@ -113,7 +115,7 @@ class PostgreSQLBackend(DatabaseBackend):
                 return int(parts[-1])
             return 0
 
-    async def execute_returning_id(self, sql: str, params: Sequence[Any] = ()) -> Optional[int]:
+    async def execute_returning_id(self, sql: str, params: Sequence[Any] = ()) -> int | None:
         """Execute INSERT with RETURNING and return the new row ID."""
         self._check_connected()
         # Ensure SQL has RETURNING clause for PostgreSQL
@@ -124,7 +126,7 @@ class PostgreSQLBackend(DatabaseBackend):
             row = await conn.fetchrow(sql, *params)
             return row[0] if row else None
 
-    async def fetch_one(self, sql: str, params: Sequence[Any] = ()) -> Optional[DatabaseRow]:
+    async def fetch_one(self, sql: str, params: Sequence[Any] = ()) -> DatabaseRow | None:
         """Fetch a single row as a dict."""
         self._check_connected()
         async with self._pool.acquire() as conn:

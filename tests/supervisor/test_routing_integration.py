@@ -36,6 +36,7 @@ def short_tmp():
 # Supervisor MessageRouter integration
 # ---------------------------------------------------------------------------
 
+
 class TestSupervisorRouterInit:
     """Supervisor creates and wires the MessageRouter."""
 
@@ -71,9 +72,7 @@ class TestSupervisorAgentRegistration:
 
         with patch.object(sup, "_ipc", MagicMock()):
             # Mock AgentProcess.start to succeed without subprocess
-            with patch(
-                "overblick.supervisor.supervisor.AgentProcess"
-            ) as MockAgent:
+            with patch("overblick.supervisor.supervisor.AgentProcess") as MockAgent:
                 mock_agent = MagicMock()
                 mock_agent.start = AsyncMock(return_value=True)
                 mock_agent.monitor = AsyncMock()  # Prevent monitor task errors
@@ -105,9 +104,7 @@ class TestSupervisorAgentRegistration:
         sup = Supervisor(identities=[], socket_dir=short_tmp, base_dir=short_tmp)
 
         with patch.object(sup, "_ipc", MagicMock()):
-            with patch(
-                "overblick.supervisor.supervisor.AgentProcess"
-            ) as MockAgent:
+            with patch("overblick.supervisor.supervisor.AgentProcess") as MockAgent:
                 mock_agent = MagicMock()
                 mock_agent.start = AsyncMock(return_value=True)
                 mock_agent.monitor = AsyncMock()  # Prevent monitor task errors
@@ -126,6 +123,7 @@ class TestSupervisorAgentRegistration:
 # ---------------------------------------------------------------------------
 # IPC Handlers
 # ---------------------------------------------------------------------------
+
 
 class TestRouteMessageHandler:
     """Tests for _handle_route_message IPC handler."""
@@ -321,6 +319,7 @@ class TestCollectMessagesHandler:
 # PluginContext helpers
 # ---------------------------------------------------------------------------
 
+
 class TestPluginContextSendToAgent:
     """Tests for PluginContext.send_to_agent()."""
 
@@ -328,11 +327,18 @@ class TestPluginContextSendToAgent:
     async def test_send_to_agent_sends_ipc_message(self, tmp_path):
         """send_to_agent() constructs and sends the correct IPC message."""
         mock_ipc = AsyncMock()
-        mock_ipc.send = AsyncMock(return_value=IPCMessage(
-            msg_type="route_response",
-            sender="supervisor",
-            payload={"success": True, "message_id": "route-000001", "status": "pending", "error": None},
-        ))
+        mock_ipc.send = AsyncMock(
+            return_value=IPCMessage(
+                msg_type="route_response",
+                sender="supervisor",
+                payload={
+                    "success": True,
+                    "message_id": "route-000001",
+                    "status": "pending",
+                    "error": None,
+                },
+            )
+        )
 
         ctx = PluginContext(
             identity_name="vakt",
@@ -376,11 +382,18 @@ class TestPluginContextSendToAgent:
     async def test_send_to_agent_custom_ttl(self, tmp_path):
         """send_to_agent() passes custom TTL in the payload."""
         mock_ipc = AsyncMock()
-        mock_ipc.send = AsyncMock(return_value=IPCMessage(
-            msg_type="route_response",
-            sender="supervisor",
-            payload={"success": True, "message_id": "route-000001", "status": "pending", "error": None},
-        ))
+        mock_ipc.send = AsyncMock(
+            return_value=IPCMessage(
+                msg_type="route_response",
+                sender="supervisor",
+                payload={
+                    "success": True,
+                    "message_id": "route-000001",
+                    "status": "pending",
+                    "error": None,
+                },
+            )
+        )
 
         ctx = PluginContext(
             identity_name="vakt",
@@ -418,22 +431,24 @@ class TestPluginContextCollectMessages:
     async def test_collect_messages_returns_list(self, tmp_path):
         """collect_messages() returns a list of message dicts."""
         mock_ipc = AsyncMock()
-        mock_ipc.send = AsyncMock(return_value=IPCMessage(
-            msg_type="collect_response",
-            sender="supervisor",
-            payload={
-                "messages": [
-                    {
-                        "message_id": "route-000001",
-                        "source_agent": "anomal",
-                        "message_type": "status_update",
-                        "payload": {"status": "healthy"},
-                        "created_at": 1740556800.0,
-                    },
-                ],
-                "count": 1,
-            },
-        ))
+        mock_ipc.send = AsyncMock(
+            return_value=IPCMessage(
+                msg_type="collect_response",
+                sender="supervisor",
+                payload={
+                    "messages": [
+                        {
+                            "message_id": "route-000001",
+                            "source_agent": "anomal",
+                            "message_type": "status_update",
+                            "payload": {"status": "healthy"},
+                            "created_at": 1740556800.0,
+                        },
+                    ],
+                    "count": 1,
+                },
+            )
+        )
 
         ctx = PluginContext(
             identity_name="vakt",
@@ -481,6 +496,7 @@ class TestPluginContextCollectMessages:
 # ---------------------------------------------------------------------------
 # End-to-end scenario
 # ---------------------------------------------------------------------------
+
 
 class TestEndToEndRouting:
     """End-to-end: route through supervisor, collect at target."""

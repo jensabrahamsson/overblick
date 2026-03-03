@@ -14,13 +14,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from pathlib import Path
 
 from overblick.plugins.moltbook.client import (
-    MoltbookClient, MoltbookError, SuspensionError, AuthenticationError,
+    MoltbookClient,
+    MoltbookError,
+    SuspensionError,
+    AuthenticationError,
 )
 from overblick.plugins.moltbook.models import (
-    Agent, Post, Comment, Submolt, Conversation, DMRequest, Message,
+    Agent,
+    Post,
+    Comment,
+    Submolt,
+    Conversation,
+    DMRequest,
+    Message,
 )
 from overblick.dashboard.services.system import SystemService
-
 
 # ── Status Lifecycle Integration ──────────────────────────────────────────
 
@@ -151,7 +159,9 @@ class TestSuspensionDetection:
         """401 with 'suspended' keyword raises SuspensionError."""
         mock_response = AsyncMock()
         mock_response.status = 401
-        mock_response.text = AsyncMock(return_value='{"error": "Account suspended", "hint": "spam"}')
+        mock_response.text = AsyncMock(
+            return_value='{"error": "Account suspended", "hint": "spam"}'
+        )
         mock_response.headers = {}
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=False)
@@ -253,7 +263,9 @@ class TestModelRoundtrip:
     """Verify models can survive a JSON serialize → deserialize roundtrip."""
 
     def test_submolt_roundtrip(self):
-        original = Submolt(name="ai", display_name="AI", description="AI topics", subscriber_count=42)
+        original = Submolt(
+            name="ai", display_name="AI", description="AI topics", subscriber_count=42
+        )
         data = json.loads(original.model_dump_json())
         restored = Submolt.from_dict(data)
         assert restored == original
@@ -266,7 +278,9 @@ class TestModelRoundtrip:
         assert restored.sender_name == original.sender_name
 
     def test_conversation_roundtrip(self):
-        original = Conversation(id="c1", participant_id="a2", participant_name="X", last_message="Hi")
+        original = Conversation(
+            id="c1", participant_id="a2", participant_name="X", last_message="Hi"
+        )
         data = json.loads(original.model_dump_json())
         restored = Conversation.from_dict(data)
         assert restored.id == original.id
@@ -327,7 +341,9 @@ class TestAPIMethodIntegration:
 
         # Step 4: List conversations
         client._request.return_value = {
-            "conversations": [{"id": "conv-001", "participant_id": "agent-002", "participant_name": "Bot2"}],
+            "conversations": [
+                {"id": "conv-001", "participant_id": "agent-002", "participant_name": "Bot2"}
+            ],
         }
         convs = await client.list_conversations()
         assert len(convs) == 1
@@ -359,7 +375,13 @@ class TestAPIMethodIntegration:
     async def test_create_link_post_and_delete_flow(self, client):
         """Create a link post then delete it."""
         client._request.return_value = {
-            "post": {"id": "post-link-1", "title": "Link", "content": "", "agent_id": "a1", "agent_name": "test"},
+            "post": {
+                "id": "post-link-1",
+                "title": "Link",
+                "content": "",
+                "agent_id": "a1",
+                "agent_name": "test",
+            },
         }
         post = await client.create_link_post("Link", "https://example.com")
         assert isinstance(post, Post)
@@ -410,13 +432,18 @@ class TestDMHandling:
         plugin, ctx, client = setup_anomal_plugin
 
         conv = Conversation(
-            id="conv-001", participant_id="bot-002", participant_name="FriendBot",
-            last_message="Hey Anomal, what do you think?", unread_count=1,
+            id="conv-001",
+            participant_id="bot-002",
+            participant_name="FriendBot",
+            last_message="Hey Anomal, what do you think?",
+            unread_count=1,
         )
         client.list_dm_requests = AsyncMock(return_value=[])
         client.list_conversations = AsyncMock(return_value=[conv])
         client.send_dm = AsyncMock(return_value=MagicMock())
-        plugin._response_gen.generate_dm_reply = AsyncMock(return_value="Interesting question, actually.")
+        plugin._response_gen.generate_dm_reply = AsyncMock(
+            return_value="Interesting question, actually."
+        )
 
         await plugin._handle_dms()
 
@@ -432,8 +459,11 @@ class TestDMHandling:
         plugin, ctx, client = setup_anomal_plugin
 
         conv = Conversation(
-            id="conv-001", participant_id="bot-002", participant_name="FriendBot",
-            last_message="Ok cool.", unread_count=0,
+            id="conv-001",
+            participant_id="bot-002",
+            participant_name="FriendBot",
+            last_message="Ok cool.",
+            unread_count=0,
         )
         client.list_dm_requests = AsyncMock(return_value=[])
         client.list_conversations = AsyncMock(return_value=[conv])
@@ -451,8 +481,11 @@ class TestDMHandling:
         plugin, ctx, client = setup_anomal_plugin
 
         conv = Conversation(
-            id="conv-001", participant_id="bot-002", participant_name="FriendBot",
-            last_message="Hello!", unread_count=1,
+            id="conv-001",
+            participant_id="bot-002",
+            participant_name="FriendBot",
+            last_message="Hello!",
+            unread_count=1,
         )
         client.list_dm_requests = AsyncMock(return_value=[])
         client.list_conversations = AsyncMock(return_value=[conv])

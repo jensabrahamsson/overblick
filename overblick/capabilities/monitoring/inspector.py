@@ -27,17 +27,19 @@ from overblick.capabilities.monitoring.models import (
 logger = logging.getLogger(__name__)
 
 # Whitelisted executables — ONLY these can be run
-_ALLOWED_COMMANDS: frozenset[str] = frozenset({
-    "vm_stat",
-    "sysctl",
-    "ps",
-    "uptime",
-    "pmset",
-    "free",
-    "nproc",
-    "cat",
-    "hostname",
-})
+_ALLOWED_COMMANDS: frozenset[str] = frozenset(
+    {
+        "vm_stat",
+        "sysctl",
+        "ps",
+        "uptime",
+        "pmset",
+        "free",
+        "nproc",
+        "cat",
+        "hostname",
+    }
+)
 
 # Timeout per command (seconds)
 _CMD_TIMEOUT = 5.0
@@ -69,14 +71,14 @@ async def _run_command(*args: str) -> str:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(), timeout=_CMD_TIMEOUT
-        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=_CMD_TIMEOUT)
         if proc.returncode != 0:
-            logger.debug("Command %s returned %d: %s", args, proc.returncode, stderr.decode().strip())
+            logger.debug(
+                "Command %s returned %d: %s", args, proc.returncode, stderr.decode().strip()
+            )
             return ""
         return stdout.decode().strip()
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Command timed out after %.1fs: %s", _CMD_TIMEOUT, args)
         try:
             proc.kill()
@@ -273,7 +275,14 @@ class HostInspectionCapability:
         if not size_str or size_str == "0":
             return 0.0
 
-        multipliers = {"B": 1 / (1024**3), "K": 1 / (1024**2), "M": 1 / 1024, "G": 1, "T": 1024, "P": 1024**2}
+        multipliers = {
+            "B": 1 / (1024**3),
+            "K": 1 / (1024**2),
+            "M": 1 / 1024,
+            "G": 1,
+            "T": 1024,
+            "P": 1024**2,
+        }
 
         suffix = size_str[-1].upper()
         if suffix == "I":

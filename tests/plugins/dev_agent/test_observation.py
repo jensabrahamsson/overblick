@@ -31,10 +31,13 @@ def observer(mock_db, tmp_path):
 
 class TestEnqueueIPC:
     def test_enqueue_bug_report(self, observer):
-        observer.enqueue_ipc_message("bug_report", {
-            "title": "Test bug",
-            "ref": "issue#1",
-        })
+        observer.enqueue_ipc_message(
+            "bug_report",
+            {
+                "title": "Test bug",
+                "ref": "issue#1",
+            },
+        )
         assert len(observer._ipc_queue) == 1
 
     def test_queue_limit(self, observer):
@@ -54,10 +57,13 @@ class TestObserve:
 
     @pytest.mark.asyncio
     async def test_processes_ipc_messages(self, observer, mock_db):
-        observer.enqueue_ipc_message("bug_report", {
-            "title": "IPC bug",
-            "ref": "issue#99",
-        })
+        observer.enqueue_ipc_message(
+            "bug_report",
+            {
+                "title": "IPC bug",
+                "ref": "issue#99",
+            },
+        )
 
         obs = await observer.observe()
         assert obs.ipc_messages_received == 1
@@ -75,10 +81,13 @@ class TestObserve:
         )
         mock_db.get_bug_by_ref = AsyncMock(return_value=existing)
 
-        observer.enqueue_ipc_message("bug_report", {
-            "title": "IPC bug",
-            "ref": "issue#99",
-        })
+        observer.enqueue_ipc_message(
+            "bug_report",
+            {
+                "title": "IPC bug",
+                "ref": "issue#99",
+            },
+        )
 
         obs = await observer.observe()
         # upsert_bug should NOT have been called for duplicates

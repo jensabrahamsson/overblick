@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class ResponseVerdict(Enum):
     """Classification of an API response."""
+
     NORMAL = "normal"
     CHALLENGE = "challenge"
     SUSPICIOUS = "suspicious"
@@ -32,9 +33,10 @@ class ResponseVerdict(Enum):
 
 class RouterResult(BaseModel):
     """Result of response inspection."""
+
     verdict: ResponseVerdict
     confidence: float = 1.0
-    details: Optional[dict[str, Any]] = None
+    details: dict[str, Any] | None = None
     analysis_time_ms: float = 0.0
 
 
@@ -120,12 +122,12 @@ class ResponseRouter:
         if heuristic_result.verdict == ResponseVerdict.CHALLENGE:
             heuristic_result.analysis_time_ms = (time.monotonic() - start) * 1000
             self._challenge_count += 1
-            logger.warning(f"ResponseRouter: CHALLENGE detected (heuristic)")
+            logger.warning("ResponseRouter: CHALLENGE detected (heuristic)")
             return heuristic_result
 
         if heuristic_result.verdict == ResponseVerdict.SUSPICIOUS:
             heuristic_result.analysis_time_ms = (time.monotonic() - start) * 1000
-            logger.warning(f"ResponseRouter: SUSPICIOUS content (heuristic)")
+            logger.warning("ResponseRouter: SUSPICIOUS content (heuristic)")
             return heuristic_result
 
         # LLM analysis for uncertain cases (only if text is substantial)
@@ -174,7 +176,7 @@ class ResponseRouter:
 
         return RouterResult(verdict=ResponseVerdict.NORMAL)
 
-    async def _llm_inspect(self, text: str) -> Optional[RouterResult]:
+    async def _llm_inspect(self, text: str) -> RouterResult | None:
         """LLM-based inspection."""
         try:
             # Truncate for speed

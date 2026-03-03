@@ -127,7 +127,8 @@ class TestAgentActions:
         cookie_value, csrf_token = session_cookie
         # Simulate supervisor offline
         app.state.supervisor_service.start_agent.return_value = {
-            "success": False, "error": "Supervisor not reachable",
+            "success": False,
+            "error": "Supervisor not reachable",
         }
         app.state.supervisor_service.get_status.return_value = None
         app.state.supervisor_service.get_agents.return_value = []
@@ -145,7 +146,8 @@ class TestAgentActions:
     async def test_stop_agent_supervisor_offline(self, app, client, session_cookie):
         cookie_value, csrf_token = session_cookie
         app.state.supervisor_service.stop_agent.return_value = {
-            "success": False, "error": "Supervisor not reachable",
+            "success": False,
+            "error": "Supervisor not reachable",
         }
         app.state.supervisor_service.get_status.return_value = None
         app.state.supervisor_service.get_agents.return_value = []

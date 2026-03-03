@@ -34,7 +34,7 @@ class OpeningSelector:
 
     def __init__(
         self,
-        phrases: Optional[list[str]] = None,
+        phrases: list[str] | None = None,
         history_size: int = 10,
     ):
         self._phrases = phrases or DEFAULT_OPENINGS

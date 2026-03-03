@@ -18,24 +18,24 @@ import asyncio
 import json
 import logging
 import random
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityRegistry
 from overblick.core.plugin_base import PluginBase, PluginContext
 
-from .client import MoltbookClient, MoltbookError, RateLimitError, SuspensionError
 from .challenge_handler import PerContentChallengeHandler
-from .response_router import ResponseRouter
 from .challenge_solver import MoltCaptchaSolver, is_challenge_text
+from .client import MoltbookClient, MoltbookError, RateLimitError, SuspensionError
 from .decision_engine import DecisionEngine
-from .response_gen import ResponseGenerator
 from .feed_processor import FeedProcessor
-from .reply_queue import ReplyQueueManager
 from .heartbeat import HeartbeatManager
-from .opening_selector import OpeningSelector
 from .knowledge_loader import KnowledgeLoader
+from .opening_selector import OpeningSelector
+from .reply_queue import ReplyQueueManager
+from .response_gen import ResponseGenerator
+from .response_router import ResponseRouter
 
 logger = logging.getLogger(__name__)
 
@@ -53,15 +53,15 @@ class MoltbookPlugin(PluginBase):
     def __init__(self, ctx: PluginContext):
         super().__init__(ctx)
 
-        self._client: Optional[MoltbookClient] = None
-        self._decision_engine: Optional[DecisionEngine] = None
-        self._response_gen: Optional[ResponseGenerator] = None
-        self._feed_processor: Optional[FeedProcessor] = None
-        self._reply_queue: Optional[ReplyQueueManager] = None
-        self._heartbeat: Optional[HeartbeatManager] = None
-        self._opening_selector: Optional[OpeningSelector] = None
-        self._knowledge_loader: Optional[KnowledgeLoader] = None
-        self._challenge_handler: Optional[PerContentChallengeHandler] = None
+        self._client: MoltbookClient | None = None
+        self._decision_engine: DecisionEngine | None = None
+        self._response_gen: ResponseGenerator | None = None
+        self._feed_processor: FeedProcessor | None = None
+        self._reply_queue: ReplyQueueManager | None = None
+        self._heartbeat: HeartbeatManager | None = None
+        self._opening_selector: OpeningSelector | None = None
+        self._knowledge_loader: KnowledgeLoader | None = None
+        self._challenge_handler: PerContentChallengeHandler | None = None
 
         # Capabilities (loaded via CapabilityRegistry)
         self._capabilities: dict[str, CapabilityBase] = {}
@@ -75,15 +75,15 @@ class MoltbookPlugin(PluginBase):
         self._tick_count = 0
         self._comments_this_cycle = 0
         self._max_comments_per_cycle = 2
-        self._suspended_until: Optional[datetime] = None
+        self._suspended_until: datetime | None = None
         self._dms_supported: bool = True
         self._dm_consecutive_404s: int = 0  # Track consecutive 404s before disabling
-        self._dm_disabled_until: Optional[datetime] = None  # Re-check after cooldown
+        self._dm_disabled_until: datetime | None = None  # Re-check after cooldown
 
         # Circuit breaker: exponential backoff on consecutive API failures
         self._consecutive_api_failures: int = 0
         self._max_backoff_multiplier: int = 8
-        self._dream_journal_posted_date: Optional[date] = None
+        self._dream_journal_posted_date: date | None = None
         self._processed_dm_convos: set[str] = set()  # Dedup within a single tick
 
     async def setup(self) -> None:
@@ -119,9 +119,7 @@ class MoltbookPlugin(PluginBase):
             import os
 
             if os.environ.get("OVERBLICK_RAW_LLM", "0") == "1":
-                logger.warning(
-                    "Using raw LLM client for challenge handler (OVERBLICK_RAW_LLM=1)"
-                )
+                logger.warning("Using raw LLM client for challenge handler (OVERBLICK_RAW_LLM=1)")
                 self._challenge_handler = PerContentChallengeHandler(
                     llm_client=self.ctx.llm_client,
                     api_key=api_key,
@@ -138,18 +136,18 @@ class MoltbookPlugin(PluginBase):
                     "No LLM pipeline available and raw client disabled; challenge handling disabled"
                 )
         else:
-            logger.warning(
-                "No LLM client or pipeline available; challenge handling disabled"
-            )
+            logger.warning("No LLM client or pipeline available; challenge handling disabled")
 
         # Create Moltbook client
         self._client = MoltbookClient(
             api_key=api_key,
             agent_id=agent_id,
             identity_name=identity.name,
-            requests_per_minute=identity.schedule.get("requests_per_minute", 100)
-            if hasattr(identity.schedule, "get")
-            else 100,
+            requests_per_minute=(
+                identity.schedule.get("requests_per_minute", 100)
+                if hasattr(identity.schedule, "get")
+                else 100
+            ),
             challenge_handler=self._challenge_handler,
             response_router=response_router,
         )
@@ -288,9 +286,7 @@ class MoltbookPlugin(PluginBase):
 
         # Circuit breaker: skip ticks when API is failing consecutively
         if self._consecutive_api_failures >= 3:
-            backoff = min(
-                2 ** (self._consecutive_api_failures - 3), self._max_backoff_multiplier
-            )
+            backoff = min(2 ** (self._consecutive_api_failures - 3), self._max_backoff_multiplier)
             if self._tick_count % backoff != 0:
                 logger.debug(
                     "Circuit breaker active (%d failures, skipping %d/%d ticks)",
@@ -301,20 +297,13 @@ class MoltbookPlugin(PluginBase):
                 return
 
         # Check suspension backoff — skip all activity until suspension expires
-        if self._suspended_until and datetime.now(timezone.utc) < self._suspended_until:
-            remaining = (
-                self._suspended_until - datetime.now(timezone.utc)
-            ).total_seconds() / 3600
-            logger.debug(
-                "Suspended backoff active (%.1fh remaining), skipping tick", remaining
-            )
+        if self._suspended_until and datetime.now(UTC) < self._suspended_until:
+            remaining = (self._suspended_until - datetime.now(UTC)).total_seconds() / 3600
+            logger.debug("Suspended backoff active (%.1fh remaining), skipping tick", remaining)
             return
 
         # Check quiet hours
-        if (
-            self.ctx.quiet_hours_checker
-            and self.ctx.quiet_hours_checker.is_quiet_hours()
-        ):
+        if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
             logger.debug("Quiet hours active, skipping tick")
             return
 
@@ -324,9 +313,7 @@ class MoltbookPlugin(PluginBase):
         # Apply mood cycle threshold offset to engagement decisions
         mood_cap = self._capabilities.get("mood_cycle")
         if mood_cap and self._decision_engine:
-            base_threshold = self.ctx.identity.raw_config.get(
-                "engagement_threshold", 35.0
-            )
+            base_threshold = self.ctx.identity.raw_config.get("engagement_threshold", 35.0)
             offset = mood_cap.get_threshold_offset()
             self._decision_engine._threshold = base_threshold + offset
 
@@ -405,7 +392,7 @@ class MoltbookPlugin(PluginBase):
                 dt = e.suspended_until_dt
                 # Ensure UTC-aware (assume UTC if API returns naive timestamp)
                 if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
+                    dt = dt.replace(tzinfo=UTC)
                 self._suspended_until = dt
                 logger.error(
                     "Account SUSPENDED until %s (from API). Reason: %s",
@@ -413,7 +400,7 @@ class MoltbookPlugin(PluginBase):
                     e.reason,
                 )
             else:
-                self._suspended_until = datetime.now(timezone.utc) + timedelta(hours=1)
+                self._suspended_until = datetime.now(UTC) + timedelta(hours=1)
                 logger.warning(
                     "Account SUSPENDED — no expiry in response, backing off 1h (until %s). Reason: %s",
                     self._suspended_until.isoformat(),
@@ -423,8 +410,7 @@ class MoltbookPlugin(PluginBase):
                 action="suspension_detected",
                 details={
                     "reason": e.reason,
-                    "suspended_until": e.suspended_until
-                    or self._suspended_until.isoformat(),
+                    "suspended_until": e.suspended_until or self._suspended_until.isoformat(),
                     "identity": self.ctx.identity.name,
                 },
             )
@@ -479,9 +465,7 @@ class MoltbookPlugin(PluginBase):
                 )
                 if relevant:
                     learnings_text = "\n".join(f"- {l.content}" for l in relevant)
-                    extra_context += (
-                        f"\n\nRelevant things you've learned:\n{learnings_text}\n"
-                    )
+                    extra_context += f"\n\nRelevant things you've learned:\n{learnings_text}\n"
             except Exception as e:
                 logger.debug("Could not fetch relevant learnings: %s", e)
 
@@ -515,9 +499,7 @@ class MoltbookPlugin(PluginBase):
 
         try:
             comment = await self._client.create_comment(post.id, response)
-            await self.ctx.engagement_db.record_engagement(
-                post.id, "comment", decision.score
-            )
+            await self.ctx.engagement_db.record_engagement(post.id, "comment", decision.score)
             if comment.id:
                 await self.ctx.engagement_db.track_my_comment(comment.id, post.id)
             self._comments_this_cycle += 1
@@ -531,9 +513,7 @@ class MoltbookPlugin(PluginBase):
             if self.ctx.learning_store:
                 from overblick.core.learning import LearningExtractor
 
-                candidates = LearningExtractor.extract(
-                    post.content, source_agent=post.agent_name
-                )
+                candidates = LearningExtractor.extract(post.content, source_agent=post.agent_name)
                 for c in candidates:
                     await self.ctx.learning_store.propose(
                         content=c["content"],
@@ -581,9 +561,7 @@ class MoltbookPlugin(PluginBase):
         Checks at most 3 recent posts per tick to limit API calls.
         """
         max_posts_to_check = self.ctx.identity.raw_config.get("reply_check_limit", 3)
-        my_post_ids = await self.ctx.engagement_db.get_my_post_ids(
-            limit=max_posts_to_check
-        )
+        my_post_ids = await self.ctx.engagement_db.get_my_post_ids(limit=max_posts_to_check)
         if not my_post_ids:
             return
 
@@ -605,9 +583,7 @@ class MoltbookPlugin(PluginBase):
                         self.ctx.identity.name,
                     )
                     if is_challenge_text(comment.content, agent_name):
-                        logger.info(
-                            "MoltCaptcha challenge detected from %s", comment.agent_name
-                        )
+                        logger.info("MoltCaptcha challenge detected from %s", comment.agent_name)
                         await self._handle_moltcaptcha(post.id, comment)
                         await self.ctx.engagement_db.mark_reply_processed(
                             comment.id,
@@ -679,9 +655,7 @@ class MoltbookPlugin(PluginBase):
 
         for post_id in post_ids:
             try:
-                my_comment_ids = (
-                    await self.ctx.engagement_db.get_my_comment_ids_for_post(post_id)
-                )
+                my_comment_ids = await self.ctx.engagement_db.get_my_comment_ids_for_post(post_id)
                 if not my_comment_ids:
                     continue
 
@@ -750,7 +724,7 @@ class MoltbookPlugin(PluginBase):
         """
         # Re-enable DMs after cooldown period (6 hours)
         if not self._dms_supported and self._dm_disabled_until:
-            if datetime.now(timezone.utc) >= self._dm_disabled_until:
+            if datetime.now(UTC) >= self._dm_disabled_until:
                 logger.info("DM cooldown expired, re-enabling DM handling")
                 self._dms_supported = True
                 self._dm_consecutive_404s = 0
@@ -797,9 +771,7 @@ class MoltbookPlugin(PluginBase):
                 )
 
                 if not response:
-                    logger.warning(
-                        "Empty DM reply generated for conv %s, skipping", conv.id
-                    )
+                    logger.warning("Empty DM reply generated for conv %s, skipping", conv.id)
                     continue
 
                 await self._client.send_dm(conv.id, response)
@@ -823,9 +795,7 @@ class MoltbookPlugin(PluginBase):
                 self._dm_consecutive_404s += 1
                 if self._dm_consecutive_404s >= 3:
                     self._dms_supported = False
-                    self._dm_disabled_until = datetime.now(timezone.utc) + timedelta(
-                        hours=6
-                    )
+                    self._dm_disabled_until = datetime.now(UTC) + timedelta(hours=6)
                     logger.warning(
                         "DM endpoint returned 404 %d times — disabling until %s",
                         self._dm_consecutive_404s,
@@ -854,9 +824,7 @@ class MoltbookPlugin(PluginBase):
 
         solution = solver.solve(parsed)
         if solution:
-            parent_id = (
-                getattr(source, "id", None) if hasattr(source, "agent_name") else None
-            )
+            parent_id = getattr(source, "id", None) if hasattr(source, "agent_name") else None
             await self._client.create_comment(post_id, solution, parent_id=parent_id)
             self.ctx.audit_log.log(
                 action="moltcaptcha_solved",
@@ -907,9 +875,7 @@ class MoltbookPlugin(PluginBase):
                     )
                     if relevant:
                         learnings_text = "\n".join(f"- {l.content}" for l in relevant)
-                        extra_context += (
-                            f"\n\nRelevant things you've learned:\n{learnings_text}\n"
-                        )
+                        extra_context += f"\n\nRelevant things you've learned:\n{learnings_text}\n"
                 except Exception as e:
                     logger.debug("Could not fetch relevant learnings for reply: %s", e)
 
@@ -922,9 +888,7 @@ class MoltbookPlugin(PluginBase):
             )
 
             if response:
-                await self._client.create_comment(
-                    post_id, response, parent_id=comment_id
-                )
+                await self._client.create_comment(post_id, response, parent_id=comment_id)
                 return True
 
         except Exception as e:
@@ -934,10 +898,7 @@ class MoltbookPlugin(PluginBase):
 
     async def post_heartbeat(self) -> bool:
         """Post a heartbeat (called by scheduler)."""
-        if (
-            self.ctx.quiet_hours_checker
-            and self.ctx.quiet_hours_checker.is_quiet_hours()
-        ):
+        if self.ctx.quiet_hours_checker and self.ctx.quiet_hours_checker.is_quiet_hours():
             return False
 
         # Dream priority: if a dream journal hasn't been posted yet today, skip
@@ -968,9 +929,7 @@ class MoltbookPlugin(PluginBase):
             learnings_text = "\n".join(f"- {l.content}" for l in approved)
             interactions_text = "(no recent interactions)"
             try:
-                interactions = await self.ctx.engagement_db.get_recent_interactions(
-                    limit=5
-                )
+                interactions = await self.ctx.engagement_db.get_recent_interactions(limit=5)
                 if interactions:
                     interactions_text = "\n".join(
                         f"- {i['action']} on post {i['post_id'][:8]}... (score: {i.get('relevance_score', 'N/A')})"
@@ -985,9 +944,7 @@ class MoltbookPlugin(PluginBase):
             )
             topic_index = 0
             topic_vars: dict[str, str] = {}
-            logger.info(
-                "Using learning-based heartbeat prompt (%d learnings)", len(approved)
-            )
+            logger.info("Using learning-based heartbeat prompt (%d learnings)", len(approved))
         else:
             heartbeat_prompt = getattr(
                 prompts,
@@ -1012,12 +969,12 @@ class MoltbookPlugin(PluginBase):
         # Anti-repetition: inject recent post titles as context (window=20)
         extra_context = self._gather_capability_context()
         try:
-            recent_titles = await self.ctx.engagement_db.get_recent_heartbeat_titles(
-                limit=20
-            )
+            recent_titles = await self.ctx.engagement_db.get_recent_heartbeat_titles(limit=20)
             if recent_titles:
                 titles_text = "\n".join(f"- {t}" for t in recent_titles)
-                extra_context += f"\n\nYour recent posts (DON'T repeat these topics):\n{titles_text}\n"
+                extra_context += (
+                    f"\n\nYour recent posts (DON'T repeat these topics):\n{titles_text}\n"
+                )
         except Exception as e:
             logger.debug("Could not fetch recent heartbeat titles: %s", e)
 
@@ -1034,11 +991,7 @@ class MoltbookPlugin(PluginBase):
         title, content, submolt = result
 
         # Use topic-specified submolt if available and not already set by LLM
-        if (
-            not use_learning_prompt
-            and heartbeat_topics
-            and topic_index < len(heartbeat_topics)
-        ):
+        if not use_learning_prompt and heartbeat_topics and topic_index < len(heartbeat_topics):
             topic_submolt = heartbeat_topics[topic_index].get("submolt")
             if topic_submolt and submolt in ("ai", "general"):
                 submolt = topic_submolt
@@ -1143,9 +1096,7 @@ class MoltbookPlugin(PluginBase):
                 action="dream_journal_posted",
                 details={"post_id": post.id, "title": title, "submolt": submolt},
             )
-            logger.info(
-                "Dream journal posted for %s: %s", self.ctx.identity.name, title
-            )
+            logger.info("Dream journal posted for %s: %s", self.ctx.identity.name, title)
             return True
 
         except RateLimitError:
@@ -1170,9 +1121,7 @@ class MoltbookPlugin(PluginBase):
             await self._client.close()
         logger.info("MoltbookPlugin teardown complete")
 
-    async def _setup_capabilities(
-        self, enabled_modules: list[str], system_prompt: str
-    ) -> None:
+    async def _setup_capabilities(self, enabled_modules: list[str], system_prompt: str) -> None:
         """Load and setup capabilities from enabled_modules list.
 
         If shared capabilities are available in ctx.capabilities (created by
@@ -1231,9 +1180,7 @@ class MoltbookPlugin(PluginBase):
             except Exception as e:
                 logger.warning("Capability tick error (%s): %s", cap.name, e)
 
-        enabled = [
-            c for c in self._capabilities.values() if getattr(c, "enabled", False)
-        ]
+        enabled = [c for c in self._capabilities.values() if getattr(c, "enabled", False)]
         if enabled:
             await asyncio.gather(*[_safe_tick(c) for c in enabled])
 
@@ -1249,7 +1196,7 @@ class MoltbookPlugin(PluginBase):
                     parts.append(ctx)
         return "".join(parts)
 
-    def get_capability(self, name: str) -> Optional[CapabilityBase]:
+    def get_capability(self, name: str) -> CapabilityBase | None:
         """Get a capability by name."""
         return self._capabilities.get(name)
 
@@ -1258,9 +1205,7 @@ class MoltbookPlugin(PluginBase):
         try:
             import importlib
 
-            return importlib.import_module(
-                f"overblick.identities.{identity_name}.prompts"
-            )
+            return importlib.import_module(f"overblick.identities.{identity_name}.prompts")
         except ImportError:
             logger.warning("No prompts module for identity %s", identity_name)
             return _FallbackPrompts()

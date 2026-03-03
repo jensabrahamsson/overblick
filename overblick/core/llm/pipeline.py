@@ -23,7 +23,7 @@ import time
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from overblick.core.exceptions import ConfigError
 from overblick.core.security.input_sanitizer import sanitize as sanitize_input
@@ -50,20 +50,20 @@ class PipelineResult(BaseModel):
     why the request was blocked.
     """
 
-    content: Optional[str] = None
+    content: str | None = None
     blocked: bool = False
-    block_reason: Optional[str] = None
-    block_stage: Optional[PipelineStage] = None
-    raw_response: Optional[dict] = None
+    block_reason: str | None = None
+    block_stage: PipelineStage | None = None
+    raw_response: dict | None = None
     duration_ms: float = 0.0
-    stages_passed: list[PipelineStage] = []
-    stage_timings: dict[str, float] = {}
+    stages_passed: list[PipelineStage] = Field(default_factory=list)
+    stage_timings: dict[str, float] = Field(default_factory=dict)
 
     # Deflection text to send back when blocked
-    deflection: Optional[str] = None
+    deflection: str | None = None
 
     # DeepSeek reasoner thinking process (only present when complexity=einstein)
-    reasoning_content: Optional[str] = None
+    reasoning_content: str | None = None
 
 
 class SafeLLMPipeline:
@@ -92,7 +92,7 @@ class SafeLLMPipeline:
         rate_limiter: Any = None,
         identity_name: str = "",
         rate_limit_key: str = "llm_pipeline",
-        strict: Optional[bool] = None,
+        strict: bool | None = None,
     ):
         self._llm = llm_client
         self._audit = audit_log
@@ -131,16 +131,16 @@ class SafeLLMPipeline:
         self,
         messages: list[dict[str, str]],
         user_id: str = "system",
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
         sanitize_messages: bool = True,
         skip_preflight: bool = False,
         skip_output_safety: bool = False,
         audit_action: str = "llm_chat",
-        audit_details: Optional[dict[str, Any]] = None,
+        audit_details: dict[str, Any] | None = None,
         priority: str = "low",
-        complexity: Optional[str] = None,
+        complexity: str | None = None,
     ) -> PipelineResult:
         """
         Send a chat request through the full security pipeline.
@@ -322,9 +322,7 @@ class SafeLLMPipeline:
 
         return result
 
-    def _sanitize_messages(
-        self, messages: list[dict[str, str]]
-    ) -> list[dict[str, str]]:
+    def _sanitize_messages(self, messages: list[dict[str, str]]) -> list[dict[str, str]]:
         """Sanitize all message content."""
         sanitized = []
         for msg in messages:
@@ -340,7 +338,7 @@ class SafeLLMPipeline:
         self,
         messages: list[dict[str, str]],
         user_id: str,
-    ) -> Optional[PipelineResult]:
+    ) -> PipelineResult | None:
         """Run preflight check on last user message. Returns PipelineResult if blocked."""
         if not self._preflight:
             self._warn_missing("preflight_checker")
@@ -375,9 +373,7 @@ class SafeLLMPipeline:
             )
         return None
 
-    def _run_output_safety(
-        self, content: str
-    ) -> Optional[tuple[bool, str, Optional[str]]]:
+    def _run_output_safety(self, content: str) -> tuple[bool, str, str | None] | None:
         """Run output safety check. Returns (blocked, text, reason) or None."""
         if not self._output_safety:
             self._warn_missing("output_safety")
@@ -400,7 +396,7 @@ class SafeLLMPipeline:
         self,
         result: PipelineResult,
         action: str,
-        details: Optional[dict[str, Any]],
+        details: dict[str, Any] | None,
     ) -> None:
         """Log a blocked request to audit."""
         if not self._audit:
@@ -421,7 +417,7 @@ class SafeLLMPipeline:
         self,
         result: PipelineResult,
         action: str,
-        details: Optional[dict[str, Any]],
+        details: dict[str, Any] | None,
         error: str,
     ) -> None:
         """Log an error to audit."""
@@ -451,7 +447,5 @@ class SafeLLMPipeline:
     def _warn_missing(self, component: str) -> None:
         """Warn about missing optional component (once per component)."""
         if component not in self._warned:
-            logger.warning(
-                "SafeLLMPipeline: %s not configured — stage skipped", component
-            )
+            logger.warning("SafeLLMPipeline: %s not configured — stage skipped", component)
             self._warned.add(component)

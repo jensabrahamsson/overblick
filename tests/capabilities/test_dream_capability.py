@@ -18,15 +18,19 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from overblick.capabilities.psychology.dream_system import (
-    DreamSystem, DreamType, DreamTone, Dream,
+    DreamSystem,
+    DreamType,
+    DreamTone,
+    Dream,
 )
 from overblick.capabilities.psychology.dream import (
-    DreamCapability, _load_dream_guidance,
+    DreamCapability,
+    _load_dream_guidance,
 )
 from overblick.core.capability import CapabilityContext
 
-
 # -- Fixtures ----------------------------------------------------------------
+
 
 def _make_ctx(
     identity_name: str = "cherry",
@@ -52,16 +56,19 @@ def _mock_pipeline_result(content: str = "", blocked: bool = False) -> MagicMock
 
 
 def _valid_dream_json() -> str:
-    return json.dumps({
-        "content": "dreamed I was in a glass room...",
-        "symbols": ["glass", "transparency", "masks"],
-        "tone": "tender",
-        "insight": "being seen is terrifying",
-        "potential_learning": "vulnerability opens doors",
-    })
+    return json.dumps(
+        {
+            "content": "dreamed I was in a glass room...",
+            "symbols": ["glass", "transparency", "masks"],
+            "tone": "tender",
+            "insight": "being seen is terrifying",
+            "potential_learning": "vulnerability opens doors",
+        }
+    )
 
 
 # -- tick() tests -----------------------------------------------------------
+
 
 class TestDreamCapabilityTick:
     @pytest.mark.asyncio
@@ -225,6 +232,7 @@ class TestDreamCapabilityTick:
 
 # -- get_prompt_context() tests -----------------------------------------------
 
+
 class TestDreamCapabilityPromptContext:
     @pytest.mark.asyncio
     async def test_get_prompt_context_from_recent_dreams(self):
@@ -253,6 +261,7 @@ class TestDreamCapabilityPromptContext:
 
 
 # -- _load_dream_guidance() tests ---------------------------------------------
+
 
 class TestLoadDreamGuidance:
     def test_returns_none_for_unknown_identity(self):
@@ -286,9 +295,12 @@ class TestLoadDreamGuidance:
         result = _load_dream_guidance("stal")
         assert result is not None
         expected = {
-            DreamType.EMPTY_CHAIR, DreamType.INFINITE_CABINET,
-            DreamType.LETTERS_UNKNOWN_TONGUE, DreamType.CLOCK_TOWER_DISCORD,
-            DreamType.REARRANGING_CORRIDORS, DreamType.EMPTY_TYPEWRITER,
+            DreamType.EMPTY_CHAIR,
+            DreamType.INFINITE_CABINET,
+            DreamType.LETTERS_UNKNOWN_TONGUE,
+            DreamType.CLOCK_TOWER_DISCORD,
+            DreamType.REARRANGING_CORRIDORS,
+            DreamType.EMPTY_TYPEWRITER,
         }
         loaded = set(result["guidance"].keys())
         assert expected == loaded
@@ -297,8 +309,10 @@ class TestLoadDreamGuidance:
         result = _load_dream_guidance("natt")
         assert result is not None
         expected = {
-            DreamType.OBSERVER_PARADOX, DreamType.GROUND_DISSOLVING,
-            DreamType.LANGUAGE_LIMIT, DreamType.RECURSION_DREAM,
+            DreamType.OBSERVER_PARADOX,
+            DreamType.GROUND_DISSOLVING,
+            DreamType.LANGUAGE_LIMIT,
+            DreamType.RECURSION_DREAM,
             DreamType.SILENCE_SPEAKING,
         }
         loaded = set(result["guidance"].keys())
@@ -315,6 +329,7 @@ class TestLoadDreamGuidance:
 
 
 # -- DreamCapability setup ---------------------------------------------------
+
 
 class TestDreamCapabilitySetup:
     @pytest.mark.asyncio

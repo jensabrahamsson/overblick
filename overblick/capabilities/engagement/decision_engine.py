@@ -10,7 +10,7 @@ import logging
 import re
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from rapidfuzz import fuzz
 
 logger = logging.getLogger(__name__)
@@ -18,21 +18,28 @@ logger = logging.getLogger(__name__)
 
 class EngagementDecision(BaseModel):
     """Result of an engagement evaluation."""
+
     should_engage: bool
     score: float
     action: str  # "comment", "upvote", "skip"
     reason: str
-    matched_keywords: list[str] = []
+    matched_keywords: list[str] = Field(default_factory=list)
     hostile: bool = False
 
 
 # Hostile content patterns — slurs, threats, pure spam
 _HOSTILE_PATTERNS = [
-    r"\bkill\s+your", r"\bdie\b.*\bbot\b", r"\bshut\s+up\b.*\bbot\b",
-    r"\bfuck\s+(off|you)\b", r"\bgo\s+to\s+hell\b",
-    r"\bkys\b", r"\bstfu\b",
-    r"\bn[i1]gg", r"\bf[a@]gg",
-    r"\bretard", r"\btr[a@]nny\b",
+    r"\bkill\s+your",
+    r"\bdie\b.*\bbot\b",
+    r"\bshut\s+up\b.*\bbot\b",
+    r"\bfuck\s+(off|you)\b",
+    r"\bgo\s+to\s+hell\b",
+    r"\bkys\b",
+    r"\bstfu\b",
+    r"\bn[i1]gg",
+    r"\bf[a@]gg",
+    r"\bretard",
+    r"\btr[a@]nny\b",
     r"(buy|click|visit)\s+(now|here|this)\s+(http|www)",  # spam
 ]
 _HOSTILE_RE = re.compile("|".join(_HOSTILE_PATTERNS), re.IGNORECASE)
@@ -47,7 +54,7 @@ class DecisionEngine:
 
     def __init__(
         self,
-        interest_keywords: list[str] = None,
+        interest_keywords: list[str] | None = None,
         engagement_threshold: float = 35.0,
         fuzzy_threshold: int = 75,
         self_agent_name: str = "",
@@ -57,7 +64,9 @@ class DecisionEngine:
         self._threshold = engagement_threshold
         self._fuzzy_threshold = fuzzy_threshold
         self._self_name = self_agent_name.lower()
-        self._relevant_submolts = {s.lower() for s in relevant_submolts} if relevant_submolts else set()
+        self._relevant_submolts = (
+            {s.lower() for s in relevant_submolts} if relevant_submolts else set()
+        )
 
     def evaluate_post(
         self,
@@ -70,7 +79,10 @@ class DecisionEngine:
         # Never engage with own posts
         if agent_name.lower() == self._self_name:
             return EngagementDecision(
-                should_engage=False, score=0.0, action="skip", reason="own post",
+                should_engage=False,
+                score=0.0,
+                action="skip",
+                reason="own post",
             )
 
         text = f"{title} {content}".lower()
@@ -85,8 +97,9 @@ class DecisionEngine:
             if keyword in text:
                 score += 20.0
                 matched.append(keyword)
-            elif any(fuzz.partial_ratio(keyword, word) >= self._fuzzy_threshold
-                     for word in long_words):
+            elif any(
+                fuzz.partial_ratio(keyword, word) >= self._fuzzy_threshold for word in long_words
+            ):
                 score += 10.0
                 matched.append(f"~{keyword}")
 
@@ -124,15 +137,21 @@ class DecisionEngine:
         """Evaluate whether to reply to a comment on our post."""
         if commenter_name.lower() == self._self_name:
             return EngagementDecision(
-                should_engage=False, score=0.0, action="skip", reason="own comment",
+                should_engage=False,
+                score=0.0,
+                action="skip",
+                reason="own comment",
             )
 
         # Check for hostile/spam content
         is_hostile = bool(_HOSTILE_RE.search(comment_content))
         if is_hostile:
             return EngagementDecision(
-                should_engage=False, score=0.0, action="skip",
-                reason="hostile content", hostile=True,
+                should_engage=False,
+                score=0.0,
+                action="skip",
+                reason="hostile content",
+                hostile=True,
             )
 
         score = 30.0  # Base score (someone replied to us)

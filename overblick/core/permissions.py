@@ -32,13 +32,14 @@ import time
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
 
 class PermissionAction(Enum):
     """Standard agent actions that can be permission-controlled."""
+
     POST = "post"
     COMMENT = "comment"
     REPLY = "reply"
@@ -62,6 +63,7 @@ class PermissionRule(BaseModel):
         requires_approval: Whether boss-agent approval is needed
         cooldown_seconds: Minimum time between consecutive actions
     """
+
     model_config = ConfigDict(frozen=True)
 
     action: str
@@ -77,13 +79,14 @@ class PermissionSet(BaseModel):
 
     Holds all permission rules and provides lookup.
     """
-    rules: dict[str, PermissionRule] = {}
+
+    rules: dict[str, PermissionRule] = Field(default_factory=dict)
 
     # Default policy when an action has no explicit rule.
     # SECURITY: Default deny — actions must be explicitly permitted.
     default_allowed: bool = False
 
-    def get_rule(self, action: str) -> Optional[PermissionRule]:
+    def get_rule(self, action: str) -> PermissionRule | None:
         """Get the rule for an action, or None if no explicit rule."""
         return self.rules.get(action)
 
@@ -127,7 +130,8 @@ class PermissionSet(BaseModel):
 
 class _ActionTracker(BaseModel):
     """Tracks action invocations for rate limiting."""
-    timestamps: list[float] = []
+
+    timestamps: list[float] = Field(default_factory=list)
     last_action: float = 0.0
 
 
@@ -226,7 +230,7 @@ class PermissionChecker:
         """
         self._pending_approvals.add(action)
 
-    def denial_reason(self, action: str) -> Optional[str]:
+    def denial_reason(self, action: str) -> str | None:
         """
         Get a human-readable reason why an action is denied.
 

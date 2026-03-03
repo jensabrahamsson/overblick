@@ -28,5 +28,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[gateway,dashboard,dev]"
 
+      - name: Lint with ruff and black
+        run: |
+          ruff check .
+          black --check --diff .
+          mypy --ignore-missing-imports --disable-error-code misc overblick/
+
       - name: Run tests
         run: python -m pytest tests/ -v -m "not llm and not e2e and not llm_slow" --ignore=tests/test_dashboard_playwright.py --tb=short

@@ -22,9 +22,9 @@ logger = logging.getLogger(__name__)
 # Regex for standard Python logging lines: "2026-02-26 03:15:42,123 - module - LEVEL - message"
 _LOG_LINE_PATTERN = re.compile(
     r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]?\d*)"  # timestamp
-    r"\s*[-–]\s*(\S+)"                                       # module
-    r"\s*[-–]\s*(ERROR|CRITICAL|WARNING)"                    # level
-    r"\s*[-–]\s*(.+)$",                                      # message
+    r"\s*[-–]\s*(\S+)"  # module
+    r"\s*[-–]\s*(ERROR|CRITICAL|WARNING)"  # level
+    r"\s*[-–]\s*(.+)$",  # message
     re.IGNORECASE,
 )
 
@@ -98,7 +98,9 @@ class LogScanner:
         )
 
     def scan_file(
-        self, file_path: Path, identity: str,
+        self,
+        file_path: Path,
+        identity: str,
     ) -> tuple[list[LogEntry], int]:
         """
         Scan a log file from the stored byte offset.
@@ -123,9 +125,9 @@ class LogScanner:
 
         entries: list[LogEntry] = []
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
                 f.seek(offset)
-                current_entry: Optional[LogEntry] = None
+                current_entry: LogEntry | None = None
                 traceback_lines: list[str] = []
                 line_number = 0
 
@@ -138,7 +140,9 @@ class LogScanner:
                         # Save previous entry if any
                         if current_entry:
                             if traceback_lines:
-                                current_entry.traceback = "\n".join(traceback_lines)[:_MAX_TRACEBACK_LEN]
+                                current_entry.traceback = "\n".join(traceback_lines)[
+                                    :_MAX_TRACEBACK_LEN
+                                ]
                             entries.append(current_entry)
 
                         level = match.group(3).upper()

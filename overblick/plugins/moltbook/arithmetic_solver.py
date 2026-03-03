@@ -13,7 +13,6 @@ from typing import Optional
 
 from .deobfuscator import _ONES, _TENS, _edit_distance_one
 
-
 # Words to ignore when parsing word numbers
 _FILLER = frozenset(
     {
@@ -78,7 +77,7 @@ _OP_DETECT = {
 }
 
 
-def _fuzzy_match(word: str, dictionary: dict[str, int]) -> Optional[tuple[str, int]]:
+def _fuzzy_match(word: str, dictionary: dict[str, int]) -> tuple[str, int] | None:
     """Match a word against a dictionary with tolerance for deobfuscation artifacts.
 
     Conservative matching to avoid false positives from obfuscation fragments:
@@ -183,7 +182,7 @@ def _detect_operation(text: str) -> str:
     return "add"
 
 
-def _compute(numbers: list[int | float], op: str) -> Optional[float]:
+def _compute(numbers: list[int | float], op: str) -> float | None:
     """Compute result from numbers and operation."""
     if len(numbers) < 2:
         return None
@@ -206,7 +205,7 @@ def _compute(numbers: list[int | float], op: str) -> Optional[float]:
     return None
 
 
-def _solve_digit_expression(text: str) -> Optional[str]:
+def _solve_digit_expression(text: str) -> str | None:
     """Solve pure digit arithmetic expressions like '32 + 18' or '5 * 3'.
 
     Uses safe manual parsing — no dynamic code execution.
@@ -217,9 +216,7 @@ def _solve_digit_expression(text: str) -> Optional[str]:
         return None
 
     # Pick the longest candidate containing an operator
-    candidates = [
-        m.strip() for m in matches if re.search(r"[+\-*/^]", m) and re.search(r"\d", m)
-    ]
+    candidates = [m.strip() for m in matches if re.search(r"[+\-*/^]", m) and re.search(r"\d", m)]
     if not candidates:
         return None
 
@@ -230,9 +227,7 @@ def _solve_digit_expression(text: str) -> Optional[str]:
     expr = expr.replace("^", "**")
 
     # Try simple binary: a op b
-    m = re.match(
-        r"^\s*(-?\d+(?:\.\d+)?)\s*([+\-*/]|\*\*)\s*(-?\d+(?:\.\d+)?)\s*$", expr
-    )
+    m = re.match(r"^\s*(-?\d+(?:\.\d+)?)\s*([+\-*/]|\*\*)\s*(-?\d+(?:\.\d+)?)\s*$", expr)
     if m:
         a, op, b = float(m.group(1)), m.group(2), float(m.group(3))
         try:
@@ -279,7 +274,7 @@ def _solve_digit_expression(text: str) -> Optional[str]:
     return None
 
 
-def solve_arithmetic(text: str) -> Optional[str]:
+def solve_arithmetic(text: str) -> str | None:
     """Programmatic arithmetic solver — fast-path before LLM.
 
     Tries three strategies in order:
@@ -305,12 +300,7 @@ def solve_arithmetic(text: str) -> Optional[str]:
     # Confidence guard: if using word numbers and ALL are < 20 in a long text,
     # we likely missed a tens-word due to obfuscation (e.g. "t wen ty" → lost "twenty",
     # only found "five"). Bail out and let the LLM handle it.
-    if (
-        not digit_numbers
-        and numbers
-        and len(text) > 60
-        and all(n < 20 for n in numbers)
-    ):
+    if not digit_numbers and numbers and len(text) > 60 and all(n < 20 for n in numbers):
         return None
 
     if len(numbers) >= 2:

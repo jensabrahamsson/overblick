@@ -66,14 +66,18 @@ class ActionExecutor:
             if outcome.success:
                 logger.info(
                     "Agent executor: %s on %s — %s (%.0fms)",
-                    action.action_type, action.target,
-                    outcome.result[:100], elapsed_ms,
+                    action.action_type,
+                    action.target,
+                    outcome.result[:100],
+                    elapsed_ms,
                 )
             else:
                 logger.warning(
                     "Agent executor: %s on %s FAILED — %s (%.0fms)",
-                    action.action_type, action.target,
-                    outcome.error[:100], elapsed_ms,
+                    action.action_type,
+                    action.target,
+                    outcome.error[:100],
+                    elapsed_ms,
                 )
 
         return outcomes
@@ -97,7 +101,9 @@ class ActionExecutor:
         except Exception as e:
             logger.error(
                 "Agent executor: unhandled error in %s: %s",
-                action.action_type, e, exc_info=True,
+                action.action_type,
+                e,
+                exc_info=True,
             )
             return ActionOutcome(
                 action=action,

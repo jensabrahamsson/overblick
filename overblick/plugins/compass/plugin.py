@@ -63,7 +63,7 @@ class CompassPlugin(PluginBase):
         self._drift_history: list[DriftMetrics] = []
         self._alerts: list[DriftAlert] = []
 
-        self._state_file: Optional[Any] = None
+        self._state_file: Any | None = None
         self._tick_count: int = 0
 
     async def setup(self) -> None:
@@ -75,12 +75,8 @@ class CompassPlugin(PluginBase):
         compass_config = raw_config.get("compass", {})
 
         self._window_size = compass_config.get("window_size", _DEFAULT_WINDOW_SIZE)
-        self._baseline_samples = compass_config.get(
-            "baseline_samples", _DEFAULT_BASELINE_SAMPLES
-        )
-        self._drift_threshold = compass_config.get(
-            "drift_threshold", _DEFAULT_DRIFT_THRESHOLD
-        )
+        self._baseline_samples = compass_config.get("baseline_samples", _DEFAULT_BASELINE_SAMPLES)
+        self._drift_threshold = compass_config.get("drift_threshold", _DEFAULT_DRIFT_THRESHOLD)
 
         # State persistence
         self._state_file = self.ctx.data_dir / "compass_state.json"
@@ -193,16 +189,14 @@ class CompassPlugin(PluginBase):
 
         # Trim window
         if len(window) > self._window_size * 2:
-            self._windows[identity_name] = window[-self._window_size:]
+            self._windows[identity_name] = window[-self._window_size :]
 
         # Establish baseline if not yet established
         if identity_name not in self._baselines:
             if len(window) >= self._baseline_samples:
-                self._establish_baseline(identity_name, window[:self._baseline_samples])
+                self._establish_baseline(identity_name, window[: self._baseline_samples])
 
-    def _establish_baseline(
-        self, identity_name: str, samples: list[StyleMetrics]
-    ) -> None:
+    def _establish_baseline(self, identity_name: str, samples: list[StyleMetrics]) -> None:
         """Establish the baseline metrics from initial samples."""
         avg_metrics = self._average_metrics(samples)
         std_devs = self._compute_std_devs(samples)
@@ -225,14 +219,12 @@ class CompassPlugin(PluginBase):
         identity_name: str,
         baseline: BaselineProfile,
         window: list[StyleMetrics],
-    ) -> Optional[DriftMetrics]:
+    ) -> DriftMetrics | None:
         """Check current window against baseline for drift."""
-        recent = window[-self._window_size:]
+        recent = window[-self._window_size :]
         current = self._average_metrics(recent)
 
-        drift_score, drifted = compute_drift_score(
-            current, baseline.metrics, baseline.std_devs
-        )
+        drift_score, drifted = compute_drift_score(current, baseline.metrics, baseline.std_devs)
 
         return DriftMetrics(
             identity_name=identity_name,
@@ -249,24 +241,14 @@ class CompassPlugin(PluginBase):
 
         n = len(samples)
         return StyleMetrics(
-            avg_sentence_length=round(
-                sum(s.avg_sentence_length for s in samples) / n, 2
-            ),
+            avg_sentence_length=round(sum(s.avg_sentence_length for s in samples) / n, 2),
             avg_word_length=round(sum(s.avg_word_length for s in samples) / n, 2),
-            vocabulary_richness=round(
-                sum(s.vocabulary_richness for s in samples) / n, 4
-            ),
-            punctuation_frequency=round(
-                sum(s.punctuation_frequency for s in samples) / n, 2
-            ),
+            vocabulary_richness=round(sum(s.vocabulary_richness for s in samples) / n, 4),
+            punctuation_frequency=round(sum(s.punctuation_frequency for s in samples) / n, 2),
             question_ratio=round(sum(s.question_ratio for s in samples) / n, 4),
-            exclamation_ratio=round(
-                sum(s.exclamation_ratio for s in samples) / n, 4
-            ),
+            exclamation_ratio=round(sum(s.exclamation_ratio for s in samples) / n, 4),
             comma_frequency=round(sum(s.comma_frequency for s in samples) / n, 2),
-            formality_score=round(
-                sum(s.formality_score for s in samples) / n, 4
-            ),
+            formality_score=round(sum(s.formality_score for s in samples) / n, 4),
             word_count=sum(s.word_count for s in samples) // n,
         )
 
@@ -301,7 +283,7 @@ class CompassPlugin(PluginBase):
         return list(reversed(self._alerts[-limit:]))
 
     def get_drift_history(
-        self, identity_name: Optional[str] = None, limit: int = 50
+        self, identity_name: str | None = None, limit: int = 50
     ) -> list[DriftMetrics]:
         """Get drift history, optionally filtered by identity."""
         history = self._drift_history
@@ -309,7 +291,7 @@ class CompassPlugin(PluginBase):
             history = [h for h in history if h.identity_name == identity_name]
         return list(reversed(history[-limit:]))
 
-    def get_baseline(self, identity_name: str) -> Optional[BaselineProfile]:
+    def get_baseline(self, identity_name: str) -> BaselineProfile | None:
         """Get the baseline profile for an identity."""
         return self._baselines.get(identity_name)
 
@@ -322,9 +304,7 @@ class CompassPlugin(PluginBase):
                 for alert_data in data.get("alerts", []):
                     self._alerts.append(DriftAlert.model_validate(alert_data))
                 for hist_data in data.get("drift_history", []):
-                    self._drift_history.append(
-                        DriftMetrics.model_validate(hist_data)
-                    )
+                    self._drift_history.append(DriftMetrics.model_validate(hist_data))
             except Exception as e:
                 logger.warning("CompassPlugin: failed to load state: %s", e)
 
@@ -332,17 +312,10 @@ class CompassPlugin(PluginBase):
         if self._state_file:
             try:
                 data = {
-                    "baselines": {
-                        name: bl.model_dump()
-                        for name, bl in self._baselines.items()
-                    },
-                    "alerts": [
-                        a.model_dump()
-                        for a in self._alerts[-_MAX_ALERTS_STORED:]
-                    ],
+                    "baselines": {name: bl.model_dump() for name, bl in self._baselines.items()},
+                    "alerts": [a.model_dump() for a in self._alerts[-_MAX_ALERTS_STORED:]],
                     "drift_history": [
-                        h.model_dump()
-                        for h in self._drift_history[-_MAX_HISTORY_STORED:]
+                        h.model_dump() for h in self._drift_history[-_MAX_HISTORY_STORED:]
                     ],
                 }
                 self._state_file.parent.mkdir(parents=True, exist_ok=True)

@@ -264,10 +264,11 @@ class GitHubDB:
 
     # ── File tree cache ───────────────────────────────────────────────────
 
-    async def get_tree_meta(self, repo: str) -> Optional[dict]:
+    async def get_tree_meta(self, repo: str) -> dict | None:
         """Get cached tree metadata (root sha + last refresh time)."""
         row = await self._db.fetch_one(
-            "SELECT * FROM repo_tree_meta WHERE repo = ?", (repo,),
+            "SELECT * FROM repo_tree_meta WHERE repo = ?",
+            (repo,),
         )
         return dict(row) if row else None
 
@@ -306,12 +307,13 @@ class GitHubDB:
     async def clear_tree(self, repo: str) -> None:
         """Clear all cached tree entries for a repo."""
         await self._db.execute(
-            "DELETE FROM file_tree_cache WHERE repo = ?", (repo,),
+            "DELETE FROM file_tree_cache WHERE repo = ?",
+            (repo,),
         )
 
     # ── File content cache ────────────────────────────────────────────────
 
-    async def get_cached_file(self, repo: str, sha: str) -> Optional[CachedFile]:
+    async def get_cached_file(self, repo: str, sha: str) -> CachedFile | None:
         """Get a cached file by repo + sha (content-addressable)."""
         row = await self._db.fetch_one(
             "SELECT * FROM file_content_cache WHERE repo = ? AND sha = ?",
@@ -327,7 +329,7 @@ class GitHubDB:
             cached_at=row["cached_at"],
         )
 
-    async def get_cached_file_by_path(self, repo: str, path: str) -> Optional[CachedFile]:
+    async def get_cached_file_by_path(self, repo: str, path: str) -> CachedFile | None:
         """Get the most recent cached file by repo + path."""
         row = await self._db.fetch_one(
             "SELECT * FROM file_content_cache WHERE repo = ? AND path = ? "
@@ -353,7 +355,7 @@ class GitHubDB:
             (repo, path, sha, content, path, content),
         )
 
-    async def get_file_sha(self, repo: str, path: str) -> Optional[str]:
+    async def get_file_sha(self, repo: str, path: str) -> str | None:
         """Get the cached sha for a file path (from tree cache)."""
         row = await self._db.fetch_one(
             "SELECT sha FROM file_tree_cache WHERE repo = ? AND path = ?",
@@ -364,7 +366,10 @@ class GitHubDB:
     # ── PR tracking ───────────────────────────────────────────────────────
 
     async def upsert_pr_tracking(
-        self, repo: str, pr_number: int, **kwargs: Any,
+        self,
+        repo: str,
+        pr_number: int,
+        **kwargs: Any,
     ) -> None:
         """Insert or update PR tracking record."""
         title = kwargs.get("title", "")
@@ -383,9 +388,18 @@ class GitHubDB:
             "ON CONFLICT(repo, pr_number) DO UPDATE SET "
             "ci_status = ?, merged = ?, auto_merged = ?, last_checked = datetime('now')",
             (
-                repo, pr_number, title, author, is_dependabot,
-                version_bump, ci_status, merged, auto_merged,
-                ci_status, merged, auto_merged,
+                repo,
+                pr_number,
+                title,
+                author,
+                is_dependabot,
+                version_bump,
+                ci_status,
+                merged,
+                auto_merged,
+                ci_status,
+                merged,
+                auto_merged,
             ),
         )
 
@@ -400,15 +414,19 @@ class GitHubDB:
 
     # ── Repo summaries ────────────────────────────────────────────────────
 
-    async def get_repo_summary(self, repo: str) -> Optional[dict]:
+    async def get_repo_summary(self, repo: str) -> dict | None:
         """Get cached repo summary."""
         row = await self._db.fetch_one(
-            "SELECT * FROM repo_summaries WHERE repo = ?", (repo,),
+            "SELECT * FROM repo_summaries WHERE repo = ?",
+            (repo,),
         )
         return dict(row) if row else None
 
     async def upsert_repo_summary(
-        self, repo: str, summary: str, file_count: int = 0,
+        self,
+        repo: str,
+        summary: str,
+        file_count: int = 0,
         primary_language: str = "",
     ) -> None:
         """Insert or update repo summary."""
@@ -418,23 +436,31 @@ class GitHubDB:
             "ON CONFLICT(repo) DO UPDATE SET "
             "summary = ?, file_count = ?, primary_language = ?, "
             "last_generated = datetime('now')",
-            (repo, summary, file_count, primary_language,
-             summary, file_count, primary_language),
+            (repo, summary, file_count, primary_language, summary, file_count, primary_language),
         )
 
     # ── Stats ─────────────────────────────────────────────────────────────
 
     async def get_stats(self) -> dict:
         """Get aggregate statistics."""
-        events = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM events_seen",
-        ) or 0
-        comments = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM comments_posted",
-        ) or 0
-        repos = await self._db.fetch_scalar(
-            "SELECT COUNT(DISTINCT repo) FROM events_seen",
-        ) or 0
+        events = (
+            await self._db.fetch_scalar(
+                "SELECT COUNT(*) FROM events_seen",
+            )
+            or 0
+        )
+        comments = (
+            await self._db.fetch_scalar(
+                "SELECT COUNT(*) FROM comments_posted",
+            )
+            or 0
+        )
+        repos = (
+            await self._db.fetch_scalar(
+                "SELECT COUNT(DISTINCT repo) FROM events_seen",
+            )
+            or 0
+        )
 
         return {
             "events_processed": events,

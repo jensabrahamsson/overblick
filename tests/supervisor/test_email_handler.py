@@ -79,13 +79,18 @@ class TestEmailHandlerInit:
 
     @pytest.mark.asyncio
     async def test_lazy_init_on_first_handle(
-        self, handler, email_consultation_msg, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_personality,
     ):
         """First handle() call triggers initialization."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "notify", "reasoning": "Invoice matters need principal review"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"advised_action": "notify", "reasoning": "Invoice matters need principal review"}'
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -116,13 +121,18 @@ class TestEmailHandlerResponse:
 
     @pytest.mark.asyncio
     async def test_response_includes_advised_action(
-        self, handler, email_consultation_msg, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_personality,
     ):
         """Response includes advised action and reasoning."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "reply", "reasoning": "Standard invoice inquiry"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"advised_action": "reply", "reasoning": "Standard invoice inquiry"}'
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -148,9 +158,11 @@ class TestEmailHandlerResponse:
         )
 
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "ignore", "reasoning": "Automated newsletter"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"advised_action": "ignore", "reasoning": "Automated newsletter"}'
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -175,9 +187,11 @@ class TestEmailHandlerResponse:
         )
 
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "ask_boss", "reasoning": "Legal complexity requires escalation"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"advised_action": "ask_boss", "reasoning": "Legal complexity requires escalation"}'
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -189,7 +203,10 @@ class TestEmailHandlerResponse:
 
     @pytest.mark.asyncio
     async def test_fallback_when_llm_fails(
-        self, handler, email_consultation_msg, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_personality,
     ):
         """Returns fallback response when LLM call fails."""
         mock_pipeline = AsyncMock()
@@ -207,13 +224,16 @@ class TestEmailHandlerResponse:
 
     @pytest.mark.asyncio
     async def test_fallback_when_llm_blocked(
-        self, handler, email_consultation_msg, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_personality,
     ):
         """Returns fallback response when LLM output is blocked."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="", blocked=True, block_reason="safety filter"
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="", blocked=True, block_reason="safety filter")
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -231,9 +251,11 @@ class TestEmailHandlerJSONParsing:
     async def test_parses_clean_json(self, handler, email_consultation_msg, mock_personality):
         """Parses clean JSON response."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "notify", "reasoning": "Important"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"advised_action": "notify", "reasoning": "Important"}'
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -245,13 +267,18 @@ class TestEmailHandlerJSONParsing:
 
     @pytest.mark.asyncio
     async def test_parses_json_with_markdown_wrapper(
-        self, handler, email_consultation_msg, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_personality,
     ):
         """Parses JSON even when wrapped in markdown."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='Here is my advice:\n```json\n{"advised_action": "reply", "reasoning": "Quick response needed"}\n```'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='Here is my advice:\n```json\n{"advised_action": "reply", "reasoning": "Quick response needed"}\n```'
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -263,13 +290,18 @@ class TestEmailHandlerJSONParsing:
 
     @pytest.mark.asyncio
     async def test_extracts_action_from_text_when_json_fails(
-        self, handler, email_consultation_msg, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_personality,
     ):
         """Extracts action keywords from text when JSON parsing fails."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="I think you should ignore this automated newsletter message."
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content="I think you should ignore this automated newsletter message."
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -281,13 +313,16 @@ class TestEmailHandlerJSONParsing:
 
     @pytest.mark.asyncio
     async def test_uses_fallback_when_no_action_found(
-        self, handler, email_consultation_msg, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_personality,
     ):
         """Uses tentative_intent when no action can be extracted."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="This is unclear and difficult to categorize."
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="This is unclear and difficult to categorize.")
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -303,13 +338,19 @@ class TestEmailHandlerAudit:
 
     @pytest.mark.asyncio
     async def test_audit_logs_consultation_received(
-        self, handler, email_consultation_msg, mock_audit_log, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_audit_log,
+        mock_personality,
     ):
         """Consultation received is audit-logged."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "notify", "reasoning": "Review needed"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"advised_action": "notify", "reasoning": "Review needed"}'
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -321,7 +362,8 @@ class TestEmailHandlerAudit:
 
             # Check that consultation details are logged
             received_call = [
-                call for call in mock_audit_log.log.call_args_list
+                call
+                for call in mock_audit_log.log.call_args_list
                 if call.args[0] == "email_consultation_received"
             ][0]
             details = received_call.kwargs["details"]
@@ -330,13 +372,19 @@ class TestEmailHandlerAudit:
 
     @pytest.mark.asyncio
     async def test_audit_logs_consultation_response(
-        self, handler, email_consultation_msg, mock_audit_log, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_audit_log,
+        mock_personality,
     ):
         """Consultation response is audit-logged."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "reply", "reasoning": "Standard inquiry response"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"advised_action": "reply", "reasoning": "Standard inquiry response"}'
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -348,7 +396,8 @@ class TestEmailHandlerAudit:
 
             # Check that response details are logged
             response_call = [
-                call for call in mock_audit_log.log.call_args_list
+                call
+                for call in mock_audit_log.log.call_args_list
                 if call.args[0] == "email_consultation_response"
             ][0]
             details = response_call.kwargs["details"]
@@ -357,13 +406,17 @@ class TestEmailHandlerAudit:
 
     @pytest.mark.asyncio
     async def test_audit_includes_duration(
-        self, handler, email_consultation_msg, mock_audit_log, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_audit_log,
+        mock_personality,
     ):
         """Response audit log includes duration_ms."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "notify", "reasoning": "Test"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content='{"advised_action": "notify", "reasoning": "Test"}')
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -371,7 +424,8 @@ class TestEmailHandlerAudit:
             await handler.handle(email_consultation_msg)
 
             response_call = [
-                call for call in mock_audit_log.log.call_args_list
+                call
+                for call in mock_audit_log.log.call_args_list
                 if call.args[0] == "email_consultation_response"
             ][0]
 
@@ -394,9 +448,11 @@ class TestEmailHandlerEdgeCases:
         )
 
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "notify", "reasoning": "Safe default"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"advised_action": "notify", "reasoning": "Safe default"}'
+            )
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -415,9 +471,9 @@ class TestEmailHandlerEdgeCases:
         )
 
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "notify", "reasoning": "Test"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content='{"advised_action": "notify", "reasoning": "Test"}')
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -428,7 +484,10 @@ class TestEmailHandlerEdgeCases:
 
     @pytest.mark.asyncio
     async def test_llm_exception_returns_fallback(
-        self, handler, email_consultation_msg, mock_personality,
+        self,
+        handler,
+        email_consultation_msg,
+        mock_personality,
     ):
         """LLM exceptions are caught and fallback is returned."""
         mock_pipeline = AsyncMock()
@@ -447,9 +506,9 @@ class TestEmailHandlerEdgeCases:
     async def test_system_prompt_includes_json_format(self, handler, mock_personality):
         """System prompt instructs to respond in JSON format."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "notify", "reasoning": "Test"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content='{"advised_action": "notify", "reasoning": "Test"}')
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -469,9 +528,9 @@ class TestEmailHandlerEdgeCases:
     async def test_system_prompt_includes_action_types(self, handler, mock_personality):
         """System prompt lists all possible actions."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"advised_action": "notify", "reasoning": "Test"}'
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content='{"advised_action": "notify", "reasoning": "Test"}')
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline)
 

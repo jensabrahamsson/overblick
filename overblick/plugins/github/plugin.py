@@ -96,9 +96,9 @@ class GitHubAgentPlugin(AgenticPluginBase):
 
     def __init__(self, ctx: PluginContext):
         super().__init__(ctx)
-        self._db: Optional[GitHubDB] = None
-        self._client: Optional[GitHubAPIClient] = None
-        self._observer: Optional[ObservationCollector] = None
+        self._db: GitHubDB | None = None
+        self._client: GitHubAPIClient | None = None
+        self._observer: ObservationCollector | None = None
         self._handlers: dict[str, ActionHandler] = {}
         self._state = PluginState()
         self._check_interval: int = 600  # 10 minutes default
@@ -137,7 +137,8 @@ class GitHubAgentPlugin(AgenticPluginBase):
         # Issue config
         issue_config = gh_config.get("issues", {})
         respond_to_labels = issue_config.get(
-            "respond_to_labels", ["question", "help wanted", "bug"],
+            "respond_to_labels",
+            ["question", "help wanted", "bug"],
         )
         max_response_age_hours = issue_config.get("max_response_age_hours", 168)
 
@@ -246,7 +247,8 @@ class GitHubAgentPlugin(AgenticPluginBase):
         mode = "DRY RUN" if self._dry_run else "LIVE"
         logger.info(
             "GitHubAgentPlugin [%s] setup for '%s' (repos: %s, %d goals)",
-            mode, self.ctx.identity_name,
+            mode,
+            self.ctx.identity_name,
             ", ".join(self._repos),
             len(self.goal_tracker.active_goals) if self.goal_tracker else 0,
         )
@@ -417,7 +419,4 @@ class _MultiRepoObserver:
         if not observation or not isinstance(observation, dict):
             return "No observations available."
 
-        return "\n\n".join(
-            self._observer.format_for_planner(obs)
-            for obs in observation.values()
-        )
+        return "\n\n".join(self._observer.format_for_planner(obs) for obs in observation.values())

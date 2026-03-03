@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 class SupervisorService:
     """Read-only access to supervisor agent status via IPC."""
 
-    def __init__(self, socket_dir: Optional[Path] = None):
+    def __init__(self, socket_dir: Path | None = None):
         self._socket_dir = socket_dir
-        self._resolved_socket_dir: Optional[Path] = None
+        self._resolved_socket_dir: Path | None = None
 
     def _resolve_socket_dir(self) -> Path:
         """Resolve the IPC socket directory."""
@@ -35,6 +35,7 @@ class SupervisorService:
         """Read and decrypt auth token from supervisor's token or conn file."""
         try:
             from overblick.supervisor.ipc import read_ipc_token
+
             return read_ipc_token("supervisor", socket_dir=socket_dir)
         except Exception as e:
             logger.debug("Failed to read auth token: %s", e)
@@ -47,8 +48,8 @@ class SupervisorService:
         restarts that generate new tokens.
         """
         try:
-            from overblick.supervisor.ipc import IPCClient, _read_conn_file
             from overblick.shared.platform import IS_WINDOWS
+            from overblick.supervisor.ipc import IPCClient, _read_conn_file
 
             socket_dir = self._resolve_socket_dir()
             auth_token = self._read_auth_token(socket_dir)
@@ -73,7 +74,7 @@ class SupervisorService:
             logger.debug("IPC client not available: %s", e)
             return None
 
-    async def get_status(self) -> Optional[dict[str, Any]]:
+    async def get_status(self) -> dict[str, Any] | None:
         """
         Request status from supervisor.
 
@@ -110,10 +111,7 @@ class SupervisorService:
         # Convert to list of dicts with 'name' field
         agents_dict = status.get("agents", {})
         if isinstance(agents_dict, dict):
-            return [
-                {**agent_data, "name": name}
-                for name, agent_data in agents_dict.items()
-            ]
+            return [{**agent_data, "name": name} for name, agent_data in agents_dict.items()]
         return []
 
     async def start_agent(self, identity: str) -> dict[str, Any]:

@@ -153,5 +153,6 @@ class TestAgenticPluginBase:
     async def test_default_complexity_is_high(self, plugin_ctx):
         """Default complexity should be 'high', not 'ultra'."""
         import inspect
+
         sig = inspect.signature(AgenticPluginBase.setup_agentic_loop)
         assert sig.parameters["complexity"].default == "high"

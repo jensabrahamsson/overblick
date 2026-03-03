@@ -173,9 +173,12 @@ class TestPlaintextImport:
 
     def test_load_plaintext_secrets(self, sm):
         """load_plaintext_secrets encrypts and stores all provided secrets."""
-        sm.load_plaintext_secrets("anomal", {
-            "api_key": "sk_123",
-            "bot_token": "bot_456",
-        })
+        sm.load_plaintext_secrets(
+            "anomal",
+            {
+                "api_key": "sk_123",
+                "bot_token": "bot_456",
+            },
+        )
         assert sm.get("anomal", "api_key") == "sk_123"
         assert sm.get("anomal", "bot_token") == "bot_456"

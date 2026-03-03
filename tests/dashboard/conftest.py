@@ -57,8 +57,18 @@ def mock_identity_service():
             "version": "1.0.0",
             "plugins": ["moltbook"],
             "capability_names": ["psychology", "knowledge"],
-            "llm": {"model": "qwen3:8b", "temperature": 0.7, "max_tokens": 2000, "provider": "ollama"},
-            "quiet_hours": {"enabled": True, "timezone": "Europe/Stockholm", "start_hour": 21, "end_hour": 7},
+            "llm": {
+                "model": "qwen3:8b",
+                "temperature": 0.7,
+                "max_tokens": 2000,
+                "provider": "ollama",
+            },
+            "quiet_hours": {
+                "enabled": True,
+                "timezone": "Europe/Stockholm",
+                "start_hour": 21,
+                "end_hour": 7,
+            },
             "schedule": {"heartbeat_hours": 4, "feed_poll_minutes": 5},
             "security": {"enable_preflight": True, "enable_output_safety": True},
             "identity_ref": "anomal",
@@ -70,7 +80,12 @@ def mock_identity_service():
             "version": "1.0.0",
             "plugins": ["telegram"],
             "capability_names": ["social", "engagement"],
-            "llm": {"model": "qwen3:8b", "temperature": 0.9, "max_tokens": 2000, "provider": "ollama"},
+            "llm": {
+                "model": "qwen3:8b",
+                "temperature": 0.9,
+                "max_tokens": 2000,
+                "provider": "ollama",
+            },
             "quiet_hours": {"enabled": False, "timezone": "UTC", "start_hour": 0, "end_hour": 0},
             "schedule": {"heartbeat_hours": 2, "feed_poll_minutes": 3},
             "security": {"enable_preflight": True, "enable_output_safety": True},
@@ -126,9 +141,16 @@ def mock_audit_service():
     svc = MagicMock()
     svc.query.return_value = [
         {
-            "id": 1, "timestamp": 1700000000.0, "action": "api_call",
-            "category": "moltbook", "identity": "anomal", "plugin": "moltbook",
-            "details": {}, "success": True, "duration_ms": 120.0, "error": None,
+            "id": 1,
+            "timestamp": 1700000000.0,
+            "action": "api_call",
+            "category": "moltbook",
+            "identity": "anomal",
+            "plugin": "moltbook",
+            "details": {},
+            "success": True,
+            "duration_ms": 120.0,
+            "error": None,
         },
     ]
     svc.count.return_value = 42
@@ -145,7 +167,13 @@ def mock_supervisor_service():
     svc.get_status.return_value = {
         "state": "running",
         "agents": [
-            {"name": "anomal", "state": "running", "pid": 12345, "uptime": 3600, "restart_count": 0},
+            {
+                "name": "anomal",
+                "state": "running",
+                "pid": 12345,
+                "uptime": 3600,
+                "restart_count": 0,
+            },
         ],
     }
     svc.is_running.return_value = True
@@ -169,8 +197,11 @@ def mock_system_service():
         "social": ["openings"],
     }
     svc.get_capability_registry.return_value = [
-        "dream_system", "therapy_system", "emotional_state",
-        "knowledge_loader", "openings",
+        "dream_system",
+        "therapy_system",
+        "emotional_state",
+        "knowledge_loader",
+        "openings",
     ]
     svc.get_moltbook_statuses.return_value = []
     return svc
@@ -210,6 +241,7 @@ def app(
     )
     test_app.state.rate_limiter = RateLimiter()
     from overblick.dashboard.app import _create_templates
+
     test_app.state.templates = _create_templates()
 
     # Inject mock services
@@ -227,6 +259,7 @@ def app(
 def client(app):
     """Create httpx test client."""
     from httpx import AsyncClient, ASGITransport
+
     transport = ASGITransport(app=app)
     return AsyncClient(transport=transport, base_url="http://testserver")
 

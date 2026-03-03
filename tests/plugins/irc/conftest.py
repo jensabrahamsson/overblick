@@ -25,10 +25,12 @@ def mock_ctx(tmp_path):
     ctx.quiet_hours_checker = MagicMock()
     ctx.quiet_hours_checker.is_quiet_hours.return_value = False
     ctx.llm_pipeline = AsyncMock()
-    ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-        content="This is a test response from the IRC conversation.",
-        blocked=False,
-    ))
+    ctx.llm_pipeline.chat = AsyncMock(
+        return_value=PipelineResult(
+            content="This is a test response from the IRC conversation.",
+            blocked=False,
+        )
+    )
     ctx.audit_log = MagicMock()
     ctx.audit_log.log = MagicMock()
 

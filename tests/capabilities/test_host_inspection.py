@@ -21,10 +21,10 @@ from overblick.capabilities.monitoring.inspector import (
     _run_command,
 )
 
-
 # ---------------------------------------------------------------------------
 # Model Tests
 # ---------------------------------------------------------------------------
+
 
 class TestHostHealthModel:
     """Test HostHealth model properties and serialization."""
@@ -125,6 +125,7 @@ class TestHealthModels:
 # Command Whitelisting Tests
 # ---------------------------------------------------------------------------
 
+
 class TestCommandWhitelisting:
     """Test that only whitelisted commands can execute."""
 
@@ -158,6 +159,7 @@ class TestCommandWhitelisting:
 # ---------------------------------------------------------------------------
 # Inspector Tests
 # ---------------------------------------------------------------------------
+
 
 class TestHostInspectionCapability:
     """Test the inspector with mocked subprocess commands."""

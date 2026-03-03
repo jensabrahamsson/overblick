@@ -76,12 +76,14 @@ class TestEmailRoute:
     def test_email_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when no identity has email_agent."""
         from overblick.dashboard.routes import email
+
         monkeypatch.chdir(tmp_path)
         assert email.has_data() is False
 
     def test_email_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when email_agent is configured."""
         from overblick.dashboard.routes import email
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "stal"
         ids.mkdir(parents=True)

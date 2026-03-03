@@ -28,7 +28,7 @@ class GoalTracker:
         self._db = db
         self._goals: list[AgentGoal] = []
 
-    async def setup(self, default_goals: Optional[list[AgentGoal]] = None) -> None:
+    async def setup(self, default_goals: list[AgentGoal] | None = None) -> None:
         """Load goals from database, creating defaults if empty."""
         self._goals = await self._db.get_goals(status="active")
 
@@ -60,7 +60,7 @@ class GoalTracker:
             await self._db.upsert_goal(updated)
             self._goals = await self._db.get_goals(status="active")
 
-    async def get_goal(self, name: str) -> Optional[AgentGoal]:
+    async def get_goal(self, name: str) -> AgentGoal | None:
         """Get a specific goal by name."""
         return await self._db.get_goal_by_name(name)
 

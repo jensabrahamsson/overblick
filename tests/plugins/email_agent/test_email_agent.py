@@ -181,12 +181,16 @@ class TestEmailClassification:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        valid_json = '{"intent": "notify", "confidence": 0.8, "reasoning": "Newsletter", "priority": "low"}'
+        valid_json = (
+            '{"intent": "notify", "confidence": 0.8, "reasoning": "Newsletter", "priority": "low"}'
+        )
 
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
-            PipelineResult(content="I think this email should be handled as a notification."),
-            PipelineResult(content=valid_json),
-        ])
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            side_effect=[
+                PipelineResult(content="I think this email should be handled as a notification."),
+                PipelineResult(content=valid_json),
+            ]
+        )
 
         result = await plugin._classifier.classify(
             sender="newsletter@example.com",
@@ -209,10 +213,12 @@ class TestEmailClassification:
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
-            PipelineResult(content="I cannot decide. More context needed."),
-            PipelineResult(content="Still not JSON, sorry."),
-        ])
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            side_effect=[
+                PipelineResult(content="I cannot decide. More context needed."),
+                PipelineResult(content="Still not JSON, sorry."),
+            ]
+        )
 
         result = await plugin._classifier.classify(
             sender="unknown@example.com",
@@ -278,7 +284,11 @@ class TestEmailAgentActions:
             content="Meeting request from colleague about Q1 results."
         )
 
-        email = {"sender": "colleague@acme-motors.com", "subject": "Meeting", "body": "Can we meet?"}
+        email = {
+            "sender": "colleague@acme-motors.com",
+            "subject": "Meeting",
+            "body": "Can we meet?",
+        }
         classification = EmailClassification(
             intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="Important"
         )
@@ -353,7 +363,12 @@ class TestEmailAgentActions:
             content="Should I reply?"
         )
 
-        email = {"sender": "test@example.com", "subject": "Test", "body": "Test body", "snippet": "Test"}
+        email = {
+            "sender": "test@example.com",
+            "subject": "Test",
+            "body": "Test body",
+            "snippet": "Test",
+        }
         classification = EmailClassification(
             intent=EmailIntent.ASK_BOSS, confidence=0.4, reasoning="Uncertain"
         )
@@ -492,13 +507,15 @@ class TestEmailAgentDatabase:
 
         # Insert some records
         for intent in ["reply", "reply", "notify", "ask_boss", "ignore"]:
-            await db.record_email(EmailRecord(
-                email_from="test@example.com",
-                email_subject=f"Subject {intent}",
-                classified_intent=intent,
-                confidence=0.9,
-                reasoning="Test",
-            ))
+            await db.record_email(
+                EmailRecord(
+                    email_from="test@example.com",
+                    email_subject=f"Subject {intent}",
+                    classified_intent=intent,
+                    confidence=0.9,
+                    reasoning="Test",
+                )
+            )
 
         stats = await db.get_stats()
         assert stats["emails_processed"] == 5
@@ -521,20 +538,24 @@ class TestEmailAgentDatabase:
         await db.setup()
 
         # Insert records from different senders
-        await db.record_email(EmailRecord(
-            email_from="alice@example.com",
-            email_subject="From Alice",
-            classified_intent="reply",
-            confidence=0.9,
-            reasoning="Test",
-        ))
-        await db.record_email(EmailRecord(
-            email_from="bob@example.com",
-            email_subject="From Bob",
-            classified_intent="ignore",
-            confidence=0.8,
-            reasoning="Newsletter",
-        ))
+        await db.record_email(
+            EmailRecord(
+                email_from="alice@example.com",
+                email_subject="From Alice",
+                classified_intent="reply",
+                confidence=0.9,
+                reasoning="Test",
+            )
+        )
+        await db.record_email(
+            EmailRecord(
+                email_from="bob@example.com",
+                email_subject="From Bob",
+                classified_intent="ignore",
+                confidence=0.8,
+                reasoning="Newsletter",
+            )
+        )
 
         alice_history = await db.get_sender_history("alice@example.com")
         assert len(alice_history) == 1
@@ -703,7 +724,9 @@ class TestSmartSenderFiltering:
 
     @pytest.mark.asyncio
     async def test_reply_blocked_for_unknown_sender_falls_back_to_notify(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """REPLY for non-allowed sender falls back to NOTIFY."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -757,16 +780,19 @@ class TestSmartSenderFiltering:
 
     @pytest.mark.asyncio
     async def test_all_emails_classified_regardless_of_sender(
-        self, stal_plugin_context,
+        self,
+        stal_plugin_context,
     ):
         """All emails get classified, even from non-allowed senders."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
         # Mock LLM for classification
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"intent": "notify", "confidence": 0.85, "reasoning": "Important", "priority": "high"}'
-        ))
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"intent": "notify", "confidence": 0.85, "reasoning": "Important", "priority": "high"}'
+            )
+        )
 
         # Mock notifier for the notification
         mock_notifier = stal_plugin_context.get_capability("telegram_notifier")
@@ -799,9 +825,11 @@ class TestDeduplicationAndMarkRead:
         await plugin.setup()
 
         # Mock LLM for classification
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"intent": "ignore", "confidence": 0.9, "reasoning": "Spam", "priority": "low"}'
-        ))
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"intent": "ignore", "confidence": 0.9, "reasoning": "Spam", "priority": "low"}'
+            )
+        )
 
         email = {
             "sender": "test@example.com",
@@ -828,15 +856,19 @@ class TestDeduplicationAndMarkRead:
 
     @pytest.mark.asyncio
     async def test_mark_as_read_after_processing(
-        self, stal_plugin_context, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_gmail_capability,
     ):
         """Emails are marked as read in Gmail after processing (any action)."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"intent": "ignore", "confidence": 0.95, "reasoning": "Newsletter", "priority": "low"}'
-        ))
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"intent": "ignore", "confidence": 0.95, "reasoning": "Newsletter", "priority": "low"}'
+            )
+        )
 
         email = {
             "sender": "newsletter@example.com",
@@ -854,16 +886,21 @@ class TestDeduplicationAndMarkRead:
 
     @pytest.mark.asyncio
     async def test_mark_as_read_called_in_dry_run_mode(
-        self, stal_plugin_context, mock_gmail_capability, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_gmail_capability,
+        mock_telegram_notifier,
     ):
         """Emails are marked as read even in dry_run mode (NOTIFY action)."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
         plugin._dry_run = True
 
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"intent": "notify", "confidence": 0.9, "reasoning": "Important update", "priority": "normal"}'
-        ))
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"intent": "notify", "confidence": 0.9, "reasoning": "Important update", "priority": "normal"}'
+            )
+        )
 
         email = {
             "sender": "alice@example.com",
@@ -883,7 +920,9 @@ class TestDeduplicationAndMarkRead:
 
     @pytest.mark.asyncio
     async def test_ask_boss_fallback_to_notify(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """When boss consultation fails, falls back to notification."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -894,6 +933,7 @@ class TestDeduplicationAndMarkRead:
 
         # Mock LLM: first call for classification (ask_boss), second for question, third for notification
         call_count = 0
+
         async def _mock_chat(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -942,14 +982,16 @@ class TestDeduplicationAndMarkRead:
         assert await db.has_been_processed("msg-123") is False
 
         # Record it
-        await db.record_email(EmailRecord(
-            gmail_message_id="msg-123",
-            email_from="test@example.com",
-            email_subject="Test",
-            classified_intent="ignore",
-            confidence=0.9,
-            reasoning="Test",
-        ))
+        await db.record_email(
+            EmailRecord(
+                gmail_message_id="msg-123",
+                email_from="test@example.com",
+                email_subject="Test",
+                classified_intent="ignore",
+                confidence=0.9,
+                reasoning="Test",
+            )
+        )
 
         # Now it should be found
         assert await db.has_been_processed("msg-123") is True
@@ -965,7 +1007,9 @@ class TestResearchIntegration:
 
     @pytest.mark.asyncio
     async def test_request_research_uses_boss_cap(
-        self, stal_plugin_context, mock_boss_request_capability,
+        self,
+        stal_plugin_context,
+        mock_boss_request_capability,
     ):
         """_request_research() uses BossRequestCapability."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -976,7 +1020,8 @@ class TestResearchIntegration:
         assert result is not None
         assert "Research summary" in result
         mock_boss_request_capability.request_research.assert_called_once_with(
-            "What is the weather?", "",
+            "What is the weather?",
+            "",
         )
 
     @pytest.mark.asyncio
@@ -1040,7 +1085,9 @@ class TestFeedbackProcessing:
         stal_plugin_context.llm_pipeline = None
 
         sentiment, learning, should_ack = await plugin._classify_feedback(
-            "Bra att du flaggade det!", "Notification text", "Email subject",
+            "Bra att du flaggade det!",
+            "Notification text",
+            "Email subject",
         )
 
         assert sentiment == "positive"
@@ -1054,7 +1101,9 @@ class TestFeedbackProcessing:
         stal_plugin_context.llm_pipeline = None
 
         sentiment, learning, should_ack = await plugin._classify_feedback(
-            "Inte viktigt, sluta notifiera", "Notification text", "Email subject",
+            "Inte viktigt, sluta notifiera",
+            "Notification text",
+            "Email subject",
         )
 
         assert sentiment == "negative"
@@ -1119,13 +1168,15 @@ class TestDatabaseNotificationTracking:
         db = EmailAgentDB(backend)
         await db.setup()
 
-        record_id = await db.record_email(EmailRecord(
-            email_from="test@example.com",
-            email_subject="Test",
-            classified_intent="notify",
-            confidence=0.9,
-            reasoning="Test",
-        ))
+        record_id = await db.record_email(
+            EmailRecord(
+                email_from="test@example.com",
+                email_subject="Test",
+                classified_intent="notify",
+                confidence=0.9,
+                reasoning="Test",
+            )
+        )
 
         tracking_id = await db.track_notification(
             email_record_id=record_id,
@@ -1224,9 +1275,7 @@ class TestSafeSenderName:
 
     def test_no_slashes_or_quotes(self):
         """Result never contains filesystem-dangerous characters."""
-        result = ReputationManager._safe_sender_name(
-            'Test "Quoted" <user/path@domain.com>'
-        )
+        result = ReputationManager._safe_sender_name('Test "Quoted" <user/path@domain.com>')
         assert "/" not in result
         assert '"' not in result
         assert "'" not in result
@@ -1469,7 +1518,9 @@ class TestCrossIdentityConsultation:
 
     @pytest.mark.asyncio
     async def test_consultation_downgrade_notify_to_ignore(
-        self, stal_plugin_context, mock_personality_consultant,
+        self,
+        stal_plugin_context,
+        mock_personality_consultant,
     ):
         """Identity consultation can downgrade NOTIFY to IGNORE."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -1503,7 +1554,9 @@ class TestCrossIdentityConsultation:
 
     @pytest.mark.asyncio
     async def test_consultation_keeps_notify(
-        self, stal_plugin_context, mock_personality_consultant,
+        self,
+        stal_plugin_context,
+        mock_personality_consultant,
     ):
         """Identity consultation keeps NOTIFY when identity says YES."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -1532,7 +1585,9 @@ class TestCrossIdentityConsultation:
 
     @pytest.mark.asyncio
     async def test_consultation_no_keyword_match(
-        self, stal_plugin_context, mock_personality_consultant,
+        self,
+        stal_plugin_context,
+        mock_personality_consultant,
     ):
         """No consultation when no keywords match."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -1556,16 +1611,19 @@ class TestCrossIdentityConsultation:
 
     @pytest.mark.asyncio
     async def test_consultation_not_triggered_high_confidence(
-        self, stal_plugin_context,
+        self,
+        stal_plugin_context,
     ):
         """Consultation NOT triggered for high-confidence NOTIFY."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
         # Mock LLM: high confidence NOTIFY
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"intent": "notify", "confidence": 0.95, "reasoning": "Clearly important", "priority": "high"}'
-        ))
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"intent": "notify", "confidence": 0.95, "reasoning": "Clearly important", "priority": "high"}'
+            )
+        )
 
         mock_notifier = stal_plugin_context.get_capability("telegram_notifier")
         mock_notifier.send_notification_tracked = AsyncMock(return_value=42)
@@ -1589,7 +1647,9 @@ class TestCrossIdentityConsultation:
 
     @pytest.mark.asyncio
     async def test_full_flow_consultation_downgrades(
-        self, stal_plugin_context, mock_personality_consultant,
+        self,
+        stal_plugin_context,
+        mock_personality_consultant,
     ):
         """Full _process_email flow: moderate NOTIFY + NO consultation → IGNORE."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -1597,9 +1657,11 @@ class TestCrossIdentityConsultation:
 
         # LLM classifies as moderate-confidence NOTIFY (0.75 is within 0.5-0.8
         # consultation range AND above 0.7 confidence threshold)
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"intent": "notify", "confidence": 0.75, "reasoning": "Crypto content", "priority": "normal"}'
-        ))
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"intent": "notify", "confidence": 0.75, "reasoning": "Crypto content", "priority": "normal"}'
+            )
+        )
 
         # Consultant says NO
         mock_personality_consultant.consult = AsyncMock(
@@ -1630,7 +1692,9 @@ class TestScoredConsultation:
 
     @pytest.mark.asyncio
     async def test_consultation_scored_matching(
-        self, stal_plugin_context, mock_personality_consultant,
+        self,
+        stal_plugin_context,
+        mock_personality_consultant,
     ):
         """Highest-scoring identity is selected via keyword count."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -1649,9 +1713,7 @@ class TestScoredConsultation:
             reasoning="Crypto content",
         )
 
-        mock_personality_consultant.consult = AsyncMock(
-            return_value="NO — generic newsletter."
-        )
+        mock_personality_consultant.consult = AsyncMock(return_value="NO — generic newsletter.")
 
         await plugin._consult_identity_relevance(email, classification)
 
@@ -1660,7 +1722,9 @@ class TestScoredConsultation:
 
     @pytest.mark.asyncio
     async def test_consultation_auto_discover_mode(
-        self, stal_plugin_context, mock_personality_consultant,
+        self,
+        stal_plugin_context,
+        mock_personality_consultant,
     ):
         """identities: "all" triggers auto-discovery via discover_consultants()."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -1678,9 +1742,7 @@ class TestScoredConsultation:
                 "cherry": ["dating", "relationships"],
             },
         )
-        mock_personality_consultant.score_match = (
-            PersonalityConsultantCapability.score_match
-        )
+        mock_personality_consultant.score_match = PersonalityConsultantCapability.score_match
 
         email = {
             "sender": "expert@security.org",
@@ -1703,7 +1765,9 @@ class TestScoredConsultation:
 
     @pytest.mark.asyncio
     async def test_consultation_explicit_mode_backward_compat(
-        self, stal_plugin_context, mock_personality_consultant,
+        self,
+        stal_plugin_context,
+        mock_personality_consultant,
     ):
         """Explicit mode (default) uses legacy relevance_consultants list."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -1737,8 +1801,11 @@ class TestReputationContext:
     def test_build_reputation_context_known_sender(self):
         """Builds reputation context string for known sender."""
         sender_rep = {
-            "known": True, "total": 10, "ignore_rate": 0.8,
-            "notify_count": 2, "reply_count": 0,
+            "known": True,
+            "total": 10,
+            "ignore_rate": 0.8,
+            "notify_count": 2,
+            "reply_count": 0,
         }
         domain_rep = {"known": False}
 
@@ -1749,12 +1816,19 @@ class TestReputationContext:
     def test_build_reputation_context_with_domain(self):
         """Builds context with both sender and domain info."""
         sender_rep = {
-            "known": True, "total": 5, "ignore_rate": 0.6,
-            "notify_count": 2, "reply_count": 0,
+            "known": True,
+            "total": 5,
+            "ignore_rate": 0.6,
+            "notify_count": 2,
+            "reply_count": 0,
         }
         domain_rep = {
-            "known": True, "domain": "example.com", "total": 50,
-            "ignore_rate": 0.9, "negative_feedback": 3, "positive_feedback": 0,
+            "known": True,
+            "domain": "example.com",
+            "total": 50,
+            "ignore_rate": 0.9,
+            "negative_feedback": 3,
+            "positive_feedback": 0,
         }
 
         context = EmailClassifier.build_reputation_context(sender_rep, domain_rep)
@@ -1830,7 +1904,10 @@ class TestEnhancedPrompts:
         )
         assert len(messages) == 2
         # Should not have "reputation" section when empty
-        assert "Sender:" not in messages[0]["content"] or "reputation" not in messages[0]["content"].lower()
+        assert (
+            "Sender:" not in messages[0]["content"]
+            or "reputation" not in messages[0]["content"].lower()
+        )
 
 
 class TestDatabaseMigrationV6:
@@ -1930,7 +2007,9 @@ class TestGmailHeaderExtraction:
             fetch_data={b"1": raw_bytes},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread()
 
         assert len(results) == 1
@@ -1946,7 +2025,9 @@ class TestGmailHeaderExtraction:
         from overblick.capabilities.communication.gmail import GmailCapability
 
         from tests.capabilities.test_gmail_capability import (
-            _make_ctx, _mock_imap, _build_raw_email,
+            _make_ctx,
+            _mock_imap,
+            _build_raw_email,
         )
 
         ctx = _make_ctx()
@@ -1964,7 +2045,9 @@ class TestGmailHeaderExtraction:
             fetch_data={b"1": raw_email},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread()
 
         assert len(results) == 1
@@ -2003,9 +2086,11 @@ class TestReputationConfigLoading:
         await plugin.setup()
 
         # Mock LLM
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"intent": "ignore", "confidence": 0.95, "reasoning": "Newsletter with unsubscribe", "priority": "low"}'
-        ))
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"intent": "ignore", "confidence": 0.95, "reasoning": "Newsletter with unsubscribe", "priority": "low"}'
+            )
+        )
 
         email = {
             "sender": "news@updates.com",
@@ -2098,7 +2183,9 @@ class TestMaxEmailAgeFilter:
 
     @pytest.mark.asyncio
     async def test_old_emails_skipped_in_fetch(
-        self, stal_plugin_context, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_gmail_capability,
     ):
         """_fetch_unread skips emails older than max_email_age_hours."""
         from datetime import datetime, timezone, timedelta
@@ -2199,7 +2286,9 @@ class TestMaxEmailAgeFilter:
 
     @pytest.mark.asyncio
     async def test_fetch_unread_propagates_date_header(
-        self, stal_plugin_context, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_gmail_capability,
     ):
         """_fetch_unread() injects msg.timestamp as Date header for age filtering."""
         from datetime import datetime, timezone, timedelta
@@ -2232,7 +2321,9 @@ class TestMaxEmailAgeFilter:
 
     @pytest.mark.asyncio
     async def test_fetch_passes_since_days_to_gmail(
-        self, stal_plugin_context, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_gmail_capability,
     ):
         """_fetch_unread() passes since_days=1 when max_email_age_hours=5."""
         import math
@@ -2248,12 +2339,15 @@ class TestMaxEmailAgeFilter:
         # since_days = ceil(5/24) = 1
         expected_since_days = max(1, math.ceil(5 / 24))
         mock_gmail_capability.fetch_unread.assert_called_once_with(
-            max_results=10, since_days=expected_since_days,
+            max_results=10,
+            since_days=expected_since_days,
         )
 
     @pytest.mark.asyncio
     async def test_fetch_passes_default_since_days_when_no_age_filter(
-        self, stal_plugin_context, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_gmail_capability,
     ):
         """_fetch_unread() uses default 48h filter when max_email_age_hours is not configured."""
         stal_plugin_context.identity.raw_config["email_agent"].pop("max_email_age_hours", None)
@@ -2266,12 +2360,15 @@ class TestMaxEmailAgeFilter:
 
         # Default 48h → ceil(48/24) = 2 since_days
         mock_gmail_capability.fetch_unread.assert_called_once_with(
-            max_results=10, since_days=2,
+            max_results=10,
+            since_days=2,
         )
 
     @pytest.mark.asyncio
     async def test_since_days_minimum_one(
-        self, stal_plugin_context, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_gmail_capability,
     ):
         """since_days is always at least 1, even for sub-24-hour age limits."""
         stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 1
@@ -2284,7 +2381,8 @@ class TestMaxEmailAgeFilter:
 
         # ceil(1/24) = 1, but even ceil(0.5/24) = 1
         mock_gmail_capability.fetch_unread.assert_called_once_with(
-            max_results=10, since_days=1,
+            max_results=10,
+            since_days=1,
         )
 
 
@@ -2293,7 +2391,9 @@ class TestDraftReplyNotification:
 
     @pytest.mark.asyncio
     async def test_draft_reply_sent_after_notify(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """Draft reply sent as tracked TG message with approval instructions."""
         stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
@@ -2301,10 +2401,12 @@ class TestDraftReplyNotification:
         await plugin.setup()
 
         # LLM returns notification summary, then draft reply
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
-            PipelineResult(content="Meeting request from colleague."),  # notification
-            PipelineResult(content="Dear colleague, I'll check the calendar."),  # draft
-        ])
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            side_effect=[
+                PipelineResult(content="Meeting request from colleague."),  # notification
+                PipelineResult(content="Dear colleague, I'll check the calendar."),  # draft
+            ]
+        )
 
         email_dict = {
             "sender": "colleague@example.com",
@@ -2315,7 +2417,9 @@ class TestDraftReplyNotification:
             "thread_id": "thread-001",
         }
         classification = EmailClassification(
-            intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="Important",
+            intent=EmailIntent.NOTIFY,
+            confidence=0.9,
+            reasoning="Important",
         )
 
         await plugin._execute_action(email_dict, classification)
@@ -2329,7 +2433,9 @@ class TestDraftReplyNotification:
 
     @pytest.mark.asyncio
     async def test_draft_reply_not_sent_when_flag_false(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """No draft is sent when show_draft_replies is False (default)."""
         # Explicitly disable draft replies
@@ -2350,7 +2456,9 @@ class TestDraftReplyNotification:
             "thread_id": "thread-002",
         }
         classification = EmailClassification(
-            intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="Urgent",
+            intent=EmailIntent.NOTIFY,
+            confidence=0.9,
+            reasoning="Urgent",
         )
 
         await plugin._execute_action(email_dict, classification)
@@ -2360,17 +2468,21 @@ class TestDraftReplyNotification:
 
     @pytest.mark.asyncio
     async def test_draft_reply_skipped_on_llm_failure(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """Draft notification fails silently when LLM returns empty/blocked result."""
         stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
-            PipelineResult(content="Meeting request."),  # notification succeeds
-            PipelineResult(content="", blocked=True),    # draft LLM blocked
-        ])
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            side_effect=[
+                PipelineResult(content="Meeting request."),  # notification succeeds
+                PipelineResult(content="", blocked=True),  # draft LLM blocked
+            ]
+        )
 
         email_dict = {
             "sender": "someone@example.com",
@@ -2381,7 +2493,9 @@ class TestDraftReplyNotification:
             "thread_id": "thread-003",
         }
         classification = EmailClassification(
-            intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="test",
+            intent=EmailIntent.NOTIFY,
+            confidence=0.9,
+            reasoning="test",
         )
 
         # Should not raise despite draft failure
@@ -2392,7 +2506,9 @@ class TestDraftReplyNotification:
 
     @pytest.mark.asyncio
     async def test_draft_not_sent_when_notification_fails(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """Draft is not sent when the primary notification fails."""
         stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
@@ -2415,7 +2531,9 @@ class TestDraftReplyNotification:
             "thread_id": "thread-004",
         }
         classification = EmailClassification(
-            intent=EmailIntent.NOTIFY, confidence=0.9, reasoning="test",
+            intent=EmailIntent.NOTIFY,
+            confidence=0.9,
+            reasoning="test",
         )
 
         result = await plugin._execute_action(email_dict, classification)
@@ -2441,7 +2559,9 @@ class TestDraftReplyNotification:
 
     @pytest.mark.asyncio
     async def test_draft_tracked_in_db(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """Draft reply is tracked in DB with body and thread ID."""
         stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
@@ -2449,13 +2569,15 @@ class TestDraftReplyNotification:
         await plugin.setup()
 
         # LLM calls in order: classify → notification → draft reply
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(side_effect=[
-            PipelineResult(
-                content='{"intent": "notify", "confidence": 0.9, "reasoning": "Meeting request", "priority": "normal"}'
-            ),
-            PipelineResult(content="Important meeting notification."),
-            PipelineResult(content="Dear colleague, sounds good."),
-        ])
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            side_effect=[
+                PipelineResult(
+                    content='{"intent": "notify", "confidence": 0.9, "reasoning": "Meeting request", "priority": "normal"}'
+                ),
+                PipelineResult(content="Important meeting notification."),
+                PipelineResult(content="Dear colleague, sounds good."),
+            ]
+        )
 
         email_dict = {
             "sender": "colleague@example.com",
@@ -2503,7 +2625,10 @@ class TestDraftApproveToSend:
 
     @pytest.mark.asyncio
     async def test_send_approved_draft_happy_path(
-        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
+        mock_gmail_capability,
     ):
         """_send_approved_draft() sends the reply via Gmail and confirms via TG."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -2537,7 +2662,10 @@ class TestDraftApproveToSend:
 
     @pytest.mark.asyncio
     async def test_send_approved_draft_blocked_for_disallowed_sender(
-        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
+        mock_gmail_capability,
     ):
         """_send_approved_draft() rejects drafts to non-allowed senders."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -2565,7 +2693,10 @@ class TestDraftApproveToSend:
 
     @pytest.mark.asyncio
     async def test_send_approved_draft_no_draft_body(
-        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
+        mock_gmail_capability,
     ):
         """_send_approved_draft() handles missing draft body gracefully."""
         plugin = EmailAgentPlugin(stal_plugin_context)
@@ -2587,7 +2718,9 @@ class TestDraftApproveToSend:
 
     @pytest.mark.asyncio
     async def test_send_approved_draft_gmail_unavailable(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """_send_approved_draft() handles missing Gmail capability."""
         # Remove gmail from capabilities
@@ -2612,7 +2745,10 @@ class TestDraftApproveToSend:
 
     @pytest.mark.asyncio
     async def test_check_tg_feedback_intercepts_draft_approval(
-        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
+        mock_gmail_capability,
     ):
         """_check_tg_feedback() detects 'skicka' reply to a draft and sends email."""
         stal_plugin_context.identity.raw_config["email_agent"]["show_draft_replies"] = True
@@ -2620,15 +2756,17 @@ class TestDraftApproveToSend:
         await plugin.setup()
 
         # Insert an email record
-        record_id = await plugin._db.record_email(EmailRecord(
-            gmail_message_id="gmail-001",
-            email_from="alice@example.com",
-            email_subject="Meeting next week?",
-            classified_intent="notify",
-            confidence=0.9,
-            reasoning="Important",
-            action_taken="notification_sent",
-        ))
+        record_id = await plugin._db.record_email(
+            EmailRecord(
+                gmail_message_id="gmail-001",
+                email_from="alice@example.com",
+                email_subject="Meeting next week?",
+                classified_intent="notify",
+                confidence=0.9,
+                reasoning="Important",
+                action_taken="notification_sent",
+            )
+        )
 
         # Track a draft notification
         await plugin._db.track_draft_notification(
@@ -2641,13 +2779,16 @@ class TestDraftApproveToSend:
 
         # Simulate TG update: principal replies "skicka" to the draft message
         from overblick.capabilities.communication.telegram_notifier import TelegramUpdate
-        mock_telegram_notifier.fetch_updates = AsyncMock(return_value=[
-            TelegramUpdate(
-                message_id=200,
-                text="skicka",
-                reply_to_message_id=100,
-            ),
-        ])
+
+        mock_telegram_notifier.fetch_updates = AsyncMock(
+            return_value=[
+                TelegramUpdate(
+                    message_id=200,
+                    text="skicka",
+                    reply_to_message_id=100,
+                ),
+            ]
+        )
 
         await plugin._check_tg_feedback()
 
@@ -2661,29 +2802,35 @@ class TestDraftApproveToSend:
 
         # Confirmation sent
         confirm_calls = [
-            c for c in mock_telegram_notifier.send_notification.call_args_list
+            c
+            for c in mock_telegram_notifier.send_notification.call_args_list
             if "Reply sent" in c[0][0]
         ]
         assert len(confirm_calls) == 1
 
     @pytest.mark.asyncio
     async def test_check_tg_feedback_non_approval_still_classified(
-        self, stal_plugin_context, mock_telegram_notifier, mock_gmail_capability,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
+        mock_gmail_capability,
     ):
         """Non-approval replies to draft messages get classified as normal feedback."""
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
         # Insert record + draft tracking
-        record_id = await plugin._db.record_email(EmailRecord(
-            gmail_message_id="gmail-002",
-            email_from="alice@example.com",
-            email_subject="Test",
-            classified_intent="notify",
-            confidence=0.9,
-            reasoning="Test",
-            action_taken="notification_sent",
-        ))
+        record_id = await plugin._db.record_email(
+            EmailRecord(
+                gmail_message_id="gmail-002",
+                email_from="alice@example.com",
+                email_subject="Test",
+                classified_intent="notify",
+                confidence=0.9,
+                reasoning="Test",
+                action_taken="notification_sent",
+            )
+        )
         await plugin._db.track_draft_notification(
             email_record_id=record_id,
             tg_message_id=101,
@@ -2694,18 +2841,23 @@ class TestDraftApproveToSend:
 
         # Principal says something that is NOT an approval
         from overblick.capabilities.communication.telegram_notifier import TelegramUpdate
-        mock_telegram_notifier.fetch_updates = AsyncMock(return_value=[
-            TelegramUpdate(
-                message_id=201,
-                text="Bra att du flaggade det!",
-                reply_to_message_id=101,
-            ),
-        ])
+
+        mock_telegram_notifier.fetch_updates = AsyncMock(
+            return_value=[
+                TelegramUpdate(
+                    message_id=201,
+                    text="Bra att du flaggade det!",
+                    reply_to_message_id=101,
+                ),
+            ]
+        )
 
         # Mock LLM for feedback classification
-        stal_plugin_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content='{"sentiment": "positive", "learning": "", "should_acknowledge": false}'
-        ))
+        stal_plugin_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='{"sentiment": "positive", "learning": "", "should_acknowledge": false}'
+            )
+        )
 
         await plugin._check_tg_feedback()
 
@@ -2729,15 +2881,17 @@ class TestDraftReplyDatabaseTracking:
         await db.setup()
 
         # Insert email record first
-        record_id = await db.record_email(EmailRecord(
-            gmail_message_id="gmail-draft-001",
-            email_from="test@example.com",
-            email_subject="Draft Test",
-            classified_intent="notify",
-            confidence=0.9,
-            reasoning="Test",
-            action_taken="notification_sent",
-        ))
+        record_id = await db.record_email(
+            EmailRecord(
+                gmail_message_id="gmail-draft-001",
+                email_from="test@example.com",
+                email_subject="Draft Test",
+                classified_intent="notify",
+                confidence=0.9,
+                reasoning="Test",
+                action_taken="notification_sent",
+            )
+        )
 
         # Track draft notification
         tracking_id = await db.track_draft_notification(
@@ -2773,13 +2927,15 @@ class TestDraftReplyDatabaseTracking:
         db = EmailAgentDB(backend)
         await db.setup()
 
-        record_id = await db.record_email(EmailRecord(
-            email_from="test@example.com",
-            email_subject="Regular Test",
-            classified_intent="notify",
-            confidence=0.9,
-            reasoning="Test",
-        ))
+        record_id = await db.record_email(
+            EmailRecord(
+                email_from="test@example.com",
+                email_subject="Regular Test",
+                classified_intent="notify",
+                confidence=0.9,
+                reasoning="Test",
+            )
+        )
 
         await db.track_notification(
             email_record_id=record_id,
@@ -2820,6 +2976,7 @@ class TestDraftReplyDatabaseTracking:
 # ---------------------------------------------------------------------------
 # Reply rate limiting
 # ---------------------------------------------------------------------------
+
 
 class TestReplyRateLimiting:
     """Tests for per-domain reply rate limiting in EmailAgentPlugin."""
@@ -2888,7 +3045,9 @@ class TestReplyRateLimiting:
 
     @pytest.mark.asyncio
     async def test_rate_limited_reply_falls_back_to_notification(
-        self, stal_plugin_context, mock_telegram_notifier,
+        self,
+        stal_plugin_context,
+        mock_telegram_notifier,
     ):
         """When rate limited, reply action falls back to notification."""
         plugin = EmailAgentPlugin(stal_plugin_context)

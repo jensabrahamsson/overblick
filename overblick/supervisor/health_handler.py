@@ -32,11 +32,11 @@ class HealthInquiryHandler:
     All LLM calls go through the gateway and the full security pipeline.
     """
 
-    def __init__(self, audit_log: Optional[AuditLog] = None):
+    def __init__(self, audit_log: AuditLog | None = None):
         self._audit_log = audit_log
-        self._inspector: Optional[HostInspectionCapability] = None
+        self._inspector: HostInspectionCapability | None = None
         self._llm_pipeline = None
-        self._system_prompt: Optional[str] = None
+        self._system_prompt: str | None = None
         self._initialized = False
 
     async def _ensure_initialized(self) -> bool:
@@ -54,7 +54,7 @@ class HealthInquiryHandler:
             self._inspector = HostInspectionCapability()
 
             # Load Anomal's personality for the supervisor's voice
-            from overblick.identities import load_identity, build_system_prompt
+            from overblick.identities import build_system_prompt, load_identity
 
             anomal = load_identity("anomal")
             base_prompt = build_system_prompt(anomal, platform="Supervisor IPC")
@@ -101,12 +101,10 @@ class HealthInquiryHandler:
             return True
 
         except Exception as e:
-            logger.error(
-                "Failed to initialize HealthInquiryHandler: %s", e, exc_info=True
-            )
+            logger.error("Failed to initialize HealthInquiryHandler: %s", e, exc_info=True)
             return False
 
-    async def handle(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def handle(self, msg: IPCMessage) -> IPCMessage | None:
         """
         Handle a health_inquiry IPC message.
 
@@ -206,9 +204,7 @@ class HealthInquiryHandler:
             sender="supervisor",
         )
 
-    async def _generate_response(
-        self, inquiry: HealthInquiry, health_summary: str
-    ) -> Optional[str]:
+    async def _generate_response(self, inquiry: HealthInquiry, health_summary: str) -> str | None:
         """
         Generate a response using Anomal's personality via SafeLLMPipeline.
 
@@ -221,7 +217,9 @@ class HealthInquiryHandler:
         if not self._llm_pipeline or not self._system_prompt:
             return None
 
-        user_message = f"A colleague agent ({inquiry.sender}) is asking about the host computer's health.\n\n"
+        user_message = (
+            f"A colleague agent ({inquiry.sender}) is asking about the host computer's health.\n\n"
+        )
 
         if inquiry.motivation:
             user_message += f'Their reason for asking:\n"{inquiry.motivation}"\n\n'

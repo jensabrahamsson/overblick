@@ -18,9 +18,10 @@ class IdentityService:
     def list_identities(self) -> list[str]:
         """List available identity names."""
         from overblick.identities import list_identities
+
         return list_identities()
 
-    def get_identity(self, name: str) -> Optional[dict[str, Any]]:
+    def get_identity(self, name: str) -> dict[str, Any] | None:
         """
         Get identity as a serializable dict.
 
@@ -28,6 +29,7 @@ class IdentityService:
         """
         try:
             from overblick.identities import load_identity
+
             identity = load_identity(name)
             return {
                 "name": identity.name,

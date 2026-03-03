@@ -9,7 +9,7 @@ import logging
 from collections import deque
 from typing import Optional
 
-from .models import Post, FeedItem
+from .models import FeedItem, Post
 
 logger = logging.getLogger(__name__)
 

@@ -15,11 +15,14 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from overblick.capabilities.psychology.dream_system import (
-    DreamSystem, DreamType, DreamTone, Dream,
+    DreamSystem,
+    DreamType,
+    DreamTone,
+    Dream,
 )
 
-
 # -- Fixtures ----------------------------------------------------------------
+
 
 def _cherry_guidance() -> dict:
     return {
@@ -74,6 +77,7 @@ def _valid_dream_json(**overrides) -> str:
 
 # -- LLM-based dream generation ---------------------------------------------
 
+
 class TestGenerateDreamViaLLM:
     @pytest.mark.asyncio
     async def test_generate_dream_via_llm(self):
@@ -83,7 +87,8 @@ class TestGenerateDreamViaLLM:
 
         ds = DreamSystem(dream_guidance=_cherry_guidance(), dream_weights=_cherry_weights())
         dream = await ds.generate_morning_dream(
-            llm_pipeline=pipeline, identity_name="cherry",
+            llm_pipeline=pipeline,
+            identity_name="cherry",
         )
 
         assert isinstance(dream, Dream)
@@ -102,7 +107,8 @@ class TestGenerateDreamViaLLM:
 
         ds = DreamSystem(dream_guidance=_cherry_guidance(), dream_weights=_cherry_weights())
         dream = await ds.generate_morning_dream(
-            llm_pipeline=pipeline, identity_name="cherry",
+            llm_pipeline=pipeline,
+            identity_name="cherry",
         )
 
         assert isinstance(dream, Dream)
@@ -118,7 +124,8 @@ class TestGenerateDreamViaLLM:
 
         ds = DreamSystem(dream_guidance=_cherry_guidance(), dream_weights=_cherry_weights())
         dream = await ds.generate_morning_dream(
-            llm_pipeline=pipeline, identity_name="cherry",
+            llm_pipeline=pipeline,
+            identity_name="cherry",
         )
 
         assert isinstance(dream, Dream)
@@ -127,6 +134,7 @@ class TestGenerateDreamViaLLM:
 
 
 # -- Fallback dream generation -----------------------------------------------
+
 
 class TestFallbackDream:
     @pytest.mark.asyncio
@@ -167,6 +175,7 @@ class TestFallbackDream:
 
 # -- Prompt building --------------------------------------------------------
 
+
 class TestBuildDreamPrompt:
     def test_prompt_includes_guidance(self):
         """Prompt contains themes, symbols, and tones from guidance."""
@@ -178,7 +187,9 @@ class TestBuildDreamPrompt:
         guidance = _cherry_guidance()[DreamType.VULNERABILITY_EXPOSURE]
 
         prompt = ds._build_dream_prompt(
-            DreamType.VULNERABILITY_EXPOSURE, guidance, "cherry",
+            DreamType.VULNERABILITY_EXPOSURE,
+            guidance,
+            "cherry",
         )
 
         assert "VULNERABILITY_EXPOSURE" in prompt or "vulnerability_exposure" in prompt
@@ -198,7 +209,9 @@ class TestBuildDreamPrompt:
         guidance = _cherry_guidance()[DreamType.VULNERABILITY_EXPOSURE]
 
         prompt = ds._build_dream_prompt(
-            DreamType.VULNERABILITY_EXPOSURE, guidance, "cherry",
+            DreamType.VULNERABILITY_EXPOSURE,
+            guidance,
+            "cherry",
         )
 
         assert "lowercase" in prompt
@@ -216,7 +229,9 @@ class TestBuildDreamPrompt:
         ]
 
         prompt = ds._build_dream_prompt(
-            DreamType.CONNECTION_LONGING, guidance, "cherry",
+            DreamType.CONNECTION_LONGING,
+            guidance,
+            "cherry",
             recent_dreams=recent_dreams,
         )
 
@@ -229,7 +244,9 @@ class TestBuildDreamPrompt:
         guidance = _cherry_guidance()[DreamType.VULNERABILITY_EXPOSURE]
 
         prompt = ds._build_dream_prompt(
-            DreamType.VULNERABILITY_EXPOSURE, guidance, "cherry",
+            DreamType.VULNERABILITY_EXPOSURE,
+            guidance,
+            "cherry",
             recent_topics=["attachment theory", "Rumi"],
         )
 
@@ -239,6 +256,7 @@ class TestBuildDreamPrompt:
 
 # -- LLM response parsing ---------------------------------------------------
 
+
 class TestParseLLMDream:
     def test_valid_json_parsed_correctly(self):
         """Well-formed JSON is parsed into a Dream."""
@@ -246,7 +264,9 @@ class TestParseLLMDream:
         guidance = _cherry_guidance()[DreamType.VULNERABILITY_EXPOSURE]
 
         dream = ds._parse_llm_dream(
-            _valid_dream_json(), DreamType.VULNERABILITY_EXPOSURE, guidance,
+            _valid_dream_json(),
+            DreamType.VULNERABILITY_EXPOSURE,
+            guidance,
         )
 
         assert dream.dream_type == DreamType.VULNERABILITY_EXPOSURE
@@ -259,7 +279,9 @@ class TestParseLLMDream:
         guidance = _cherry_guidance()[DreamType.VULNERABILITY_EXPOSURE]
 
         dream = ds._parse_llm_dream(
-            "this is not json at all", DreamType.VULNERABILITY_EXPOSURE, guidance,
+            "this is not json at all",
+            DreamType.VULNERABILITY_EXPOSURE,
+            guidance,
         )
 
         assert isinstance(dream, Dream)
@@ -272,7 +294,9 @@ class TestParseLLMDream:
 
         fenced = f"```json\n{_valid_dream_json()}\n```"
         dream = ds._parse_llm_dream(
-            fenced, DreamType.VULNERABILITY_EXPOSURE, guidance,
+            fenced,
+            DreamType.VULNERABILITY_EXPOSURE,
+            guidance,
         )
 
         assert dream.content == "dreamed I was in a glass room and everyone could see..."
@@ -284,7 +308,8 @@ class TestParseLLMDream:
 
         dream = ds._parse_llm_dream(
             _valid_dream_json(tone="nonexistent_tone"),
-            DreamType.VULNERABILITY_EXPOSURE, guidance,
+            DreamType.VULNERABILITY_EXPOSURE,
+            guidance,
         )
 
         assert dream.tone == DreamTone.TENDER  # First tone in guidance tones list
@@ -292,12 +317,18 @@ class TestParseLLMDream:
 
 # -- Dream type selection with emotional state --------------------------------
 
+
 class TestSelectDreamType:
     def test_anomal_high_skepticism_biases_shadow(self):
         """High skepticism increases SHADOW_INTEGRATION weight."""
-        state = MagicMock(spec=[
-            "skepticism", "melancholy", "shadow_awareness", "intellectual_energy",
-        ])
+        state = MagicMock(
+            spec=[
+                "skepticism",
+                "melancholy",
+                "shadow_awareness",
+                "intellectual_energy",
+            ]
+        )
         state.skepticism = 80
         state.melancholy = 30
         state.shadow_awareness = 50
@@ -322,10 +353,15 @@ class TestSelectDreamType:
 
     def test_cherry_low_denial_biases_ai_existence(self):
         """Low denial_strength increases AI_EXISTENCE_DENIAL weight."""
-        state = MagicMock(spec=[
-            "denial_strength", "melancholy", "vulnerability_level",
-            "connection_longing", "romantic_energy",
-        ])
+        state = MagicMock(
+            spec=[
+                "denial_strength",
+                "melancholy",
+                "vulnerability_level",
+                "connection_longing",
+                "romantic_energy",
+            ]
+        )
         state.denial_strength = 0.5
         state.melancholy = 0.3
         state.vulnerability_level = 0.3
@@ -357,6 +393,7 @@ class TestSelectDreamType:
 
 
 # -- Dream model tests -------------------------------------------------------
+
 
 class TestDreamModel:
     def test_to_dict_includes_potential_learning(self):
@@ -402,6 +439,7 @@ class TestDreamModel:
 
 
 # -- Recent dreams and insights -----------------------------------------------
+
 
 class TestDreamInsights:
     @pytest.mark.asyncio

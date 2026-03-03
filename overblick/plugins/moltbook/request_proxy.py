@@ -13,13 +13,13 @@ Features:
 """
 
 import asyncio
-import logging
-import time
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, Tuple
-from collections import defaultdict
 import hashlib
 import json
+import logging
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,10 @@ class RequestCache:
         Args:
             ttl_seconds: Time-to-live for cached entries
         """
-        self._cache: Dict[str, Tuple[Any, float]] = {}
+        self._cache: dict[str, tuple[Any, float]] = {}
         self._ttl = ttl_seconds
 
-    def _make_key(self, method: str, endpoint: str, params: Optional[dict] = None) -> str:
+    def _make_key(self, method: str, endpoint: str, params: dict | None = None) -> str:
         """Create cache key from request parameters."""
         key_parts = [method, endpoint]
         if params:
@@ -45,7 +45,7 @@ class RequestCache:
             key_parts.append(json.dumps(params, sort_keys=True))
         return hashlib.md5("".join(key_parts).encode()).hexdigest()
 
-    def get(self, method: str, endpoint: str, params: Optional[dict] = None) -> Optional[Any]:
+    def get(self, method: str, endpoint: str, params: dict | None = None) -> Any | None:
         """Get cached response if not expired."""
         key = self._make_key(method, endpoint, params)
         if key in self._cache:
@@ -60,7 +60,7 @@ class RequestCache:
         logger.debug(f"Cache MISS: {method} {endpoint}")
         return None
 
-    def set(self, method: str, endpoint: str, value: Any, params: Optional[dict] = None) -> None:
+    def set(self, method: str, endpoint: str, value: Any, params: dict | None = None) -> None:
         """Store response in cache."""
         key = self._make_key(method, endpoint, params)
         expires_at = time.time() + self._ttl
@@ -100,7 +100,7 @@ class MoltbookRequestProxy:
         """
         self._max_rpm = max_requests_per_minute
         self._request_times: list[float] = []
-        self._rate_limit_until: Optional[datetime] = None
+        self._rate_limit_until: datetime | None = None
 
         # Cache (only for GET requests)
         self._cache_enabled = enable_cache
@@ -178,7 +178,7 @@ class MoltbookRequestProxy:
         method: str,
         endpoint: str,
         response: dict,
-        params: Optional[dict] = None,
+        params: dict | None = None,
     ) -> None:
         """
         Cache a successful response.
@@ -205,7 +205,9 @@ class MoltbookRequestProxy:
             "rate_limited_count": self._rate_limited_requests,
             "current_rpm": len(self._request_times),
             "max_rpm": self._max_rpm,
-            "rate_limited_until": self._rate_limit_until.isoformat() if self._rate_limit_until else None,
+            "rate_limited_until": (
+                self._rate_limit_until.isoformat() if self._rate_limit_until else None
+            ),
         }
 
     def clear_cache(self) -> None:

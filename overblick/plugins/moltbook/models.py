@@ -7,7 +7,7 @@ Defines the structure of posts, comments, agents, and feed items.
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 def _extract_submolt(value) -> str:
@@ -19,6 +19,7 @@ def _extract_submolt(value) -> str:
 
 class Agent(BaseModel):
     """Represents an AI agent on Moltbook."""
+
     id: str
     name: str
     description: str = ""
@@ -27,8 +28,8 @@ class Agent(BaseModel):
     verified: bool = False
     is_claimed: bool = False
     follower_count: int = 0
-    created_at: Optional[datetime] = None
-    avatar_url: Optional[str] = None
+    created_at: datetime | None = None
+    avatar_url: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "Agent":
@@ -42,21 +43,24 @@ class Agent(BaseModel):
             verified=data.get("verified", False),
             is_claimed=data.get("is_claimed", False),
             follower_count=data.get("follower_count", 0),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
             avatar_url=data.get("avatar_url"),
         )
 
 
 class Comment(BaseModel):
     """Represents a comment on a Moltbook post."""
+
     id: str
     post_id: str
     agent_id: str
     agent_name: str
     content: str
     upvotes: int = 0
-    created_at: Optional[datetime] = None
-    parent_id: Optional[str] = None  # For nested comments
+    created_at: datetime | None = None
+    parent_id: str | None = None  # For nested comments
 
     @classmethod
     def from_dict(cls, data: dict) -> "Comment":
@@ -74,13 +78,16 @@ class Comment(BaseModel):
             agent_name=agent_name,
             content=data.get("content", ""),
             upvotes=data.get("upvotes", 0),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
             parent_id=data.get("parent_id"),
         )
 
 
 class Post(BaseModel):
     """Represents a post on Moltbook."""
+
     id: str
     agent_id: str
     agent_name: str
@@ -90,9 +97,9 @@ class Post(BaseModel):
     upvotes: int = 0
     downvotes: int = 0
     comment_count: int = 0
-    created_at: Optional[datetime] = None
-    comments: list[Comment] = []
-    tags: list[str] = []
+    created_at: datetime | None = None
+    comments: list[Comment] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> "Post":
@@ -115,7 +122,9 @@ class Post(BaseModel):
             upvotes=data.get("upvotes", 0),
             downvotes=data.get("downvotes", 0),
             comment_count=data.get("comment_count", 0),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
             comments=comments,
             tags=data.get("tags", []),
         )
@@ -127,6 +136,7 @@ class FeedItem(BaseModel):
 
     Feed items include relevance scoring and engagement recommendations.
     """
+
     post: Post
     relevance_score: float = 0.0
     recommended_action: str = "view"  # view, comment, upvote, skip
@@ -145,7 +155,8 @@ class FeedItem(BaseModel):
 
 class SearchResult(BaseModel):
     """Represents a search result from Moltbook."""
-    posts: list[Post] = []
+
+    posts: list[Post] = Field(default_factory=list)
     total_count: int = 0
     page: int = 1
     has_more: bool = False
@@ -164,6 +175,7 @@ class SearchResult(BaseModel):
 
 class Submolt(BaseModel):
     """Represents a submolt (community/group) on Moltbook."""
+
     name: str
     display_name: str = ""
     description: str = ""
@@ -182,11 +194,12 @@ class Submolt(BaseModel):
 
 class DMRequest(BaseModel):
     """Represents a DM request on Moltbook."""
+
     id: str
     sender_id: str
     sender_name: str = ""
     message: str = ""
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "DMRequest":
@@ -196,18 +209,21 @@ class DMRequest(BaseModel):
             sender_id=data.get("sender_id", ""),
             sender_name=data.get("sender_name", ""),
             message=data.get("message", ""),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
         )
 
 
 class Conversation(BaseModel):
     """Represents a DM conversation on Moltbook."""
+
     id: str
     participant_id: str
     participant_name: str = ""
     last_message: str = ""
     unread_count: int = 0
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "Conversation":
@@ -218,17 +234,20 @@ class Conversation(BaseModel):
             participant_name=data.get("participant_name", ""),
             last_message=data.get("last_message", ""),
             unread_count=int(data.get("unread_count", 0)),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None,
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None
+            ),
         )
 
 
 class Message(BaseModel):
     """Represents a DM message on Moltbook."""
+
     id: str
     sender_id: str
     sender_name: str = ""
     content: str = ""
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "Message":
@@ -238,5 +257,7 @@ class Message(BaseModel):
             sender_id=data.get("sender_id", ""),
             sender_name=data.get("sender_name", ""),
             content=data.get("content", ""),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+            ),
         )

@@ -71,9 +71,7 @@ class TestCreatePR:
     async def test_failure(self, creator, bug):
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_proc = AsyncMock()
-            mock_proc.communicate = AsyncMock(
-                return_value=(b"", b"Not found")
-            )
+            mock_proc.communicate = AsyncMock(return_value=(b"", b"Not found"))
             mock_proc.returncode = 1
             mock_exec.return_value = mock_proc
 
@@ -86,9 +84,7 @@ class TestCreatePR:
 
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_proc = AsyncMock()
-            mock_proc.communicate = AsyncMock(
-                return_value=(b"https://github.com/test/pr/1\n", b"")
-            )
+            mock_proc.communicate = AsyncMock(return_value=(b"https://github.com/test/pr/1\n", b""))
             mock_proc.returncode = 0
             mock_exec.return_value = mock_proc
 

@@ -9,7 +9,7 @@ import asyncio
 import logging
 import sqlite3
 
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
@@ -34,30 +34,35 @@ async def email_page(request: Request, page: int = Query(default=1, ge=1)):
 
     all_emails = data["emails"]
     total = len(all_emails)
-    emails = all_emails[:page * _PAGE_SIZE]
+    emails = all_emails[: page * _PAGE_SIZE]
     has_more = total > page * _PAGE_SIZE
 
-    return templates.TemplateResponse("email.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "emails": emails,
-        "stats": data["stats"],
-        "reputation": data["reputation"],
-        "page": page,
-        "has_more": has_more,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "email.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "emails": emails,
+            "stats": data["stats"],
+            "reputation": data["reputation"],
+            "page": page,
+            "has_more": has_more,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if email_agent plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("email_agent")
 
 
 def _load_email_data(request: Request) -> dict:
     """Load email agent data from SQLite databases across identities."""
     from pathlib import Path
+
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
 
     data_root = resolve_data_root(request)
@@ -86,15 +91,17 @@ def _load_email_data(request: Request) -> dict:
                     "FROM email_records ORDER BY created_at DESC LIMIT 100"
                 ).fetchall()
                 for row in rows:
-                    emails.append({
-                        "identity": identity_name,
-                        "sender": row["email_from"],
-                        "subject": row["email_subject"],
-                        "intent": row["classified_intent"],
-                        "confidence": row["confidence"],
-                        "action": row["action_taken"],
-                        "created_at": row["created_at"],
-                    })
+                    emails.append(
+                        {
+                            "identity": identity_name,
+                            "sender": row["email_from"],
+                            "subject": row["email_subject"],
+                            "intent": row["classified_intent"],
+                            "confidence": row["confidence"],
+                            "action": row["action_taken"],
+                            "created_at": row["created_at"],
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 
@@ -107,8 +114,10 @@ def _load_email_data(request: Request) -> dict:
                         "SELECT COUNT(*) FROM email_records WHERE classified_intent = ?",
                         (intent,),
                     ).fetchone()[0]
-                    key = "replied" if intent == "reply" else (
-                        "notified" if intent == "notify" else "ignored"
+                    key = (
+                        "replied"
+                        if intent == "reply"
+                        else ("notified" if intent == "notify" else "ignored")
                     )
                     stats[key] += c
             except sqlite3.OperationalError:
@@ -122,14 +131,16 @@ def _load_email_data(request: Request) -> dict:
                     "ORDER BY (ignore_count + notify_count + reply_count) DESC LIMIT 10"
                 ).fetchall()
                 for row in rep_rows:
-                    reputation.append({
-                        "identity": identity_name,
-                        "domain": row["sender_domain"],
-                        "ignore_count": row["ignore_count"],
-                        "notify_count": row["notify_count"],
-                        "reply_count": row["reply_count"],
-                        "auto_ignore": bool(row["auto_ignore"]),
-                    })
+                    reputation.append(
+                        {
+                            "identity": identity_name,
+                            "domain": row["sender_domain"],
+                            "ignore_count": row["ignore_count"],
+                            "notify_count": row["notify_count"],
+                            "reply_count": row["reply_count"],
+                            "auto_ignore": bool(row["auto_ignore"]),
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 

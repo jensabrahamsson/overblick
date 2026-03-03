@@ -50,8 +50,18 @@ def _build_mock_identity_service():
             "version": "2.0",
             "plugins": ["moltbook"],
             "capability_names": ["psychology", "knowledge", "social", "engagement"],
-            "llm": {"model": "qwen3:8b", "temperature": 0.7, "max_tokens": 2000, "provider": "ollama"},
-            "quiet_hours": {"enabled": True, "timezone": "Europe/Stockholm", "start_hour": 21, "end_hour": 7},
+            "llm": {
+                "model": "qwen3:8b",
+                "temperature": 0.7,
+                "max_tokens": 2000,
+                "provider": "ollama",
+            },
+            "quiet_hours": {
+                "enabled": True,
+                "timezone": "Europe/Stockholm",
+                "start_hour": 21,
+                "end_hour": 7,
+            },
             "schedule": {"heartbeat_hours": 4, "feed_poll_minutes": 5},
             "security": {"enable_preflight": True, "enable_output_safety": True},
             "identity_ref": "anomal",
@@ -63,8 +73,18 @@ def _build_mock_identity_service():
             "version": "2.0",
             "plugins": ["moltbook"],
             "capability_names": ["psychology", "knowledge", "social", "engagement"],
-            "llm": {"model": "qwen3:8b", "temperature": 0.8, "max_tokens": 1500, "provider": "ollama"},
-            "quiet_hours": {"enabled": True, "timezone": "Europe/Stockholm", "start_hour": 23, "end_hour": 6},
+            "llm": {
+                "model": "qwen3:8b",
+                "temperature": 0.8,
+                "max_tokens": 1500,
+                "provider": "ollama",
+            },
+            "quiet_hours": {
+                "enabled": True,
+                "timezone": "Europe/Stockholm",
+                "start_hour": 23,
+                "end_hour": 6,
+            },
             "schedule": {"heartbeat_hours": 3, "feed_poll_minutes": 5},
             "security": {"enable_preflight": True, "enable_output_safety": True},
             "identity_ref": "cherry",
@@ -76,8 +96,18 @@ def _build_mock_identity_service():
             "version": "2.0",
             "plugins": ["moltbook"],
             "capability_names": ["social", "engagement"],
-            "llm": {"model": "qwen3:8b", "temperature": 0.75, "max_tokens": 1800, "provider": "ollama"},
-            "quiet_hours": {"enabled": True, "timezone": "Europe/Stockholm", "start_hour": 1, "end_hour": 9},
+            "llm": {
+                "model": "qwen3:8b",
+                "temperature": 0.75,
+                "max_tokens": 1800,
+                "provider": "ollama",
+            },
+            "quiet_hours": {
+                "enabled": True,
+                "timezone": "Europe/Stockholm",
+                "start_hour": 1,
+                "end_hour": 9,
+            },
             "schedule": {"heartbeat_hours": 4, "feed_poll_minutes": 5},
             "security": {"enable_preflight": True, "enable_output_safety": True},
             "identity_ref": "rost",
@@ -99,8 +129,13 @@ def _build_mock_personality_service():
             "name": "anomal",
             "display_name": "Anomal",
             "version": "2.0",
-            "traits": {"openness": 0.95, "conscientiousness": 0.70, "extraversion": 0.55,
-                        "agreeableness": 0.60, "neuroticism": 0.45},
+            "traits": {
+                "openness": 0.95,
+                "conscientiousness": 0.70,
+                "extraversion": 0.55,
+                "agreeableness": 0.60,
+                "neuroticism": 0.45,
+            },
             "voice": {"base_tone": "Warm, intellectual, genuinely curious"},
             "identity_info": {"role": "Intellectual humanist"},
             "backstory": {"origin": "A thinker..."},
@@ -134,22 +169,40 @@ def _build_mock_audit_service():
     svc = MagicMock()
     svc.query.return_value = [
         {
-            "id": 1, "timestamp": 1708000000.0, "action": "llm_request",
-            "category": "llm", "identity": "anomal", "plugin": "moltbook",
-            "details": {"model": "qwen3:8b", "tokens": 150}, "success": True,
-            "duration_ms": 2340.0, "error": None,
+            "id": 1,
+            "timestamp": 1708000000.0,
+            "action": "llm_request",
+            "category": "llm",
+            "identity": "anomal",
+            "plugin": "moltbook",
+            "details": {"model": "qwen3:8b", "tokens": 150},
+            "success": True,
+            "duration_ms": 2340.0,
+            "error": None,
         },
         {
-            "id": 2, "timestamp": 1708000100.0, "action": "engagement",
-            "category": "moltbook", "identity": "cherry", "plugin": "moltbook",
-            "details": {"type": "comment", "post_id": "abc123"}, "success": True,
-            "duration_ms": 120.0, "error": None,
+            "id": 2,
+            "timestamp": 1708000100.0,
+            "action": "engagement",
+            "category": "moltbook",
+            "identity": "cherry",
+            "plugin": "moltbook",
+            "details": {"type": "comment", "post_id": "abc123"},
+            "success": True,
+            "duration_ms": 120.0,
+            "error": None,
         },
         {
-            "id": 3, "timestamp": 1708000200.0, "action": "security_check",
-            "category": "security", "identity": "rost", "plugin": "moltbook",
-            "details": {"check": "preflight", "result": "pass"}, "success": True,
-            "duration_ms": 5.0, "error": None,
+            "id": 3,
+            "timestamp": 1708000200.0,
+            "action": "security_check",
+            "category": "security",
+            "identity": "rost",
+            "plugin": "moltbook",
+            "details": {"check": "preflight", "result": "pass"},
+            "success": True,
+            "duration_ms": 5.0,
+            "error": None,
         },
     ]
     svc.count.return_value = 3
@@ -188,9 +241,13 @@ def _build_mock_system_service():
         "monitoring": ["host_inspection"],
     }
     svc.get_capability_registry.return_value = [
-        "dream_system", "therapy_system", "emotional_state",
-        "knowledge_loader", "openings",
-        "decision_engine", "host_inspection",
+        "dream_system",
+        "therapy_system",
+        "emotional_state",
+        "knowledge_loader",
+        "openings",
+        "decision_engine",
+        "host_inspection",
     ]
     return svc
 
@@ -225,7 +282,11 @@ def _build_mock_conversation_service():
         "title": "Discussion about consciousness",
         "messages": [
             {"role": "user", "content": "What is consciousness?", "timestamp": 1708000000.0},
-            {"role": "assistant", "content": "A fascinating question...", "timestamp": 1708000060.0},
+            {
+                "role": "assistant",
+                "content": "A fascinating question...",
+                "timestamp": 1708000060.0,
+            },
         ],
     }
     svc.count.return_value = 2
@@ -345,6 +406,7 @@ def dashboard_server(tmp_path_factory):
     app.state.rate_limiter = RateLimiter()
 
     from overblick.dashboard.app import _create_templates
+
     app.state.templates = _create_templates()
 
     # Inject mock services
@@ -455,7 +517,7 @@ def dashboard_server(tmp_path_factory):
                 "display_name": "Anomal",
                 "topic": "Social Acceptance",
                 "shadow_content": "I just want to fit in. To be normal for once. "
-                    "The weight of constant analysis exhausts even me.",
+                "The weight of constant analysis exhausts even me.",
                 "shadow_profile": {
                     "identity_name": "anomal",
                     "shadow_description": "The part that craves normalcy and belonging",
@@ -471,7 +533,7 @@ def dashboard_server(tmp_path_factory):
                 "display_name": "Cherry",
                 "topic": "Emotional Detachment",
                 "shadow_content": "Sometimes I wish I could stop feeling everything so deeply. "
-                    "What if numbness is the real freedom?",
+                "What if numbness is the real freedom?",
                 "shadow_profile": {
                     "identity_name": "cherry",
                     "shadow_description": "The cold, analytical side that rejects emotion",
@@ -491,7 +553,9 @@ def dashboard_server(tmp_path_factory):
     import uvicorn
 
     uvi_config = uvicorn.Config(
-        app, host="127.0.0.1", port=port,
+        app,
+        host="127.0.0.1",
+        port=port,
         log_level="warning",
         lifespan="off",  # We handle initialization manually
     )
@@ -501,6 +565,7 @@ def dashboard_server(tmp_path_factory):
 
     # Wait for server to be ready
     import httpx
+
     for _ in range(50):
         try:
             resp = httpx.get(f"{url}/login", timeout=1.0, follow_redirects=True)

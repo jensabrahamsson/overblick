@@ -12,10 +12,10 @@ Generic planning and reflection prompts have moved to core/agentic/prompts.py.
 All external content is expected to be pre-wrapped via wrap_external_content().
 """
 
-
 # ---------------------------------------------------------------------------
 # Legacy prompts (used by ResponseGenerator, CodeContextBuilder)
 # ---------------------------------------------------------------------------
+
 
 def file_selector_prompt(
     file_tree: str,
@@ -39,10 +39,7 @@ def file_selector_prompt(
         'Example: ["src/main.py", "src/utils.py", "README.md"]'
     )
 
-    user = (
-        f"Question: {question}\n\n"
-        f"Repository file tree:\n{file_tree}"
-    )
+    user = f"Question: {question}\n\n" f"Repository file tree:\n{file_tree}"
 
     return [
         {"role": "system", "content": system},
@@ -118,6 +115,7 @@ def issue_response_prompt(
 # Agentic prompts (GitHub-specific)
 # ---------------------------------------------------------------------------
 
+
 def dependabot_review_prompt(
     system_prompt: str,
     pr_title: str,
@@ -149,11 +147,7 @@ def dependabot_review_prompt(
         "}"
     )
 
-    user = (
-        f"PR: {pr_title}\n"
-        f"Version bump: {version_bump}\n"
-        f"CI status: {ci_status}\n\n"
-    )
+    user = f"PR: {pr_title}\n" f"Version bump: {version_bump}\n" f"CI status: {ci_status}\n\n"
     if repo_summary:
         user += f"Repository context:\n{repo_summary}\n\n"
     user += f"Diff:\n{pr_diff[:8000]}\n"  # Cap diff size
@@ -182,11 +176,7 @@ def issue_classification_prompt(
         "}"
     )
 
-    user = (
-        f"Title: {issue_title}\n"
-        f"Labels: {labels}\n\n"
-        f"Body:\n{issue_body[:3000]}"
-    )
+    user = f"Title: {issue_title}\n" f"Labels: {labels}\n\n" f"Body:\n{issue_body[:3000]}"
 
     return [
         {"role": "system", "content": system},

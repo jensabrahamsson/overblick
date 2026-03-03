@@ -176,7 +176,8 @@ class TestIPCHandling:
 
         await plugin._handle_ipc_bug_report(msg)
         plugin._observer.enqueue_ipc_message.assert_called_once_with(
-            "bug_report", msg.payload,
+            "bug_report",
+            msg.payload,
         )
 
     @pytest.mark.asyncio
@@ -189,13 +190,15 @@ class TestIPCHandling:
 
         await plugin._handle_ipc_log_alert(msg)
         plugin._observer.enqueue_ipc_message.assert_called_once_with(
-            "log_alert", msg.payload,
+            "log_alert",
+            msg.payload,
         )
 
 
 class TestPluginRegistry:
     def test_dev_agent_in_registry(self):
         from overblick.core.plugin_registry import _DEFAULT_PLUGINS
+
         assert "dev_agent" in _DEFAULT_PLUGINS
         module_path, class_name = _DEFAULT_PLUGINS["dev_agent"]
         assert module_path == "overblick.plugins.dev_agent.plugin"

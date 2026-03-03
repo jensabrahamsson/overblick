@@ -37,15 +37,18 @@ async def audit_page(request: Request):
         limit=filters.limit,
     )
 
-    return templates.TemplateResponse("audit.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "entries": entries,
-        "filters": filters,
-        "identities": identity_svc.list_identities(),
-        "categories": audit_svc.get_categories(),
-        "actions": audit_svc.get_actions(),
-    })
+    return templates.TemplateResponse(
+        "audit.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "entries": entries,
+            "filters": filters,
+            "identities": identity_svc.list_identities(),
+            "categories": audit_svc.get_categories(),
+            "actions": audit_svc.get_actions(),
+        },
+    )
 
 
 @router.get("/partials/audit-filtered", response_class=HTMLResponse)
@@ -69,7 +72,10 @@ async def audit_filtered_partial(request: Request):
         limit=filters.limit,
     )
 
-    return templates.TemplateResponse("partials/audit_table.html", {
-        "request": request,
-        "entries": entries,
-    })
+    return templates.TemplateResponse(
+        "partials/audit_table.html",
+        {
+            "request": request,
+            "entries": entries,
+        },
+    )

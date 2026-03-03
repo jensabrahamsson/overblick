@@ -26,6 +26,7 @@ def short_tmp():
 # IPCMessage
 # ---------------------------------------------------------------------------
 
+
 class TestIPCMessage:
     def test_serialize_deserialize(self):
         msg = IPCMessage(msg_type="test", payload={"key": "value"}, sender="agent-1")
@@ -48,8 +49,10 @@ class TestIPCMessage:
 
     def test_permission_request(self):
         msg = IPCMessage.permission_request(
-            resource="moltbook.comment", action="write",
-            reason="Wants to comment", sender="anomal",
+            resource="moltbook.comment",
+            action="write",
+            reason="Wants to comment",
+            sender="anomal",
         )
         assert msg.msg_type == "permission_request"
         assert msg.payload["resource"] == "moltbook.comment"
@@ -72,6 +75,7 @@ class TestIPCMessage:
 # ---------------------------------------------------------------------------
 # AgentProcess
 # ---------------------------------------------------------------------------
+
 
 class TestAgentProcess:
     def test_initial_state(self):
@@ -116,6 +120,7 @@ class TestAgentProcess:
 
         # Create a mock process that exits cleanly
         from unittest.mock import AsyncMock, MagicMock
+
         mock_proc = MagicMock()
         mock_proc.wait = AsyncMock(return_value=0)
         mock_proc.returncode = 0
@@ -133,6 +138,7 @@ class TestAgentProcess:
         agent.state = ProcessState.RUNNING
 
         from unittest.mock import AsyncMock, MagicMock
+
         mock_proc = MagicMock()
         mock_proc.wait = AsyncMock(return_value=1)
         mock_proc.returncode = 1
@@ -149,6 +155,7 @@ class TestAgentProcess:
         agent.state = ProcessState.STOPPING
 
         from unittest.mock import AsyncMock, MagicMock
+
         mock_proc = MagicMock()
         mock_proc.wait = AsyncMock(return_value=0)
         mock_proc.returncode = 0
@@ -169,6 +176,7 @@ class TestAgentProcess:
 # ---------------------------------------------------------------------------
 # IPCServer + IPCClient
 # ---------------------------------------------------------------------------
+
 
 class TestIPC:
     @pytest.mark.asyncio
@@ -215,8 +223,10 @@ class TestIPC:
         try:
             client = IPCClient(target="t3", socket_dir=short_tmp)
             granted = await client.request_permission(
-                resource="moltbook.comment", action="write",
-                reason="test", sender="anomal",
+                resource="moltbook.comment",
+                action="write",
+                reason="test",
+                sender="anomal",
             )
             assert granted is True
         finally:
@@ -247,6 +257,7 @@ class TestIPC:
 # ---------------------------------------------------------------------------
 # Supervisor
 # ---------------------------------------------------------------------------
+
 
 class TestSupervisor:
     def test_initial_state(self):
@@ -298,7 +309,8 @@ class TestSupervisor:
 
         try:
             client = IPCClient(
-                target="supervisor", socket_dir=short_tmp,
+                target="supervisor",
+                socket_dir=short_tmp,
                 auth_token=sup._auth_token,
             )
             status = await client.request_status(sender="test")
@@ -315,12 +327,15 @@ class TestSupervisor:
 
         try:
             client = IPCClient(
-                target="supervisor", socket_dir=short_tmp,
+                target="supervisor",
+                socket_dir=short_tmp,
                 auth_token=sup._auth_token,
             )
             granted = await client.request_permission(
-                resource="moltbook.comment", action="write",
-                reason="test comment", sender="anomal",
+                resource="moltbook.comment",
+                action="write",
+                reason="test comment",
+                sender="anomal",
             )
             assert granted is True
         finally:
@@ -330,6 +345,7 @@ class TestSupervisor:
 # ---------------------------------------------------------------------------
 # IPC Authentication
 # ---------------------------------------------------------------------------
+
 
 class TestSupervisorAgentActions:
     """Test start/stop agent IPC handlers."""
@@ -342,7 +358,8 @@ class TestSupervisorAgentActions:
 
         try:
             client = IPCClient(
-                target="supervisor", socket_dir=short_tmp,
+                target="supervisor",
+                socket_dir=short_tmp,
                 auth_token=sup._auth_token,
             )
             msg = IPCMessage(
@@ -367,7 +384,8 @@ class TestSupervisorAgentActions:
 
         try:
             client = IPCClient(
-                target="supervisor", socket_dir=short_tmp,
+                target="supervisor",
+                socket_dir=short_tmp,
                 auth_token=sup._auth_token,
             )
             msg = IPCMessage(
@@ -391,7 +409,8 @@ class TestSupervisorAgentActions:
 
         try:
             client = IPCClient(
-                target="supervisor", socket_dir=short_tmp,
+                target="supervisor",
+                socket_dir=short_tmp,
                 auth_token=sup._auth_token,
             )
             msg = IPCMessage(
@@ -414,7 +433,8 @@ class TestSupervisorAgentActions:
 
         try:
             client = IPCClient(
-                target="supervisor", socket_dir=short_tmp,
+                target="supervisor",
+                socket_dir=short_tmp,
                 auth_token=sup._auth_token,
             )
             msg = IPCMessage(
@@ -516,6 +536,7 @@ class TestIPCAuth:
 # Identity plugin resolution
 # ---------------------------------------------------------------------------
 
+
 class TestSupervisorIdentityPlugins:
     """Test that start_agent loads plugins from identity config."""
 
@@ -528,6 +549,7 @@ class TestSupervisorIdentityPlugins:
         try:
             # Mock load_identity to return an identity with specific plugins
             from unittest.mock import patch, MagicMock
+
             mock_identity = MagicMock()
             mock_identity.plugins = ("moltbook", "ai_digest", "telegram")
 
@@ -543,6 +565,7 @@ class TestSupervisorIdentityPlugins:
                 # when no plugins arg is given, it loads from identity config
                 try:
                     from overblick.identities import load_identity
+
                     ident = load_identity("anomal")
                     if ident and ident.plugins:
                         agent.plugins = list(ident.plugins)

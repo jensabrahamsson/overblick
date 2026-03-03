@@ -21,10 +21,10 @@ from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
 
 from overblick.core.llm.gateway_client import GatewayClient
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_session(
     response_status=200,
@@ -90,6 +90,7 @@ def _make_client(session=None, **kwargs):
 # Initialization
 # ---------------------------------------------------------------------------
 
+
 class TestGatewayClientInit:
     """Test GatewayClient initialization."""
 
@@ -138,6 +139,7 @@ class TestGatewayClientInit:
 # ---------------------------------------------------------------------------
 # Priority handling
 # ---------------------------------------------------------------------------
+
 
 class TestGatewayClientPriority:
     """Tests for GatewayClient priority handling."""
@@ -210,16 +212,19 @@ class TestGatewayClientPriority:
 # Chat response parsing
 # ---------------------------------------------------------------------------
 
+
 class TestGatewayClientChat:
     """Test chat response parsing and payload construction."""
 
     async def test_chat_returns_parsed_response(self):
         """chat() returns dict with content, model, tokens, finish_reason."""
-        session = _make_mock_session(response_json={
-            "choices": [{"message": {"content": "Hello human!"}, "finish_reason": "stop"}],
-            "model": "qwen3:8b",
-            "usage": {"total_tokens": 42},
-        })
+        session = _make_mock_session(
+            response_json={
+                "choices": [{"message": {"content": "Hello human!"}, "finish_reason": "stop"}],
+                "model": "qwen3:8b",
+                "usage": {"total_tokens": 42},
+            }
+        )
         client = _make_client(session)
 
         result = await client.chat(
@@ -238,7 +243,10 @@ class TestGatewayClientChat:
         client = _make_client(session, temperature=0.5, max_tokens=1000, top_p=0.85)
 
         await client.chat(
-            messages=[{"role": "system", "content": "You are helpful."}, {"role": "user", "content": "Hi"}],
+            messages=[
+                {"role": "system", "content": "You are helpful."},
+                {"role": "user", "content": "Hi"},
+            ],
         )
 
         call_kwargs = session.post.call_args
@@ -268,11 +276,13 @@ class TestGatewayClientChat:
 
     async def test_chat_empty_choices(self):
         """chat() returns None when response has no choices."""
-        session = _make_mock_session(response_json={
-            "choices": [],
-            "model": "qwen3:8b",
-            "usage": {},
-        })
+        session = _make_mock_session(
+            response_json={
+                "choices": [],
+                "model": "qwen3:8b",
+                "usage": {},
+            }
+        )
         client = _make_client(session)
 
         result = await client.chat(
@@ -283,10 +293,12 @@ class TestGatewayClientChat:
 
     async def test_chat_missing_usage(self):
         """chat() handles missing usage field gracefully."""
-        session = _make_mock_session(response_json={
-            "choices": [{"message": {"content": "Response"}, "finish_reason": "stop"}],
-            "model": "qwen3:8b",
-        })
+        session = _make_mock_session(
+            response_json={
+                "choices": [{"message": {"content": "Response"}, "finish_reason": "stop"}],
+                "model": "qwen3:8b",
+            }
+        )
         client = _make_client(session)
 
         result = await client.chat(
@@ -298,10 +310,12 @@ class TestGatewayClientChat:
 
     async def test_chat_missing_model_in_response(self):
         """chat() falls back to client model when missing in response."""
-        session = _make_mock_session(response_json={
-            "choices": [{"message": {"content": "Response"}, "finish_reason": "stop"}],
-            "usage": {"total_tokens": 10},
-        })
+        session = _make_mock_session(
+            response_json={
+                "choices": [{"message": {"content": "Response"}, "finish_reason": "stop"}],
+                "usage": {"total_tokens": 10},
+            }
+        )
         client = _make_client(session)
 
         result = await client.chat(
@@ -356,6 +370,7 @@ class TestGatewayClientChat:
 # ---------------------------------------------------------------------------
 # Error handling
 # ---------------------------------------------------------------------------
+
 
 class TestGatewayClientErrors:
     """Test error handling in chat()."""
@@ -440,6 +455,7 @@ class TestGatewayClientErrors:
 # Health check
 # ---------------------------------------------------------------------------
 
+
 class TestGatewayClientHealthCheck:
     """Test health_check() method."""
 
@@ -512,6 +528,7 @@ class TestGatewayClientHealthCheck:
 # Session lifecycle
 # ---------------------------------------------------------------------------
 
+
 class TestGatewayClientSession:
     """Test session management."""
 
@@ -582,12 +599,14 @@ class TestGatewayClientSession:
 # LLMClient interface compliance
 # ---------------------------------------------------------------------------
 
+
 class TestGatewayClientInterface:
     """Verify GatewayClient implements the LLMClient abstract interface."""
 
     def test_implements_llm_client(self):
         """GatewayClient is a subclass of LLMClient."""
         from overblick.core.llm.client import LLMClient
+
         assert issubclass(GatewayClient, LLMClient)
 
     def test_has_chat_method(self):

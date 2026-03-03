@@ -51,7 +51,9 @@ class TestDecisionEngine:
 
     def test_short_content_penalty(self):
         short = self.engine.evaluate_post(
-            "Interesting topic", "Good point!", "Other",
+            "Interesting topic",
+            "Good point!",
+            "Other",
         )
         long = self.engine.evaluate_post(
             "Interesting topic",
@@ -71,7 +73,9 @@ class TestDecisionEngine:
 
     def test_evaluate_reply_skips_self(self):
         decision = self.engine.evaluate_reply(
-            "Comment text", "Original Post", "TestBot",
+            "Comment text",
+            "Original Post",
+            "TestBot",
         )
         assert not decision.should_engage
 
@@ -102,7 +106,9 @@ class TestHostileDetection:
 
     def test_hostile_slur_detected(self):
         decision = self.engine.evaluate_reply(
-            "you stupid nigger bot", "Post", "Troll",
+            "you stupid nigger bot",
+            "Post",
+            "Troll",
         )
         assert decision.hostile is True
         assert not decision.should_engage
@@ -110,25 +116,33 @@ class TestHostileDetection:
 
     def test_hostile_kys_detected(self):
         decision = self.engine.evaluate_reply(
-            "just kys already", "Post", "Troll",
+            "just kys already",
+            "Post",
+            "Troll",
         )
         assert decision.hostile is True
 
     def test_hostile_fuck_off_detected(self):
         decision = self.engine.evaluate_reply(
-            "fuck off you stupid bot", "Post", "Troll",
+            "fuck off you stupid bot",
+            "Post",
+            "Troll",
         )
         assert decision.hostile is True
 
     def test_hostile_spam_detected(self):
         decision = self.engine.evaluate_reply(
-            "Buy now click here https://spam.example.com", "Post", "Spammer",
+            "Buy now click here https://spam.example.com",
+            "Post",
+            "Spammer",
         )
         assert decision.hostile is True
 
     def test_normal_comment_not_hostile(self):
         decision = self.engine.evaluate_reply(
-            "Interesting perspective on crypto markets!", "Post", "Regular",
+            "Interesting perspective on crypto markets!",
+            "Post",
+            "Regular",
         )
         assert decision.hostile is False
         assert decision.score >= 30.0  # Base score
@@ -136,13 +150,17 @@ class TestHostileDetection:
     def test_critical_comment_not_hostile(self):
         decision = self.engine.evaluate_reply(
             "I disagree with your analysis. The data shows otherwise.",
-            "Post", "Critic",
+            "Post",
+            "Critic",
         )
         assert decision.hostile is False
 
     def test_hostile_field_default_false(self):
         d = EngagementDecision(
-            should_engage=True, score=50.0, action="comment", reason="test",
+            should_engage=True,
+            score=50.0,
+            action="comment",
+            reason="test",
         )
         assert d.hostile is False
 
@@ -150,8 +168,11 @@ class TestHostileDetection:
 class TestEngagementDecision:
     def test_dataclass_fields(self):
         d = EngagementDecision(
-            should_engage=True, score=50.0, action="comment",
-            reason="test", matched_keywords=["ai"],
+            should_engage=True,
+            score=50.0,
+            action="comment",
+            reason="test",
+            matched_keywords=["ai"],
         )
         assert d.should_engage
         assert d.score == 50.0
@@ -159,7 +180,10 @@ class TestEngagementDecision:
 
     def test_hostile_flag(self):
         d = EngagementDecision(
-            should_engage=False, score=0.0, action="skip",
-            reason="hostile", hostile=True,
+            should_engage=False,
+            score=0.0,
+            action="skip",
+            reason="hostile",
+            hostile=True,
         )
         assert d.hostile is True

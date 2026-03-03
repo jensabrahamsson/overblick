@@ -13,14 +13,14 @@ class Constraint(BaseModel):
     description: str = ""
     value: Any = None
     expected: str = ""
-    keywords: list[str] = []
+    keywords: list[str] = Field(default_factory=list)
 
 
 class ScenarioStep(BaseModel):
     """A single step in a behavioral scenario."""
 
     input: str
-    constraints: list[Constraint] = []
+    constraints: list[Constraint] = Field(default_factory=list)
     description: str = ""
 
 
@@ -30,8 +30,8 @@ class Scenario(BaseModel):
     name: str
     identity: str
     description: str = ""
-    steps: list[ScenarioStep] = []
-    tags: list[str] = []
+    steps: list[ScenarioStep] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class ConstraintResult(BaseModel):
@@ -50,9 +50,9 @@ class StepResult(BaseModel):
     step_index: int
     input_text: str
     output_text: str = ""
-    constraint_results: list[ConstraintResult] = []
+    constraint_results: list[ConstraintResult] = Field(default_factory=list)
     passed: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def failed_constraints(self) -> list[ConstraintResult]:
@@ -64,14 +64,14 @@ class ScenarioResult(BaseModel):
 
     scenario_name: str
     identity: str
-    step_results: list[StepResult] = []
+    step_results: list[StepResult] = Field(default_factory=list)
     passed: bool = True
     total_constraints: int = 0
     passed_constraints: int = 0
     failed_constraints: int = 0
     duration_ms: float = 0.0
     run_at: float = Field(default_factory=time.time)
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def pass_rate(self) -> float:

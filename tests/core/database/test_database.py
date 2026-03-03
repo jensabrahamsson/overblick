@@ -13,10 +13,10 @@ from overblick.core.database.sqlite_backend import SQLiteBackend
 from overblick.core.database.factory import create_backend
 from overblick.core.database.migrations import MIGRATIONS
 
-
 # ---------------------------------------------------------------------------
 # DatabaseConfig
 # ---------------------------------------------------------------------------
+
 
 class TestDatabaseConfig:
     def test_defaults(self):
@@ -61,6 +61,7 @@ class TestDatabaseConfig:
 # Factory
 # ---------------------------------------------------------------------------
 
+
 class TestFactory:
     def test_create_sqlite(self):
         db = create_backend({"backend": "sqlite", "sqlite": {"path": "/tmp/test.db"}})
@@ -83,6 +84,7 @@ class TestFactory:
         """PostgreSQL backend raises ImportError if asyncpg not installed."""
         try:
             import asyncpg
+
             pytest.skip("asyncpg is installed")
         except ImportError:
             with pytest.raises(ImportError, match="asyncpg"):
@@ -92,6 +94,7 @@ class TestFactory:
 # ---------------------------------------------------------------------------
 # SQLiteBackend
 # ---------------------------------------------------------------------------
+
 
 class TestSQLiteBackend:
     @pytest.fixture
@@ -205,9 +208,7 @@ class TestSQLiteBackend:
         """Batch insert via execute_many (Pass 4, fix 4.4)."""
         await db.execute_script("CREATE TABLE batch (id INTEGER PRIMARY KEY, val TEXT);")
         params = [(1, "a"), (2, "b"), (3, "c")]
-        count = await db.execute_many(
-            "INSERT INTO batch (id, val) VALUES (?, ?)", params
-        )
+        count = await db.execute_many("INSERT INTO batch (id, val) VALUES (?, ?)", params)
         assert count == 3
         rows = await db.fetch_all("SELECT * FROM batch ORDER BY id")
         assert len(rows) == 3
@@ -248,6 +249,7 @@ class TestSQLiteBackend:
 # MigrationManager
 # ---------------------------------------------------------------------------
 
+
 class TestMigrationManager:
     @pytest.fixture
     async def db(self, tmp_path):
@@ -281,12 +283,9 @@ class TestMigrationManager:
     async def test_apply_multiple_migrations(self, db):
         mgr = MigrationManager(db)
         migrations = [
-            Migration(version=1, name="first",
-                      up_sql="CREATE TABLE m1 (id INTEGER PRIMARY KEY);"),
-            Migration(version=2, name="second",
-                      up_sql="CREATE TABLE m2 (id INTEGER PRIMARY KEY);"),
-            Migration(version=3, name="third",
-                      up_sql="CREATE TABLE m3 (id INTEGER PRIMARY KEY);"),
+            Migration(version=1, name="first", up_sql="CREATE TABLE m1 (id INTEGER PRIMARY KEY);"),
+            Migration(version=2, name="second", up_sql="CREATE TABLE m2 (id INTEGER PRIMARY KEY);"),
+            Migration(version=3, name="third", up_sql="CREATE TABLE m3 (id INTEGER PRIMARY KEY);"),
         ]
         applied = await mgr.apply(migrations)
         assert applied == 3
@@ -296,10 +295,12 @@ class TestMigrationManager:
     async def test_skip_applied_migrations(self, db):
         mgr = MigrationManager(db)
         migrations = [
-            Migration(version=1, name="first",
-                      up_sql="CREATE TABLE skip1 (id INTEGER PRIMARY KEY);"),
-            Migration(version=2, name="second",
-                      up_sql="CREATE TABLE skip2 (id INTEGER PRIMARY KEY);"),
+            Migration(
+                version=1, name="first", up_sql="CREATE TABLE skip1 (id INTEGER PRIMARY KEY);"
+            ),
+            Migration(
+                version=2, name="second", up_sql="CREATE TABLE skip2 (id INTEGER PRIMARY KEY);"
+            ),
         ]
         await mgr.apply(migrations)
 
@@ -314,16 +315,18 @@ class TestMigrationManager:
 
         # Apply first batch
         batch1 = [
-            Migration(version=1, name="first",
-                      up_sql="CREATE TABLE inc1 (id INTEGER PRIMARY KEY);"),
+            Migration(
+                version=1, name="first", up_sql="CREATE TABLE inc1 (id INTEGER PRIMARY KEY);"
+            ),
         ]
         await mgr.apply(batch1)
         assert await mgr.current_version() == 1
 
         # Apply second batch (includes old + new)
         batch2 = batch1 + [
-            Migration(version=2, name="second",
-                      up_sql="CREATE TABLE inc2 (id INTEGER PRIMARY KEY);"),
+            Migration(
+                version=2, name="second", up_sql="CREATE TABLE inc2 (id INTEGER PRIMARY KEY);"
+            ),
         ]
         applied = await mgr.apply(batch2)
         assert applied == 1  # Only the new one
@@ -338,9 +341,17 @@ class TestMigrationManager:
         assert await mgr.current_version() == MIGRATIONS[-1].version
 
         # Verify key tables exist
-        for table in ["engagements", "audit_log", "dreams", "therapy_sessions",
-                       "learnings", "emotional_snapshots", "seen_posts",
-                       "agent_audits", "prompt_tweaks"]:
+        for table in [
+            "engagements",
+            "audit_log",
+            "dreams",
+            "therapy_sessions",
+            "learnings",
+            "emotional_snapshots",
+            "seen_posts",
+            "agent_audits",
+            "prompt_tweaks",
+        ]:
             assert await db.table_exists(table), f"Table {table} should exist"
 
     @pytest.mark.asyncio

@@ -8,7 +8,7 @@ shown side-by-side on the dashboard.
 import asyncio
 import logging
 
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
@@ -33,22 +33,26 @@ async def kontrast_page(request: Request, page: int = Query(default=1, ge=1)):
         data_errors = [f"Failed to load kontrast data: {e}"]
 
     total = len(all_pieces)
-    pieces = all_pieces[:page * _PAGE_SIZE]
+    pieces = all_pieces[: page * _PAGE_SIZE]
     has_more = total > page * _PAGE_SIZE
 
-    return templates.TemplateResponse("kontrast.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "pieces": pieces,
-        "page": page,
-        "has_more": has_more,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "kontrast.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "pieces": pieces,
+            "page": page,
+            "has_more": has_more,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if kontrast plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("kontrast")
 
 
@@ -59,6 +63,7 @@ def _load_pieces(request: Request) -> list:
 
     # Try to find kontrast state files across all identity data dirs
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
+
     pieces = []
     data_root = resolve_data_root(request)
     if not data_root.exists():

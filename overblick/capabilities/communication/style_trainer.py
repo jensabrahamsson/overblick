@@ -74,8 +74,8 @@ class StyleTrainerCapability(CapabilityBase):
 
     def __init__(self, ctx: CapabilityContext):
         super().__init__(ctx)
-        self._profile: Optional[dict[str, Any]] = None
-        self._profile_path: Optional[Path] = None
+        self._profile: dict[str, Any] | None = None
+        self._profile_path: Path | None = None
         self._min_examples: int = 20
 
     async def setup(self) -> None:
@@ -115,7 +115,7 @@ class StyleTrainerCapability(CapabilityBase):
             "loaded" if self._profile else "none",
         )
 
-    async def ingest_examples(self, emails: list[dict[str, str]]) -> Optional[dict[str, Any]]:
+    async def ingest_examples(self, emails: list[dict[str, str]]) -> dict[str, Any] | None:
         """
         Ingest example emails and extract a writing style profile.
 
@@ -193,7 +193,7 @@ class StyleTrainerCapability(CapabilityBase):
         )
         return profile
 
-    def get_style_profile(self) -> Optional[dict[str, Any]]:
+    def get_style_profile(self) -> dict[str, Any] | None:
         """Return the current style profile, or None if not yet trained."""
         return self._profile
 

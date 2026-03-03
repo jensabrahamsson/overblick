@@ -150,17 +150,13 @@ class TestExplicitBackendOverride:
     def test_explicit_deepseek_ignores_low_complexity(self, multi_config):
         registry = BackendRegistry(multi_config)
         router = RequestRouter(registry)
-        result = router.resolve_backend(
-            complexity="low", explicit_backend="deepseek"
-        )
+        result = router.resolve_backend(complexity="low", explicit_backend="deepseek")
         assert result == "deepseek"
 
     def test_explicit_local_ignores_high_complexity(self, multi_config):
         registry = BackendRegistry(multi_config)
         router = RequestRouter(registry)
-        result = router.resolve_backend(
-            complexity="high", explicit_backend="local"
-        )
+        result = router.resolve_backend(complexity="high", explicit_backend="local")
         assert result == "local"
 
     def test_explicit_nonexistent_raises(self, multi_config):

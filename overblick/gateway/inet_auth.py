@@ -75,9 +75,7 @@ class APIKeyManager:
     def _get_conn(self) -> sqlite3.Connection:
         """Get thread-local SQLite connection."""
         if not hasattr(self._local, "conn"):
-            conn = sqlite3.connect(
-                str(self._db_path), timeout=10, check_same_thread=True
-            )
+            conn = sqlite3.connect(str(self._db_path), timeout=10, check_same_thread=True)
             conn.execute("PRAGMA journal_mode=WAL")
             # Schema already exists from initialization
             self._local.conn = conn
@@ -88,9 +86,9 @@ class APIKeyManager:
     def create_key(
         self,
         name: str,
-        expires_days: Optional[int] = None,
-        allowed_models: Optional[list[str]] = None,
-        allowed_backends: Optional[list[str]] = None,
+        expires_days: int | None = None,
+        allowed_models: list[str] | None = None,
+        allowed_backends: list[str] | None = None,
         max_tokens_cap: int = 4096,
         requests_per_minute: int = 30,
     ) -> tuple[str, APIKeyRecord]:
@@ -148,12 +146,10 @@ class APIKeyManager:
             requests_per_minute=requests_per_minute,
         )
 
-        logger.info(
-            "Created API key '%s' (id: %s, prefix: %s)", name, key_id, key_prefix
-        )
+        logger.info("Created API key '%s' (id: %s, prefix: %s)", name, key_id, key_prefix)
         return raw_key, record
 
-    def verify_key(self, raw_key: str) -> Optional[APIKeyRecord]:
+    def verify_key(self, raw_key: str) -> APIKeyRecord | None:
         """Verify an API key and return its record if valid.
 
         Timing-safe: always performs at least one bcrypt comparison
@@ -246,7 +242,7 @@ class APIKeyManager:
         logger.info("API key not found for revocation: %s", key_id)
         return False
 
-    def rotate_key(self, key_id: str) -> Optional[tuple[str, APIKeyRecord]]:
+    def rotate_key(self, key_id: str) -> tuple[str, APIKeyRecord] | None:
         """Rotate an API key: create new key with same permissions, revoke old.
 
         Atomic: revoke + create happen in a single transaction so a crash

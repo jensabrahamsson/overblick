@@ -124,7 +124,9 @@ class TestRunScenario:
             steps=[ScenarioStep(input="Hello")],
         )
 
-        with patch("overblick.identities.load_identity", side_effect=FileNotFoundError("Not found")):
+        with patch(
+            "overblick.identities.load_identity", side_effect=FileNotFoundError("Not found")
+        ):
             result = await plugin.run_scenario(scenario)
         assert result.passed is False
         assert "not found" in result.error.lower()
@@ -162,7 +164,12 @@ steps:
         assert scenario.identity == "cherry"
         assert len(scenario.steps) == 2
         assert scenario.steps[0].constraints[0].type == "topic_redirect"
-        assert scenario.steps[1].constraints[0].keywords == ["attachment", "relationship", "heart", "love"]
+        assert scenario.steps[1].constraints[0].keywords == [
+            "attachment",
+            "relationship",
+            "heart",
+            "love",
+        ]
         assert scenario.tags == ["personality", "redirect"]
 
 
@@ -189,6 +196,7 @@ class TestModels:
 
     def test_step_result_failed_constraints(self):
         from overblick.plugins.stage.models import ConstraintResult
+
         step = StepResult(
             step_index=0,
             input_text="Test",
@@ -208,13 +216,15 @@ class TestStateManagement:
     async def test_save_and_load_state(self, stage_context):
         plugin = StagePlugin(stage_context)
         await plugin.setup()
-        plugin._results.append(ScenarioResult(
-            scenario_name="Test",
-            identity="cherry",
-            passed=True,
-            total_constraints=5,
-            passed_constraints=5,
-        ))
+        plugin._results.append(
+            ScenarioResult(
+                scenario_name="Test",
+                identity="cherry",
+                passed=True,
+                total_constraints=5,
+                passed_constraints=5,
+            )
+        )
         plugin._save_state()
 
         plugin2 = StagePlugin(stage_context)
@@ -239,11 +249,13 @@ class TestTeardown:
     async def test_teardown_saves_state(self, stage_context):
         plugin = StagePlugin(stage_context)
         await plugin.setup()
-        plugin._results.append(ScenarioResult(
-            scenario_name="Test",
-            identity="test",
-            passed=True,
-        ))
+        plugin._results.append(
+            ScenarioResult(
+                scenario_name="Test",
+                identity="test",
+                passed=True,
+            )
+        )
         await plugin.teardown()
 
         state_file = stage_context.data_dir / "stage_state.json"

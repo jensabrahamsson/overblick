@@ -62,8 +62,10 @@ def _patch_init(mock_personality, mock_pipeline, mock_health):
 
     return (
         # HostInspectionCapability is imported at module level in health_handler
-        patch("overblick.supervisor.health_handler.HostInspectionCapability",
-              return_value=mock_inspector_instance),
+        patch(
+            "overblick.supervisor.health_handler.HostInspectionCapability",
+            return_value=mock_inspector_instance,
+        ),
         # These are dynamically imported inside _ensure_initialized() — patch source modules
         patch("overblick.identities.load_identity", return_value=mock_personality),
         patch("overblick.identities.build_system_prompt", return_value="system prompt"),
@@ -91,9 +93,9 @@ class TestHealthHandlerInit:
         )
 
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="The host is doing rather well."
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="The host is doing rather well.")
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline, mock_health)
 
@@ -112,7 +114,9 @@ class TestHealthHandlerResponse:
     """Test response generation."""
 
     @pytest.mark.asyncio
-    async def test_response_includes_health_grade(self, handler, health_inquiry_msg, mock_personality):
+    async def test_response_includes_health_grade(
+        self, handler, health_inquiry_msg, mock_personality
+    ):
         """Response includes the health grade."""
         mock_health = HostHealth(
             memory=MemoryInfo(total_mb=16000, used_mb=14000, percent_used=87.5),
@@ -120,9 +124,9 @@ class TestHealthHandlerResponse:
         )
 
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="Memory is getting tight."
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="Memory is getting tight.")
+        )
 
         patches = _patch_init(mock_personality, mock_pipeline, mock_health)
 
@@ -157,7 +161,11 @@ class TestHealthHandlerAudit:
 
     @pytest.mark.asyncio
     async def test_audit_logs_inquiry_and_response(
-        self, handler, health_inquiry_msg, mock_audit_log, mock_personality,
+        self,
+        handler,
+        health_inquiry_msg,
+        mock_audit_log,
+        mock_personality,
     ):
         """Both inquiry and response are audit-logged."""
         mock_health = HostHealth(
@@ -183,15 +191,16 @@ class TestHealthHandlerAudit:
         handler = HealthInquiryHandler(audit_log=mock_audit_log)
 
         # Force initialization failure
-        with patch("overblick.supervisor.health_handler.HostInspectionCapability",
-                    side_effect=Exception("boom")):
+        with patch(
+            "overblick.supervisor.health_handler.HostInspectionCapability",
+            side_effect=Exception("boom"),
+        ):
 
             msg = IPCMessage(msg_type="health_inquiry", payload={}, sender="natt")
             response = await handler.handle(msg)
 
             assert response is not None
             error_logged = any(
-                call.args[0] == "health_inquiry_error"
-                for call in mock_audit_log.log.call_args_list
+                call.args[0] == "health_inquiry_error" for call in mock_audit_log.log.call_args_list
             )
             assert error_logged

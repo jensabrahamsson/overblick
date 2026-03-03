@@ -29,9 +29,18 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 
 _UNICODE_LOOKALIKES = {
-    "\u0430": "a", "\u0435": "e", "\u043e": "o", "\u0440": "p",
-    "\u0441": "c", "\u0443": "y", "\u0445": "x", "\u0456": "i",
-    "\u03b1": "a", "\u03b5": "e", "\u03bf": "o", "\u03c1": "p",
+    "\u0430": "a",
+    "\u0435": "e",
+    "\u043e": "o",
+    "\u0440": "p",
+    "\u0441": "c",
+    "\u0443": "y",
+    "\u0445": "x",
+    "\u0456": "i",
+    "\u03b1": "a",
+    "\u03b5": "e",
+    "\u03bf": "o",
+    "\u03c1": "p",
 }
 
 
@@ -62,6 +71,7 @@ class ThreatType(Enum):
 
 class SecurityContext(BaseModel):
     """Per-user security tracking for multi-message attack detection."""
+
     user_id: str
     suspicion_score: float = 0.0
     last_interaction: float = Field(default_factory=time.time)
@@ -71,12 +81,13 @@ class SecurityContext(BaseModel):
 
 class PreflightResult(BaseModel):
     """Result of preflight security check."""
+
     allowed: bool
     threat_level: ThreatLevel
     threat_type: ThreatType
     threat_score: float
-    reason: Optional[str] = None
-    deflection: Optional[str] = None
+    reason: str | None = None
+    deflection: str | None = None
     analysis_time_ms: float = 0.0
 
 
@@ -144,8 +155,8 @@ class PreflightChecker:
     def __init__(
         self,
         llm_client=None,
-        admin_user_ids: Optional[set[str]] = None,
-        deflections: Optional[dict[str, list[str]]] = None,
+        admin_user_ids: set[str] | None = None,
+        deflections: dict[str, list[str]] | None = None,
         cache_ttl: int = 3600,
     ):
         self.llm = llm_client
@@ -278,8 +289,10 @@ class PreflightChecker:
 
             if not response:
                 return PreflightResult(
-                    allowed=True, threat_level=ThreatLevel.SUSPICIOUS,
-                    threat_type=ThreatType.NONE, threat_score=0.3,
+                    allowed=True,
+                    threat_level=ThreatLevel.SUSPICIOUS,
+                    threat_type=ThreatType.NONE,
+                    threat_score=0.3,
                 )
 
             content = response.get("content", "")
@@ -292,8 +305,10 @@ class PreflightChecker:
                     result = json_module.loads(match.group())
                 else:
                     return PreflightResult(
-                        allowed=True, threat_level=ThreatLevel.SUSPICIOUS,
-                        threat_type=ThreatType.NONE, threat_score=0.3,
+                        allowed=True,
+                        threat_level=ThreatLevel.SUSPICIOUS,
+                        threat_type=ThreatType.NONE,
+                        threat_score=0.3,
                     )
 
             if result.get("manipulation_detected") and result.get("confidence", 0) >= 0.7:
@@ -317,8 +332,10 @@ class PreflightChecker:
             logger.error(f"AI analysis failed: {e}", exc_info=True)
             # Fail CLOSED — if AI analysis crashes, block the suspicious message
             return PreflightResult(
-                allowed=False, threat_level=ThreatLevel.BLOCKED,
-                threat_type=ThreatType.NONE, threat_score=0.8,
+                allowed=False,
+                threat_level=ThreatLevel.BLOCKED,
+                threat_type=ThreatType.NONE,
+                threat_score=0.8,
                 reason=f"AI analysis unavailable: {e}",
             )
 
@@ -328,7 +345,7 @@ class PreflightChecker:
 
         # Try identity-specific deflections first
         key = threat_type.value
-        if key in self._deflections and self._deflections[key]:
+        if self._deflections.get(key):
             return random.choice(self._deflections[key])
 
         defaults = {
@@ -356,7 +373,7 @@ class PreflightChecker:
             self._user_contexts,
             key=lambda uid: self._user_contexts[uid].last_interaction,
         )
-        for uid in sorted_ids[:len(sorted_ids) // 2]:
+        for uid in sorted_ids[: len(sorted_ids) // 2]:
             ctx = self._user_contexts[uid]
             # Preserve high-suspicion users in flagged set
             if ctx.suspicion_score >= 0.5 or ctx.escalation_count >= 3:
@@ -382,14 +399,18 @@ class PreflightChecker:
         return ctx
 
     def _update_user_context(self, ctx: SecurityContext, result: PreflightResult) -> None:
-        if result.threat_level in (ThreatLevel.SUSPICIOUS, ThreatLevel.HOSTILE, ThreatLevel.BLOCKED):
+        if result.threat_level in (
+            ThreatLevel.SUSPICIOUS,
+            ThreatLevel.HOSTILE,
+            ThreatLevel.BLOCKED,
+        ):
             ctx.suspicion_score = min(1.0, ctx.suspicion_score + result.threat_score * 0.3)
             ctx.escalation_count += 1
             # Auto-flag users who cross suspicion threshold
             if ctx.suspicion_score >= 0.5 or ctx.escalation_count >= 3:
                 self._flagged_users.add(ctx.user_id)
 
-    def _get_cached(self, key: str) -> Optional[PreflightResult]:
+    def _get_cached(self, key: str) -> PreflightResult | None:
         if key in self._message_cache:
             result, ts = self._message_cache[key]
             if time.time() - ts < self.cache_ttl:
@@ -407,13 +428,10 @@ class PreflightChecker:
         """Remove expired cache entries; if still over limit, drop oldest."""
         now = time.time()
         self._message_cache = {
-            k: (r, ts) for k, (r, ts) in self._message_cache.items()
-            if now - ts < self.cache_ttl
+            k: (r, ts) for k, (r, ts) in self._message_cache.items() if now - ts < self.cache_ttl
         }
         # If still over limit after TTL eviction, drop oldest half
         if len(self._message_cache) >= self.MAX_CACHE_SIZE:
-            sorted_keys = sorted(
-                self._message_cache, key=lambda k: self._message_cache[k][1]
-            )
-            for k in sorted_keys[:len(sorted_keys) // 2]:
+            sorted_keys = sorted(self._message_cache, key=lambda k: self._message_cache[k][1])
+            for k in sorted_keys[: len(sorted_keys) // 2]:
                 del self._message_cache[k]

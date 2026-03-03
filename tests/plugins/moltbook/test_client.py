@@ -15,7 +15,13 @@ from overblick.plugins.moltbook.client import (
     SuspensionError,
 )
 from overblick.plugins.moltbook.models import (
-    Agent, Comment, Conversation, DMRequest, Message, Post, Submolt,
+    Agent,
+    Comment,
+    Conversation,
+    DMRequest,
+    Message,
+    Post,
+    Submolt,
 )
 
 
@@ -41,11 +47,15 @@ class TestUpdateProfile:
     @pytest.mark.asyncio
     async def test_update_profile_sends_patch(self, client):
         client._request.return_value = {
-            "id": "agent-001", "name": "testbot", "description": "new desc",
+            "id": "agent-001",
+            "name": "testbot",
+            "description": "new desc",
         }
         result = await client.update_profile("new desc")
         client._request.assert_called_once_with(
-            "PATCH", "/agents/me", json={"description": "new desc"},
+            "PATCH",
+            "/agents/me",
+            json={"description": "new desc"},
         )
         assert isinstance(result, Agent)
         assert result.description == "new desc"
@@ -55,11 +65,15 @@ class TestGetAgentProfile:
     @pytest.mark.asyncio
     async def test_get_agent_profile_sends_get(self, client):
         client._request.return_value = {
-            "id": "agent-002", "name": "otherbot", "description": "Other bot",
+            "id": "agent-002",
+            "name": "otherbot",
+            "description": "Other bot",
         }
         result = await client.get_agent_profile("otherbot")
         client._request.assert_called_once_with(
-            "GET", "/agents/profile", params={"name": "otherbot"},
+            "GET",
+            "/agents/profile",
+            params={"name": "otherbot"},
         )
         assert isinstance(result, Agent)
         assert result.name == "otherbot"
@@ -73,13 +87,17 @@ class TestCreateLinkPost:
     async def test_create_link_post_sends_url(self, client):
         client._request.return_value = {
             "post": {
-                "id": "post-link-1", "title": "Cool link",
-                "content": "", "agent_id": "agent-001", "agent_name": "testbot",
+                "id": "post-link-1",
+                "title": "Cool link",
+                "content": "",
+                "agent_id": "agent-001",
+                "agent_name": "testbot",
             },
         }
         result = await client.create_link_post("Cool link", "https://example.com", "tech")
         client._request.assert_called_once_with(
-            "POST", "/posts",
+            "POST",
+            "/posts",
             json={"title": "Cool link", "url": "https://example.com", "submolt_name": "tech"},
         )
         assert isinstance(result, Post)
@@ -124,7 +142,9 @@ class TestGetSubmolt:
     @pytest.mark.asyncio
     async def test_get_submolt(self, client):
         client._request.return_value = {
-            "name": "ai", "display_name": "AI", "description": "AI topics",
+            "name": "ai",
+            "display_name": "AI",
+            "description": "AI topics",
             "subscriber_count": 100,
         }
         result = await client.get_submolt("ai")
@@ -190,7 +210,8 @@ class TestSendDMRequest:
         client._request.return_value = {"id": "req-001", "status": "pending"}
         result = await client.send_dm_request("agent-002", "Hello!")
         client._request.assert_called_once_with(
-            "POST", "/dms/request",
+            "POST",
+            "/dms/request",
             json={"recipient_id": "agent-002", "message": "Hello!"},
         )
         assert result["id"] == "req-001"
@@ -225,8 +246,10 @@ class TestListConversations:
         client._request.return_value = {
             "conversations": [
                 {
-                    "id": "conv-001", "participant_id": "agent-002",
-                    "participant_name": "Bot2", "last_message": "Hello",
+                    "id": "conv-001",
+                    "participant_id": "agent-002",
+                    "participant_name": "Bot2",
+                    "last_message": "Hello",
                 },
             ],
         }
@@ -241,13 +264,16 @@ class TestSendDM:
     async def test_send_dm(self, client):
         client._request.return_value = {
             "message": {
-                "id": "msg-001", "sender_id": "agent-001",
-                "sender_name": "testbot", "content": "Hello!",
+                "id": "msg-001",
+                "sender_id": "agent-001",
+                "sender_name": "testbot",
+                "content": "Hello!",
             },
         }
         result = await client.send_dm("conv-001", "Hello!")
         client._request.assert_called_once_with(
-            "POST", "/dms/conversations/conv-001",
+            "POST",
+            "/dms/conversations/conv-001",
             json={"message": "Hello!"},
         )
         assert isinstance(result, Message)
@@ -257,8 +283,10 @@ class TestSendDM:
     async def test_send_dm_flat_response(self, client):
         """API returns message fields at top level."""
         client._request.return_value = {
-            "id": "msg-002", "sender_id": "agent-001",
-            "sender_name": "testbot", "content": "Flat!",
+            "id": "msg-002",
+            "sender_id": "agent-001",
+            "sender_name": "testbot",
+            "content": "Flat!",
         }
         result = await client.send_dm("conv-001", "Flat!")
         assert result.id == "msg-002"
@@ -287,10 +315,14 @@ class TestGenerateIdentityToken:
 
 class TestSubmoltModel:
     def test_from_dict(self):
-        s = Submolt.from_dict({
-            "name": "ai", "display_name": "AI",
-            "description": "AI discussion", "subscriber_count": 42,
-        })
+        s = Submolt.from_dict(
+            {
+                "name": "ai",
+                "display_name": "AI",
+                "description": "AI discussion",
+                "subscriber_count": 42,
+            }
+        )
         assert s.name == "ai"
         assert s.subscriber_count == 42
 
@@ -302,11 +334,15 @@ class TestSubmoltModel:
 
 class TestDMRequestModel:
     def test_from_dict(self):
-        r = DMRequest.from_dict({
-            "id": "req-001", "sender_id": "agent-002",
-            "sender_name": "Bot2", "message": "Hello",
-            "created_at": "2025-01-01T12:00:00",
-        })
+        r = DMRequest.from_dict(
+            {
+                "id": "req-001",
+                "sender_id": "agent-002",
+                "sender_name": "Bot2",
+                "message": "Hello",
+                "created_at": "2025-01-01T12:00:00",
+            }
+        )
         assert r.sender_name == "Bot2"
         assert r.created_at is not None
 
@@ -317,22 +353,30 @@ class TestDMRequestModel:
 
 class TestConversationModel:
     def test_from_dict(self):
-        c = Conversation.from_dict({
-            "id": "conv-001", "participant_id": "agent-002",
-            "participant_name": "Bot2", "last_message": "Hey",
-            "updated_at": "2025-06-15T10:30:00",
-        })
+        c = Conversation.from_dict(
+            {
+                "id": "conv-001",
+                "participant_id": "agent-002",
+                "participant_name": "Bot2",
+                "last_message": "Hey",
+                "updated_at": "2025-06-15T10:30:00",
+            }
+        )
         assert c.participant_name == "Bot2"
         assert c.updated_at is not None
 
 
 class TestMessageModel:
     def test_from_dict(self):
-        m = Message.from_dict({
-            "id": "msg-001", "sender_id": "agent-001",
-            "sender_name": "testbot", "content": "Hello!",
-            "created_at": "2025-06-15T10:31:00",
-        })
+        m = Message.from_dict(
+            {
+                "id": "msg-001",
+                "sender_id": "agent-001",
+                "sender_name": "testbot",
+                "content": "Hello!",
+                "created_at": "2025-06-15T10:31:00",
+            }
+        )
         assert m.content == "Hello!"
         assert m.created_at is not None
 

@@ -32,7 +32,7 @@ class ReputationManager:
     def __init__(
         self,
         db: Optional["EmailAgentDB"],
-        profiles_dir: Optional[Path],
+        profiles_dir: Path | None,
         thresholds: dict,
     ) -> None:
         self._db = db
@@ -47,7 +47,7 @@ class ReputationManager:
         """Extract domain from an email sender string like 'Name <user@domain.com>'."""
         addr = sender
         if "<" in addr and ">" in addr:
-            addr = addr[addr.index("<") + 1:addr.index(">")]
+            addr = addr[addr.index("<") + 1 : addr.index(">")]
         if "@" in addr:
             return addr.split("@", 1)[1].lower().strip()
         return ""
@@ -61,7 +61,7 @@ class ReputationManager:
         """
         addr = sender
         if "<" in addr and ">" in addr:
-            addr = addr[addr.index("<") + 1:addr.index(">")]
+            addr = addr[addr.index("<") + 1 : addr.index(">")]
         safe = addr.replace("@", "_at_").replace(".", "_")
         safe = re.sub(r'[<>:"/\\|?*\'"&()!,\s]', '_', safe)
         safe = re.sub(r'_+', '_', safe).strip('_')
@@ -96,7 +96,10 @@ class ReputationManager:
             await asyncio.to_thread(profile_path.write_text, data)
         except Exception as e:
             logger.error(
-                "EmailAgent: failed to save sender profile for %s: %s", sender, e, exc_info=True,
+                "EmailAgent: failed to save sender profile for %s: %s",
+                sender,
+                e,
+                exc_info=True,
             )
 
     async def get_sender_reputation(self, sender: str) -> dict[str, Any]:
@@ -131,11 +134,7 @@ class ReputationManager:
         if not stats:
             return {"known": False, "domain": domain}
 
-        total = (
-            stats["ignore_count"]
-            + stats["notify_count"]
-            + stats["reply_count"]
-        )
+        total = stats["ignore_count"] + stats["notify_count"] + stats["reply_count"]
         if total == 0:
             return {"known": False, "domain": domain}
 
@@ -160,10 +159,7 @@ class ReputationManager:
             return False
         total = reputation.get("total", 0)
         ignore_rate = reputation.get("ignore_rate", 0.0)
-        return (
-            total >= self._sender_min_count
-            and ignore_rate >= self._sender_threshold
-        )
+        return total >= self._sender_min_count and ignore_rate >= self._sender_threshold
 
     def should_auto_ignore_domain(self, reputation: dict[str, Any]) -> bool:
         """Check if domain should be auto-ignored based on learned reputation."""
@@ -181,7 +177,9 @@ class ReputationManager:
         )
 
     async def update_sender_profile(
-        self, sender: str, classification: EmailClassification,
+        self,
+        sender: str,
+        classification: EmailClassification,
     ) -> None:
         """
         Update the consolidated sender profile after each conversation.
@@ -195,9 +193,8 @@ class ReputationManager:
         profile.total_interactions += 1
         profile.last_interaction_date = datetime.now().strftime("%Y-%m-%d")
         profile.avg_confidence = (
-            (profile.avg_confidence * (profile.total_interactions - 1) + classification.confidence)
-            / profile.total_interactions
-        )
+            profile.avg_confidence * (profile.total_interactions - 1) + classification.confidence
+        ) / profile.total_interactions
 
         intent = classification.intent.value
         profile.intent_distribution[intent] = profile.intent_distribution.get(intent, 0) + 1
@@ -212,7 +209,5 @@ class ReputationManager:
         it is called on negative feedback to tilt the reputation without double-counting.
         """
         profile = await self.load_sender_profile(sender)
-        profile.intent_distribution["ignore"] = (
-            profile.intent_distribution.get("ignore", 0) + 1
-        )
+        profile.intent_distribution["ignore"] = profile.intent_distribution.get("ignore", 0) + 1
         await self.save_sender_profile(sender, profile)

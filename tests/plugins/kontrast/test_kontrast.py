@@ -46,11 +46,15 @@ class TestSetup:
         """Plugin restores state from file."""
         state_file = kontrast_context.data_dir / "kontrast_state.json"
         state_file.parent.mkdir(parents=True, exist_ok=True)
-        state_file.write_text(json.dumps({
-            "last_run": 1000.0,
-            "seen_topic_hashes": ["abc123"],
-            "pieces": [],
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "last_run": 1000.0,
+                    "seen_topic_hashes": ["abc123"],
+                    "pieces": [],
+                }
+            )
+        )
 
         plugin = KontrastPlugin(kontrast_context)
         await plugin.setup()
@@ -197,11 +201,13 @@ class TestStateManagement:
         await plugin.setup()
         plugin._last_run = 12345.0
         plugin._seen_topic_hashes.add("hash1")
-        plugin._pieces.append(KontrastPiece(
-            topic="Test",
-            topic_hash="hash1",
-            perspectives=[PerspectiveEntry(identity_name="a", content="C")],
-        ))
+        plugin._pieces.append(
+            KontrastPiece(
+                topic="Test",
+                topic_hash="hash1",
+                perspectives=[PerspectiveEntry(identity_name="a", content="C")],
+            )
+        )
         plugin._save_state()
 
         # New instance should restore state

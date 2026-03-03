@@ -221,7 +221,10 @@ class EmailAgentDB:
         ]
 
     async def update_feedback(
-        self, record_id: int, feedback: str, was_correct: bool,
+        self,
+        record_id: int,
+        feedback: str,
+        was_correct: bool,
     ) -> None:
         """Update boss feedback on an email record."""
         await self._db.execute(
@@ -232,8 +235,7 @@ class EmailAgentDB:
     async def get_sender_history(self, sender: str, limit: int = 10) -> list[EmailRecord]:
         """Get classification history for a specific sender."""
         rows = await self._db.fetch_all(
-            "SELECT * FROM email_records WHERE email_from = ? "
-            "ORDER BY created_at DESC LIMIT ?",
+            "SELECT * FROM email_records WHERE email_from = ? " "ORDER BY created_at DESC LIMIT ?",
             (sender, limit),
         )
         return [
@@ -269,7 +271,9 @@ class EmailAgentDB:
         return row_id or 0
 
     async def get_learnings(
-        self, learning_type: str = "", limit: int = 50,
+        self,
+        learning_type: str = "",
+        limit: int = 50,
     ) -> list[AgentLearning]:
         """Get agent learnings, optionally filtered by type."""
         if learning_type:
@@ -365,7 +369,10 @@ class EmailAgentDB:
     # -- Notification tracking --
 
     async def track_notification(
-        self, email_record_id: int, tg_message_id: int, tg_chat_id: str,
+        self,
+        email_record_id: int,
+        tg_message_id: int,
+        tg_chat_id: str,
         notification_text: str = "",
     ) -> int:
         """Track a Telegram notification linked to an email record."""
@@ -378,8 +385,12 @@ class EmailAgentDB:
         return row_id or 0
 
     async def track_draft_notification(
-        self, email_record_id: int, tg_message_id: int, tg_chat_id: str,
-        draft_reply_body: str, original_thread_id: str = "",
+        self,
+        email_record_id: int,
+        tg_message_id: int,
+        tg_chat_id: str,
+        draft_reply_body: str,
+        original_thread_id: str = "",
     ) -> int:
         """Track a draft reply notification linked to an email record."""
         row_id = await self._db.execute_returning_id(
@@ -387,14 +398,14 @@ class EmailAgentDB:
             "(email_record_id, tg_message_id, tg_chat_id, notification_text, "
             "is_draft_reply, draft_reply_body, original_email_thread_id) "
             "VALUES (?, ?, ?, ?, TRUE, ?, ?)",
-            (email_record_id, tg_message_id, tg_chat_id, "",
-             draft_reply_body, original_thread_id),
+            (email_record_id, tg_message_id, tg_chat_id, "", draft_reply_body, original_thread_id),
         )
         return row_id or 0
 
     async def get_notification_by_tg_id(
-        self, tg_message_id: int,
-    ) -> Optional[dict]:
+        self,
+        tg_message_id: int,
+    ) -> dict | None:
         """Look up a tracked notification by Telegram message ID."""
         row = await self._db.fetch_one(
             "SELECT nt.*, er.email_from, er.email_subject, er.gmail_message_id "
@@ -406,7 +417,10 @@ class EmailAgentDB:
         return dict(row) if row else None
 
     async def record_feedback(
-        self, tracking_id: int, text: str, sentiment: str,
+        self,
+        tracking_id: int,
+        text: str,
+        sentiment: str,
     ) -> None:
         """Record principal feedback on a tracked notification."""
         await self._db.execute(
@@ -418,7 +432,7 @@ class EmailAgentDB:
 
     # -- Sender reputation --
 
-    async def get_domain_stats(self, domain: str) -> Optional[dict]:
+    async def get_domain_stats(self, domain: str) -> dict | None:
         """Get reputation stats for a sender domain."""
         row = await self._db.fetch_one(
             "SELECT * FROM sender_reputation WHERE sender_domain = ?",
@@ -431,7 +445,10 @@ class EmailAgentDB:
     _INTENT_COLUMN_WHITELIST = frozenset({"ignore_count", "notify_count", "reply_count"})
 
     async def update_domain_stats(
-        self, domain: str, intent: str, feedback: str = "",
+        self,
+        domain: str,
+        intent: str,
+        feedback: str = "",
     ) -> None:
         """Update domain reputation based on classification or feedback."""
         existing = await self.get_domain_stats(domain)
@@ -488,8 +505,14 @@ class EmailAgentDB:
                 "(sender_domain, ignore_count, notify_count, reply_count, "
                 "negative_feedback_count, positive_feedback_count) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
-                (domain, counts["ignore_count"], counts["notify_count"],
-                 counts["reply_count"], neg, pos),
+                (
+                    domain,
+                    counts["ignore_count"],
+                    counts["notify_count"],
+                    counts["reply_count"],
+                    neg,
+                    pos,
+                ),
             )
 
     async def set_auto_ignore(self, domain: str, auto_ignore: bool) -> None:
@@ -534,7 +557,11 @@ class EmailAgentDB:
             (f"-{retention_days}",),
         )
         if scrubbed > 0:
-            logger.info("GDPR: purged sensitive data from %d email records (>%dd old)", scrubbed, retention_days)
+            logger.info(
+                "GDPR: purged sensitive data from %d email records (>%dd old)",
+                scrubbed,
+                retention_days,
+            )
         return scrubbed
 
     async def close(self) -> None:

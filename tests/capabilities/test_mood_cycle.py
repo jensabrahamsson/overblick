@@ -29,8 +29,8 @@ from overblick.capabilities.psychology.mood_cycle import (
 )
 from overblick.core.capability import CapabilityContext
 
-
 # -- Fixtures ----------------------------------------------------------------
+
 
 def _make_ctx(
     identity_name: str = "cherry",
@@ -46,6 +46,7 @@ def _make_ctx(
 
 
 # -- Phase calculation -------------------------------------------------------
+
 
 class TestPhaseCalculation:
     """Test get_phase_for_day() returns correct phases."""
@@ -85,6 +86,7 @@ class TestPhaseCalculation:
 
 # -- Mood modifiers per phase ------------------------------------------------
 
+
 class TestMoodModifiers:
     """Test that phase profiles have sensible values."""
 
@@ -107,15 +109,23 @@ class TestMoodModifiers:
     def test_all_values_in_range(self):
         for phase, m in _PHASE_PROFILES.items():
             for field_name in [
-                "energy", "optimism", "confidence", "sociability",
-                "irritability", "flirtiness", "comfort_seeking",
-                "introspection", "sensitivity", "emotional_intensity",
+                "energy",
+                "optimism",
+                "confidence",
+                "sociability",
+                "irritability",
+                "flirtiness",
+                "comfort_seeking",
+                "introspection",
+                "sensitivity",
+                "emotional_intensity",
             ]:
                 val = getattr(m, field_name)
                 assert 0.0 <= val <= 1.0, f"{phase.value}.{field_name} = {val}"
 
 
 # -- Threshold offsets -------------------------------------------------------
+
 
 class TestThresholdOffsets:
     """Test engagement threshold offsets per phase."""
@@ -142,12 +152,20 @@ class TestThresholdOffsets:
 
 # -- Prompt safety -----------------------------------------------------------
 
+
 class TestPromptSafety:
     """Test that to_prompt_context() never reveals cycle details."""
 
     _FORBIDDEN_WORDS = [
-        "period", "menstrual", "cycle", "hormone", "ovulation",
-        "luteal", "follicular", "pms", "cramp",
+        "period",
+        "menstrual",
+        "cycle",
+        "hormone",
+        "ovulation",
+        "luteal",
+        "follicular",
+        "pms",
+        "cramp",
     ]
 
     def _check_no_forbidden(self, text: str) -> None:
@@ -159,7 +177,9 @@ class TestPromptSafety:
         for phase in CyclePhase:
             modifiers = _PHASE_PROFILES[phase]
             state = MoodState(
-                phase=phase, day_in_cycle=1, modifiers=modifiers,
+                phase=phase,
+                day_in_cycle=1,
+                modifiers=modifiers,
             )
             context = state.to_prompt_context()
             self._check_no_forbidden(context)
@@ -177,13 +197,16 @@ class TestPromptSafety:
     def test_context_is_non_empty_for_all_phases(self):
         for phase in CyclePhase:
             state = MoodState(
-                phase=phase, day_in_cycle=14, modifiers=_PHASE_PROFILES[phase],
+                phase=phase,
+                day_in_cycle=14,
+                modifiers=_PHASE_PROFILES[phase],
             )
             context = state.to_prompt_context()
             assert len(context) > 0
 
 
 # -- Randomization -----------------------------------------------------------
+
 
 class TestRandomization:
     """Test daily randomization stays within bounds."""
@@ -193,9 +216,16 @@ class TestRandomization:
         for _ in range(100):
             randomized = _randomize_modifiers(base, variance=0.10)
             for field_name in [
-                "energy", "optimism", "confidence", "sociability",
-                "irritability", "flirtiness", "comfort_seeking",
-                "introspection", "sensitivity", "emotional_intensity",
+                "energy",
+                "optimism",
+                "confidence",
+                "sociability",
+                "irritability",
+                "flirtiness",
+                "comfort_seeking",
+                "introspection",
+                "sensitivity",
+                "emotional_intensity",
             ]:
                 val = getattr(randomized, field_name)
                 assert 0.0 <= val <= 1.0, f"{field_name} = {val} out of range"
@@ -213,6 +243,7 @@ class TestRandomization:
 
 
 # -- Persistence -------------------------------------------------------------
+
 
 class TestPersistence:
     """Test cycle start date persistence round-trip."""
@@ -253,6 +284,7 @@ class TestPersistence:
 
 # -- Capability lifecycle ----------------------------------------------------
 
+
 class TestCapabilityLifecycle:
     """Test MoodCycleCapability setup and tick."""
 
@@ -267,10 +299,14 @@ class TestCapabilityLifecycle:
     @pytest.mark.asyncio
     async def test_setup_restores_persisted_state(self, tmp_path):
         state_file = tmp_path / "mood_cycle_state.json"
-        state_file.write_text(json.dumps({
-            "cycle_start": "2026-01-10",
-            "cycle_length": 28,
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "cycle_start": "2026-01-10",
+                    "cycle_length": 28,
+                }
+            )
+        )
         ctx = _make_ctx(data_dir=tmp_path, config={"cycle_length_days": 28})
         cap = MoodCycleCapability(ctx)
         await cap.setup()
@@ -350,6 +386,7 @@ class TestCapabilityLifecycle:
 
 
 # -- Day in cycle calculation ------------------------------------------------
+
 
 class TestDayInCycle:
     """Test internal day calculation."""

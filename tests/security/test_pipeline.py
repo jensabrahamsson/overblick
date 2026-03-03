@@ -24,7 +24,6 @@ from overblick.core.security.preflight import (
     ThreatType,
 )
 
-
 # ── Fixtures ────────────────────────────────────────────────────────────────
 
 
@@ -71,9 +70,7 @@ def mock_output_safety():
         replaced: bool = False
 
     safety = MagicMock()
-    safety.sanitize = MagicMock(
-        side_effect=lambda text: SafeResult(text=text, blocked=False)
-    )
+    safety.sanitize = MagicMock(side_effect=lambda text: SafeResult(text=text, blocked=False))
     return safety
 
 
@@ -87,9 +84,7 @@ def mock_rate_limiter():
 
 
 @pytest.fixture
-def full_pipeline(
-    mock_llm, mock_audit, mock_preflight, mock_output_safety, mock_rate_limiter
-):
+def full_pipeline(mock_llm, mock_audit, mock_preflight, mock_output_safety, mock_rate_limiter):
     """Pipeline with all components wired up."""
     return SafeLLMPipeline(
         llm_client=mock_llm,
@@ -111,14 +106,10 @@ class TestPipelineFailClosed:
     """
 
     @pytest.mark.asyncio
-    async def test_preflight_exception_blocks(
-        self, mock_llm, mock_audit, mock_rate_limiter
-    ):
+    async def test_preflight_exception_blocks(self, mock_llm, mock_audit, mock_rate_limiter):
         """When preflight.check() raises an exception, pipeline returns blocked=True."""
         preflight = AsyncMock()
-        preflight.check = AsyncMock(
-            side_effect=RuntimeError("Preflight service unavailable")
-        )
+        preflight.check = AsyncMock(side_effect=RuntimeError("Preflight service unavailable"))
 
         pipeline = SafeLLMPipeline(
             llm_client=mock_llm,
@@ -138,14 +129,10 @@ class TestPipelineFailClosed:
         mock_llm.chat.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_output_safety_exception_blocks(
-        self, mock_llm, mock_audit, mock_rate_limiter
-    ):
+    async def test_output_safety_exception_blocks(self, mock_llm, mock_audit, mock_rate_limiter):
         """When output_safety.sanitize() raises an exception, pipeline returns blocked=True."""
         output_safety = MagicMock()
-        output_safety.sanitize = MagicMock(
-            side_effect=ValueError("Safety model corrupted")
-        )
+        output_safety.sanitize = MagicMock(side_effect=ValueError("Safety model corrupted"))
 
         pipeline = SafeLLMPipeline(
             llm_client=mock_llm,
@@ -165,16 +152,12 @@ class TestPipelineFailClosed:
         assert result.content is None
 
     @pytest.mark.asyncio
-    async def test_llm_call_exception_blocks(
-        self, mock_llm, mock_audit, mock_rate_limiter
-    ):
+    async def test_llm_call_exception_blocks(self, mock_llm, mock_audit, mock_rate_limiter):
         """When llm.chat() raises an exception, pipeline returns blocked=True.
 
         The block_reason must be generic (no exception details leaked).
         """
-        mock_llm.chat = AsyncMock(
-            side_effect=ConnectionError("Ollama connection refused")
-        )
+        mock_llm.chat = AsyncMock(side_effect=ConnectionError("Ollama connection refused"))
 
         pipeline = SafeLLMPipeline(
             llm_client=mock_llm,
@@ -226,9 +209,7 @@ class TestPipelineFailClosed:
         assert result.stages_passed == expected_stages
 
     @pytest.mark.asyncio
-    async def test_empty_llm_response_blocks(
-        self, mock_llm, mock_audit, mock_rate_limiter
-    ):
+    async def test_empty_llm_response_blocks(self, mock_llm, mock_audit, mock_rate_limiter):
         """LLM returning None or empty dict results in blocked=True."""
         for empty_value in [None, {}, ""]:
             mock_llm.chat = AsyncMock(return_value=empty_value)
@@ -243,9 +224,9 @@ class TestPipelineFailClosed:
                 messages=[{"role": "user", "content": "Hello"}],
             )
 
-            assert result.blocked is True, (
-                f"Expected blocked=True for empty LLM response: {empty_value!r}"
-            )
+            assert (
+                result.blocked is True
+            ), f"Expected blocked=True for empty LLM response: {empty_value!r}"
             assert result.block_stage == PipelineStage.LLM_CALL
             assert "empty" in result.block_reason.lower()
 
@@ -317,9 +298,7 @@ class TestPipelineFailClosed:
         assert result.content == "All good."
 
         # Warnings should be emitted for missing components
-        warning_messages = [
-            r.message for r in caplog.records if r.levelno == logging.WARNING
-        ]
+        warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
         warned_components = " ".join(warning_messages).lower()
         assert "preflight" in warned_components
         assert "rate_limiter" in warned_components
@@ -357,9 +336,7 @@ class TestPipelineFailClosed:
         assert pipeline._strict is True
 
     @pytest.mark.asyncio
-    async def test_audit_details_not_mutated(
-        self, mock_llm, mock_audit, mock_rate_limiter
-    ):
+    async def test_audit_details_not_mutated(self, mock_llm, mock_audit, mock_rate_limiter):
         """audit_details dict passed to chat() should not be mutated."""
         preflight = AsyncMock()
         preflight.check = AsyncMock(side_effect=RuntimeError("Crash"))

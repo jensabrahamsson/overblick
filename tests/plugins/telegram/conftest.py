@@ -7,15 +7,21 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from overblick.identities import Identity, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.identities import (
+    Identity,
+    LLMSettings,
+    QuietHoursSettings,
+    ScheduleSettings,
+    SecuritySettings,
+)
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.core.plugin_base import PluginContext
 from overblick.plugins.telegram.plugin import TelegramPlugin
 
-
 # ---------------------------------------------------------------------------
 # Identity fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def telegram_identity():
@@ -46,6 +52,7 @@ def telegram_identity():
 # Mock LLM pipeline
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_llm_pipeline():
     """Mock SafeLLMPipeline that returns configurable responses."""
@@ -62,8 +69,11 @@ def mock_llm_pipeline():
 # PluginContext
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
-def telegram_context(telegram_identity, tmp_path, mock_llm_client, mock_audit_log, mock_llm_pipeline):
+def telegram_context(
+    telegram_identity, tmp_path, mock_llm_client, mock_audit_log, mock_llm_pipeline
+):
     """PluginContext wired for Telegram plugin."""
     ctx = PluginContext(
         identity_name=telegram_identity.name,
@@ -87,6 +97,7 @@ def telegram_context(telegram_identity, tmp_path, mock_llm_client, mock_audit_lo
 # Plugin fixture
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 async def telegram_plugin(telegram_context):
     """Set up TelegramPlugin with mocked context."""
@@ -99,6 +110,7 @@ async def telegram_plugin(telegram_context):
 # ---------------------------------------------------------------------------
 # Telegram update factories
 # ---------------------------------------------------------------------------
+
 
 def make_update(
     text: str,

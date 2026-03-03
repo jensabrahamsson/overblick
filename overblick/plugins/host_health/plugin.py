@@ -65,7 +65,7 @@ class HostHealthPlugin(PluginBase):
         super().__init__(ctx)
         self._interval_seconds = _DEFAULT_INTERVAL_SECONDS
         self._last_inquiry_time: float = 0
-        self._state_file: Optional[Path] = None
+        self._state_file: Path | None = None
         self._conversation_history: list[dict[str, Any]] = []
 
     async def setup(self) -> None:
@@ -223,9 +223,8 @@ class HostHealthPlugin(PluginBase):
         recent = self._get_recent_motivations()
         avoid_clause = ""
         if recent:
-            avoid_clause = (
-                f"\n\nPrevious motivations (avoid repeating these themes):\n"
-                + "\n".join(f"- {m}" for m in recent[-3:])
+            avoid_clause = "\n\nPrevious motivations (avoid repeating these themes):\n" + "\n".join(
+                f"- {m}" for m in recent[-3:]
             )
 
         messages = [
@@ -254,7 +253,9 @@ class HostHealthPlugin(PluginBase):
                 # Guard against truncated/garbage LLM output
                 if len(text) >= 15:
                     return text
-                logger.debug("HostHealth: motivation too short (%d chars), using fallback", len(text))
+                logger.debug(
+                    "HostHealth: motivation too short (%d chars), using fallback", len(text)
+                )
         except Exception as e:
             logger.debug("HostHealth: LLM motivation generation failed: %s", e)
 
@@ -317,7 +318,7 @@ class HostHealthPlugin(PluginBase):
 
         return random.choice(_FALLBACK_ACKS)
 
-    def _get_previous_context(self) -> Optional[str]:
+    def _get_previous_context(self) -> str | None:
         """Get a summary of the last conversation for context."""
         if not self._conversation_history:
             return None

@@ -87,7 +87,9 @@ class TestSingleTurnScenarios:
             )
 
             result = check_assertions(
-                response, scenario.get("assertions", {}), personality,
+                response,
+                scenario.get("assertions", {}),
+                personality,
             )
 
             if result.passed or result.is_soft_failure:

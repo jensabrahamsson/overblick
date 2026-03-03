@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 async def init_services(app: FastAPI, config: DashboardConfig) -> None:
     """Initialize all dashboard services."""
+    from .audit import AuditService
     from .identity import IdentityService
     from .irc import IRCService
+    from .onboarding import OnboardingService
     from .personality import PersonalityService
-    from .audit import AuditService
     from .supervisor import SupervisorService
     from .system import SystemService
-    from .onboarding import OnboardingService
 
     # Determine base_dir (project root, not package root)
     if config.base_dir:

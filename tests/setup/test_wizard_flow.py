@@ -226,30 +226,46 @@ class TestReviewStep:
 
     async def test_step7_renders(self, client: AsyncClient):
         # Set up state through previous steps
-        await client.post("/step/2", data={
-            "principal_name": "Test User",
-            "timezone": "Europe/Stockholm",
-            "language_preference": "en",
-        }, follow_redirects=False)
-        await client.post("/step/3", data={
-            "llm_provider": "ollama",
-            "ollama_host": "127.0.0.1",
-            "ollama_port": "11434",
-            "model": "qwen3:8b",
-            "gateway_url": "http://127.0.0.1:8200",
-            "default_temperature": "0.7",
-            "default_max_tokens": "2000",
-        }, follow_redirects=False)
+        await client.post(
+            "/step/2",
+            data={
+                "principal_name": "Test User",
+                "timezone": "Europe/Stockholm",
+                "language_preference": "en",
+            },
+            follow_redirects=False,
+        )
+        await client.post(
+            "/step/3",
+            data={
+                "llm_provider": "ollama",
+                "ollama_host": "127.0.0.1",
+                "ollama_port": "11434",
+                "model": "qwen3:8b",
+                "gateway_url": "http://127.0.0.1:8200",
+                "default_temperature": "0.7",
+                "default_max_tokens": "2000",
+            },
+            follow_redirects=False,
+        )
         await client.post("/step/4", data={}, follow_redirects=False)
-        await client.post("/step/5", data={
-            "selected_use_cases": ["social_media"],
-        }, follow_redirects=False)
-        await client.post("/step/6", data={
-            "social_media_personality": "cherry",
-            "social_media_temperature": "0.8",
-            "social_media_max_tokens": "2000",
-            "social_media_heartbeat_hours": "4",
-        }, follow_redirects=False)
+        await client.post(
+            "/step/5",
+            data={
+                "selected_use_cases": ["social_media"],
+            },
+            follow_redirects=False,
+        )
+        await client.post(
+            "/step/6",
+            data={
+                "social_media_personality": "cherry",
+                "social_media_temperature": "0.8",
+                "social_media_max_tokens": "2000",
+                "social_media_heartbeat_hours": "4",
+            },
+            follow_redirects=False,
+        )
 
         resp = await client.get("/step/7")
         assert resp.status_code == 200

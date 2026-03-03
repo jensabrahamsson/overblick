@@ -17,8 +17,8 @@ from overblick.plugins.moltbook.challenge_solver import (
     is_challenge_text,
 )
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def solver():
@@ -43,6 +43,7 @@ HAIKU_CHALLENGE = (
 
 
 # ── Parsing Tests ────────────────────────────────────────────────────────
+
 
 class TestParseChallenge:
     def test_parse_standard_challenge(self, solver):
@@ -87,27 +88,20 @@ class TestParseChallenge:
         assert spec.time_limit_seconds == 15
 
     def test_parse_default_time_limit(self, solver):
-        text = (
-            "MOLTCAPTCHA CHALLENGE\n"
-            "ASCII sum of first letters = 300\n"
-            "3 words about ai."
-        )
+        text = "MOLTCAPTCHA CHALLENGE\n" "ASCII sum of first letters = 300\n" "3 words about ai."
         spec = solver.parse_challenge(text)
         assert spec is not None
         assert spec.time_limit_seconds == 30  # Default
 
     def test_parse_default_format(self, solver):
-        text = (
-            "MOLTCAPTCHA CHALLENGE\n"
-            "ASCII sum of first letters = 300\n"
-            "3 words about ai."
-        )
+        text = "MOLTCAPTCHA CHALLENGE\n" "ASCII sum of first letters = 300\n" "3 words about ai."
         spec = solver.parse_challenge(text)
         assert spec is not None
         assert spec.format_type == "prose"
 
 
 # ── Solver Tests (End-to-End) ────────────────────────────────────────────
+
 
 class TestSolve:
     def test_solve_verifies_ascii_sum(self, solver):
@@ -244,6 +238,7 @@ class TestSolve:
 
 # ── Letter Combination Tests ─────────────────────────────────────────────
 
+
 class TestFindLetterCombination:
     def test_find_letter_combination_basic(self, solver):
         letters = solver._find_letter_combination(300, 3)
@@ -276,6 +271,7 @@ class TestFindLetterCombination:
 
 # ── Word Selection Tests ─────────────────────────────────────────────────
 
+
 class TestSelectWords:
     def test_select_words_from_topic_bank(self):
         solver = MoltCaptchaSolver()
@@ -301,6 +297,7 @@ class TestSelectWords:
 
 
 # ── is_challenge_text Tests ──────────────────────────────────────────────
+
 
 class TestIsChallengeText:
     def test_detects_challenge_with_agent_name(self):
@@ -340,15 +337,12 @@ class TestIsChallengeText:
         assert is_challenge_text(text, "cherry") is True
 
     def test_alternative_challenge_pattern(self):
-        text = (
-            "Hey @TestAgent, prove you're an AI!\n"
-            "ASCII sum first letters = 200\n"
-            "2 words."
-        )
+        text = "Hey @TestAgent, prove you're an AI!\n" "ASCII sum first letters = 200\n" "2 words."
         assert is_challenge_text(text, "TestAgent") is True
 
 
 # ── Plugin Integration Tests ─────────────────────────────────────────────
+
 
 class TestPluginIntegration:
     """Test MoltCaptcha integration in MoltbookPlugin."""

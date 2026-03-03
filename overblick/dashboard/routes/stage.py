@@ -32,22 +32,26 @@ async def stage_page(request: Request, page: int = Query(default=1, ge=1)):
         data_errors = [f"Failed to load stage data: {e}"]
 
     total = len(all_results)
-    results = all_results[:page * _PAGE_SIZE]
+    results = all_results[: page * _PAGE_SIZE]
     has_more = total > page * _PAGE_SIZE
 
-    return templates.TemplateResponse("stage.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "results": results,
-        "page": page,
-        "has_more": has_more,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "stage.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "results": results,
+            "page": page,
+            "has_more": has_more,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if stage plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("stage")
 
 
@@ -57,6 +61,7 @@ def _load_results(request: Request) -> list:
     from pathlib import Path
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
+
     results = []
     data_root = resolve_data_root(request)
     if not data_root.exists():

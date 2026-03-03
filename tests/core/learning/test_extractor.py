@@ -45,7 +45,9 @@ class TestLearningExtractor:
         assert result == []
 
     def test_extract_returns_category_and_context(self):
-        text = "According to recent findings, the human brain has about 86 billion neurons in total."
+        text = (
+            "According to recent findings, the human brain has about 86 billion neurons in total."
+        )
         result = LearningExtractor.extract(text)
         assert len(result) == 1
         assert result[0]["category"] == "factual"

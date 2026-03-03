@@ -126,7 +126,9 @@ class DependabotHandler:
         if self._dry_run:
             logger.info(
                 "DRY RUN: would merge PR #%d in %s (%s %s bump, ci:%s)",
-                pr.number, repo, pr.version_bump.value,
+                pr.number,
+                repo,
+                pr.version_bump.value,
                 "dependabot" if pr.is_dependabot else "other",
                 pr.ci_status.value,
             )
@@ -139,7 +141,8 @@ class DependabotHandler:
         # Approve the PR first
         try:
             await self._client.create_pull_review(
-                repo, pr.number,
+                repo,
+                pr.number,
                 event="APPROVE",
                 body=(
                     f"Auto-approved by Överblick agent. "
@@ -153,15 +156,17 @@ class DependabotHandler:
 
         # Merge the PR
         try:
-            merge_result = await self._client.merge_pull(
-                repo, pr.number,
+            await self._client.merge_pull(
+                repo,
+                pr.number,
                 merge_method="squash",
                 commit_title=pr.title,
             )
 
             # Record in database
             await self._db.upsert_pr_tracking(
-                repo, pr.number,
+                repo,
+                pr.number,
                 merged=True,
                 auto_merged=True,
                 ci_status=pr.ci_status.value,
@@ -169,7 +174,9 @@ class DependabotHandler:
 
             logger.info(
                 "Auto-merged Dependabot PR #%d in %s (%s bump)",
-                pr.number, repo, pr.version_bump.value,
+                pr.number,
+                repo,
+                pr.version_bump.value,
             )
 
             return ActionOutcome(
@@ -181,7 +188,9 @@ class DependabotHandler:
         except GitHubAPIError as e:
             logger.error(
                 "Failed to merge Dependabot PR #%d in %s: %s",
-                pr.number, repo, e,
+                pr.number,
+                repo,
+                e,
             )
             return ActionOutcome(
                 action=action,

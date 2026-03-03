@@ -69,8 +69,13 @@ class TestExceptionUsage:
 
     def test_all_exceptions_are_distinct(self):
         classes = {
-            OverblickError, ConfigError, SecurityError,
-            PluginError, LLMError, LLMTimeoutError,
-            LLMConnectionError, DatabaseError,
+            OverblickError,
+            ConfigError,
+            SecurityError,
+            PluginError,
+            LLMError,
+            LLMTimeoutError,
+            LLMConnectionError,
+            DatabaseError,
         }
         assert len(classes) == 8

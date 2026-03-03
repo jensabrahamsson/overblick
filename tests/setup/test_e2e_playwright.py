@@ -65,7 +65,9 @@ def setup_server():
     import uvicorn
 
     config = uvicorn.Config(
-        app, host="127.0.0.1", port=port,
+        app,
+        host="127.0.0.1",
+        port=port,
         log_level="warning",
     )
     server = uvicorn.Server(config)
@@ -74,6 +76,7 @@ def setup_server():
 
     # Wait for server to be ready
     import httpx
+
     for _ in range(30):
         try:
             resp = httpx.get(url, timeout=1.0)
@@ -555,9 +558,7 @@ class TestVisualElements:
         page.goto(base_url)
         page.wait_for_load_state("networkidle")
 
-        bg_color = page.evaluate(
-            "getComputedStyle(document.body).backgroundColor"
-        )
+        bg_color = page.evaluate("getComputedStyle(document.body).backgroundColor")
         # Dark theme — RGB should be low values
         # bg-primary is #0d1117 -> rgb(13, 17, 23)
         assert "rgb(" in bg_color
@@ -637,7 +638,9 @@ def _navigate_to_step5(page, base_url: str) -> None:
 
 
 def _navigate_to_step6(
-    page, base_url: str, use_cases: list[str] | None = None,
+    page,
+    base_url: str,
+    use_cases: list[str] | None = None,
 ) -> None:
     """Navigate through steps 1-5 to reach step 6 (assign agents)."""
     _navigate_to_step5(page, base_url)

@@ -19,10 +19,10 @@ from overblick.plugins.email_agent.models import EmailRecord
 from overblick.plugins.email_agent.reply_generator import ReplyGenerator
 from overblick.plugins.email_agent.reputation import ReputationManager
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_reply_gen(ctx=None, principal_name="Test User", db=None, reputation=None, tmp_path=None):
     """Create a ReplyGenerator with minimal config for unit tests."""
@@ -63,6 +63,7 @@ def sample_email(**kwargs):
 # generate_and_send
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateAndSend:
     """Tests for ReplyGenerator.generate_and_send()."""
 
@@ -75,10 +76,12 @@ class TestGenerateAndSend:
         )
         gmail_cap = AsyncMock()
         gmail_cap.send_reply = AsyncMock(return_value=True)
-        ctx.get_capability = MagicMock(side_effect=lambda name: {
-            "gmail": gmail_cap,
-            "personality_consultant": None,
-        }.get(name))
+        ctx.get_capability = MagicMock(
+            side_effect=lambda name: {
+                "gmail": gmail_cap,
+                "personality_consultant": None,
+            }.get(name)
+        )
 
         db = MagicMock()
         db.get_sender_history = AsyncMock(return_value=[])
@@ -98,9 +101,7 @@ class TestGenerateAndSend:
     async def test_returns_false_when_gmail_unavailable(self, tmp_path):
         """Returns False when Gmail capability is not registered."""
         ctx = MagicMock()
-        ctx.llm_pipeline.chat = AsyncMock(
-            return_value=PipelineResult(content="Sure, let's meet.")
-        )
+        ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Sure, let's meet."))
         ctx.get_capability = MagicMock(return_value=None)
 
         db = MagicMock()
@@ -115,9 +116,7 @@ class TestGenerateAndSend:
     async def test_returns_false_when_llm_blocked(self, tmp_path):
         """Returns False when LLM pipeline blocks the reply."""
         ctx = MagicMock()
-        ctx.llm_pipeline.chat = AsyncMock(
-            return_value=PipelineResult(content="", blocked=True)
-        )
+        ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="", blocked=True))
         ctx.get_capability = MagicMock(return_value=None)
 
         db = MagicMock()
@@ -132,15 +131,15 @@ class TestGenerateAndSend:
     async def test_subject_prefixed_with_re(self, tmp_path):
         """Subject is prefixed with 'Re:' if not already prefixed."""
         ctx = MagicMock()
-        ctx.llm_pipeline.chat = AsyncMock(
-            return_value=PipelineResult(content="Reply text.")
-        )
+        ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Reply text."))
         gmail_cap = AsyncMock()
         gmail_cap.send_reply = AsyncMock(return_value=True)
-        ctx.get_capability = MagicMock(side_effect=lambda name: {
-            "gmail": gmail_cap,
-            "personality_consultant": None,
-        }.get(name))
+        ctx.get_capability = MagicMock(
+            side_effect=lambda name: {
+                "gmail": gmail_cap,
+                "personality_consultant": None,
+            }.get(name)
+        )
 
         db = MagicMock()
         db.get_sender_history = AsyncMock(return_value=[])
@@ -155,15 +154,15 @@ class TestGenerateAndSend:
     async def test_existing_re_prefix_not_doubled(self, tmp_path):
         """Subjects already starting with 'Re:' are not double-prefixed."""
         ctx = MagicMock()
-        ctx.llm_pipeline.chat = AsyncMock(
-            return_value=PipelineResult(content="Reply text.")
-        )
+        ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Reply text."))
         gmail_cap = AsyncMock()
         gmail_cap.send_reply = AsyncMock(return_value=True)
-        ctx.get_capability = MagicMock(side_effect=lambda name: {
-            "gmail": gmail_cap,
-            "personality_consultant": None,
-        }.get(name))
+        ctx.get_capability = MagicMock(
+            side_effect=lambda name: {
+                "gmail": gmail_cap,
+                "personality_consultant": None,
+            }.get(name)
+        )
 
         db = MagicMock()
         db.get_sender_history = AsyncMock(return_value=[])
@@ -193,6 +192,7 @@ class TestGenerateAndSend:
 # ---------------------------------------------------------------------------
 # send_draft_notification
 # ---------------------------------------------------------------------------
+
 
 class TestSendDraftNotification:
     """Tests for ReplyGenerator.send_draft_notification()."""
@@ -239,9 +239,7 @@ class TestSendDraftNotification:
     async def test_returns_none_when_llm_blocked(self, tmp_path):
         """Returns None when LLM result is blocked."""
         ctx = MagicMock()
-        ctx.llm_pipeline.chat = AsyncMock(
-            return_value=PipelineResult(content="", blocked=True)
-        )
+        ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="", blocked=True))
         ctx.get_capability = MagicMock(return_value=None)
         notifier = AsyncMock()
 
@@ -282,17 +280,20 @@ class TestSendDraftNotification:
         notifier.send_notification_tracked = AsyncMock(return_value=99)
 
         db = MagicMock()
-        db.get_sender_history = AsyncMock(return_value=[
-            EmailRecord(
-                email_from="colleague@example.com",
-                email_subject="Previous meeting",
-                classified_intent="reply",
-                confidence=0.9,
-                reasoning="Meeting request",
-            ),
-        ])
+        db.get_sender_history = AsyncMock(
+            return_value=[
+                EmailRecord(
+                    email_from="colleague@example.com",
+                    email_subject="Previous meeting",
+                    classified_intent="reply",
+                    confidence=0.9,
+                    reasoning="Meeting request",
+                ),
+            ]
+        )
 
         from overblick.plugins.email_agent.models import SenderProfile
+
         profiles_dir = tmp_path / "sender_profiles"
         profiles_dir.mkdir(parents=True, exist_ok=True)
         reputation = ReputationManager(db=db, profiles_dir=profiles_dir, thresholds={})
@@ -324,9 +325,7 @@ class TestSendDraftNotification:
     async def test_returns_none_when_tg_send_fails(self, tmp_path):
         """Returns None when tracked notification send returns None."""
         ctx = MagicMock()
-        ctx.llm_pipeline.chat = AsyncMock(
-            return_value=PipelineResult(content="Draft reply text.")
-        )
+        ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Draft reply text."))
         ctx.get_capability = MagicMock(return_value=None)
         notifier = AsyncMock()
         notifier.send_notification_tracked = AsyncMock(return_value=None)
@@ -343,6 +342,7 @@ class TestSendDraftNotification:
 # ---------------------------------------------------------------------------
 # _consult_tone
 # ---------------------------------------------------------------------------
+
 
 class TestConsultTone:
     """Tests for ReplyGenerator._consult_tone()."""
@@ -403,6 +403,7 @@ class TestConsultTone:
 # ---------------------------------------------------------------------------
 # _request_research
 # ---------------------------------------------------------------------------
+
 
 class TestRequestResearch:
     """Tests for ReplyGenerator._request_research()."""

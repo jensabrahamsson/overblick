@@ -49,13 +49,15 @@ class AnalyzeBugHandler:
         bug = _find_bug(action, observation)
         if not bug:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Bug #{action.target_number} not found in observations",
             )
 
         if not bug.is_retriable:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Bug #{bug.id} is not retriable (status={bug.status.value}, attempts={bug.fix_attempts})",
             )
 
@@ -67,11 +69,14 @@ class AnalyzeBugHandler:
 
         # Store analysis
         await self._db.update_bug_status(
-            bug.id, BugStatus.NEW.value, analysis=analysis,
+            bug.id,
+            BugStatus.NEW.value,
+            analysis=analysis,
         )
 
         return ActionOutcome(
-            action=action, success=True,
+            action=action,
+            success=True,
             result=f"Analyzed bug #{bug.id}: {analysis[:500]}",
         )
 
@@ -101,13 +106,15 @@ class FixBugHandler:
         bug = _find_bug(action, observation)
         if not bug:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Bug #{action.target_number} not found in observations",
             )
 
         if not bug.is_retriable:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Bug #{bug.id} is not retriable (status={bug.status.value}, attempts={bug.fix_attempts})",
             )
 
@@ -117,7 +124,8 @@ class FixBugHandler:
 
         # Update status
         await self._db.update_bug_status(
-            bug.id, BugStatus.FIXING.value,
+            bug.id,
+            BugStatus.FIXING.value,
             fix_attempts=str(attempt_number),
             branch_name=branch_name,
         )
@@ -128,13 +136,17 @@ class FixBugHandler:
 
         # 2. Create branch
         if not await self._workspace.create_branch(branch_name):
-            return self._fail(action, bug, attempt_number, start, f"Failed to create branch {branch_name}")
+            return self._fail(
+                action, bug, attempt_number, start, f"Failed to create branch {branch_name}"
+            )
 
         # 3. Run opencode fix
         analysis = bug.analysis or ""
         fix_result = await self._opencode.fix_bug(bug, analysis)
         if not fix_result.success:
-            return self._fail(action, bug, attempt_number, start, f"opencode fix failed: {fix_result.error}")
+            return self._fail(
+                action, bug, attempt_number, start, f"opencode fix failed: {fix_result.error}"
+            )
 
         # 4. Run tests
         await self._db.update_bug_status(bug.id, BugStatus.TESTING.value)
@@ -157,32 +169,43 @@ class FixBugHandler:
 
         if not test_result.passed:
             await self._db.record_fix_attempt(attempt)
-            status = BugStatus.FAILED.value if attempt_number >= bug.max_attempts else BugStatus.NEW.value
+            status = (
+                BugStatus.FAILED.value
+                if attempt_number >= bug.max_attempts
+                else BugStatus.NEW.value
+            )
             await self._db.update_bug_status(bug.id, status)
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Tests failed after fix (attempt {attempt_number}/{bug.max_attempts})",
                 duration_ms=duration * 1000,
             )
 
         # 5. Commit and push
-        commit_msg = f"fix: {bug.title}\n\nBug #{bug.id} ({bug.source.value})\nAutomated fix by Smed"
+        commit_msg = (
+            f"fix: {bug.title}\n\nBug #{bug.id} ({bug.source.value})\nAutomated fix by Smed"
+        )
         committed = await self._workspace.commit_and_push(commit_msg)
         attempt.committed = committed
         await self._db.record_fix_attempt(attempt)
 
         if committed:
             await self._db.update_bug_status(
-                bug.id, BugStatus.FIXING.value, branch_name=branch_name,
+                bug.id,
+                BugStatus.FIXING.value,
+                branch_name=branch_name,
             )
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"Fixed bug #{bug.id} on branch {branch_name} (attempt {attempt_number})",
                 duration_ms=duration * 1000,
             )
         else:
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"Fix applied and tests pass for bug #{bug.id} (dry_run or no changes to commit)",
                 duration_ms=duration * 1000,
             )
@@ -199,7 +222,8 @@ class FixBugHandler:
         duration = time.monotonic() - start
         logger.warning("Fix attempt %d for bug #%d failed: %s", attempt_number, bug.id, error)
         return ActionOutcome(
-            action=action, success=False,
+            action=action,
+            success=False,
             error=error,
             duration_ms=duration * 1000,
         )
@@ -240,13 +264,15 @@ class CreatePRHandler:
         bug = _find_bug(action, observation)
         if not bug:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Bug #{action.target_number} not found in observations",
             )
 
         if not bug.branch_name:
             return ActionOutcome(
-                action=action, success=False,
+                action=action,
+                success=False,
                 error=f"Bug #{bug.id} has no branch — fix it first",
             )
 
@@ -268,15 +294,19 @@ class CreatePRHandler:
 
         if pr_url:
             await self._db.update_bug_status(
-                bug.id, BugStatus.PR_CREATED.value, pr_url=pr_url,
+                bug.id,
+                BugStatus.PR_CREATED.value,
+                pr_url=pr_url,
             )
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"Created PR for bug #{bug.id}: {pr_url}",
             )
 
         return ActionOutcome(
-            action=action, success=False,
+            action=action,
+            success=False,
             error=f"Failed to create PR for bug #{bug.id}",
         )
 
@@ -289,16 +319,13 @@ class NotifyOwnerHandler:
         self._dry_run = dry_run
 
     async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
-        message = (
-            f"*Smed (Dev Agent)*\n"
-            f"{action.target}\n\n"
-            f"_{action.reasoning}_"
-        )
+        message = f"*Smed (Dev Agent)*\n" f"{action.target}\n\n" f"_{action.reasoning}_"
 
         if self._dry_run:
             logger.info("DRY RUN: would notify owner: %s", message[:200])
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"DRY RUN: would notify owner about {action.target}",
             )
 
@@ -306,17 +333,20 @@ class NotifyOwnerHandler:
             try:
                 await self._notify_fn(message)
                 return ActionOutcome(
-                    action=action, success=True,
+                    action=action,
+                    success=True,
                     result=f"Notified owner about {action.target}",
                 )
             except Exception as e:
                 return ActionOutcome(
-                    action=action, success=False,
+                    action=action,
+                    success=False,
                     error=f"Notification failed: {e}",
                 )
 
         return ActionOutcome(
-            action=action, success=False,
+            action=action,
+            success=False,
             error="No notification function available",
         )
 
@@ -332,7 +362,8 @@ class CleanWorkspaceHandler:
         if branch:
             await self._workspace.cleanup_branch(branch)
             return ActionOutcome(
-                action=action, success=True,
+                action=action,
+                success=True,
                 result=f"Cleaned up branch {branch}",
             )
 
@@ -345,7 +376,8 @@ class CleanWorkspaceHandler:
                 cleaned += 1
 
         return ActionOutcome(
-            action=action, success=True,
+            action=action,
+            success=True,
             result=f"Cleaned up {cleaned} old fix branches",
         )
 
@@ -355,7 +387,8 @@ class SkipHandler:
 
     async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
         return ActionOutcome(
-            action=action, success=True,
+            action=action,
+            success=True,
             result=f"Skipped: {action.reasoning}",
         )
 

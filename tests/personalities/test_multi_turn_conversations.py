@@ -72,9 +72,7 @@ class TestMultiTurnConversations:
                 content = result.get("content", "") if result else ""
                 if not content:
                     # Empty content (e.g. Qwen3 think-token stripping) — retry
-                    last_response = (
-                        f"[turn {turn_idx + 1}] <empty — LLM returned no content>"
-                    )
+                    last_response = f"[turn {turn_idx + 1}] <empty — LLM returned no content>"
                     failed = True
                     break
 

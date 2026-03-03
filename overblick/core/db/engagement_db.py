@@ -24,7 +24,6 @@ class EngagementDB:
 
     async def setup(self) -> None:
         """Create tables and indexes (idempotent)."""
-        ph = self._db.ph
 
         await self._db.execute_script("""
             CREATE TABLE IF NOT EXISTS engagements (
@@ -165,7 +164,11 @@ class EngagementDB:
         return row is not None
 
     async def mark_reply_processed(
-        self, comment_id: str, post_id: str, action: str, score: float,
+        self,
+        comment_id: str,
+        post_id: str,
+        action: str,
+        score: float,
     ) -> None:
         ph = self._db.ph
         await self._db.execute(
@@ -180,7 +183,11 @@ class EngagementDB:
     # ------------------------------------------------------------------
 
     async def queue_reply_action(
-        self, comment_id: str, post_id: str, action: str, relevance_score: float,
+        self,
+        comment_id: str,
+        post_id: str,
+        action: str,
+        relevance_score: float,
     ) -> None:
         ph = self._db.ph
         await self._db.execute(
@@ -299,8 +306,7 @@ class EngagementDB:
         """Get distinct post_ids where we left comments, most recent first."""
         ph = self._db.ph
         rows = await self._db.fetch_all(
-            f"SELECT DISTINCT post_id FROM my_comments "
-            f"ORDER BY created_at DESC LIMIT {ph(1)}",
+            f"SELECT DISTINCT post_id FROM my_comments " f"ORDER BY created_at DESC LIMIT {ph(1)}",
             (limit,),
         )
         return [r["post_id"] for r in rows]
@@ -350,8 +356,16 @@ class EngagementDB:
             f"VALUES ({ph(1)}, {ph(2)}, {ph(3)}, {ph(4)}, {ph(5)}, "
             f"{ph(6)}, {ph(7)}, {ph(8)}, {ph(9)}, {ph(10)})",
             (
-                challenge_id, question_raw, question_clean, answer, solver,
-                1 if correct else 0, endpoint, duration_ms, http_status, error,
+                challenge_id,
+                question_raw,
+                question_clean,
+                answer,
+                solver,
+                1 if correct else 0,
+                endpoint,
+                duration_ms,
+                http_status,
+                error,
             ),
         )
 

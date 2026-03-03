@@ -77,9 +77,7 @@ class BackendRegistry:
                     name,
                 )
             else:
-                logger.warning(
-                    "Backend '%s': unknown type '%s', skipping", name, btype
-                )
+                logger.warning("Backend '%s': unknown type '%s', skipping", name, btype)
 
         if not self._clients:
             # Fallback: create default client from legacy config
@@ -113,7 +111,9 @@ class BackendRegistry:
         self._clients[name] = OllamaClient(client_config)
         logger.info(
             "Registered backend '%s': %s (model: %s)",
-            name, bc.base_url, bc.model,
+            name,
+            bc.base_url,
+            bc.model,
         )
 
     def _register_deepseek_backend(
@@ -162,17 +162,20 @@ class BackendRegistry:
         )
         logger.info(
             "Registered backend '%s': %s (model: %s, key: %s)",
-            name, api_url, model, "configured" if api_key else "MISSING",
+            name,
+            api_url,
+            model,
+            "configured" if api_key else "MISSING",
         )
 
-    def get_client(self, backend: Optional[str] = None) -> Any:
+    def get_client(self, backend: str | None = None) -> Any:
         """Get client for a backend (defaults to default_backend)."""
         name = backend or self._default
         if name not in self._clients:
             raise ValueError(f"Backend '{name}' not configured or not enabled")
         return self._clients[name]
 
-    def get_model(self, backend: Optional[str] = None) -> str:
+    def get_model(self, backend: str | None = None) -> str:
         """Get default model for a backend."""
         name = backend or self._default
         bcfg = self._backend_configs.get(name)

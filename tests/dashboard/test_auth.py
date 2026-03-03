@@ -35,7 +35,6 @@ from overblick.dashboard.security import (
     AuditFilterForm,
 )
 
-
 # ---------------------------------------------------------------------------
 # SessionManager
 # ---------------------------------------------------------------------------
@@ -173,7 +172,9 @@ class TestCSRFValidation:
         cookie, csrf = self.sm.create_session()
         session = self.sm.validate_session(cookie)
 
-        with patch("overblick.dashboard.auth.hmac.compare_digest", wraps=hmac.compare_digest) as mock_cmp:
+        with patch(
+            "overblick.dashboard.auth.hmac.compare_digest", wraps=hmac.compare_digest
+        ) as mock_cmp:
             self.sm.validate_csrf(session, csrf)
             mock_cmp.assert_called_once_with(csrf, csrf)
 
@@ -183,7 +184,9 @@ class TestCSRFValidation:
         session = self.sm.validate_session(cookie)
         wrong = "wrong-token"
 
-        with patch("overblick.dashboard.auth.hmac.compare_digest", wraps=hmac.compare_digest) as mock_cmp:
+        with patch(
+            "overblick.dashboard.auth.hmac.compare_digest", wraps=hmac.compare_digest
+        ) as mock_cmp:
             result = self.sm.validate_csrf(session, wrong)
             mock_cmp.assert_called_once_with(csrf, wrong)
             assert result is False
@@ -496,10 +499,14 @@ class TestAutoLogin:
 
     @pytest.mark.asyncio
     async def test_auto_login_no_password(
-        self, config_no_password,
-        mock_identity_service, mock_personality_service,
-        mock_audit_service, mock_supervisor_service,
-        mock_system_service, mock_onboarding_service,
+        self,
+        config_no_password,
+        mock_identity_service,
+        mock_personality_service,
+        mock_audit_service,
+        mock_supervisor_service,
+        mock_system_service,
+        mock_onboarding_service,
     ):
         """When no password is set, /login auto-redirects with session."""
         from overblick.dashboard.app import create_app, _create_templates
@@ -507,7 +514,8 @@ class TestAutoLogin:
 
         app = create_app(config_no_password)
         app.state.session_manager = SessionManager(
-            config_no_password.secret_key, config_no_password.session_hours,
+            config_no_password.secret_key,
+            config_no_password.session_hours,
         )
         app.state.rate_limiter = RateLimiter()
         app.state.templates = _create_templates()
@@ -518,9 +526,7 @@ class TestAutoLogin:
         app.state.system_service = mock_system_service
         app.state.onboarding_service = mock_onboarding_service
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as c:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             resp = await c.get("/login", follow_redirects=False)
             assert resp.status_code == 302
             assert SESSION_COOKIE in resp.cookies
@@ -746,7 +752,10 @@ class TestOnboardingLLMForm:
 
     def test_valid_custom_values(self):
         form = OnboardingLLMForm(
-            model="llama3:70b", temperature=1.5, max_tokens=4000, provider="gateway",
+            model="llama3:70b",
+            temperature=1.5,
+            max_tokens=4000,
+            provider="gateway",
         )
         assert form.model == "llama3:70b"
         assert form.temperature == 1.5
@@ -857,8 +866,11 @@ class TestAuditFilterForm:
 
     def test_custom_values(self):
         form = AuditFilterForm(
-            identity="anomal", category="security", action="llm_request",
-            hours=48, limit=100,
+            identity="anomal",
+            category="security",
+            action="llm_request",
+            hours=48,
+            limit=100,
         )
         assert form.identity == "anomal"
         assert form.hours == 48

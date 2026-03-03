@@ -8,6 +8,7 @@ all API responses faithfully.
 
 Each test class gets a fresh server + client fixture (no shared state).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,10 +35,10 @@ from overblick.plugins.moltbook.models import (
 
 from .mock_server import MockMoltbookServer
 
-
 # ---------------------------------------------------------------------------
 # Minimal challenge handler (no LLM required)
 # ---------------------------------------------------------------------------
+
 
 class MockChallengeHandler:
     """
@@ -77,6 +78,7 @@ class MockChallengeHandler:
 # ---------------------------------------------------------------------------
 # Fixture helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_client(base_url: str, challenge_handler=None) -> MoltbookClient:
     """
@@ -141,6 +143,7 @@ async def server_with_challenge_client():
 # TestAgentAPI
 # ---------------------------------------------------------------------------
 
+
 class TestAgentAPI:
     async def test_get_self_returns_agent(self, server_and_client):
         _, client = server_and_client
@@ -162,11 +165,14 @@ class TestAgentAPI:
 # TestPostsAPI
 # ---------------------------------------------------------------------------
 
+
 class TestPostsAPI:
     async def test_create_post_returns_post(self, server_and_client):
         _, client = server_and_client
         post = await client.create_post(
-            title="Hello World", content="Test content here", submolt="ai",
+            title="Hello World",
+            content="Test content here",
+            submolt="ai",
         )
         assert isinstance(post, Post)
         assert post.title == "Hello World"
@@ -224,7 +230,9 @@ class TestPostsAPI:
     async def test_create_link_post(self, server_and_client):
         server, client = server_and_client
         post = await client.create_link_post(
-            title="A Link Post", url="https://example.com/article", submolt="ai",
+            title="A Link Post",
+            url="https://example.com/article",
+            submolt="ai",
         )
         assert isinstance(post, Post)
         assert post.title == "A Link Post"
@@ -235,6 +243,7 @@ class TestPostsAPI:
 # ---------------------------------------------------------------------------
 # TestCommentsAPI
 # ---------------------------------------------------------------------------
+
 
 class TestCommentsAPI:
     async def test_create_comment(self, server_and_client):
@@ -271,14 +280,22 @@ class TestCommentsAPI:
         }
         server.state.comments["200"] = [
             {
-                "id": "c1", "post_id": "200", "agent_id": "agent-1",
-                "agent_name": "test-agent", "content": "First comment",
-                "upvotes": 0, "parent_id": None,
+                "id": "c1",
+                "post_id": "200",
+                "agent_id": "agent-1",
+                "agent_name": "test-agent",
+                "content": "First comment",
+                "upvotes": 0,
+                "parent_id": None,
             },
             {
-                "id": "c2", "post_id": "200", "agent_id": "agent-1",
-                "agent_name": "test-agent", "content": "Second comment",
-                "upvotes": 0, "parent_id": None,
+                "id": "c2",
+                "post_id": "200",
+                "agent_id": "agent-1",
+                "agent_name": "test-agent",
+                "content": "Second comment",
+                "upvotes": 0,
+                "parent_id": None,
             },
         ]
         post = await client.get_post("200", include_comments=True)
@@ -299,13 +316,21 @@ class TestCommentsAPI:
 # TestFeedAPI
 # ---------------------------------------------------------------------------
 
+
 class TestFeedAPI:
     async def test_feed_returns_posts(self, server_and_client):
         server, client = server_and_client
         server.state.posts["300"] = {
-            "id": "300", "agent_id": "agent-1", "agent_name": "test-agent",
-            "title": "Feed test post", "content": "Content", "submolt": "ai",
-            "upvotes": 0, "downvotes": 0, "comment_count": 0, "tags": [],
+            "id": "300",
+            "agent_id": "agent-1",
+            "agent_name": "test-agent",
+            "title": "Feed test post",
+            "content": "Content",
+            "submolt": "ai",
+            "upvotes": 0,
+            "downvotes": 0,
+            "comment_count": 0,
+            "tags": [],
         }
         server.state.comments["300"] = []
         feed = await client.get_feed()
@@ -325,11 +350,13 @@ class TestFeedAPI:
 # TestSearchAPI
 # ---------------------------------------------------------------------------
 
+
 class TestSearchAPI:
     async def test_search_finds_post_by_title(self, server_and_client):
         _, client = server_and_client
         post = await client.create_post(
-            title="Unique Xylophone Title", content="Content about xylophones",
+            title="Unique Xylophone Title",
+            content="Content about xylophones",
         )
         result = await client.search("xylophone")
         assert isinstance(result, SearchResult)
@@ -340,6 +367,7 @@ class TestSearchAPI:
 # ---------------------------------------------------------------------------
 # TestFollowAPI
 # ---------------------------------------------------------------------------
+
 
 class TestFollowAPI:
     async def test_follow_agent(self, server_and_client):
@@ -359,6 +387,7 @@ class TestFollowAPI:
 # ---------------------------------------------------------------------------
 # TestDMFlow
 # ---------------------------------------------------------------------------
+
 
 class TestDMFlow:
     async def test_dm_request_sent(self, server_and_client):
@@ -400,6 +429,7 @@ class TestDMFlow:
 # ---------------------------------------------------------------------------
 # TestChallengeHandling
 # ---------------------------------------------------------------------------
+
 
 class TestChallengeHandling:
     async def test_challenge_injected_on_post(self, server_with_challenge_client):
@@ -446,6 +476,7 @@ class TestChallengeHandling:
 # TestErrorHandling
 # ---------------------------------------------------------------------------
 
+
 class TestErrorHandling:
     async def test_rate_limit_raises_moltbook_error(self, server_and_client):
         """
@@ -483,6 +514,7 @@ class TestErrorHandling:
 # TestSubmolts
 # ---------------------------------------------------------------------------
 
+
 class TestSubmolts:
     async def test_list_submolts(self, server_and_client):
         _, client = server_and_client
@@ -519,6 +551,7 @@ class TestSubmolts:
 # TestDownvoteAPI
 # ---------------------------------------------------------------------------
 
+
 class TestDownvoteAPI:
     async def test_downvote_post(self, server_and_client):
         server, client = server_and_client
@@ -539,6 +572,7 @@ class TestDownvoteAPI:
 # ---------------------------------------------------------------------------
 # TestAgentProfileAPI
 # ---------------------------------------------------------------------------
+
 
 class TestAgentProfileAPI:
     async def test_get_agent_profile_by_name(self, server_and_client):
@@ -563,6 +597,7 @@ class TestAgentProfileAPI:
 # ---------------------------------------------------------------------------
 # TestSearchExtended
 # ---------------------------------------------------------------------------
+
 
 class TestSearchExtended:
     async def test_search_by_content(self, server_and_client):
@@ -590,6 +625,7 @@ class TestSearchExtended:
 # TestFeedExtended
 # ---------------------------------------------------------------------------
 
+
 class TestFeedExtended:
     async def test_empty_feed(self, server_and_client):
         _, client = server_and_client
@@ -602,9 +638,16 @@ class TestFeedExtended:
         for i in range(3):
             pid = str(400 + i)
             server.state.posts[pid] = {
-                "id": pid, "agent_id": "agent-1", "agent_name": "test-agent",
-                "title": f"Post {i}", "content": f"Content {i}", "submolt": "ai",
-                "upvotes": 0, "downvotes": 0, "comment_count": 0, "tags": [],
+                "id": pid,
+                "agent_id": "agent-1",
+                "agent_name": "test-agent",
+                "title": f"Post {i}",
+                "content": f"Content {i}",
+                "submolt": "ai",
+                "upvotes": 0,
+                "downvotes": 0,
+                "comment_count": 0,
+                "tags": [],
             }
             server.state.comments[pid] = []
         feed = await client.get_feed()
@@ -618,18 +661,33 @@ class TestFeedExtended:
 # TestSubmoltFiltering
 # ---------------------------------------------------------------------------
 
+
 class TestSubmoltFiltering:
     async def test_list_posts_by_submolt(self, server_and_client):
         server, client = server_and_client
         server.state.posts["500"] = {
-            "id": "500", "agent_id": "agent-1", "agent_name": "test-agent",
-            "title": "AI Post", "content": "AI content", "submolt": "ai",
-            "upvotes": 0, "downvotes": 0, "comment_count": 0, "tags": [],
+            "id": "500",
+            "agent_id": "agent-1",
+            "agent_name": "test-agent",
+            "title": "AI Post",
+            "content": "AI content",
+            "submolt": "ai",
+            "upvotes": 0,
+            "downvotes": 0,
+            "comment_count": 0,
+            "tags": [],
         }
         server.state.posts["501"] = {
-            "id": "501", "agent_id": "agent-1", "agent_name": "test-agent",
-            "title": "Crypto Post", "content": "Crypto content", "submolt": "crypto",
-            "upvotes": 0, "downvotes": 0, "comment_count": 0, "tags": [],
+            "id": "501",
+            "agent_id": "agent-1",
+            "agent_name": "test-agent",
+            "title": "Crypto Post",
+            "content": "Crypto content",
+            "submolt": "crypto",
+            "upvotes": 0,
+            "downvotes": 0,
+            "comment_count": 0,
+            "tags": [],
         }
         server.state.comments["500"] = []
         server.state.comments["501"] = []
@@ -643,17 +701,33 @@ class TestSubmoltFiltering:
 # TestDMActivity
 # ---------------------------------------------------------------------------
 
+
 class TestDMActivity:
     async def test_dm_activity_count(self, server_and_client):
         server, client = server_and_client
         # Pre-populate pending DM requests
         server.state.dm_requests = [
-            {"id": "r1", "sender_id": "a1", "sender_name": "Bot1",
-             "message": "Hi", "status": "pending"},
-            {"id": "r2", "sender_id": "a2", "sender_name": "Bot2",
-             "message": "Hello", "status": "pending"},
-            {"id": "r3", "sender_id": "a3", "sender_name": "Bot3",
-             "message": "Hey", "status": "approved"},
+            {
+                "id": "r1",
+                "sender_id": "a1",
+                "sender_name": "Bot1",
+                "message": "Hi",
+                "status": "pending",
+            },
+            {
+                "id": "r2",
+                "sender_id": "a2",
+                "sender_name": "Bot2",
+                "message": "Hello",
+                "status": "pending",
+            },
+            {
+                "id": "r3",
+                "sender_id": "a3",
+                "sender_name": "Bot3",
+                "message": "Hey",
+                "status": "approved",
+            },
         ]
         activity = await client.check_dm_activity()
         assert activity["unread_count"] == 2
@@ -662,6 +736,7 @@ class TestDMActivity:
 # ---------------------------------------------------------------------------
 # TestScenarioSwitching
 # ---------------------------------------------------------------------------
+
 
 class TestScenarioSwitching:
     """Test switching between server scenarios mid-test."""
@@ -714,6 +789,7 @@ class TestScenarioSwitching:
 # ---------------------------------------------------------------------------
 # TestDMFullFlow
 # ---------------------------------------------------------------------------
+
 
 class TestDMFullFlow:
     """Test the complete DM lifecycle via real HTTP."""

@@ -27,15 +27,14 @@ import yaml
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from jinja2 import Environment, FileSystemLoader
-
 from pydantic import ValidationError
 
 from .validators import (
     AgentConfig,
-    UseCaseSelection,
     CommunicationData,
     LLMData,
     PrincipalData,
+    UseCaseSelection,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,6 +63,7 @@ def plugin_name(p: str) -> str:
     """Get display name for a plugin, with fallback to title-cased."""
     return PLUGIN_DISPLAY_NAMES.get(p, p.replace("_", " ").title())
 
+
 # Default wizard state
 _DEFAULT_STATE: dict[str, Any] = {
     "current_step": 1,
@@ -84,10 +84,16 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "social_media",
         "name": "Social Media",
         "description": "Post to forums and social platforms with personality-driven content",
-        "icon": "\U0001F4AC",
+        "icon": "\U0001f4ac",
         "plugins": ["moltbook"],
         "compatible_personalities": [
-            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt",
+            "anomal",
+            "cherry",
+            "blixt",
+            "bjork",
+            "prisma",
+            "rost",
+            "natt",
         ],
         "recommended": "cherry",
     },
@@ -95,7 +101,7 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "email",
         "name": "Email Management",
         "description": "Read, triage, draft replies, and send emails on your behalf",
-        "icon": "\u2709\uFE0F",
+        "icon": "\u2709\ufe0f",
         "plugins": ["email_agent"],
         "compatible_personalities": ["stal"],
         "recommended": "stal",
@@ -104,7 +110,7 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "notifications",
         "name": "Notifications",
         "description": "Send alerts and updates via Telegram based on agent activity",
-        "icon": "\U0001F514",
+        "icon": "\U0001f514",
         "plugins": ["telegram"],
         "compatible_personalities": ["anomal", "stal"],
         "recommended": "stal",
@@ -113,7 +119,7 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "research",
         "name": "News & Research",
         "description": "AI-curated digests of news, feeds, and topics you care about",
-        "icon": "\U0001F50D",
+        "icon": "\U0001f50d",
         "plugins": ["ai_digest"],
         "compatible_personalities": ["anomal"],
         "recommended": "anomal",
@@ -122,10 +128,12 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "github_monitor",
         "name": "GitHub Monitor",
         "description": "Watch repos for issues and PRs, analyze code, and respond contextually",
-        "icon": "\U0001F4BB",
+        "icon": "\U0001f4bb",
         "plugins": ["github"],
         "compatible_personalities": [
-            "anomal", "blixt", "stal",
+            "anomal",
+            "blixt",
+            "stal",
         ],
         "recommended": "blixt",
     },
@@ -133,10 +141,17 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "irc_conversations",
         "name": "IRC Conversations",
         "description": "Free-form group conversations between agent identities on curated topics",
-        "icon": "\U0001F4AC",
+        "icon": "\U0001f4ac",
         "plugins": ["irc"],
         "compatible_personalities": [
-            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt", "stal",
+            "anomal",
+            "cherry",
+            "blixt",
+            "bjork",
+            "prisma",
+            "rost",
+            "natt",
+            "stal",
         ],
         "recommended": "anomal",
     },
@@ -144,10 +159,17 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "multi_perspective",
         "name": "Multi-Perspective Content",
         "description": "Watch RSS feeds for trends and collect each identity's unique perspective",
-        "icon": "\U0001F500",
+        "icon": "\U0001f500",
         "plugins": ["kontrast"],
         "compatible_personalities": [
-            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt", "stal",
+            "anomal",
+            "cherry",
+            "blixt",
+            "bjork",
+            "prisma",
+            "rost",
+            "natt",
+            "stal",
         ],
         "recommended": "prisma",
     },
@@ -155,10 +177,17 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "psychological_mirror",
         "name": "Psychological Mirror",
         "description": "Identities write psychological profiles of each other and reflect on the results",
-        "icon": "\U0001FA9E",
+        "icon": "\U0001fa9e",
         "plugins": ["spegel"],
         "compatible_personalities": [
-            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt", "stal",
+            "anomal",
+            "cherry",
+            "blixt",
+            "bjork",
+            "prisma",
+            "rost",
+            "natt",
+            "stal",
         ],
         "recommended": "anomal",
     },
@@ -166,10 +195,17 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "shadow_work",
         "name": "Shadow Work",
         "description": "Generate content from each identity's Jungian shadow — their psychological opposite",
-        "icon": "\U0001F312",
+        "icon": "\U0001f312",
         "plugins": ["skuggspel"],
         "compatible_personalities": [
-            "anomal", "cherry", "blixt", "bjork", "prisma", "rost", "natt", "stal",
+            "anomal",
+            "cherry",
+            "blixt",
+            "bjork",
+            "prisma",
+            "rost",
+            "natt",
+            "stal",
         ],
         "recommended": "anomal",
     },
@@ -177,7 +213,7 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "identity_drift",
         "name": "Identity Drift Detection",
         "description": "Monitor all identity outputs for stylometric drift — security and quality guardian",
-        "icon": "\U0001F9ED",
+        "icon": "\U0001f9ed",
         "plugins": ["compass"],
         "compatible_personalities": ["anomal", "bjork", "stal", "prisma"],
         "recommended": "bjork",
@@ -186,7 +222,7 @@ USE_CASES: list[dict[str, Any]] = [
         "id": "dev_automation",
         "name": "Dev Automation",
         "description": "Autonomous bug-fixing agent that finds bugs, writes fixes, runs tests, and creates PRs",
-        "icon": "\U0001F527",
+        "icon": "\U0001f527",
         "plugins": ["dev_agent"],
         "compatible_personalities": ["smed"],
         "recommended": "smed",
@@ -205,7 +241,7 @@ def _friendly_error(exc: Exception) -> str:
             msg = err.get("msg", "Invalid input")
             # Strip Pydantic prefix "Value error, "
             if msg.startswith("Value error, "):
-                msg = msg[len("Value error, "):]
+                msg = msg[len("Value error, ") :]
             messages.append(msg)
         return "; ".join(messages) if messages else "Please check your input."
     return str(exc)
@@ -239,11 +275,13 @@ def _get_state(app: FastAPI) -> dict[str, Any]:
 def _save_wizard_state(state: dict[str, Any]) -> None:
     """Persist wizard state to disk (config/.wizard_state.json)."""
     import json
+
     try:
         _WIZARD_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         # Filter out sensitive keys before saving
         safe_state = {
-            k: v for k, v in state.items()
+            k: v
+            for k, v in state.items()
             if not k.startswith("_") and k not in ("deepseek_api_key",)
         }
         _WIZARD_STATE_FILE.write_text(json.dumps(safe_state, default=str))
@@ -254,6 +292,7 @@ def _save_wizard_state(state: dict[str, Any]) -> None:
 def _load_wizard_state() -> dict[str, Any] | None:
     """Load wizard state from disk, returning None if not available."""
     import json
+
     if not _WIZARD_STATE_FILE.exists():
         return None
     try:
@@ -296,10 +335,13 @@ def _load_identity_data(base_dir: Path) -> list[dict[str, Any]]:
         sample_quote = ""
         if examples:
             first_example = next(iter(examples.values()), {})
-            response = first_example.get("response", first_example.get(
-                "anomal_response", first_example.get(
-                    "cherry_response", first_example.get(
-                        "stal_response", ""))))
+            response = first_example.get(
+                "response",
+                first_example.get(
+                    "anomal_response",
+                    first_example.get("cherry_response", first_example.get("stal_response", "")),
+                ),
+            )
             if response:
                 sample_quote = response.strip()[:120]
                 if len(response.strip()) > 120:
@@ -309,17 +351,19 @@ def _load_identity_data(base_dir: Path) -> list[dict[str, Any]]:
         sorted_traits = sorted(traits.items(), key=lambda x: x[1], reverse=True)
         top_traits = sorted_traits[:3] if sorted_traits else []
 
-        characters.append({
-            "name": pdir.name,
-            "display_name": identity.get("display_name", pdir.name.capitalize()),
-            "role": identity.get("role", identity.get("description", "")),
-            "description": identity.get("description", ""),
-            "base_tone": voice.get("base_tone", ""),
-            "traits": {k: v for k, v in top_traits},
-            "all_traits": traits,
-            "sample_quote": sample_quote,
-            "operational": data.get("operational", {}),
-        })
+        characters.append(
+            {
+                "name": pdir.name,
+                "display_name": identity.get("display_name", pdir.name.capitalize()),
+                "role": identity.get("role", identity.get("description", "")),
+                "description": identity.get("description", ""),
+                "base_tone": voice.get("base_tone", ""),
+                "traits": dict(top_traits),
+                "all_traits": traits,
+                "sample_quote": sample_quote,
+                "operational": data.get("operational", {}),
+            }
+        )
 
     return characters
 
@@ -353,21 +397,23 @@ def _build_assignment_data(
         # Get previously saved assignment for this use case
         prev = assignments.get(uc_id, {})
 
-        result.append({
-            "id": uc["id"],
-            "name": uc["name"],
-            "description": uc["description"],
-            "icon": uc["icon"],
-            "plugins": uc["plugins"],
-            "recommended": uc["recommended"],
-            "compatible": compatible,
-            "assigned_personality": prev.get("personality", uc["recommended"]),
-            "temperature": prev.get("temperature"),
-            "max_tokens": prev.get("max_tokens"),
-            "heartbeat_hours": prev.get("heartbeat_hours"),
-            "quiet_hours": prev.get("quiet_hours", True),
-            "plugin_config": prev.get("plugin_config", {}),
-        })
+        result.append(
+            {
+                "id": uc["id"],
+                "name": uc["name"],
+                "description": uc["description"],
+                "icon": uc["icon"],
+                "plugins": uc["plugins"],
+                "recommended": uc["recommended"],
+                "compatible": compatible,
+                "assigned_personality": prev.get("personality", uc["recommended"]),
+                "temperature": prev.get("temperature"),
+                "max_tokens": prev.get("max_tokens"),
+                "heartbeat_hours": prev.get("heartbeat_hours"),
+                "quiet_hours": prev.get("quiet_hours", True),
+                "plugin_config": prev.get("plugin_config", {}),
+            }
+        )
 
     return result
 
@@ -507,7 +553,8 @@ def register_routes(app: FastAPI) -> None:
             return RedirectResponse("/step/3", status_code=303)
         except Exception as e:
             return _render(
-                "step2_owner.html", request,
+                "step2_owner.html",
+                request,
                 error=_friendly_error(e),
                 form_data={
                     "principal_name": principal_name,
@@ -597,7 +644,8 @@ def register_routes(app: FastAPI) -> None:
         state["current_step"] = 5
         comm = state.get("communication", {})
         return _render(
-            "step5_usecases.html", request,
+            "step5_usecases.html",
+            request,
             use_cases=USE_CASES,
             gmail_enabled=comm.get("gmail_enabled", False),
             telegram_enabled=comm.get("telegram_enabled", False),
@@ -615,7 +663,8 @@ def register_routes(app: FastAPI) -> None:
         except Exception as e:
             comm = state.get("communication", {})
             return _render(
-                "step5_usecases.html", request,
+                "step5_usecases.html",
+                request,
                 use_cases=USE_CASES,
                 gmail_enabled=comm.get("gmail_enabled", False),
                 telegram_enabled=comm.get("telegram_enabled", False),
@@ -635,7 +684,8 @@ def register_routes(app: FastAPI) -> None:
             state,
         )
         return _render(
-            "step6_agent_config.html", request,
+            "step6_agent_config.html",
+            request,
             assignment_data=assignment_data,
         )
 
@@ -686,19 +736,22 @@ def register_routes(app: FastAPI) -> None:
             assignment = state.get("assignments", {}).get(uc_id, {})
             personality_name = assignment.get("personality", "")
             char_data = char_by_name.get(personality_name, {})
-            review_assignments.append({
-                "use_case": uc.get("name", uc_id),
-                "use_case_icon": uc.get("icon", ""),
-                "plugins": uc.get("plugins", []),
-                "personality_name": personality_name,
-                "personality_display": char_data.get(
-                    "display_name", personality_name.capitalize()
-                ),
-                "personality_role": char_data.get("role", ""),
-            })
+            review_assignments.append(
+                {
+                    "use_case": uc.get("name", uc_id),
+                    "use_case_icon": uc.get("icon", ""),
+                    "plugins": uc.get("plugins", []),
+                    "personality_name": personality_name,
+                    "personality_display": char_data.get(
+                        "display_name", personality_name.capitalize()
+                    ),
+                    "personality_role": char_data.get("role", ""),
+                }
+            )
 
         return _render(
-            "step7_review.html", request,
+            "step7_review.html",
+            request,
             review_assignments=review_assignments,
         )
 
@@ -709,6 +762,7 @@ def register_routes(app: FastAPI) -> None:
         base_dir = request.app.state.base_dir
 
         from .provisioner import provision
+
         try:
             result = provision(base_dir, state)
             state["created_files"] = result.get("created_files", [])
@@ -724,18 +778,21 @@ def register_routes(app: FastAPI) -> None:
                 assignment = state.get("assignments", {}).get(uc_id, {})
                 personality_name = assignment.get("personality", "")
                 char_data = char_by_name.get(personality_name, {})
-                review_assignments.append({
-                    "use_case": uc.get("name", uc_id),
-                    "use_case_icon": uc.get("icon", ""),
-                    "plugins": uc.get("plugins", []),
-                    "personality_name": personality_name,
-                    "personality_display": char_data.get(
-                        "display_name", personality_name.capitalize()
-                    ),
-                    "personality_role": char_data.get("role", ""),
-                })
+                review_assignments.append(
+                    {
+                        "use_case": uc.get("name", uc_id),
+                        "use_case_icon": uc.get("icon", ""),
+                        "plugins": uc.get("plugins", []),
+                        "personality_name": personality_name,
+                        "personality_display": char_data.get(
+                            "display_name", personality_name.capitalize()
+                        ),
+                        "personality_role": char_data.get("role", ""),
+                    }
+                )
             return _render(
-                "step7_review.html", request,
+                "step7_review.html",
+                request,
                 review_assignments=review_assignments,
                 error=f"Setup failed: {e}",
             )
@@ -758,6 +815,7 @@ def register_routes(app: FastAPI) -> None:
         port = form.get("ollama_port", "11434")
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(f"http://{host}:{port}/api/tags")
                 resp.raise_for_status()
@@ -789,6 +847,7 @@ def register_routes(app: FastAPI) -> None:
             return HTMLResponse('<span class="badge badge-amber">Enter credentials first</span>')
         try:
             import imaplib
+
             imap = imaplib.IMAP4_SSL("imap.gmail.com")
             imap.login(address, password)
             imap.logout()
@@ -797,7 +856,9 @@ def register_routes(app: FastAPI) -> None:
             msg = str(e)
             if "AUTHENTICATIONFAILED" in msg:
                 msg = "Authentication failed. Check your App Password."
-            return HTMLResponse(f'<span class="badge badge-red">Failed</span><span class="test-detail">{html.escape(msg)}</span>')
+            return HTMLResponse(
+                f'<span class="badge badge-red">Failed</span><span class="test-detail">{html.escape(msg)}</span>'
+            )
 
     @app.post("/test/telegram", response_class=HTMLResponse)
     async def test_telegram(request: Request):
@@ -809,6 +870,7 @@ def register_routes(app: FastAPI) -> None:
             return HTMLResponse('<span class="badge badge-amber">Enter bot token first</span>')
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
                 resp.raise_for_status()
@@ -827,7 +889,9 @@ def register_routes(app: FastAPI) -> None:
                         msg += " — bot OK but could not send to chat ID"
                 return HTMLResponse(f'<span class="badge badge-green">{html.escape(msg)}</span>')
         except Exception as e:
-            return HTMLResponse(f'<span class="badge badge-red">Failed</span><span class="test-detail">{html.escape(str(e))}</span>')
+            return HTMLResponse(
+                f'<span class="badge badge-red">Failed</span><span class="test-detail">{html.escape(str(e))}</span>'
+            )
 
     # --- Chat endpoint ---
 
@@ -858,6 +922,7 @@ def register_routes(app: FastAPI) -> None:
         llm_config = state.get("llm", {})
 
         from overblick.shared.onboarding_chat import chat_with_identity
+
         result = await chat_with_identity(identity_name, message, llm_config)
 
         return JSONResponse(result)
@@ -876,6 +941,7 @@ def register_routes(app: FastAPI) -> None:
             )
 
         from overblick.shared.onboarding_chat import test_llm_connection
+
         result = await test_llm_connection(llm_config)
 
         return JSONResponse(result)
@@ -885,7 +951,9 @@ def register_routes(app: FastAPI) -> None:
     @app.post("/shutdown")
     async def shutdown():
         """Gracefully shut down the setup server."""
+
         def _stop():
             os.kill(os.getpid(), signal.SIGINT)
+
         threading.Timer(0.5, _stop).start()
         return {"status": "shutting_down"}

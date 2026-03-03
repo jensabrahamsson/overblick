@@ -53,7 +53,7 @@ class OllamaClient(LLMClient):
         self.temperature = temperature
         self.top_p = top_p
         self.timeout_seconds = timeout_seconds
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._session_lock = asyncio.Lock()
 
         logger.info(f"OllamaClient: model={model}, url={base_url}")
@@ -69,12 +69,12 @@ class OllamaClient(LLMClient):
     async def chat(
         self,
         messages: list[dict],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
         priority: str = "low",
-        complexity: Optional[str] = None,
-    ) -> Optional[dict]:
+        complexity: str | None = None,
+    ) -> dict | None:
         """Send a chat completion request to Ollama. Priority and complexity are ignored (no queue)."""
         await self._ensure_session()
 
@@ -137,7 +137,7 @@ class OllamaClient(LLMClient):
                 "finish_reason": choices[0].get("finish_reason"),
             }
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"LLM: Request timeout ({self.timeout_seconds}s)", exc_info=True)
             raise LLMTimeoutError(f"Ollama request timeout ({self.timeout_seconds}s)")
         except aiohttp.ClientError as e:

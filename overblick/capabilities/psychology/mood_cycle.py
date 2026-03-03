@@ -31,16 +31,18 @@ logger = logging.getLogger(__name__)
 
 class CyclePhase(Enum):
     """The 5 phases of the mood cycle."""
-    FOLLICULAR = "follicular"       # Day 1-13: rising energy
-    OVULATION = "ovulation"         # Day 14-16: peak energy/sociability
-    LUTEAL_EARLY = "luteal_early"   # Day 17-21: gradual decline
-    LUTEAL_LATE = "luteal_late"     # Day 22-28: lowest energy, irritable
-    PERIOD = "period"               # Day 1-5: overlaps follicular start
+
+    FOLLICULAR = "follicular"  # Day 1-13: rising energy
+    OVULATION = "ovulation"  # Day 14-16: peak energy/sociability
+    LUTEAL_EARLY = "luteal_early"  # Day 17-21: gradual decline
+    LUTEAL_LATE = "luteal_late"  # Day 22-28: lowest energy, irritable
+    PERIOD = "period"  # Day 1-5: overlaps follicular start
 
 
 @dataclass
 class MoodModifiers:
     """Mood modifiers for a given day. Values 0.0-1.0."""
+
     energy: float = 0.5
     optimism: float = 0.5
     confidence: float = 0.5
@@ -56,29 +58,64 @@ class MoodModifiers:
 # Phase -> base modifier profiles
 _PHASE_PROFILES: dict[CyclePhase, MoodModifiers] = {
     CyclePhase.FOLLICULAR: MoodModifiers(
-        energy=0.7, optimism=0.7, confidence=0.65, sociability=0.7,
-        irritability=0.15, flirtiness=0.6, comfort_seeking=0.2,
-        introspection=0.3, sensitivity=0.3, emotional_intensity=0.5,
+        energy=0.7,
+        optimism=0.7,
+        confidence=0.65,
+        sociability=0.7,
+        irritability=0.15,
+        flirtiness=0.6,
+        comfort_seeking=0.2,
+        introspection=0.3,
+        sensitivity=0.3,
+        emotional_intensity=0.5,
     ),
     CyclePhase.OVULATION: MoodModifiers(
-        energy=0.9, optimism=0.85, confidence=0.85, sociability=0.9,
-        irritability=0.1, flirtiness=0.85, comfort_seeking=0.1,
-        introspection=0.2, sensitivity=0.25, emotional_intensity=0.7,
+        energy=0.9,
+        optimism=0.85,
+        confidence=0.85,
+        sociability=0.9,
+        irritability=0.1,
+        flirtiness=0.85,
+        comfort_seeking=0.1,
+        introspection=0.2,
+        sensitivity=0.25,
+        emotional_intensity=0.7,
     ),
     CyclePhase.LUTEAL_EARLY: MoodModifiers(
-        energy=0.5, optimism=0.5, confidence=0.5, sociability=0.45,
-        irritability=0.35, flirtiness=0.35, comfort_seeking=0.5,
-        introspection=0.5, sensitivity=0.5, emotional_intensity=0.55,
+        energy=0.5,
+        optimism=0.5,
+        confidence=0.5,
+        sociability=0.45,
+        irritability=0.35,
+        flirtiness=0.35,
+        comfort_seeking=0.5,
+        introspection=0.5,
+        sensitivity=0.5,
+        emotional_intensity=0.55,
     ),
     CyclePhase.LUTEAL_LATE: MoodModifiers(
-        energy=0.25, optimism=0.3, confidence=0.35, sociability=0.2,
-        irritability=0.7, flirtiness=0.15, comfort_seeking=0.8,
-        introspection=0.7, sensitivity=0.8, emotional_intensity=0.75,
+        energy=0.25,
+        optimism=0.3,
+        confidence=0.35,
+        sociability=0.2,
+        irritability=0.7,
+        flirtiness=0.15,
+        comfort_seeking=0.8,
+        introspection=0.7,
+        sensitivity=0.8,
+        emotional_intensity=0.75,
     ),
     CyclePhase.PERIOD: MoodModifiers(
-        energy=0.3, optimism=0.4, confidence=0.4, sociability=0.3,
-        irritability=0.5, flirtiness=0.2, comfort_seeking=0.75,
-        introspection=0.6, sensitivity=0.65, emotional_intensity=0.6,
+        energy=0.3,
+        optimism=0.4,
+        confidence=0.4,
+        sociability=0.3,
+        irritability=0.5,
+        flirtiness=0.2,
+        comfort_seeking=0.75,
+        introspection=0.6,
+        sensitivity=0.65,
+        emotional_intensity=0.6,
     ),
 }
 
@@ -95,6 +132,7 @@ _THRESHOLD_OFFSETS: dict[CyclePhase, int] = {
 @dataclass
 class MoodState:
     """Current mood state including phase, modifiers, and day info."""
+
     phase: CyclePhase
     day_in_cycle: int
     modifiers: MoodModifiers
@@ -157,7 +195,9 @@ class MoodState:
 
         # Sensitivity
         if m.sensitivity >= 0.7:
-            parts.append("extra sensitive today — things that normally wouldn't bother you might sting")
+            parts.append(
+                "extra sensitive today — things that normally wouldn't bother you might sting"
+            )
 
         # Confidence
         if m.confidence >= 0.8:
@@ -227,6 +267,7 @@ def _randomize_modifiers(base: MoodModifiers, variance: float = 0.10) -> MoodMod
     Each value gets a random offset within [-variance, +variance],
     clamped to [0.0, 1.0].
     """
+
     def _jitter(val: float) -> float:
         offset = random.uniform(-variance, variance)
         return max(0.0, min(1.0, val + offset))
@@ -260,9 +301,9 @@ class MoodCycleCapability(CapabilityBase):
         super().__init__(ctx)
         self._cycle_length: int = 28
         self._variability_days: int = 2
-        self._cycle_start: Optional[date] = None
-        self._current_state: Optional[MoodState] = None
-        self._last_computed_date: Optional[date] = None
+        self._cycle_start: date | None = None
+        self._current_state: MoodState | None = None
+        self._last_computed_date: date | None = None
         self._subtle_hints: dict[str, list[str]] = {}
 
     async def setup(self) -> None:
@@ -274,6 +315,7 @@ class MoodCycleCapability(CapabilityBase):
 
         # Try to load persisted cycle start
         import asyncio
+
         await asyncio.to_thread(self._load_state)
 
         # If no persisted state, initialize a random start date
@@ -284,13 +326,15 @@ class MoodCycleCapability(CapabilityBase):
             await asyncio.to_thread(self._persist_state)
             logger.info(
                 "MoodCycleCapability initialized for %s (new cycle, day %d)",
-                self.ctx.identity_name, offset + 1,
+                self.ctx.identity_name,
+                offset + 1,
             )
         else:
             day = self._get_day_in_cycle()
             logger.info(
                 "MoodCycleCapability initialized for %s (restored, day %d)",
-                self.ctx.identity_name, day,
+                self.ctx.identity_name,
+                day,
             )
 
     async def tick(self) -> None:
@@ -317,8 +361,11 @@ class MoodCycleCapability(CapabilityBase):
 
         logger.debug(
             "Mood updated for %s: day %d, phase=%s, energy=%.2f, sociability=%.2f",
-            self.ctx.identity_name, day, phase.value,
-            modifiers.energy, modifiers.sociability,
+            self.ctx.identity_name,
+            day,
+            phase.value,
+            modifiers.energy,
+            modifiers.sociability,
         )
 
     def get_prompt_context(self) -> str:
@@ -338,12 +385,12 @@ class MoodCycleCapability(CapabilityBase):
         return _THRESHOLD_OFFSETS.get(self._current_state.phase, 0)
 
     @property
-    def current_state(self) -> Optional[MoodState]:
+    def current_state(self) -> MoodState | None:
         """The current mood state (None before first tick)."""
         return self._current_state
 
     @property
-    def cycle_start(self) -> Optional[date]:
+    def cycle_start(self) -> date | None:
         """The start date of the current cycle."""
         return self._cycle_start
 
@@ -377,10 +424,14 @@ class MoodCycleCapability(CapabilityBase):
                 data_dir = Path(data_dir)
             state_file = data_dir / "mood_cycle_state.json"
             state_file.parent.mkdir(parents=True, exist_ok=True)
-            state_file.write_text(json.dumps({
-                "cycle_start": self._cycle_start.isoformat(),
-                "cycle_length": self._cycle_length,
-            }))
+            state_file.write_text(
+                json.dumps(
+                    {
+                        "cycle_start": self._cycle_start.isoformat(),
+                        "cycle_length": self._cycle_length,
+                    }
+                )
+            )
         except Exception as e:
             logger.warning("Failed to persist mood cycle state: %s", e)
 

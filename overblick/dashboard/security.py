@@ -5,8 +5,8 @@ Rate limiting uses a simple in-memory sliding window.
 Input validation uses Pydantic models for all form data.
 """
 
-import time
 import logging
+import time
 from collections import defaultdict
 from typing import Optional
 
@@ -78,14 +78,17 @@ class RateLimiter:
 
 # Input validation models
 
+
 class LoginForm(BaseModel):
     """Login form validation."""
+
     password: str = Field(min_length=1, max_length=256)
     csrf_token: str = Field(min_length=1, max_length=128)
 
 
 class OnboardingNameForm(BaseModel):
     """Step 1: Identity name."""
+
     name: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
     description: str = Field(max_length=500, default="")
     display_name: str = Field(max_length=100, default="")
@@ -98,6 +101,7 @@ class OnboardingNameForm(BaseModel):
 
 class OnboardingLLMForm(BaseModel):
     """Step 3: LLM settings."""
+
     model: str = Field(min_length=1, max_length=100, default="qwen3:8b")
     temperature: float = Field(ge=0.0, le=2.0, default=0.7)
     max_tokens: int = Field(ge=100, le=8000, default=2000)
@@ -115,6 +119,7 @@ class OnboardingLLMForm(BaseModel):
 
 class OnboardingSecretsForm(BaseModel):
     """Step 5: Secret key-value pairs (names only validated here)."""
+
     keys: list[str] = Field(default_factory=list)
     values: list[str] = Field(default_factory=list)
 
@@ -137,6 +142,7 @@ class OnboardingSecretsForm(BaseModel):
 
 class AuditFilterForm(BaseModel):
     """Audit trail filter parameters."""
+
     identity: str = Field(default="", max_length=64)
     category: str = Field(default="", max_length=64)
     action: str = Field(default="", max_length=64)

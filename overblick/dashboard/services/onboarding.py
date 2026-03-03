@@ -66,6 +66,7 @@ class OnboardingService:
         if secrets:
             try:
                 from overblick.core.security.secrets_manager import SecretsManager
+
                 sm = SecretsManager(self._secrets_dir)
                 for key, value in secrets.items():
                     if value:  # Only store non-empty values
@@ -138,6 +139,7 @@ class OnboardingService:
         """
         try:
             import asyncio
+
             import aiohttp
 
             model = llm_config.get("model", "qwen3:8b")
@@ -157,7 +159,9 @@ class OnboardingService:
 
             async def _check():
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    async with session.get(
+                        health_url, timeout=aiohttp.ClientTimeout(total=5)
+                    ) as resp:
                         return resp.status == 200
 
             loop = asyncio.new_event_loop()

@@ -32,22 +32,26 @@ async def spegel_page(request: Request, page: int = Query(default=1, ge=1)):
         data_errors = [f"Failed to load spegel data: {e}"]
 
     total = len(all_pairs)
-    pairs = all_pairs[:page * _PAGE_SIZE]
+    pairs = all_pairs[: page * _PAGE_SIZE]
     has_more = total > page * _PAGE_SIZE
 
-    return templates.TemplateResponse("spegel.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "pairs": pairs,
-        "page": page,
-        "has_more": has_more,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "spegel.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "pairs": pairs,
+            "page": page,
+            "has_more": has_more,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if spegel plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("spegel")
 
 
@@ -57,6 +61,7 @@ def _load_pairs(request: Request) -> list:
     from pathlib import Path
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
+
     pairs = []
     data_root = resolve_data_root(request)
     if not data_root.exists():

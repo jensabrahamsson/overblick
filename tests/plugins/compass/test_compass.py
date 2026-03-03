@@ -68,7 +68,10 @@ class TestRecordOutput:
         """Tick processes buffered outputs."""
         plugin = CompassPlugin(compass_context)
         await plugin.setup()
-        plugin.record_output("anomal", "This is a reasonably long test output with enough words to be analyzed properly by the stylometric engine.")
+        plugin.record_output(
+            "anomal",
+            "This is a reasonably long test output with enough words to be analyzed properly by the stylometric engine.",
+        )
         await plugin.tick()
         assert len(plugin._output_buffer) == 0
         assert "anomal" in plugin._windows
@@ -223,11 +226,13 @@ class TestStateManagement:
             metrics=StyleMetrics(avg_sentence_length=15.0),
             sample_count=10,
         )
-        plugin._alerts.append(DriftAlert(
-            identity_name="anomal",
-            drift_score=2.5,
-            threshold=2.0,
-        ))
+        plugin._alerts.append(
+            DriftAlert(
+                identity_name="anomal",
+                drift_score=2.5,
+                threshold=2.0,
+            )
+        )
         plugin._save_state()
 
         plugin2 = CompassPlugin(compass_context)
@@ -312,16 +317,20 @@ class TestPublicAccessors:
         """get_drift_history() filters by identity_name."""
         plugin = CompassPlugin(compass_context)
         await plugin.setup()
-        plugin._drift_history.append(DriftMetrics(
-            identity_name="anomal",
-            current_metrics=StyleMetrics(),
-            drift_score=1.0,
-        ))
-        plugin._drift_history.append(DriftMetrics(
-            identity_name="cherry",
-            current_metrics=StyleMetrics(),
-            drift_score=2.0,
-        ))
+        plugin._drift_history.append(
+            DriftMetrics(
+                identity_name="anomal",
+                current_metrics=StyleMetrics(),
+                drift_score=1.0,
+            )
+        )
+        plugin._drift_history.append(
+            DriftMetrics(
+                identity_name="cherry",
+                current_metrics=StyleMetrics(),
+                drift_score=2.0,
+            )
+        )
         anomal_only = plugin.get_drift_history(identity_name="anomal")
         assert len(anomal_only) == 1
         assert anomal_only[0].identity_name == "anomal"

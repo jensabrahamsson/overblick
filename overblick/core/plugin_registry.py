@@ -81,8 +81,7 @@ class PluginRegistry:
         """
         if name not in self._plugins:
             raise ValueError(
-                f"Unknown plugin: '{name}'. "
-                f"Available: {', '.join(self._plugins.keys())}"
+                f"Unknown plugin: '{name}'. " f"Available: {', '.join(self._plugins.keys())}"
             )
 
         module_path, class_name = self._plugins[name]
@@ -101,7 +100,7 @@ class PluginRegistry:
         logger.info(f"PluginRegistry: loaded '{name}' ({class_name})")
         return plugin
 
-    def get(self, name: str) -> Optional[PluginBase]:
+    def get(self, name: str) -> PluginBase | None:
         """Get a loaded plugin by name."""
         return self._loaded.get(name)
 

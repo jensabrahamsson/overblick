@@ -58,8 +58,16 @@ SAMPLE_PROFILE = {
 }
 
 SAMPLE_EMAILS = [
-    {"subject": "Re: Meeting", "body": "Hi, Tuesday works for me. Let me know the time.", "language": "en"},
-    {"subject": "Re: Project update", "body": "Thanks for the update. Looks good to me.", "language": "en"},
+    {
+        "subject": "Re: Meeting",
+        "body": "Hi, Tuesday works for me. Let me know the time.",
+        "language": "en",
+    },
+    {
+        "subject": "Re: Project update",
+        "body": "Thanks for the update. Looks good to me.",
+        "language": "en",
+    },
 ]
 
 
@@ -112,9 +120,7 @@ class TestStyleTrainerIngest:
         """ingest_examples passes complexity='ultra' to LLM pipeline."""
         ctx = _make_ctx(tmp_path, config={"enabled": True, "min_examples": 1})
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
-            return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE))
-        )
+        pipeline.chat = AsyncMock(return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE)))
         ctx.llm_pipeline = pipeline
 
         cap = StyleTrainerCapability(ctx)
@@ -132,9 +138,7 @@ class TestStyleTrainerIngest:
         """ingest_examples returns the extracted profile dict."""
         ctx = _make_ctx(tmp_path, config={"enabled": True, "min_examples": 1})
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
-            return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE))
-        )
+        pipeline.chat = AsyncMock(return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE)))
         ctx.llm_pipeline = pipeline
 
         cap = StyleTrainerCapability(ctx)
@@ -151,9 +155,7 @@ class TestStyleTrainerIngest:
         """ingest_examples returns None when LLM result is blocked."""
         ctx = _make_ctx(tmp_path, config={"enabled": True, "min_examples": 1})
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
-            return_value=_make_pipeline_result("blocked", blocked=True)
-        )
+        pipeline.chat = AsyncMock(return_value=_make_pipeline_result("blocked", blocked=True))
         ctx.llm_pipeline = pipeline
 
         cap = StyleTrainerCapability(ctx)
@@ -167,9 +169,7 @@ class TestStyleTrainerIngest:
         """ingest_examples returns None when LLM returns invalid JSON."""
         ctx = _make_ctx(tmp_path, config={"enabled": True, "min_examples": 1})
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
-            return_value=_make_pipeline_result("not valid json {{{")
-        )
+        pipeline.chat = AsyncMock(return_value=_make_pipeline_result("not valid json {{{"))
         ctx.llm_pipeline = pipeline
 
         cap = StyleTrainerCapability(ctx)
@@ -184,9 +184,7 @@ class TestStyleTrainerIngest:
         ctx = _make_ctx(tmp_path, config={"enabled": True, "min_examples": 1})
         fenced = f"```json\n{json.dumps(SAMPLE_PROFILE)}\n```"
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
-            return_value=_make_pipeline_result(fenced)
-        )
+        pipeline.chat = AsyncMock(return_value=_make_pipeline_result(fenced))
         ctx.llm_pipeline = pipeline
 
         cap = StyleTrainerCapability(ctx)
@@ -237,9 +235,7 @@ class TestStyleProfile:
         """get_style_prompt returns meaningful content after ingestion."""
         ctx = _make_ctx(tmp_path, config={"enabled": True, "min_examples": 1})
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
-            return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE))
-        )
+        pipeline.chat = AsyncMock(return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE)))
         ctx.llm_pipeline = pipeline
 
         cap = StyleTrainerCapability(ctx)
@@ -271,9 +267,7 @@ class TestProfilePersistence:
         """ingest_examples saves profile as JSON file."""
         ctx = _make_ctx(tmp_path, config={"enabled": True, "min_examples": 1})
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
-            return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE))
-        )
+        pipeline.chat = AsyncMock(return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE)))
         ctx.llm_pipeline = pipeline
 
         cap = StyleTrainerCapability(ctx)
@@ -306,9 +300,7 @@ class TestProfilePersistence:
         """Profile survives a full save/load cycle."""
         ctx = _make_ctx(tmp_path, config={"enabled": True, "min_examples": 1})
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
-            return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE))
-        )
+        pipeline.chat = AsyncMock(return_value=_make_pipeline_result(json.dumps(SAMPLE_PROFILE)))
         ctx.llm_pipeline = pipeline
 
         # Ingest and save

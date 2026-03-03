@@ -16,10 +16,16 @@ class APIKeyRecord(BaseModel):
     key_hash: str = Field(description="bcrypt hash of the full key", repr=False)
     key_prefix: str = Field(description="First 12 chars for display (e.g. 'sk-ob-xxxx')")
     created_at: float = Field(description="Unix timestamp of creation")
-    expires_at: float | None = Field(default=None, description="Unix timestamp of expiry, None = never")
+    expires_at: float | None = Field(
+        default=None, description="Unix timestamp of expiry, None = never"
+    )
     revoked: bool = Field(default=False, description="Whether key has been revoked")
-    allowed_models: list[str] = Field(default_factory=list, description="Allowed models (empty = all)")
-    allowed_backends: list[str] = Field(default_factory=list, description="Allowed backends (empty = all)")
+    allowed_models: list[str] = Field(
+        default_factory=list, description="Allowed models (empty = all)"
+    )
+    allowed_backends: list[str] = Field(
+        default_factory=list, description="Allowed backends (empty = all)"
+    )
     max_tokens_cap: int = Field(default=4096, description="Per-request max_tokens cap")
     requests_per_minute: int = Field(default=30, description="Per-key rate limit")
     total_requests: int = Field(default=0, description="Lifetime request count")

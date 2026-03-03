@@ -40,8 +40,15 @@ class TestAuditService:
                 """INSERT INTO audit_log
                    (timestamp, action, category, identity, plugin, details, success)
                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (now - i * 60, "api_call", "moltbook", "testident", "moltbook",
-                 json.dumps({"endpoint": f"/test/{i}"}), 1),
+                (
+                    now - i * 60,
+                    "api_call",
+                    "moltbook",
+                    "testident",
+                    "moltbook",
+                    json.dumps({"endpoint": f"/test/{i}"}),
+                    1,
+                ),
             )
         conn.commit()
         conn.close()

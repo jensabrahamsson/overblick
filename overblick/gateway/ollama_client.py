@@ -10,23 +10,26 @@ from typing import Optional
 import httpx
 
 from .config import GatewayConfig, get_config
-from .models import ChatRequest, ChatResponse, ChatMessage, ChatResponseChoice, ChatResponseUsage
+from .models import ChatMessage, ChatRequest, ChatResponse, ChatResponseChoice, ChatResponseUsage
 
 logger = logging.getLogger(__name__)
 
 
 class OllamaError(Exception):
     """Base exception for Ollama client errors."""
+
     pass
 
 
 class OllamaConnectionError(OllamaError):
     """Raised when Ollama server is unreachable."""
+
     pass
 
 
 class OllamaTimeoutError(OllamaError):
     """Raised when request times out."""
+
     pass
 
 
@@ -37,10 +40,10 @@ class OllamaClient:
     Uses httpx for async HTTP requests with configurable timeouts.
     """
 
-    def __init__(self, config: Optional[GatewayConfig] = None):
+    def __init__(self, config: GatewayConfig | None = None):
         """Initialize the Ollama client."""
         self.config = config or get_config()
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""
@@ -113,7 +116,11 @@ class OllamaClient:
                 "stream": False,
             }
 
-            logger.debug("Sending request to Ollama: model=%s, messages=%d", request.model, len(request.messages))
+            logger.debug(
+                "Sending request to Ollama: model=%s, messages=%d",
+                request.model,
+                len(request.messages),
+            )
 
             response = await client.post("/v1/chat/completions", json=payload)
             response.raise_for_status()
@@ -123,14 +130,16 @@ class OllamaClient:
             choices = []
             for idx, choice in enumerate(data.get("choices", [])):
                 message = choice.get("message", {})
-                choices.append(ChatResponseChoice(
-                    index=idx,
-                    message=ChatMessage(
-                        role=message.get("role", "assistant"),
-                        content=message.get("content", ""),
-                    ),
-                    finish_reason=choice.get("finish_reason") or "stop",
-                ))
+                choices.append(
+                    ChatResponseChoice(
+                        index=idx,
+                        message=ChatMessage(
+                            role=message.get("role", "assistant"),
+                            content=message.get("content", ""),
+                        ),
+                        finish_reason=choice.get("finish_reason") or "stop",
+                    )
+                )
 
             usage_data = data.get("usage", {})
             usage = ChatResponseUsage(
@@ -142,9 +151,12 @@ class OllamaClient:
             return ChatResponse(
                 id=data.get("id", f"chatcmpl-{request.model}"),
                 model=data.get("model", request.model),
-                choices=choices or [ChatResponseChoice(
-                    message=ChatMessage(role="assistant", content="No response generated")
-                )],
+                choices=choices
+                or [
+                    ChatResponseChoice(
+                        message=ChatMessage(role="assistant", content="No response generated")
+                    )
+                ],
                 usage=usage,
             )
 
@@ -161,7 +173,9 @@ class OllamaClient:
             ) from e
 
         except httpx.HTTPStatusError as e:
-            logger.error("Ollama HTTP error: %s - %s", e.response.status_code, e.response.text, exc_info=True)
+            logger.error(
+                "Ollama HTTP error: %s - %s", e.response.status_code, e.response.text, exc_info=True
+            )
             raise OllamaError(
                 f"Ollama returned error {e.response.status_code}: {e.response.text}"
             ) from e
@@ -204,9 +218,7 @@ class OllamaClient:
             return []
 
         except httpx.ConnectError as e:
-            raise OllamaConnectionError(
-                f"Cannot connect to Ollama for embedding: {e}"
-            ) from e
+            raise OllamaConnectionError(f"Cannot connect to Ollama for embedding: {e}") from e
 
         except httpx.HTTPStatusError as e:
             raise OllamaError(

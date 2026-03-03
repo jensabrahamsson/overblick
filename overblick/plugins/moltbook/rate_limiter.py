@@ -21,10 +21,11 @@ class TokenBucket(BaseModel):
     Tokens replenish at a constant rate up to a maximum capacity.
     Each action consumes one token.
     """
+
     capacity: int
     refill_rate: float  # tokens per second
-    tokens: Optional[float] = None
-    last_refill: Optional[float] = None
+    tokens: float | None = None
+    last_refill: float | None = None
 
     def model_post_init(self, __context) -> None:
         if self.tokens is None:
@@ -148,7 +149,8 @@ class MoltbookRateLimiter:
     def _get_day_start(self) -> float:
         """Get timestamp of current day start (midnight UTC)."""
         import datetime
-        now = datetime.datetime.now(datetime.timezone.utc)
+
+        now = datetime.datetime.now(datetime.UTC)
         midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
         return midnight.timestamp()
 
@@ -212,10 +214,7 @@ class MoltbookRateLimiter:
     def can_comment(self) -> bool:
         """Check if commenting is allowed without consuming a token."""
         self._check_day_reset()
-        return (
-            self._daily_comments < self._max_daily_comments
-            and self._comments.tokens >= 1
-        )
+        return self._daily_comments < self._max_daily_comments and self._comments.tokens >= 1
 
     def time_until_post(self) -> float:
         """Get seconds until posting is allowed."""
@@ -230,7 +229,8 @@ class MoltbookRateLimiter:
         if self._daily_comments >= self._max_daily_comments:
             # Return time until midnight
             import datetime
-            now = datetime.datetime.now(datetime.timezone.utc)
+
+            now = datetime.datetime.now(datetime.UTC)
             midnight = (now + datetime.timedelta(days=1)).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
@@ -241,7 +241,7 @@ class MoltbookRateLimiter:
             self._comments.time_until_available(),
         )
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get current rate limit status."""
         self._check_day_reset()
         return {

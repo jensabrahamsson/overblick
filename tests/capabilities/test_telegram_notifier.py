@@ -163,9 +163,7 @@ class TestTelegramNotifierSend:
         notifier = await _setup_notifier()
 
         mock_session = MagicMock()
-        mock_session.post = MagicMock(
-            return_value=_mock_response(403, text_data="Forbidden")
-        )
+        mock_session.post = MagicMock(return_value=_mock_response(403, text_data="Forbidden"))
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         result = await notifier.send_notification("Test message")
@@ -177,9 +175,7 @@ class TestTelegramNotifierSend:
         import aiohttp
 
         notifier = await _setup_notifier()
-        notifier._ensure_session = AsyncMock(
-            side_effect=aiohttp.ClientError("Connection refused")
-        )
+        notifier._ensure_session = AsyncMock(side_effect=aiohttp.ClientError("Connection refused"))
 
         result = await notifier.send_notification("Test message")
         assert result is False
@@ -220,9 +216,12 @@ class TestTelegramNotifierTracked:
         notifier = await _setup_notifier()
 
         mock_session = MagicMock()
-        mock_session.post = MagicMock(return_value=_mock_response(
-            200, json_data={"ok": True, "result": {"message_id": 42}},
-        ))
+        mock_session.post = MagicMock(
+            return_value=_mock_response(
+                200,
+                json_data={"ok": True, "result": {"message_id": 42}},
+            )
+        )
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         result = await notifier.send_notification_tracked("Test", ref_id="email-1")
@@ -234,9 +233,12 @@ class TestTelegramNotifierTracked:
         notifier = await _setup_notifier()
 
         mock_session = MagicMock()
-        mock_session.post = MagicMock(return_value=_mock_response(
-            500, text_data="Internal Server Error",
-        ))
+        mock_session.post = MagicMock(
+            return_value=_mock_response(
+                500,
+                text_data="Internal Server Error",
+            )
+        )
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         result = await notifier.send_notification_tracked("Test")
@@ -282,9 +284,7 @@ class TestTelegramNotifierFetchUpdates:
         }
 
         mock_session = MagicMock()
-        mock_session.get = MagicMock(
-            return_value=_mock_response(200, json_data=api_response)
-        )
+        mock_session.get = MagicMock(return_value=_mock_response(200, json_data=api_response))
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         updates = await notifier.fetch_updates()
@@ -326,9 +326,7 @@ class TestTelegramNotifierFetchUpdates:
         }
 
         mock_session = MagicMock()
-        mock_session.get = MagicMock(
-            return_value=_mock_response(200, json_data=api_response)
-        )
+        mock_session.get = MagicMock(return_value=_mock_response(200, json_data=api_response))
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         await notifier.fetch_updates()
@@ -358,9 +356,7 @@ class TestTelegramNotifierFetchUpdates:
         }
 
         mock_session = MagicMock()
-        mock_session.get = MagicMock(
-            return_value=_mock_response(200, json_data=api_response)
-        )
+        mock_session.get = MagicMock(return_value=_mock_response(200, json_data=api_response))
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         updates = await notifier.fetch_updates()
@@ -388,9 +384,7 @@ class TestTelegramNotifierFetchUpdates:
         }
 
         mock_session = MagicMock()
-        mock_session.get = MagicMock(
-            return_value=_mock_response(200, json_data=api_response)
-        )
+        mock_session.get = MagicMock(return_value=_mock_response(200, json_data=api_response))
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         updates = await notifier.fetch_updates()
@@ -418,9 +412,7 @@ class TestTelegramNotifierFetchUpdates:
         }
 
         mock_session = MagicMock()
-        mock_session.get = MagicMock(
-            return_value=_mock_response(200, json_data=api_response)
-        )
+        mock_session.get = MagicMock(return_value=_mock_response(200, json_data=api_response))
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         updates = await notifier.fetch_updates()
@@ -471,9 +463,12 @@ class TestTelegramNotifierFetchUpdates:
         notifier = await _setup_notifier(_make_ctx(chat_id="12345"))
 
         mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=_mock_response(
-            200, json_data={"ok": False, "description": "Unauthorized"},
-        ))
+        mock_session.get = MagicMock(
+            return_value=_mock_response(
+                200,
+                json_data={"ok": False, "description": "Unauthorized"},
+            )
+        )
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         updates = await notifier.fetch_updates()
@@ -485,9 +480,7 @@ class TestTelegramNotifierFetchUpdates:
         import aiohttp
 
         notifier = await _setup_notifier(_make_ctx(chat_id="12345"))
-        notifier._ensure_session = AsyncMock(
-            side_effect=aiohttp.ClientError("timeout")
-        )
+        notifier._ensure_session = AsyncMock(side_effect=aiohttp.ClientError("timeout"))
 
         updates = await notifier.fetch_updates()
         assert updates == []
@@ -514,9 +507,7 @@ class TestTelegramNotifierFetchUpdates:
         }
 
         mock_session = MagicMock()
-        mock_session.get = MagicMock(
-            return_value=_mock_response(200, json_data=api_response)
-        )
+        mock_session.get = MagicMock(return_value=_mock_response(200, json_data=api_response))
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         updates = await notifier.fetch_updates()
@@ -538,9 +529,7 @@ class TestTelegramNotifierFetchUpdates:
         }
 
         mock_session = MagicMock()
-        mock_session.get = MagicMock(
-            return_value=_mock_response(200, json_data=api_response)
-        )
+        mock_session.get = MagicMock(return_value=_mock_response(200, json_data=api_response))
         notifier._ensure_session = AsyncMock(return_value=mock_session)
 
         updates = await notifier.fetch_updates()
@@ -582,9 +571,7 @@ class TestTelegramNotifierSendHtml:
         import aiohttp
 
         notifier = await _setup_notifier()
-        notifier._ensure_session = AsyncMock(
-            side_effect=aiohttp.ClientError("fail")
-        )
+        notifier._ensure_session = AsyncMock(side_effect=aiohttp.ClientError("fail"))
 
         result = await notifier.send_html("<b>Bold</b>")
         assert result is False
@@ -646,9 +633,7 @@ class TestTelegramNotifierTrackedNetworkError:
         import aiohttp
 
         notifier = await _setup_notifier()
-        notifier._ensure_session = AsyncMock(
-            side_effect=aiohttp.ClientError("timeout")
-        )
+        notifier._ensure_session = AsyncMock(side_effect=aiohttp.ClientError("timeout"))
 
         result = await notifier.send_notification_tracked("Test", ref_id="ref-1")
         assert result is None
@@ -667,7 +652,9 @@ class TestTelegramUpdateModel:
     def test_update_with_reply(self):
         """TelegramUpdate can include reply_to_message_id."""
         update = TelegramUpdate(
-            message_id=1, text="reply", reply_to_message_id=42,
+            message_id=1,
+            text="reply",
+            reply_to_message_id=42,
         )
         assert update.reply_to_message_id == 42
 
@@ -679,6 +666,8 @@ class TestTelegramUpdateModel:
     def test_update_with_timestamp(self):
         """TelegramUpdate can include a timestamp."""
         update = TelegramUpdate(
-            message_id=1, text="hello", timestamp="1700000000",
+            message_id=1,
+            text="hello",
+            timestamp="1700000000",
         )
         assert update.timestamp == "1700000000"

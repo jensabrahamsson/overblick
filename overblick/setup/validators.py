@@ -10,6 +10,7 @@ from pydantic import BaseModel, field_validator
 
 class PrincipalData(BaseModel):
     """Step 2: Principal identity."""
+
     principal_name: str
     principal_email: str = ""
     timezone: str = "Europe/Stockholm"
@@ -36,6 +37,7 @@ class PrincipalData(BaseModel):
 
 class BackendConfig(BaseModel):
     """Configuration for a single LLM backend (local or cloud inference)."""
+
     enabled: bool = False
     backend_type: str = "ollama"  # "ollama" | "lmstudio"
     host: str = "127.0.0.1"
@@ -52,6 +54,7 @@ class BackendConfig(BaseModel):
 
 class DeepseekConfig(BaseModel):
     """Configuration for Deepseek API backend."""
+
     enabled: bool = False
     api_url: str = "https://api.deepseek.com/v1"
     model: str = "deepseek-chat"
@@ -59,6 +62,7 @@ class DeepseekConfig(BaseModel):
 
 class OpenAIConfig(BaseModel):
     """Configuration for OpenAI backend (coming soon)."""
+
     enabled: bool = False
     api_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o"
@@ -70,6 +74,7 @@ class LLMData(BaseModel):
     Gateway is always-on infrastructure. Backends (local, cloud, deepseek, openai)
     are the actual inference targets that the gateway routes to.
     """
+
     gateway_url: str = "http://127.0.0.1:8200"
     local: BackendConfig = BackendConfig(enabled=True)
     cloud: BackendConfig = BackendConfig(enabled=False, host="", port=11434)
@@ -103,6 +108,7 @@ class LLMData(BaseModel):
 
 class CommunicationData(BaseModel):
     """Step 4: Communication channels."""
+
     gmail_enabled: bool = False
     gmail_address: str = ""
     gmail_app_password: str = ""
@@ -121,6 +127,7 @@ class CommunicationData(BaseModel):
 
 class SecurityData(BaseModel):
     """Step 5: Dashboard security settings."""
+
     network_access: bool = False
     password: str = ""
     password_confirm: str = ""
@@ -145,6 +152,7 @@ class SecurityData(BaseModel):
 
 class UseCaseSelection(BaseModel):
     """Step 6: Use case selection."""
+
     selected_use_cases: list[str]
 
     @field_validator("selected_use_cases")
@@ -157,6 +165,7 @@ class UseCaseSelection(BaseModel):
 
 class AgentConfig(BaseModel):
     """Step 6: Per-agent configuration."""
+
     model_config = {"arbitrary_types_allowed": True}
 
     agent_configs: dict[str, dict]

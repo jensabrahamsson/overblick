@@ -220,9 +220,7 @@ class TestIPAllowlistMiddleware:
 
     @pytest.mark.asyncio
     async def test_ip_in_allowlist_allowed(self):
-        middleware = IPAllowlistMiddleware(
-            app=AsyncMock(), allowlist=["192.168.1.0/24"]
-        )
+        middleware = IPAllowlistMiddleware(app=AsyncMock(), allowlist=["192.168.1.0/24"])
 
         request = MagicMock(spec=Request)
         request.client = MagicMock(host="192.168.1.100")
@@ -235,9 +233,7 @@ class TestIPAllowlistMiddleware:
 
     @pytest.mark.asyncio
     async def test_ip_not_in_allowlist_rejected(self):
-        middleware = IPAllowlistMiddleware(
-            app=AsyncMock(), allowlist=["192.168.1.0/24"]
-        )
+        middleware = IPAllowlistMiddleware(app=AsyncMock(), allowlist=["192.168.1.0/24"])
 
         request = MagicMock(spec=Request)
         request.client = MagicMock(host="10.0.0.1")
@@ -251,9 +247,7 @@ class TestIPAllowlistMiddleware:
 
     @pytest.mark.asyncio
     async def test_invalid_ip_address_rejected(self):
-        middleware = IPAllowlistMiddleware(
-            app=AsyncMock(), allowlist=["192.168.1.0/24"]
-        )
+        middleware = IPAllowlistMiddleware(app=AsyncMock(), allowlist=["192.168.1.0/24"])
 
         request = MagicMock(spec=Request)
         request.client = MagicMock(host="not-an-ip")

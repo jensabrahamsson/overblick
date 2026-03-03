@@ -42,9 +42,7 @@ class TestAnalyzeText:
             "Furthermore, the methodology demonstrates significant correlation "
             "between the observed phenomena and theoretical predictions."
         )
-        informal = (
-            "lol yeah so like i'm gonna do the thing and it's gonna be awesome"
-        )
+        informal = "lol yeah so like i'm gonna do the thing and it's gonna be awesome"
         formal_metrics = analyze_text(formal)
         informal_metrics = analyze_text(informal)
         assert formal_metrics.formality_score > informal_metrics.formality_score

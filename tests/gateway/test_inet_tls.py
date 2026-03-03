@@ -33,13 +33,8 @@ class TestGenerateSelfSigned:
 
             assert "BEGIN CERTIFICATE" in cert_content
             assert "END CERTIFICATE" in cert_content
-            assert (
-                "BEGIN PRIVATE KEY" in key_content
-                or "BEGIN RSA PRIVATE KEY" in key_content
-            )
-            assert (
-                "END PRIVATE KEY" in key_content or "END RSA PRIVATE KEY" in key_content
-            )
+            assert "BEGIN PRIVATE KEY" in key_content or "BEGIN RSA PRIVATE KEY" in key_content
+            assert "END PRIVATE KEY" in key_content or "END RSA PRIVATE KEY" in key_content
 
     def test_generates_with_default_hostname(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -71,12 +66,8 @@ class TestResolveTLS:
             key_path = Path(tmpdir) / "key.pem"
 
             # Create dummy certificate files
-            cert_path.write_text(
-                "-----BEGIN CERTIFICATE-----\ndummy\n-----END CERTIFICATE-----"
-            )
-            key_path.write_text(
-                "-----BEGIN PRIVATE KEY-----\ndummy\n-----END PRIVATE KEY-----"
-            )
+            cert_path.write_text("-----BEGIN CERTIFICATE-----\ndummy\n-----END CERTIFICATE-----")
+            key_path.write_text("-----BEGIN PRIVATE KEY-----\ndummy\n-----END PRIVATE KEY-----")
 
             result = resolve_tls(
                 tls_cert_path=str(cert_path),
@@ -97,9 +88,7 @@ class TestResolveTLS:
             key_path = Path(tmpdir) / "key.pem"
 
             # Only create key, not cert
-            key_path.write_text(
-                "-----BEGIN PRIVATE KEY-----\ndummy\n-----END PRIVATE KEY-----"
-            )
+            key_path.write_text("-----BEGIN PRIVATE KEY-----\ndummy\n-----END PRIVATE KEY-----")
 
             with pytest.raises(FileNotFoundError, match="TLS certificate not found"):
                 resolve_tls(
@@ -116,9 +105,7 @@ class TestResolveTLS:
             key_path = Path(tmpdir) / "key.pem"
 
             # Only create cert, not key
-            cert_path.write_text(
-                "-----BEGIN CERTIFICATE-----\ndummy\n-----END CERTIFICATE-----"
-            )
+            cert_path.write_text("-----BEGIN CERTIFICATE-----\ndummy\n-----END CERTIFICATE-----")
 
             with pytest.raises(FileNotFoundError, match="TLS key not found"):
                 resolve_tls(
@@ -162,9 +149,7 @@ class TestResolveTLS:
             _generate_self_signed(cert_path, key_path)
 
             # Mock the entire validation check to avoid datetime issues
-            with patch(
-                "overblick.gateway.inet_tls._generate_self_signed"
-            ) as mock_generate:
+            with patch("overblick.gateway.inet_tls._generate_self_signed") as mock_generate:
                 result = resolve_tls(
                     tls_cert_path="",
                     tls_key_path="",
@@ -193,9 +178,7 @@ class TestResolveTLS:
 
     def test_no_tls_on_public_host_raises_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            with pytest.raises(
-                RuntimeError, match="TLS is disabled but host is 0.0.0.0"
-            ):
+            with pytest.raises(RuntimeError, match="TLS is disabled but host is 0.0.0.0"):
                 resolve_tls(
                     tls_cert_path="",
                     tls_key_path="",
@@ -217,9 +200,7 @@ class TestResolveTLS:
             _generate_self_signed(cert_path, key_path)
 
             # Mock the validation to raise an exception (simulating expired cert)
-            with patch(
-                "overblick.gateway.inet_tls._generate_self_signed"
-            ) as mock_generate:
+            with patch("overblick.gateway.inet_tls._generate_self_signed") as mock_generate:
                 # Make the validation fail by patching the import inside the function
                 with patch("cryptography.x509") as mock_x509:
                     mock_x509.load_pem_x509_certificate.side_effect = Exception(
@@ -254,14 +235,10 @@ class TestResolveTLS:
             _generate_self_signed(cert_path, key_path)
 
             # Mock the validation to raise an exception
-            with patch(
-                "overblick.gateway.inet_tls._generate_self_signed"
-            ) as mock_generate:
+            with patch("overblick.gateway.inet_tls._generate_self_signed") as mock_generate:
                 # Make the validation fail by patching the import inside the function
                 with patch("cryptography.x509") as mock_x509:
-                    mock_x509.load_pem_x509_certificate.side_effect = Exception(
-                        "Validation failed"
-                    )
+                    mock_x509.load_pem_x509_certificate.side_effect = Exception("Validation failed")
 
                     result = resolve_tls(
                         tls_cert_path="",

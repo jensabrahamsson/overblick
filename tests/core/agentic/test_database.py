@@ -73,9 +73,14 @@ class TestAgenticDB:
     @pytest.mark.asyncio
     async def test_get_goals_by_status(self, agentic_db):
         await agentic_db.upsert_goal(AgentGoal(name="active1", description="A", priority=50))
-        await agentic_db.upsert_goal(AgentGoal(
-            name="paused1", description="B", priority=30, status=GoalStatus.PAUSED,
-        ))
+        await agentic_db.upsert_goal(
+            AgentGoal(
+                name="paused1",
+                description="B",
+                priority=30,
+                status=GoalStatus.PAUSED,
+            )
+        )
 
         active = await agentic_db.get_goals(status="active")
         assert len(active) == 1
@@ -104,10 +109,13 @@ class TestAgenticDB:
 
     @pytest.mark.asyncio
     async def test_goal_metadata(self, agentic_db):
-        await agentic_db.upsert_goal(AgentGoal(
-            name="meta_goal", description="With metadata",
-            metadata={"key": "value", "count": 42},
-        ))
+        await agentic_db.upsert_goal(
+            AgentGoal(
+                name="meta_goal",
+                description="With metadata",
+                metadata={"key": "value", "count": 42},
+            )
+        )
 
         result = await agentic_db.get_goal_by_name("meta_goal")
         assert result.metadata == {"key": "value", "count": 42}
@@ -117,8 +125,10 @@ class TestAgenticDB:
     @pytest.mark.asyncio
     async def test_log_and_get_actions(self, agentic_db):
         action = PlannedAction(
-            action_type="test_action", target="target_1",
-            target_number=1, priority=90,
+            action_type="test_action",
+            target="target_1",
+            target_number=1,
+            priority=90,
         )
         outcome = ActionOutcome(action=action, success=True, result="Done", duration_ms=100.0)
 

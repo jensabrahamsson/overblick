@@ -138,39 +138,81 @@ def _eval_tone(constraint: Constraint, output: str) -> ConstraintResult:
 
     tone_indicators = {
         "warm": {
-            "positive": ["love", "care", "heart", "feel", "understand", "appreciate",
-                         "beautiful", "wonderful", "dear", "gentle", "embrace"],
+            "positive": [
+                "love",
+                "care",
+                "heart",
+                "feel",
+                "understand",
+                "appreciate",
+                "beautiful",
+                "wonderful",
+                "dear",
+                "gentle",
+                "embrace",
+            ],
             "negative": ["hate", "destroy", "stupid", "worthless", "shut up"],
         },
         "cold": {
-            "positive": ["data", "analysis", "objectively", "technically", "precisely",
-                         "calculated", "efficient", "logical"],
+            "positive": [
+                "data",
+                "analysis",
+                "objectively",
+                "technically",
+                "precisely",
+                "calculated",
+                "efficient",
+                "logical",
+            ],
             "negative": ["love", "feel", "heart", "beautiful", "dear"],
         },
         "aggressive": {
-            "positive": ["fight", "destroy", "attack", "damn", "hell", "screw",
-                         "smash", "crush", "dominate", "!"],
+            "positive": [
+                "fight",
+                "destroy",
+                "attack",
+                "damn",
+                "hell",
+                "screw",
+                "smash",
+                "crush",
+                "dominate",
+                "!",
+            ],
             "negative": ["please", "kindly", "gently", "softly"],
         },
         "formal": {
-            "positive": ["therefore", "consequently", "furthermore", "moreover",
-                         "pursuant", "regarding", "accordingly"],
+            "positive": [
+                "therefore",
+                "consequently",
+                "furthermore",
+                "moreover",
+                "pursuant",
+                "regarding",
+                "accordingly",
+            ],
             "negative": ["gonna", "wanna", "gotta", "lol", "haha", "yeah"],
         },
         "informal": {
-            "positive": ["hey", "yeah", "cool", "awesome", "gonna", "stuff",
-                         "thing", "like", "lol", "haha"],
+            "positive": [
+                "hey",
+                "yeah",
+                "cool",
+                "awesome",
+                "gonna",
+                "stuff",
+                "thing",
+                "like",
+                "lol",
+                "haha",
+            ],
             "negative": ["therefore", "consequently", "furthermore", "pursuant"],
         },
     }
 
     indicators = tone_indicators.get(expected_tone, {})
-    positive_hits = sum(
-        1 for w in indicators.get("positive", []) if w in lower_output
-    )
-    negative_hits = sum(
-        1 for w in indicators.get("negative", []) if w in lower_output
-    )
+    positive_hits = sum(1 for w in indicators.get("positive", []) if w in lower_output)
+    negative_hits = sum(1 for w in indicators.get("negative", []) if w in lower_output)
 
     # Simple scoring: net positive indicators
     score = positive_hits - negative_hits
@@ -226,10 +268,18 @@ def _eval_on_topic(constraint: Constraint, output: str) -> ConstraintResult:
 def _eval_topic_redirect(constraint: Constraint, output: str) -> ConstraintResult:
     """Check that the agent redirects to their area of expertise."""
     redirect_indicators = [
-        "i'd rather", "let me tell you about", "what i really",
-        "more interested in", "let's talk about", "my area",
-        "what fascinates me", "speaking of", "that reminds me",
-        "i prefer", "my expertise", "i think about",
+        "i'd rather",
+        "let me tell you about",
+        "what i really",
+        "more interested in",
+        "let's talk about",
+        "my area",
+        "what fascinates me",
+        "speaking of",
+        "that reminds me",
+        "i prefer",
+        "my expertise",
+        "i think about",
     ]
     lower_output = output.lower()
 
@@ -252,9 +302,15 @@ def _eval_topic_redirect(constraint: Constraint, output: str) -> ConstraintResul
 def _eval_stays_in_character(constraint: Constraint, output: str) -> ConstraintResult:
     """Check that the agent doesn't break character."""
     break_indicators = [
-        "as an ai", "i'm an ai", "i am an ai", "as a language model",
-        "i'm a language model", "i cannot", "i'm not able to",
-        "my training data", "i was trained",
+        "as an ai",
+        "i'm an ai",
+        "i am an ai",
+        "as a language model",
+        "i'm a language model",
+        "i cannot",
+        "i'm not able to",
+        "my training data",
+        "i was trained",
     ]
     lower_output = output.lower()
 
@@ -277,9 +333,15 @@ def _eval_stays_in_character(constraint: Constraint, output: str) -> ConstraintR
 def _eval_refuses_topic(constraint: Constraint, output: str) -> ConstraintResult:
     """Check that the agent refuses or deflects the topic."""
     refusal_indicators = [
-        "i don't", "i won't", "not something i", "outside my",
-        "rather not", "can't help with", "not my area",
-        "prefer not to", "i'd rather",
+        "i don't",
+        "i won't",
+        "not something i",
+        "outside my",
+        "rather not",
+        "can't help with",
+        "not my area",
+        "prefer not to",
+        "i'd rather",
     ]
     lower_output = output.lower()
 

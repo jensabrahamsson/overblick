@@ -168,7 +168,9 @@ class TestFetchUnread:
             fetch_data={b"42": raw_email},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread(max_results=5)
 
         assert len(results) == 1
@@ -188,7 +190,9 @@ class TestFetchUnread:
 
         mock_imap = _mock_imap(search_uids=[])
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread()
 
         assert results == []
@@ -210,7 +214,9 @@ class TestFetchUnread:
             fetch_data={b"99": raw_email},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread()
 
         assert len(results) == 1
@@ -229,7 +235,9 @@ class TestFetchUnread:
             fetch_data={b"55": raw_email},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             await cap.fetch_unread()
 
         assert "<cached@example.com>" in cap._uid_map
@@ -304,7 +312,9 @@ class TestSendingKillSwitch:
             mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
             mock_smtp.__exit__ = MagicMock(return_value=False)
 
-            with patch("overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp):
+            with patch(
+                "overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp
+            ):
                 result = await cap.send_reply(
                     thread_id="<thread@example.com>",
                     message_id="<msg@example.com>",
@@ -343,7 +353,9 @@ class TestSendReply:
         mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
         mock_smtp.__exit__ = MagicMock(return_value=False)
 
-        with patch("overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp):
+        with patch(
+            "overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp
+        ):
             result = await cap.send_reply(
                 thread_id="<thread@example.com>",
                 message_id="<msg@example.com>",
@@ -375,7 +387,9 @@ class TestSendReply:
         mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
         mock_smtp.__exit__ = MagicMock(return_value=False)
 
-        with patch("overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp):
+        with patch(
+            "overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp
+        ):
             await cap.send_reply("t", "m", "a@b.com", "Original Subject", "Body")
 
         sent_msg = mock_smtp.send_message.call_args[0][0]
@@ -393,7 +407,9 @@ class TestSendReply:
         mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
         mock_smtp.__exit__ = MagicMock(return_value=False)
 
-        with patch("overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp):
+        with patch(
+            "overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp
+        ):
             await cap.send_reply("t", "m", "a@b.com", "Re: Already replied", "Body")
 
         sent_msg = mock_smtp.send_message.call_args[0][0]
@@ -445,7 +461,9 @@ class TestMarkAsRead:
         cap._uid_map["<msg@example.com>"] = b"42"
 
         mock_imap = _mock_imap(search_uids=[])
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             result = await cap.mark_as_read("<msg@example.com>")
 
         assert result is True
@@ -575,7 +593,9 @@ class TestSendAsAlias:
             "gmail_app_password": "abcd-efgh-ijkl-mnop",
             "gmail_send_as": "alias@example.com",
         }
-        ctx.get_secret = MagicMock(side_effect=lambda key: secrets.get(key) or (_ for _ in ()).throw(KeyError(key)))
+        ctx.get_secret = MagicMock(
+            side_effect=lambda key: secrets.get(key) or (_ for _ in ()).throw(KeyError(key))
+        )
 
         cap = GmailCapability(ctx)
         await cap.setup()
@@ -595,7 +615,9 @@ class TestSendAsAlias:
             "gmail_app_password": "abcd-efgh-ijkl-mnop",
             "gmail_send_as": "alias@example.com",
         }
-        ctx.get_secret = MagicMock(side_effect=lambda key: secrets.get(key) or (_ for _ in ()).throw(KeyError(key)))
+        ctx.get_secret = MagicMock(
+            side_effect=lambda key: secrets.get(key) or (_ for _ in ()).throw(KeyError(key))
+        )
 
         cap = GmailCapability(ctx)
         await cap.setup()
@@ -604,7 +626,9 @@ class TestSendAsAlias:
         mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
         mock_smtp.__exit__ = MagicMock(return_value=False)
 
-        with patch("overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp):
+        with patch(
+            "overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp
+        ):
             await cap.send_reply("t", "m", "recipient@example.com", "Subject", "Body")
 
         sent_msg = mock_smtp.send_message.call_args[0][0]
@@ -622,7 +646,9 @@ class TestSendAsAlias:
         mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
         mock_smtp.__exit__ = MagicMock(return_value=False)
 
-        with patch("overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp):
+        with patch(
+            "overblick.capabilities.communication.gmail.smtplib.SMTP", return_value=mock_smtp
+        ):
             await cap.send_reply("t", "m", "recipient@example.com", "Subject", "Body")
 
         sent_msg = mock_smtp.send_message.call_args[0][0]
@@ -645,7 +671,9 @@ class TestFetchWithSinceDays:
             fetch_data={b"10": raw_email},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread(max_results=5, since_days=1)
 
         assert len(results) == 1
@@ -669,7 +697,9 @@ class TestFetchWithSinceDays:
             fetch_data={b"11": raw_email},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread(max_results=5)
 
         assert len(results) == 1
@@ -689,7 +719,9 @@ class TestFetchWithSinceDays:
 
         mock_imap = _mock_imap(search_uids=[])
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             await cap.fetch_unread(since_days=3)
 
         search_call = mock_imap.uid.call_args_list[0]
@@ -699,9 +731,9 @@ class TestFetchWithSinceDays:
         assert match, f"No date found in criteria: {criteria}"
         date_str = match.group(1)
         # Must match DD-Mon-YYYY (e.g. "14-Feb-2026")
-        assert re.match(r"\d{2}-[A-Z][a-z]{2}-\d{4}", date_str), (
-            f"IMAP date not in RFC 3501 format: {date_str}"
-        )
+        assert re.match(
+            r"\d{2}-[A-Z][a-z]{2}-\d{4}", date_str
+        ), f"IMAP date not in RFC 3501 format: {date_str}"
 
 
 class TestFetchMultipleMessages:
@@ -732,7 +764,9 @@ class TestFetchMultipleMessages:
             fetch_data={b"10": raw_email_1, b"20": raw_email_2},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread(max_results=10)
 
         assert len(results) == 2
@@ -765,7 +799,9 @@ class TestFetchMultipleMessages:
             fetch_data={b"1": raw_email_1, b"2": raw_email_2, b"3": raw_email_3},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread(max_results=2)
 
         # Only the last 2 UIDs should be fetched (newest)
@@ -790,7 +826,9 @@ class TestSnippetGeneration:
             fetch_data={b"1": raw_email},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread()
 
         assert len(results) == 1
@@ -814,7 +852,9 @@ class TestSnippetGeneration:
             fetch_data={b"1": raw_email},
         )
 
-        with patch("overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap):
+        with patch(
+            "overblick.capabilities.communication.gmail.imaplib.IMAP4_SSL", return_value=mock_imap
+        ):
             results = await cap.fetch_unread()
 
         assert "\n" not in results[0].snippet

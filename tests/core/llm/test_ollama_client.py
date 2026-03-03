@@ -21,10 +21,10 @@ import pytest
 from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
 from overblick.core.llm.ollama_client import OllamaClient
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_session(
     response_status=200,
@@ -69,6 +69,7 @@ def _make_mock_session(
 # Initialization
 # ---------------------------------------------------------------------------
 
+
 class TestOllamaClientInit:
     def test_default_init(self):
         client = OllamaClient()
@@ -104,6 +105,7 @@ class TestOllamaClientInit:
 # ---------------------------------------------------------------------------
 # Chat
 # ---------------------------------------------------------------------------
+
 
 class TestOllamaClientChat:
     @pytest.mark.asyncio
@@ -208,9 +210,7 @@ class TestOllamaClientChat:
     @pytest.mark.asyncio
     async def test_chat_timeout(self):
         client = OllamaClient()
-        client._session = _make_mock_session(
-            post_side_effect=asyncio.TimeoutError()
-        )
+        client._session = _make_mock_session(post_side_effect=asyncio.TimeoutError())
 
         with pytest.raises(LLMTimeoutError, match="timeout"):
             await client.chat(
@@ -232,9 +232,7 @@ class TestOllamaClientChat:
     @pytest.mark.asyncio
     async def test_chat_unexpected_error(self):
         client = OllamaClient()
-        client._session = _make_mock_session(
-            post_side_effect=RuntimeError("Something broke")
-        )
+        client._session = _make_mock_session(post_side_effect=RuntimeError("Something broke"))
 
         with pytest.raises(LLMConnectionError, match="unexpected"):
             await client.chat(
@@ -245,6 +243,7 @@ class TestOllamaClientChat:
 # ---------------------------------------------------------------------------
 # Think token stripping
 # ---------------------------------------------------------------------------
+
 
 class TestThinkTokenStripping:
     def test_strip_think_tokens(self):
@@ -277,10 +276,12 @@ class TestThinkTokenStripping:
     async def test_chat_strips_think_tokens(self):
         """Verify think tokens are stripped in actual chat flow."""
         response_json = {
-            "choices": [{
-                "message": {"content": "<think>reasoning</think>Actual answer"},
-                "finish_reason": "stop",
-            }],
+            "choices": [
+                {
+                    "message": {"content": "<think>reasoning</think>Actual answer"},
+                    "finish_reason": "stop",
+                }
+            ],
             "model": "qwen3:8b",
             "usage": {"total_tokens": 50},
         }
@@ -297,6 +298,7 @@ class TestThinkTokenStripping:
 # ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
+
 
 class TestOllamaClientHealth:
     @pytest.mark.asyncio
@@ -362,9 +364,7 @@ class TestOllamaClientHealth:
     async def test_health_check_correct_url(self):
         """Health check uses /api/tags endpoint (not /v1/)."""
         client = OllamaClient(base_url="http://myhost:11434/v1")
-        mock_session = _make_mock_session(
-            response_json={"models": [{"name": "qwen3:8b"}]}
-        )
+        mock_session = _make_mock_session(response_json={"models": [{"name": "qwen3:8b"}]})
         client._session = mock_session
 
         await client.health_check()
@@ -376,6 +376,7 @@ class TestOllamaClientHealth:
 # ---------------------------------------------------------------------------
 # Session lifecycle
 # ---------------------------------------------------------------------------
+
 
 class TestOllamaClientSession:
     @pytest.mark.asyncio

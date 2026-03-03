@@ -44,10 +44,12 @@ class TestActionExecutor:
         }
         executor = ActionExecutor(handlers=handlers)
 
-        plan = ActionPlan(actions=[
-            PlannedAction(action_type="action_a", target="t1", priority=90),
-            PlannedAction(action_type="action_b", target="t2", priority=50),
-        ])
+        plan = ActionPlan(
+            actions=[
+                PlannedAction(action_type="action_a", target="t1", priority=90),
+                PlannedAction(action_type="action_b", target="t2", priority=50),
+            ]
+        )
 
         outcomes = await executor.execute(plan, observation=None)
 
@@ -61,9 +63,11 @@ class TestActionExecutor:
         """Unknown action types produce failure outcomes."""
         executor = ActionExecutor(handlers={"known": MockHandler()})
 
-        plan = ActionPlan(actions=[
-            PlannedAction(action_type="unknown", target="t1"),
-        ])
+        plan = ActionPlan(
+            actions=[
+                PlannedAction(action_type="unknown", target="t1"),
+            ]
+        )
 
         outcomes = await executor.execute(plan, observation=None)
 
@@ -77,10 +81,9 @@ class TestActionExecutor:
         handlers = {"action": MockHandler()}
         executor = ActionExecutor(handlers=handlers, max_actions_per_tick=2)
 
-        plan = ActionPlan(actions=[
-            PlannedAction(action_type="action", target=f"t{i}")
-            for i in range(5)
-        ])
+        plan = ActionPlan(
+            actions=[PlannedAction(action_type="action", target=f"t{i}") for i in range(5)]
+        )
 
         outcomes = await executor.execute(plan, observation=None)
         assert len(outcomes) == 2
@@ -91,9 +94,11 @@ class TestActionExecutor:
         handlers = {"crash": FailingHandler()}
         executor = ActionExecutor(handlers=handlers)
 
-        plan = ActionPlan(actions=[
-            PlannedAction(action_type="crash", target="t1"),
-        ])
+        plan = ActionPlan(
+            actions=[
+                PlannedAction(action_type="crash", target="t1"),
+            ]
+        )
 
         outcomes = await executor.execute(plan, observation=None)
 
@@ -107,9 +112,11 @@ class TestActionExecutor:
         handlers = {"action": MockHandler()}
         executor = ActionExecutor(handlers=handlers)
 
-        plan = ActionPlan(actions=[
-            PlannedAction(action_type="action", target="t1"),
-        ])
+        plan = ActionPlan(
+            actions=[
+                PlannedAction(action_type="action", target="t1"),
+            ]
+        )
 
         outcomes = await executor.execute(plan, observation=None)
 
@@ -124,10 +131,12 @@ class TestActionExecutor:
         }
         executor = ActionExecutor(handlers=handlers)
 
-        plan = ActionPlan(actions=[
-            PlannedAction(action_type="good", target="t1", priority=90),
-            PlannedAction(action_type="bad", target="t2", priority=50),
-        ])
+        plan = ActionPlan(
+            actions=[
+                PlannedAction(action_type="good", target="t1", priority=90),
+                PlannedAction(action_type="bad", target="t2", priority=50),
+            ]
+        )
 
         outcomes = await executor.execute(plan, observation=None)
 
@@ -154,9 +163,11 @@ class TestActionExecutor:
         handlers = {"capture": CapturingHandler()}
         executor = ActionExecutor(handlers=handlers)
 
-        plan = ActionPlan(actions=[
-            PlannedAction(action_type="capture", target="t1"),
-        ])
+        plan = ActionPlan(
+            actions=[
+                PlannedAction(action_type="capture", target="t1"),
+            ]
+        )
 
         my_obs = {"key": "value"}
         await executor.execute(plan, observation=my_obs)

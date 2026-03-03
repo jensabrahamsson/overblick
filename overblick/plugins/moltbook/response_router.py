@@ -82,9 +82,7 @@ class ResponseRouter:
         # Safe-mode enforcement
         if not llm_pipeline:
             if allow_raw_fallback and llm_client:
-                logger.warning(
-                    "ResponseRouter using raw client (allow_raw_fallback=True)"
-                )
+                logger.warning("ResponseRouter using raw client (allow_raw_fallback=True)")
                 self._llm = llm_client
             else:
                 raise ValueError(
@@ -104,7 +102,7 @@ class ResponseRouter:
             "challenges_found": 0,
         }
 
-    async def inspect(self, response_data: dict) -> Optional[RouterVerdict]:
+    async def inspect(self, response_data: dict) -> RouterVerdict | None:
         """Inspect a 2xx API response for hidden challenges.
 
         Returns RouterVerdict if inspection was performed, None if
@@ -185,16 +183,12 @@ class ResponseRouter:
                     result.block_stage.value if result.block_stage else "unknown",
                     result.block_reason,
                 )
-                return RouterVerdict(
-                    is_challenge=False, reason=f"Blocked: {result.block_reason}"
-                )
+                return RouterVerdict(is_challenge=False, reason=f"Blocked: {result.block_reason}")
             content = result.content
         else:
             # Raw client result (dict)
             if not result or not result.get("content"):
-                return RouterVerdict(
-                    is_challenge=False, reason="LLM returned empty response"
-                )
+                return RouterVerdict(is_challenge=False, reason="LLM returned empty response")
             content = result["content"]
 
         answer = content.strip().upper()

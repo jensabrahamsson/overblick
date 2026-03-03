@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.7
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+        args: [--check]
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        language_version: python3.13
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        additional_dependencies: [pydantic]
+        args: [--strict, --ignore-missing-imports]
+
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest
+        entry: python -m pytest tests/ -m "not llm and not e2e" --tb=short
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [push]

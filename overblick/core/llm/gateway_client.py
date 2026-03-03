@@ -52,12 +52,14 @@ class GatewayClient(LLMClient):
         self.temperature = temperature
         self.top_p = top_p
         self.timeout_seconds = timeout_seconds
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._session_lock = asyncio.Lock()
 
         logger.info(
             "GatewayClient: %s, default_priority=%s, model=%s",
-            base_url, default_priority, model,
+            base_url,
+            default_priority,
+            model,
         )
 
     async def _ensure_session(self) -> None:
@@ -70,12 +72,12 @@ class GatewayClient(LLMClient):
     async def chat(
         self,
         messages: list[dict],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
         priority: str = "",
-        complexity: Optional[str] = None,
-    ) -> Optional[dict]:
+        complexity: str | None = None,
+    ) -> dict | None:
         """Send chat completion through the gateway with per-request priority."""
         await self._ensure_session()
 
@@ -124,9 +126,10 @@ class GatewayClient(LLMClient):
 
             if reasoning:
                 logger.info(
-                    "Gateway: REASONER response in %.1fs "
-                    "(reasoning=%d chars, answer=%d chars)",
-                    elapsed, len(reasoning), len(content),
+                    "Gateway: REASONER response in %.1fs " "(reasoning=%d chars, answer=%d chars)",
+                    elapsed,
+                    len(reasoning),
+                    len(content),
                 )
             else:
                 logger.info("Gateway: Response in %.1fs (%d chars)", elapsed, len(content))
@@ -141,7 +144,7 @@ class GatewayClient(LLMClient):
                 result["reasoning_content"] = reasoning
             return result
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("Gateway: Timeout (%ds)", self.timeout_seconds, exc_info=True)
             raise LLMTimeoutError(f"Gateway request timeout ({self.timeout_seconds}s)")
         except aiohttp.ClientError as e:
@@ -179,6 +182,7 @@ class GatewayClient(LLMClient):
 
         await self._ensure_session()
         from urllib.parse import urlencode
+
         url = f"{self.base_url}/v1/embeddings?{urlencode({'text': text, 'model': model})}"
 
         try:
@@ -188,12 +192,14 @@ class GatewayClient(LLMClient):
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    raise LLMConnectionError(f"Embedding API error {response.status}: {error_text[:200]}")
+                    raise LLMConnectionError(
+                        f"Embedding API error {response.status}: {error_text[:200]}"
+                    )
 
                 data = await response.json()
                 return data.get("embedding", [])
 
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise LLMConnectionError(f"Embedding request timed out: {e}") from e
         except aiohttp.ClientError as e:
             raise LLMConnectionError(f"Embedding connection error: {e}") from e

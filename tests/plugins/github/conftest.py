@@ -71,22 +71,28 @@ def mock_github_client():
     client.list_issues = AsyncMock(return_value=[])
     client.list_issue_comments = AsyncMock(return_value=[])
     client.create_comment = AsyncMock(return_value={"id": 12345})
-    client.get_file_tree = AsyncMock(return_value={
-        "sha": "abc123",
-        "tree": [
-            {"path": "src/main.py", "type": "blob", "sha": "sha1", "size": 500},
-            {"path": "src/utils.py", "type": "blob", "sha": "sha2", "size": 300},
-            {"path": "README.md", "type": "blob", "sha": "sha3", "size": 200},
-            {"path": "tests/test_main.py", "type": "blob", "sha": "sha4", "size": 400},
-        ],
-    })
-    client.get_file_content = AsyncMock(return_value={
-        "content": "ZGVmIG1haW4oKToKICAgIHBhc3MK",  # base64: def main():\n    pass\n
-        "sha": "content_sha",
-    })
-    client.get_rate_limit = AsyncMock(return_value={
-        "resources": {"core": {"remaining": 4500, "reset": 1700000000}},
-    })
+    client.get_file_tree = AsyncMock(
+        return_value={
+            "sha": "abc123",
+            "tree": [
+                {"path": "src/main.py", "type": "blob", "sha": "sha1", "size": 500},
+                {"path": "src/utils.py", "type": "blob", "sha": "sha2", "size": 300},
+                {"path": "README.md", "type": "blob", "sha": "sha3", "size": 200},
+                {"path": "tests/test_main.py", "type": "blob", "sha": "sha4", "size": 400},
+            ],
+        }
+    )
+    client.get_file_content = AsyncMock(
+        return_value={
+            "content": "ZGVmIG1haW4oKToKICAgIHBhc3MK",  # base64: def main():\n    pass\n
+            "sha": "content_sha",
+        }
+    )
+    client.get_rate_limit = AsyncMock(
+        return_value={
+            "resources": {"core": {"remaining": 4500, "reset": 1700000000}},
+        }
+    )
     client.close = AsyncMock()
     return client
 
@@ -97,9 +103,11 @@ def mock_llm_pipeline_github():
     pipeline = AsyncMock()
 
     # Default: return a file selection response
-    pipeline.chat = AsyncMock(return_value=PipelineResult(
-        content='["src/main.py", "src/utils.py"]',
-    ))
+    pipeline.chat = AsyncMock(
+        return_value=PipelineResult(
+            content='["src/main.py", "src/utils.py"]',
+        )
+    )
     return pipeline
 
 
@@ -114,10 +122,14 @@ def mock_telegram_notifier_github():
 
 @pytest.fixture
 def github_plugin_context(
-    github_identity, tmp_path, mock_audit_log,
-    mock_llm_pipeline_github, mock_telegram_notifier_github,
+    github_identity,
+    tmp_path,
+    mock_audit_log,
+    mock_llm_pipeline_github,
+    mock_telegram_notifier_github,
 ):
     """PluginContext configured for GitHub plugin tests."""
+
     def _mock_secrets(key: str):
         secrets = {"github_token": "ghp_test_token_123"}
         return secrets.get(key)

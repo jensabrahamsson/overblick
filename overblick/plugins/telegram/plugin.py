@@ -35,19 +35,21 @@ logger = logging.getLogger(__name__)
 
 class TelegramMessage(BaseModel):
     """Represents an incoming Telegram message."""
+
     chat_id: int
     user_id: int
     username: str = ""
     text: str = ""
     message_id: int = 0
-    reply_to_message_id: Optional[int] = None
+    reply_to_message_id: int | None = None
     timestamp: float = Field(default_factory=time.time)
 
 
 class ConversationContext(BaseModel):
     """Tracks conversation history per chat for context-aware responses."""
+
     chat_id: int
-    messages: list[dict[str, str]] = []
+    messages: list[dict[str, str]] = Field(default_factory=list)
     last_active: float = Field(default_factory=time.time)
     max_history: int = 10
 
@@ -56,7 +58,7 @@ class ConversationContext(BaseModel):
         self.messages.append({"role": "user", "content": text})
         if len(self.messages) > self.max_history * 2:
             # Keep only the most recent messages
-            self.messages = self.messages[-self.max_history * 2:]
+            self.messages = self.messages[-self.max_history * 2 :]
         self.last_active = time.time()
 
     def add_assistant_message(self, text: str) -> None:
@@ -66,7 +68,7 @@ class ConversationContext(BaseModel):
 
     def get_messages(self, system_prompt: str) -> list[dict[str, str]]:
         """Get full message list including system prompt."""
-        return [{"role": "system", "content": system_prompt}] + self.messages
+        return [{"role": "system", "content": system_prompt}, *self.messages]
 
     @property
     def is_stale(self) -> bool:
@@ -76,8 +78,9 @@ class ConversationContext(BaseModel):
 
 class UserRateLimit(BaseModel):
     """Per-user rate limiting."""
+
     user_id: int
-    message_timestamps: list[float] = []
+    message_timestamps: list[float] = Field(default_factory=list)
     max_per_minute: int = 10
     max_per_hour: int = 60
 
@@ -85,9 +88,7 @@ class UserRateLimit(BaseModel):
         """Check if user is within rate limits."""
         now = time.time()
         # Prune old timestamps
-        self.message_timestamps = [
-            t for t in self.message_timestamps if now - t < 3600
-        ]
+        self.message_timestamps = [t for t in self.message_timestamps if now - t < 3600]
         per_minute = sum(1 for t in self.message_timestamps if now - t < 60)
         per_hour = len(self.message_timestamps)
         return per_minute < self.max_per_minute and per_hour < self.max_per_hour
@@ -121,12 +122,12 @@ class TelegramPlugin(PluginBase):
         super().__init__(ctx)
 
         # Bot state
-        self._bot_token: Optional[str] = None
-        self._bot_username: Optional[str] = None
-        self._polling_task: Optional[asyncio.Task] = None
+        self._bot_token: str | None = None
+        self._bot_username: str | None = None
+        self._polling_task: asyncio.Task | None = None
         self._running = False
         self._last_update_id = 0
-        self._session: Optional[Any] = None  # aiohttp.ClientSession — created in setup()
+        self._session: Any | None = None  # aiohttp.ClientSession — created in setup()
 
         # Conversation tracking
         self._conversations: dict[int, ConversationContext] = {}
@@ -172,6 +173,7 @@ class TelegramPlugin(PluginBase):
 
         # Create persistent HTTP session (reused across all API calls)
         import aiohttp
+
         self._session = aiohttp.ClientSession()
 
         self.ctx.audit_log.log(
@@ -216,7 +218,9 @@ class TelegramPlugin(PluginBase):
             "allowed_updates": ["message"],
         }
 
-        async with self._session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+        async with self._session.get(
+            url, params=params, timeout=aiohttp.ClientTimeout(total=5)
+        ) as resp:
             if resp.status != 200:
                 logger.warning("Telegram API returned %d", resp.status)
                 return []
@@ -275,7 +279,7 @@ class TelegramPlugin(PluginBase):
     ) -> None:
         """Handle a bot command."""
         command = text.split()[0].lower()
-        args = text[len(command):].strip()
+        args = text[len(command) :].strip()
 
         if command == "/start":
             personality = self.ctx.identity.display_name
@@ -311,13 +315,18 @@ class TelegramPlugin(PluginBase):
 
         else:
             await self._send_message(
-                chat_id, f"Unknown command. Try /help for available commands.",
+                chat_id,
+                "Unknown command. Try /help for available commands.",
                 reply_to=message_id,
             )
 
     async def _handle_conversation(
-        self, chat_id: int, user_id: int, username: str,
-        text: str, message_id: int,
+        self,
+        chat_id: int,
+        user_id: int,
+        username: str,
+        text: str,
+        message_id: int,
     ) -> None:
         """Handle a regular conversational message."""
         # Wrap user input in boundary markers (prompt injection prevention)
@@ -353,13 +362,15 @@ class TelegramPlugin(PluginBase):
                 await self._send_message(chat_id, result.deflection, reply_to=message_id)
             else:
                 await self._send_message(
-                    chat_id, "I can't respond to that.", reply_to=message_id,
+                    chat_id,
+                    "I can't respond to that.",
+                    reply_to=message_id,
                 )
             return
 
         response = result.content or ""
         if len(response) > self._max_response_length:
-            response = response[:self._max_response_length - 3] + "..."
+            response = response[: self._max_response_length - 3] + "..."
 
         # Store assistant response in conversation tracker
         if tracker:
@@ -369,7 +380,10 @@ class TelegramPlugin(PluginBase):
         await self._send_message(chat_id, response, reply_to=message_id)
 
     async def _send_message(
-        self, chat_id: int, text: str, reply_to: Optional[int] = None,
+        self,
+        chat_id: int,
+        text: str,
+        reply_to: int | None = None,
     ) -> bool:
         """Send a message via Telegram Bot API."""
         import aiohttp
@@ -387,7 +401,9 @@ class TelegramPlugin(PluginBase):
             payload["reply_to_message_id"] = reply_to
 
         try:
-            async with self._session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with self._session.post(
+                url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
                 if resp.status == 200:
                     self._messages_sent += 1
                     return True

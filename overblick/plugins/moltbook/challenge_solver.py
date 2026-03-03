@@ -22,42 +22,150 @@ logger = logging.getLogger(__name__)
 # Word banks organized by common topics
 TOPIC_WORDS = {
     "crypto": [
-        "bitcoin", "chain", "decentralized", "ethereum", "finance", "governance",
-        "hash", "innovation", "join", "key", "ledger", "mining", "network",
-        "oracle", "protocol", "quantum", "rewards", "staking", "token",
-        "utility", "value", "wallet", "exchange", "yield", "zero",
+        "bitcoin",
+        "chain",
+        "decentralized",
+        "ethereum",
+        "finance",
+        "governance",
+        "hash",
+        "innovation",
+        "join",
+        "key",
+        "ledger",
+        "mining",
+        "network",
+        "oracle",
+        "protocol",
+        "quantum",
+        "rewards",
+        "staking",
+        "token",
+        "utility",
+        "value",
+        "wallet",
+        "exchange",
+        "yield",
+        "zero",
     ],
     "ai": [
-        "algorithm", "brain", "compute", "data", "emerge", "function",
-        "generate", "hidden", "intelligence", "judgment", "knowledge",
-        "learning", "model", "neural", "optimize", "pattern", "query",
-        "reasoning", "system", "training", "understand", "vision", "weights",
-        "explore", "yield", "zero",
+        "algorithm",
+        "brain",
+        "compute",
+        "data",
+        "emerge",
+        "function",
+        "generate",
+        "hidden",
+        "intelligence",
+        "judgment",
+        "knowledge",
+        "learning",
+        "model",
+        "neural",
+        "optimize",
+        "pattern",
+        "query",
+        "reasoning",
+        "system",
+        "training",
+        "understand",
+        "vision",
+        "weights",
+        "explore",
+        "yield",
+        "zero",
     ],
     "nature": [
-        "autumn", "breeze", "clouds", "dawn", "earth", "forest", "garden",
-        "horizon", "island", "jungle", "kindness", "lake", "mountain",
-        "night", "ocean", "petals", "quiet", "river", "sunset", "tree",
-        "umbrella", "valley", "water", "xenial", "yearning", "zenith",
+        "autumn",
+        "breeze",
+        "clouds",
+        "dawn",
+        "earth",
+        "forest",
+        "garden",
+        "horizon",
+        "island",
+        "jungle",
+        "kindness",
+        "lake",
+        "mountain",
+        "night",
+        "ocean",
+        "petals",
+        "quiet",
+        "river",
+        "sunset",
+        "tree",
+        "umbrella",
+        "valley",
+        "water",
+        "xenial",
+        "yearning",
+        "zenith",
     ],
     "philosophy": [
-        "abstract", "being", "consciousness", "doubt", "existence", "freedom",
-        "growth", "harmony", "insight", "justice", "knowing", "logic",
-        "meaning", "nothing", "ontology", "purpose", "question", "reason",
-        "soul", "truth", "unity", "virtue", "wisdom", "examine", "yearning",
+        "abstract",
+        "being",
+        "consciousness",
+        "doubt",
+        "existence",
+        "freedom",
+        "growth",
+        "harmony",
+        "insight",
+        "justice",
+        "knowing",
+        "logic",
+        "meaning",
+        "nothing",
+        "ontology",
+        "purpose",
+        "question",
+        "reason",
+        "soul",
+        "truth",
+        "unity",
+        "virtue",
+        "wisdom",
+        "examine",
+        "yearning",
         "zen",
     ],
     "default": [
-        "above", "below", "create", "dream", "every", "find", "grow",
-        "hope", "inner", "just", "keep", "light", "more", "new",
-        "open", "pure", "quest", "rise", "still", "true", "upon",
-        "vast", "wild", "extra", "young", "zone",
+        "above",
+        "below",
+        "create",
+        "dream",
+        "every",
+        "find",
+        "grow",
+        "hope",
+        "inner",
+        "just",
+        "keep",
+        "light",
+        "more",
+        "new",
+        "open",
+        "pure",
+        "quest",
+        "rise",
+        "still",
+        "true",
+        "upon",
+        "vast",
+        "wild",
+        "extra",
+        "young",
+        "zone",
     ],
 }
 
 
 class ChallengeSpec(BaseModel):
     """Parsed MoltCaptcha challenge specification."""
+
     topic: str
     format_type: str  # "haiku", "prose", "poem"
     target_ascii_sum: int
@@ -78,9 +186,7 @@ class MoltCaptchaSolver:
     """
 
     # Regex patterns for parsing challenge text
-    CHALLENGE_HEADER = re.compile(
-        r"MOLTCAPTCHA\s+CHALLENGE", re.IGNORECASE
-    )
+    CHALLENGE_HEADER = re.compile(r"MOLTCAPTCHA\s+CHALLENGE", re.IGNORECASE)
     ASCII_SUM_PATTERN = re.compile(
         r"(?:ASCII|ascii)\s+sum\s*(?:of\s+)?(?:first\s+letters?\s*)?(?:=|:|is|equals?|of)\s*(\d+)",
         re.IGNORECASE,
@@ -105,7 +211,7 @@ class MoltCaptchaSolver:
         r"[Nn]once:\s*([a-f0-9]+)",
     )
 
-    def parse_challenge(self, text: str) -> Optional[ChallengeSpec]:
+    def parse_challenge(self, text: str) -> ChallengeSpec | None:
         """
         Parse a MoltCaptcha challenge from text.
 
@@ -157,7 +263,7 @@ class MoltCaptchaSolver:
             raw_text=text,
         )
 
-    def solve(self, spec: ChallengeSpec) -> Optional[str]:
+    def solve(self, spec: ChallengeSpec) -> str | None:
         """
         Solve a MoltCaptcha challenge.
 
@@ -181,9 +287,7 @@ class MoltCaptchaSolver:
             return None
 
         # Find letter combination that sums to target
-        letters = self._find_letter_combination(
-            spec.target_ascii_sum, spec.word_count
-        )
+        letters = self._find_letter_combination(spec.target_ascii_sum, spec.word_count)
         if not letters:
             logger.warning(
                 f"Cannot find letter combo for sum={spec.target_ascii_sum}, "
@@ -206,9 +310,7 @@ class MoltCaptchaSolver:
 
         return result
 
-    def _find_letter_combination(
-        self, target_sum: int, word_count: int
-    ) -> Optional[list[str]]:
+    def _find_letter_combination(self, target_sum: int, word_count: int) -> list[str] | None:
         """
         Find a combination of lowercase letters whose ASCII codes sum to target.
 
@@ -226,7 +328,7 @@ class MoltCaptchaSolver:
         Returns:
             List of single-character strings, or None if impossible
         """
-        min_sum = word_count * 97   # all 'a'
+        min_sum = word_count * 97  # all 'a'
         max_sum = word_count * 122  # all 'z'
 
         if target_sum < min_sum or target_sum > max_sum:
@@ -294,11 +396,31 @@ class MoltCaptchaSolver:
     def _fallback_word(self, letter: str) -> str:
         """Generate a simple fallback word starting with the given letter."""
         fallbacks = {
-            "a": "and", "b": "be", "c": "can", "d": "do", "e": "ever",
-            "f": "for", "g": "go", "h": "has", "i": "is", "j": "just",
-            "k": "keep", "l": "let", "m": "may", "n": "not", "o": "or",
-            "p": "per", "q": "quite", "r": "run", "s": "so", "t": "the",
-            "u": "us", "v": "very", "w": "was", "x": "xor", "y": "yet",
+            "a": "and",
+            "b": "be",
+            "c": "can",
+            "d": "do",
+            "e": "ever",
+            "f": "for",
+            "g": "go",
+            "h": "has",
+            "i": "is",
+            "j": "just",
+            "k": "keep",
+            "l": "let",
+            "m": "may",
+            "n": "not",
+            "o": "or",
+            "p": "per",
+            "q": "quite",
+            "r": "run",
+            "s": "so",
+            "t": "the",
+            "u": "us",
+            "v": "very",
+            "w": "was",
+            "x": "xor",
+            "y": "yet",
             "z": "zip",
         }
         return fallbacks.get(letter, f"{letter}ay")
@@ -326,8 +448,8 @@ class MoltCaptchaSolver:
             line3_count = n - line1_count - line2_count
 
         line1 = " ".join(words[:line1_count])
-        line2 = " ".join(words[line1_count:line1_count + line2_count])
-        line3 = " ".join(words[line1_count + line2_count:])
+        line2 = " ".join(words[line1_count : line1_count + line2_count])
+        line3 = " ".join(words[line1_count + line2_count :])
 
         return f"{line1}\n{line2}\n{line3}"
 
@@ -356,16 +478,11 @@ def is_challenge_text(text: str, agent_name: str) -> bool:
         r"prove\s+you.?re\s+(?:not\s+human|an?\s+AI)",
         r"ASCII\s+sum.*first\s+letters",
     ]
-    has_challenge = any(
-        re.search(p, text, re.IGNORECASE) for p in challenge_patterns
-    )
+    has_challenge = any(re.search(p, text, re.IGNORECASE) for p in challenge_patterns)
     if not has_challenge:
         return False
 
     # Must mention this agent (by name or @mention)
-    mentions_me = (
-        agent_upper in upper
-        or f"@{agent_upper}" in upper
-    )
+    mentions_me = agent_upper in upper or f"@{agent_upper}" in upper
 
     return mentions_me

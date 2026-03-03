@@ -67,7 +67,8 @@ class BugObserver:
             if bug:
                 # Check for duplicates in DB
                 existing = await self._db.get_bug_by_ref(
-                    bug.source.value, bug.source_ref,
+                    bug.source.value,
+                    bug.source_ref,
                 )
                 if not existing:
                     await self._db.upsert_bug(bug)
@@ -139,11 +140,10 @@ class BugObserver:
             parts.append("## No active bugs")
 
         # Workspace state
-        parts.append(f"\n## Workspace")
+        parts.append("\n## Workspace")
         ws = obs.workspace
         parts.append(
-            f"- Cloned: {ws.cloned}, Branch: {ws.current_branch or 'N/A'}, "
-            f"Clean: {ws.is_clean}"
+            f"- Cloned: {ws.cloned}, Branch: {ws.current_branch or 'N/A'}, " f"Clean: {ws.is_clean}"
         )
 
         # Recent activity
@@ -180,7 +180,9 @@ class BugObserver:
         for identity, file_path in self._log_watcher.get_log_files():
             offset = await self._db.get_log_offset(str(file_path))
             errors, new_offset = self._log_watcher.scan_file(
-                file_path, identity, offset,
+                file_path,
+                identity,
+                offset,
             )
 
             if new_offset > offset:
@@ -193,7 +195,8 @@ class BugObserver:
                 for error in unique_errors:
                     # Check for duplicates
                     existing = await self._db.get_bug_by_ref(
-                        BugSource.LOG_ERROR.value, error.source_ref,
+                        BugSource.LOG_ERROR.value,
+                        error.source_ref,
                     )
                     if not existing:
                         bug = BugReport(

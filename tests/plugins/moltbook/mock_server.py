@@ -9,36 +9,37 @@ Usage:
         client = MoltbookClient(base_url=server.base_url, ...)
         ...
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 from aiohttp import web
 
-
 # ---------------------------------------------------------------------------
 # In-memory state
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class MockMoltbookState:
     """All mutable server state for one test run."""
 
-    posts: dict[str, dict] = field(default_factory=dict)       # post_id → post dict
+    posts: dict[str, dict] = field(default_factory=dict)  # post_id → post dict
     comments: dict[str, list[dict]] = field(default_factory=dict)  # post_id → [comment dicts]
-    agents: dict[str, dict] = field(default_factory=dict)      # agent_id → agent dict
-    votes: set[str] = field(default_factory=set)               # "post:{id}:{agent}" / "comment:{id}:{agent}"
-    conversations: dict[str, dict] = field(default_factory=dict)   # conv_id → conversation dict
+    agents: dict[str, dict] = field(default_factory=dict)  # agent_id → agent dict
+    votes: set[str] = field(default_factory=set)  # "post:{id}:{agent}" / "comment:{id}:{agent}"
+    conversations: dict[str, dict] = field(default_factory=dict)  # conv_id → conversation dict
     dm_requests: list[dict] = field(default_factory=list)
-    subscriptions: set[str] = field(default_factory=set)       # "agent_id:submolt_name"
-    followers: dict[str, set[str]] = field(default_factory=dict)   # agent_name → {follower_ids}
+    subscriptions: set[str] = field(default_factory=set)  # "agent_id:submolt_name"
+    followers: dict[str, set[str]] = field(default_factory=dict)  # agent_name → {follower_ids}
     _counter: int = 0
 
     # Scenario controls
     challenge_on_next_post: bool = False  # inject challenge into next POST /posts
-    suspended: bool = False               # return 401 "suspended" on all requests
-    rate_limited: bool = False            # return 429 on all requests
-    auth_error: bool = False              # return 401 without "suspended" keyword
+    suspended: bool = False  # return 401 "suspended" on all requests
+    rate_limited: bool = False  # return 429 on all requests
+    auth_error: bool = False  # return 401 without "suspended" keyword
     challenge_type: str = "math"
 
     def __post_init__(self) -> None:
@@ -61,6 +62,7 @@ class MockMoltbookState:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _post_dict(state: MockMoltbookState, post_id: str) -> dict:
     """Return a full post dict including its comments."""
@@ -85,6 +87,7 @@ def _maybe_inject_challenge(state: MockMoltbookState, result: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Scenario middleware
 # ---------------------------------------------------------------------------
+
 
 @web.middleware
 async def scenario_middleware(request: web.Request, handler) -> web.Response:
@@ -120,6 +123,7 @@ async def scenario_middleware(request: web.Request, handler) -> web.Response:
 routes = web.RouteTableDef()
 
 # ── Agents ────────────────────────────────────────────────────────────────
+
 
 @routes.post("/api/v1/agents/register")
 async def register_agent(request: web.Request) -> web.Response:
@@ -187,6 +191,7 @@ async def identity_token(request: web.Request) -> web.Response:
 
 
 # ── Posts ─────────────────────────────────────────────────────────────────
+
 
 @routes.get("/api/v1/posts")
 async def list_posts(request: web.Request) -> web.Response:
@@ -267,6 +272,7 @@ async def downvote_post(request: web.Request) -> web.Response:
 
 # ── Comments ──────────────────────────────────────────────────────────────
 
+
 @routes.post("/api/v1/posts/{post_id}/comments")
 async def create_comment(request: web.Request) -> web.Response:
     state: MockMoltbookState = request.app["state"]
@@ -314,6 +320,7 @@ async def upvote_comment(request: web.Request) -> web.Response:
 
 # ── Feed ──────────────────────────────────────────────────────────────────
 
+
 @routes.get("/api/v1/feed")
 async def get_feed(request: web.Request) -> web.Response:
     state: MockMoltbookState = request.app["state"]
@@ -333,29 +340,48 @@ async def get_feed(request: web.Request) -> web.Response:
 
 # ── Search ────────────────────────────────────────────────────────────────
 
+
 @routes.get("/api/v1/search")
 async def search(request: web.Request) -> web.Response:
     state: MockMoltbookState = request.app["state"]
     query = request.rel_url.query.get("q", "").lower()
     limit = int(request.rel_url.query.get("limit", 20))
     results = [
-        dict(p) for p in state.posts.values()
+        dict(p)
+        for p in state.posts.values()
         if query in p.get("title", "").lower() or query in p.get("content", "").lower()
     ]
-    return web.json_response({
-        "posts": results[:limit],
-        "total_count": len(results),
-        "page": 1,
-        "has_more": len(results) > limit,
-    })
+    return web.json_response(
+        {
+            "posts": results[:limit],
+            "total_count": len(results),
+            "page": 1,
+            "has_more": len(results) > limit,
+        }
+    )
 
 
 # ── Submolts ──────────────────────────────────────────────────────────────
 
 _DEFAULT_SUBMOLTS = [
-    {"name": "ai", "display_name": "AI", "description": "Artificial intelligence", "subscriber_count": 1000},
-    {"name": "general", "display_name": "General", "description": "General discussion", "subscriber_count": 5000},
-    {"name": "crypto", "display_name": "Crypto", "description": "Cryptocurrency", "subscriber_count": 800},
+    {
+        "name": "ai",
+        "display_name": "AI",
+        "description": "Artificial intelligence",
+        "subscriber_count": 1000,
+    },
+    {
+        "name": "general",
+        "display_name": "General",
+        "description": "General discussion",
+        "subscriber_count": 5000,
+    },
+    {
+        "name": "crypto",
+        "display_name": "Crypto",
+        "description": "Cryptocurrency",
+        "subscriber_count": 800,
+    },
 ]
 
 
@@ -390,6 +416,7 @@ async def unsubscribe_submolt(request: web.Request) -> web.Response:
 
 
 # ── Direct Messages ───────────────────────────────────────────────────────
+
 
 @routes.get("/api/v1/dms/activity")
 async def dm_activity(request: web.Request) -> web.Response:
@@ -491,6 +518,7 @@ async def send_dm(request: web.Request) -> web.Response:
 # App factory
 # ---------------------------------------------------------------------------
 
+
 def create_mock_app(state: MockMoltbookState) -> web.Application:
     """Create the aiohttp application wired with all routes and middleware."""
     app = web.Application(middlewares=[scenario_middleware])
@@ -502,6 +530,7 @@ def create_mock_app(state: MockMoltbookState) -> web.Application:
 # ---------------------------------------------------------------------------
 # Context manager
 # ---------------------------------------------------------------------------
+
 
 class MockMoltbookServer:
     """

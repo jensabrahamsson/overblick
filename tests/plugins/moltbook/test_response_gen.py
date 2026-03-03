@@ -34,8 +34,10 @@ class TestResponseGenerator:
         )
 
         result = await gen.generate_comment(
-            post_title="Test", post_content="Content",
-            agent_name="Author", prompt_template="{title}",
+            post_title="Test",
+            post_content="Content",
+            agent_name="Author",
+            prompt_template="{title}",
         )
 
         assert result is None
@@ -58,9 +60,9 @@ class TestResponseGenerator:
 
     @pytest.mark.asyncio
     async def test_generate_heartbeat(self, mock_llm_client):
-        mock_llm_client.chat = AsyncMock(return_value={
-            "content": "submolt: ai\nTITLE: My Heartbeat\nThis is the content."
-        })
+        mock_llm_client.chat = AsyncMock(
+            return_value={"content": "submolt: ai\nTITLE: My Heartbeat\nThis is the content."}
+        )
 
         gen = ResponseGenerator(
             llm_client=mock_llm_client,
@@ -78,9 +80,9 @@ class TestResponseGenerator:
 
     @pytest.mark.asyncio
     async def test_parse_post_output_no_submolt(self, mock_llm_client):
-        mock_llm_client.chat = AsyncMock(return_value={
-            "content": "TITLE: Simple Post\nBody text here"
-        })
+        mock_llm_client.chat = AsyncMock(
+            return_value={"content": "TITLE: Simple Post\nBody text here"}
+        )
 
         gen = ResponseGenerator(
             llm_client=mock_llm_client,
@@ -96,9 +98,12 @@ class TestResponseGenerator:
     async def test_priority_passed_through_pipeline(self):
         """Priority flows from generate_comment through pipeline to LLM."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
-            blocked=False, content="Response",
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=False,
+                content="Response",
+            )
+        )
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,
@@ -120,9 +125,12 @@ class TestResponseGenerator:
     async def test_priority_defaults_to_low(self):
         """Priority defaults to 'low' when not specified."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
-            blocked=False, content="Response",
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=False,
+                content="Response",
+            )
+        )
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,
@@ -143,9 +151,12 @@ class TestResponseGenerator:
     async def test_generate_dm_reply_uses_high_priority(self):
         """generate_dm_reply defaults to priority='high' for time-sensitive DMs."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
-            blocked=False, content="DM reply",
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=False,
+                content="DM reply",
+            )
+        )
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,
@@ -165,9 +176,12 @@ class TestResponseGenerator:
     async def test_generate_dm_reply_wraps_content_in_boundary_markers(self):
         """DM sender and message are wrapped in boundary markers before LLM call."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
-            blocked=False, content="DM reply",
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=False,
+                content="DM reply",
+            )
+        )
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,
@@ -188,9 +202,12 @@ class TestResponseGenerator:
     async def test_reply_priority(self):
         """generate_reply passes priority through."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=MagicMock(
-            blocked=False, content="Reply",
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=False,
+                content="Reply",
+            )
+        )
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,

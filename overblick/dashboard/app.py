@@ -17,9 +17,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.base import BaseHTTPMiddleware
-
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse, Response
 
 from .auth import AuthMiddleware, SessionManager
@@ -48,15 +47,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             logger.error(
                 "Unhandled exception on %s: %s",
-                request.url.path, exc, exc_info=True,
+                request.url.path,
+                exc,
+                exc_info=True,
             )
             templates = getattr(request.app.state, "templates", None)
             if templates:
-                response = templates.TemplateResponse("error.html", {
-                    "request": request,
-                    "status_code": 500,
-                    "detail": "Something went wrong. The error has been logged.",
-                }, status_code=500)
+                response = templates.TemplateResponse(
+                    "error.html",
+                    {
+                        "request": request,
+                        "status_code": 500,
+                        "detail": "Something went wrong. The error has been logged.",
+                    },
+                    status_code=500,
+                )
             else:
                 response = HTMLResponse("Internal Server Error", status_code=500)
         # Cache static assets (CSS/JS/images) for 1 hour
@@ -124,10 +129,17 @@ def _is_operational_cap(name: str) -> bool:
     """
     _OPERATIONAL = {
         # Bundle names
-        "communication", "monitoring", "system",
+        "communication",
+        "monitoring",
+        "system",
         # Individual capability names
-        "boss_request", "email", "gmail", "telegram_notifier",
-        "host_inspection", "email_agent", "system_clock",
+        "boss_request",
+        "email",
+        "gmail",
+        "telegram_notifier",
+        "host_inspection",
+        "email_agent",
+        "system_clock",
     }
     return name in _OPERATIONAL
 
@@ -142,6 +154,7 @@ def _create_templates() -> Jinja2Templates:
     )
     # Register global template functions
     from overblick.setup.wizard import plugin_name
+
     env.globals["plugin_name"] = plugin_name
     env.globals["_format_uptime"] = _format_uptime
     env.globals["_is_operational_cap"] = _is_operational_cap
@@ -178,7 +191,8 @@ async def lifespan(app: FastAPI):
 
     logger.info(
         "Starting Överblick Dashboard on %s:%d",
-        config.host, config.port,
+        config.host,
+        config.port,
     )
 
     # Initialize services on app state
@@ -191,6 +205,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize service layer
     from .services import init_services
+
     await init_services(app, config)
 
     # Register nav context globals (must be after services are initialized)
@@ -198,18 +213,18 @@ async def lifespan(app: FastAPI):
         irc_svc = getattr(app.state, "irc_service", None)
         return irc_svc.has_data() if irc_svc else False
 
-    from .routes.kontrast import has_data as _kontrast_has_data
-    from .routes.spegel import has_data as _spegel_has_data
-    from .routes.skuggspel import has_data as _skuggspel_has_data
     from .routes.compass import has_data as _compass_has_data
-    from .routes.stage import has_data as _stage_has_data
-    from .routes.moltbook import has_data as _moltbook_has_data
-    from .routes.email import has_data as _email_has_data
-    from .routes.telegram import has_data as _telegram_has_data
-    from .routes.digest import has_data as _digest_has_data
-    from .routes.github_dash import has_data as _github_has_data
     from .routes.dev import has_data as _dev_has_data
+    from .routes.digest import has_data as _digest_has_data
+    from .routes.email import has_data as _email_has_data
+    from .routes.github_dash import has_data as _github_has_data
+    from .routes.kontrast import has_data as _kontrast_has_data
     from .routes.log_agent import has_data as _log_agent_has_data
+    from .routes.moltbook import has_data as _moltbook_has_data
+    from .routes.skuggspel import has_data as _skuggspel_has_data
+    from .routes.spegel import has_data as _spegel_has_data
+    from .routes.stage import has_data as _stage_has_data
+    from .routes.telegram import has_data as _telegram_has_data
 
     app.state.templates.env.globals["irc_enabled"] = _check_irc_enabled
     app.state.templates.env.globals["kontrast_enabled"] = _kontrast_has_data
@@ -241,6 +256,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup
     from .services import cleanup_services
+
     await cleanup_services(app)
     logger.info("Överblick Dashboard stopped")
 
@@ -262,8 +278,8 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
         title="Överblick Dashboard",
         description="Security-focused agent monitoring and onboarding",
         version="0.1.0",
-        docs_url=None,    # Disable Swagger UI (security)
-        redoc_url=None,   # Disable ReDoc (security)
+        docs_url=None,  # Disable Swagger UI (security)
+        redoc_url=None,  # Disable ReDoc (security)
         lifespan=lifespan,
     )
 
@@ -288,6 +304,7 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
 
     # Register routes
     from .routes import register_routes
+
     register_routes(app)
 
     # --- Error handler: branded page for HTTP errors (404, 403, etc.) ---
@@ -295,11 +312,15 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
     async def http_exception_handler(request, exc):
         templates = getattr(app.state, "templates", None)
         if templates:
-            return templates.TemplateResponse("error.html", {
-                "request": request,
-                "status_code": exc.status_code,
-                "detail": exc.detail or "An error occurred",
-            }, status_code=exc.status_code)
+            return templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "status_code": exc.status_code,
+                    "detail": exc.detail or "An error occurred",
+                },
+                status_code=exc.status_code,
+            )
         return HTMLResponse(f"Error {exc.status_code}", status_code=exc.status_code)
 
     return app

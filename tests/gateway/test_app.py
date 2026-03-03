@@ -92,12 +92,8 @@ class TestFastAPIApp:
         assert data["backends"]["local"]["model"] == "qwen3:8b"
         assert data["backends"]["local"]["default"] is True
 
-    def test_health_check_degraded(
-        self, client, mock_queue_manager, mock_backend_registry
-    ):
-        mock_backend_registry.health_check_all = AsyncMock(
-            return_value={"local": False}
-        )
+    def test_health_check_degraded(self, client, mock_queue_manager, mock_backend_registry):
+        mock_backend_registry.health_check_all = AsyncMock(return_value={"local": False})
 
         response = client.get("/health")
 
@@ -148,9 +144,7 @@ class TestFastAPIApp:
         assert call_args[0][1] == Priority.HIGH
 
     def test_chat_completion_connection_error(self, client, mock_queue_manager):
-        mock_queue_manager.submit = AsyncMock(
-            side_effect=OllamaConnectionError("Cannot connect")
-        )
+        mock_queue_manager.submit = AsyncMock(side_effect=OllamaConnectionError("Cannot connect"))
 
         payload = {
             "model": "qwen3:8b",

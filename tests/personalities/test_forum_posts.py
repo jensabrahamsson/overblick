@@ -92,8 +92,7 @@ class TestForumPostVariety:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "personality_name",
-        [name for name in list_personalities()
-         if any(n == name for n, _ in _FORUM_POSTS)],
+        [name for name in list_personalities() if any(n == name for n, _ in _FORUM_POSTS)],
     )
     async def test_response_variety(self, ollama_client, personality_name):
         """Generate 3 responses to the same post, check Jaccard similarity < 0.5."""
@@ -121,6 +120,7 @@ class TestForumPostVariety:
                 sim = jaccard_similarity(responses[i], responses[j])
                 if sim > 0.5:
                     import warnings
+
                     warnings.warn(
                         f"{personality_name}: Responses {i+1} and {j+1} too similar "
                         f"(Jaccard={sim:.2f}). May indicate templated output.\n"

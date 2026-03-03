@@ -50,9 +50,7 @@ class SpeechToTextCapability(CapabilityBase):
             self._language,
         )
 
-    async def transcribe(
-        self, audio_data: bytes, language: Optional[str] = None
-    ) -> Optional[str]:
+    async def transcribe(self, audio_data: bytes, language: str | None = None) -> str | None:
         """
         Transcribe audio data to text.
 
@@ -66,9 +64,7 @@ class SpeechToTextCapability(CapabilityBase):
         logger.warning("SpeechToTextCapability.transcribe() not yet implemented")
         return None
 
-    async def stream_transcribe(
-        self, audio_chunks: AsyncIterator[bytes]
-    ) -> AsyncIterator[str]:
+    async def stream_transcribe(self, audio_chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
         """
         Stream-transcribe audio chunks to text segments.
 
@@ -78,12 +74,10 @@ class SpeechToTextCapability(CapabilityBase):
         Yields:
             Transcribed text segments (currently yields nothing).
         """
-        logger.warning(
-            "SpeechToTextCapability.stream_transcribe() not yet implemented"
-        )
+        logger.warning("SpeechToTextCapability.stream_transcribe() not yet implemented")
         # Consume the iterator to prevent resource leaks
         async for _ in audio_chunks:
             pass
         # Yield nothing — placeholder
         return
-        yield  # noqa: RET504 — makes this an async generator
+        yield

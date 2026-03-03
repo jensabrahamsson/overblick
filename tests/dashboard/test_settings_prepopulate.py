@@ -82,9 +82,13 @@ class TestConfigToWizardState:
         """Active plugins for new use cases map to correct use_case IDs."""
         identities_dir = tmp_path / "overblick" / "identities" / "anomal"
         identities_dir.mkdir(parents=True)
-        (identities_dir / "personality.yaml").write_text(yaml.dump({
-            "plugins": ["irc", "kontrast", "spegel", "skuggspel", "compass", "dev_agent"],
-        }))
+        (identities_dir / "personality.yaml").write_text(
+            yaml.dump(
+                {
+                    "plugins": ["irc", "kontrast", "spegel", "skuggspel", "compass", "dev_agent"],
+                }
+            )
+        )
         state = _config_to_wizard_state({}, base_dir=tmp_path)
         selected = state.get("selected_use_cases", [])
         assert "irc_conversations" in selected
@@ -100,7 +104,14 @@ class TestConfigToWizardState:
 
     def test_principal_prefilled_from_global_config(self):
         """Principal name and email are global config — should be pre-filled."""
-        cfg = {"principal": {"name": "Test User", "email": "test@example.com", "timezone": "UTC", "language": "sv"}}
+        cfg = {
+            "principal": {
+                "name": "Test User",
+                "email": "test@example.com",
+                "timezone": "UTC",
+                "language": "sv",
+            }
+        }
         state = _config_to_wizard_state(cfg)
         assert state["principal"]["principal_name"] == "Test User"
         assert state["principal"]["principal_email"] == "test@example.com"
@@ -119,10 +130,14 @@ class TestLoadExistingConfig:
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         config_file = config_dir / "overblick.yaml"
-        config_file.write_text(yaml.dump({
-            "framework": {"name": "Överblick"},
-            "llm": {"provider": "ollama", "model": "qwen3:8b"},
-        }))
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "framework": {"name": "Överblick"},
+                    "llm": {"provider": "ollama", "model": "qwen3:8b"},
+                }
+            )
+        )
         cfg = _load_existing_config(tmp_path)
         assert cfg["llm"]["provider"] == "ollama"
 
@@ -139,7 +154,9 @@ class TestPrePopulationInWizard:
     """Integration tests: wizard routes show correct pre-populated vs. fresh state."""
 
     @pytest.mark.asyncio
-    async def test_step1_shows_first_time_badge_when_no_config(self, client, session_cookie, app, tmp_path):
+    async def test_step1_shows_first_time_badge_when_no_config(
+        self, client, session_cookie, app, tmp_path
+    ):
         # Ensure no config file exists
         app.state.config.base_dir = str(tmp_path)
         app.state.setup_needed = True
@@ -159,10 +176,14 @@ class TestPrePopulationInWizard:
         # Create a fake config file
         config_dir = tmp_path / "config"
         config_dir.mkdir()
-        (config_dir / "overblick.yaml").write_text(yaml.dump({
-            "llm": {"provider": "ollama", "model": "qwen3:8b"},
-            "principal": {"timezone": "Europe/Stockholm"},
-        }))
+        (config_dir / "overblick.yaml").write_text(
+            yaml.dump(
+                {
+                    "llm": {"provider": "ollama", "model": "qwen3:8b"},
+                    "principal": {"timezone": "Europe/Stockholm"},
+                }
+            )
+        )
         app.state.config.base_dir = str(tmp_path)
         app.state.setup_needed = False
 
@@ -175,24 +196,41 @@ class TestPrePopulationInWizard:
         assert "Reconfiguring" in resp.text or "existing" in resp.text.lower()
 
     @pytest.mark.asyncio
-    async def test_wizard_state_pre_populated_from_config(self, client, session_cookie, app, tmp_path):
+    async def test_wizard_state_pre_populated_from_config(
+        self, client, session_cookie, app, tmp_path
+    ):
         """After visiting step 1, wizard state should be populated with existing config values."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
-        (config_dir / "overblick.yaml").write_text(yaml.dump({
-            "llm": {
-                "gateway_url": "http://127.0.0.1:8200",
-                "default_backend": "local",
-                "temperature": 0.7,
-                "max_tokens": 2000,
-                "backends": {
-                    "local": {"enabled": True, "type": "lmstudio", "host": "192.168.1.5", "port": 1234, "model": "phi3"},
-                    "cloud": {"enabled": False},
-                    "openai": {"enabled": False},
-                },
-            },
-            "principal": {"name": "Test User", "email": "test@test.com", "timezone": "America/New_York", "language": "en"},
-        }))
+        (config_dir / "overblick.yaml").write_text(
+            yaml.dump(
+                {
+                    "llm": {
+                        "gateway_url": "http://127.0.0.1:8200",
+                        "default_backend": "local",
+                        "temperature": 0.7,
+                        "max_tokens": 2000,
+                        "backends": {
+                            "local": {
+                                "enabled": True,
+                                "type": "lmstudio",
+                                "host": "192.168.1.5",
+                                "port": 1234,
+                                "model": "phi3",
+                            },
+                            "cloud": {"enabled": False},
+                            "openai": {"enabled": False},
+                        },
+                    },
+                    "principal": {
+                        "name": "Test User",
+                        "email": "test@test.com",
+                        "timezone": "America/New_York",
+                        "language": "en",
+                    },
+                }
+            )
+        )
         app.state.config.base_dir = str(tmp_path)
 
         # Clear any previous wizard state
@@ -207,6 +245,7 @@ class TestPrePopulationInWizard:
 
         # Check the wizard state was pre-populated
         from overblick.setup.wizard import _get_state
+
         state = _get_state(app)
         llm = state.get("llm", {})
         assert llm.get("local", {}).get("backend_type") == "lmstudio"
@@ -220,10 +259,14 @@ class TestPrePopulationInWizard:
         """Step 1 always reloads from disk config to ensure fresh values."""
         config_dir = tmp_path / "config"
         config_dir.mkdir()
-        (config_dir / "overblick.yaml").write_text(yaml.dump({
-            "llm": {"provider": "ollama", "model": "qwen3:8b"},
-            "principal": {"name": "Original", "timezone": "Europe/Stockholm"},
-        }))
+        (config_dir / "overblick.yaml").write_text(
+            yaml.dump(
+                {
+                    "llm": {"provider": "ollama", "model": "qwen3:8b"},
+                    "principal": {"name": "Original", "timezone": "Europe/Stockholm"},
+                }
+            )
+        )
         app.state.config.base_dir = str(tmp_path)
 
         if hasattr(app.state, "wizard_state"):
@@ -235,14 +278,19 @@ class TestPrePopulationInWizard:
         await client.get("/settings/step/1", cookies={SESSION_COOKIE: cookie_value})
 
         from overblick.setup.wizard import _get_state
+
         state = _get_state(app)
         assert state["principal"]["principal_name"] == "Original"
 
         # Update config on disk
-        (config_dir / "overblick.yaml").write_text(yaml.dump({
-            "llm": {"provider": "ollama", "model": "qwen3:8b"},
-            "principal": {"name": "Updated", "timezone": "Europe/Stockholm"},
-        }))
+        (config_dir / "overblick.yaml").write_text(
+            yaml.dump(
+                {
+                    "llm": {"provider": "ollama", "model": "qwen3:8b"},
+                    "principal": {"name": "Updated", "timezone": "Europe/Stockholm"},
+                }
+            )
+        )
 
         # Visit step 1 again — should pick up the updated config
         await client.get("/settings/step/1", cookies={SESSION_COOKIE: cookie_value})

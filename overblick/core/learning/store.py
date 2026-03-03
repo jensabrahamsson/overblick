@@ -9,9 +9,10 @@ Provides SQLite-backed storage for learnings with:
 
 import logging
 import struct
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 
 import aiosqlite
 
@@ -59,7 +60,7 @@ class LearningStore:
         db_path: Path,
         ethos_text: str,
         llm_pipeline=None,
-        embed_fn: Optional[Callable] = None,
+        embed_fn: Callable | None = None,
     ):
         self._db_path = Path(db_path)
         self._reviewer = EthosReviewer(llm_pipeline, ethos_text)
@@ -109,7 +110,9 @@ class LearningStore:
 
         logger.info(
             "Learning proposed [%s]: %s (source=%s)",
-            learning.status.value, content[:60], source,
+            learning.status.value,
+            content[:60],
+            source,
         )
         return learning
 
@@ -145,7 +148,7 @@ class LearningStore:
             rows = await cursor.fetchall()
             return [self._row_to_learning(r) for r in rows]
 
-    async def count(self, status: Optional[LearningStatus] = None) -> int:
+    async def count(self, status: LearningStatus | None = None) -> int:
         """Count learnings, optionally filtered by status."""
         async with aiosqlite.connect(str(self._db_path)) as conn:
             if status:

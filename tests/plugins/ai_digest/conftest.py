@@ -8,13 +8,19 @@ import pytest
 from overblick.core.event_bus import EventBus
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.core.plugin_base import PluginContext
-from overblick.identities import Personality, LLMSettings, QuietHoursSettings, ScheduleSettings, SecuritySettings
+from overblick.identities import (
+    Personality,
+    LLMSettings,
+    QuietHoursSettings,
+    ScheduleSettings,
+    SecuritySettings,
+)
 from overblick.plugins.ai_digest.plugin import AiDigestPlugin
-
 
 # ---------------------------------------------------------------------------
 # Identity fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def ai_digest_identity():
@@ -46,13 +52,12 @@ def ai_digest_identity():
 # Mock services
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_pipeline():
     """Mock SafeLLMPipeline with default success response."""
     pipeline = AsyncMock()
-    pipeline.chat = AsyncMock(
-        return_value=PipelineResult(content="[1, 3, 5, 2, 4]")
-    )
+    pipeline.chat = AsyncMock(return_value=PipelineResult(content="[1, 3, 5, 2, 4]"))
     return pipeline
 
 
@@ -91,10 +96,16 @@ def mock_email_capability():
 # PluginContext fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def ai_digest_context(
-    ai_digest_identity, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline,
-    mock_event_bus, mock_email_capability,
+    ai_digest_identity,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_pipeline,
+    mock_event_bus,
+    mock_email_capability,
 ):
     """Full plugin context for ai_digest tests."""
     ctx = PluginContext(
@@ -116,7 +127,11 @@ def ai_digest_context(
 
 @pytest.fixture
 def ai_digest_context_quiet(
-    ai_digest_identity, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline,
+    ai_digest_identity,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_pipeline,
     mock_event_bus,
 ):
     """Plugin context with quiet hours active."""
@@ -138,7 +153,10 @@ def ai_digest_context_quiet(
 
 @pytest.fixture
 def ai_digest_context_no_recipient(
-    tmp_path, mock_llm_client, mock_audit_log, mock_pipeline,
+    tmp_path,
+    mock_llm_client,
+    mock_audit_log,
+    mock_pipeline,
 ):
     """Plugin context with missing recipient (for failure tests)."""
     identity = Personality(

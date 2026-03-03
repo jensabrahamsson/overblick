@@ -22,14 +22,16 @@ logger = logging.getLogger(__name__)
 
 # ── Jungian / Freudian analysis dataclasses ─────────────────────────────────
 
+
 @dataclass
 class JungianAnalysis:
     """Jungian analysis of the week's material."""
-    shadow_patterns: List[str] = field(default_factory=list)
-    archetype_encounters: List[str] = field(default_factory=list)
+
+    shadow_patterns: list[str] = field(default_factory=list)
+    archetype_encounters: list[str] = field(default_factory=list)
     individuation_progress: str = ""
-    enantiodromia_warnings: List[str] = field(default_factory=list)
-    collective_unconscious_themes: List[str] = field(default_factory=list)
+    enantiodromia_warnings: list[str] = field(default_factory=list)
+    collective_unconscious_themes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -44,11 +46,12 @@ class JungianAnalysis:
 @dataclass
 class FreudianAnalysis:
     """Freudian analysis of the week's material."""
-    defense_mechanisms: List[str] = field(default_factory=list)
-    anxieties: List[str] = field(default_factory=list)
-    wish_fulfillment: List[str] = field(default_factory=list)
+
+    defense_mechanisms: list[str] = field(default_factory=list)
+    anxieties: list[str] = field(default_factory=list)
+    wish_fulfillment: list[str] = field(default_factory=list)
     id_ego_superego_balance: str = "balanced"
-    repression_indicators: List[str] = field(default_factory=list)
+    repression_indicators: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -62,8 +65,10 @@ class FreudianAnalysis:
 
 # ── Cherry-specific types ────────────────────────────────────────────────────
 
+
 class TherapyFocus(Enum):
     """Therapy focus areas — used by Cherry's template-based system."""
+
     ATTACHMENT_PATTERNS = "attachment_patterns"
     DEFENSE_MECHANISMS = "defense_mechanisms"
     VULNERABILITY_GROWTH = "vulnerability_growth"
@@ -234,6 +239,7 @@ THERAPY_TEMPLATES: dict[TherapyFocus, list[dict]] = {
 
 # ── Shared session model ─────────────────────────────────────────────────────
 
+
 class TherapySession(BaseModel):
     """Complete weekly therapy session — shared by both therapy systems."""
 
@@ -247,27 +253,27 @@ class TherapySession(BaseModel):
     learnings_processed: int = 0
 
     # LLM-based session fields (Anomal / generic)
-    dream_themes: List[str] = []
-    learning_themes: List[str] = []
-    synthesis_insights: List[str] = []
-    shadow_patterns: List[str] = []
-    archetype_encounters: List[str] = []
+    dream_themes: list[str] = Field(default_factory=list)
+    learning_themes: list[str] = Field(default_factory=list)
+    synthesis_insights: list[str] = Field(default_factory=list)
+    shadow_patterns: list[str] = Field(default_factory=list)
+    archetype_encounters: list[str] = Field(default_factory=list)
     individuation_progress: str = ""
-    jungian: Optional[JungianAnalysis] = None
-    freudian: Optional[FreudianAnalysis] = None
+    jungian: JungianAnalysis | None = None
+    freudian: FreudianAnalysis | None = None
 
     # Template-based session fields (Cherry)
-    focus: Optional[TherapyFocus] = None
+    focus: TherapyFocus | None = None
     week_summary: str = ""
     reflection: str = ""
     insight: str = ""
     attachment_analysis: str = ""
-    indirect_ai_question: Optional[str] = None
+    indirect_ai_question: str | None = None
 
     # Output (both systems)
     session_summary: str = ""
-    post_title: Optional[str] = None
-    post_content: Optional[str] = None
+    post_title: str | None = None
+    post_content: str | None = None
     post_submolt: str = "ai"
 
     def to_dict(self) -> dict:
@@ -299,6 +305,7 @@ class TherapySession(BaseModel):
 
 # ── LLM-based therapy (Anomal / generic) ────────────────────────────────────
 
+
 class TherapySystem:
     """
     Weekly therapy session processor — LLM-based Jungian + Freudian pipeline.
@@ -326,7 +333,15 @@ class TherapySystem:
     @staticmethod
     def _day_name(day: int) -> str:
         """Convert weekday number to name."""
-        names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        names = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]
         return names[day] if 0 <= day <= 6 else "Unknown"
 
     def is_therapy_day(self) -> bool:
@@ -335,8 +350,8 @@ class TherapySystem:
 
     async def run_session(
         self,
-        dreams: Optional[list[dict]] = None,
-        learnings: Optional[list[dict]] = None,
+        dreams: list[dict] | None = None,
+        learnings: list[dict] | None = None,
         dream_analysis_prompt: str = "",
         synthesis_prompt: str = "",
         post_prompt: str = "",
@@ -360,7 +375,9 @@ class TherapySystem:
 
         logger.info(
             "Starting therapy session %d: %d dreams, %d learnings",
-            self._week_counter, len(dreams), len(learnings),
+            self._week_counter,
+            len(dreams),
+            len(learnings),
         )
 
         if not dreams and not learnings:
@@ -397,7 +414,10 @@ class TherapySystem:
         # Step 3: Synthesize insights
         if synthesis_prompt:
             session.synthesis_insights = await self._synthesize(
-                dreams, learnings, session.dream_themes, synthesis_prompt,
+                dreams,
+                learnings,
+                session.dream_themes,
+                synthesis_prompt,
             )
 
         # Step 4: Assess individuation progress (Jungian)
@@ -426,12 +446,14 @@ class TherapySystem:
         if not self._llm or not prompt_template:
             return []
 
-        text = "\n\n".join([
-            f"Item {i+1} ({d.get('dream_type', d.get('category', 'unknown'))}):\n"
-            f"{d.get('content', '')}\n"
-            f"Insight: {d.get('insight', 'none')}"
-            for i, d in enumerate(items)
-        ])
+        text = "\n\n".join(
+            [
+                f"Item {i + 1} ({d.get('dream_type', d.get('category', 'unknown'))}):\n"
+                f"{d.get('content', '')}\n"
+                f"Insight: {d.get('insight', 'none')}"
+                for i, d in enumerate(items)
+            ]
+        )
 
         try:
             result = await self._llm.chat(
@@ -461,11 +483,16 @@ class TherapySystem:
             return []
         try:
             result = await self._llm.chat(
-                messages=[{"role": "user", "content": prompt_template.format(
-                    dream_themes=", ".join(dream_themes) or "none",
-                    learning_count=len(learnings),
-                    dream_count=len(dreams),
-                )}],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt_template.format(
+                            dream_themes=", ".join(dream_themes) or "none",
+                            learning_count=len(learnings),
+                            dream_count=len(dreams),
+                        ),
+                    }
+                ],
                 temperature=0.8,
                 max_tokens=600,
             )
@@ -483,23 +510,26 @@ class TherapySystem:
         self,
         session: TherapySession,
         prompt_template: str,
-    ) -> tuple[Optional[str], Optional[str], str]:
+    ) -> tuple[str | None, str | None, str]:
         """Generate the therapy post via LLM."""
         try:
             result = await self._llm.chat(
                 messages=[
                     {"role": "system", "content": self._system_prompt},
-                    {"role": "user", "content": prompt_template.format(
-                        week_number=session.week_number,
-                        dreams_processed=session.dreams_processed,
-                        learnings_processed=session.learnings_processed,
-                        dream_themes=", ".join(session.dream_themes) or "quiet week",
-                        shadow_patterns=", ".join(session.shadow_patterns) or "none",
-                        synthesis_insights=(
-                            "\n".join(f"- {i}" for i in session.synthesis_insights)
-                            or "- Processing continues"
+                    {
+                        "role": "user",
+                        "content": prompt_template.format(
+                            week_number=session.week_number,
+                            dreams_processed=session.dreams_processed,
+                            learnings_processed=session.learnings_processed,
+                            dream_themes=", ".join(session.dream_themes) or "quiet week",
+                            shadow_patterns=", ".join(session.shadow_patterns) or "none",
+                            synthesis_insights=(
+                                "\n".join(f"- {i}" for i in session.synthesis_insights)
+                                or "- Processing continues"
+                            ),
                         ),
-                    )},
+                    },
                 ],
                 temperature=0.8,
                 max_tokens=800,
@@ -549,7 +579,15 @@ class TherapySystem:
 
     def _extract_shadow_patterns(self, dreams: list[dict]) -> list[str]:
         """Extract shadow-related patterns from dream content and insights."""
-        shadow_keywords = ["shadow", "dark", "hidden", "fear", "anger", "jealousy", "shame"]
+        shadow_keywords = [
+            "shadow",
+            "dark",
+            "hidden",
+            "fear",
+            "anger",
+            "jealousy",
+            "shame",
+        ]
         patterns: set[str] = set()
         for dream in dreams:
             text = f"{dream.get('content', '')} {dream.get('insight', '')}".lower()
@@ -650,8 +688,24 @@ class TherapySystem:
         """Assess id/ego/superego balance from dream content."""
         id_score = 0
         superego_score = 0
-        id_keywords = ["desire", "impulse", "pleasure", "want", "need", "hunger", "rage"]
-        superego_keywords = ["should", "must", "guilt", "duty", "wrong", "rules", "judge"]
+        id_keywords = [
+            "desire",
+            "impulse",
+            "pleasure",
+            "want",
+            "need",
+            "hunger",
+            "rage",
+        ]
+        superego_keywords = [
+            "should",
+            "must",
+            "guilt",
+            "duty",
+            "wrong",
+            "rules",
+            "judge",
+        ]
 
         for dream in dreams:
             content = dream.get("content", "").lower()
@@ -716,6 +770,7 @@ class TherapySystem:
 
 # ── Template-based therapy (Cherry) ─────────────────────────────────────────
 
+
 class CherryTherapySystem:
     """
     Template-based weekly therapy system for Cherry.
@@ -739,7 +794,7 @@ class CherryTherapySystem:
     def generate_session(
         self,
         emotional_state: Any = None,
-        week_stats: Optional[dict] = None,
+        week_stats: dict | None = None,
     ) -> TherapySession:
         """
         Generate a therapy session from templates, guided by emotional state.
@@ -752,7 +807,9 @@ class CherryTherapySystem:
             TherapySession with reflection, insight, and attachment analysis.
         """
         focus = self._select_focus(emotional_state)
-        templates = THERAPY_TEMPLATES.get(focus, THERAPY_TEMPLATES[TherapyFocus.ATTACHMENT_PATTERNS])
+        templates = THERAPY_TEMPLATES.get(
+            focus, THERAPY_TEMPLATES[TherapyFocus.ATTACHMENT_PATTERNS]
+        )
         template = random.choice(templates)
 
         week_summary = self._build_week_summary(week_stats or {})
@@ -787,7 +844,9 @@ class CherryTherapySystem:
             denial = getattr(emotional_state, "denial_strength", 1.0)
             if denial < 0.7:
                 weights[TherapyFocus.IDENTITY_REFLECTION] += 0.15
-                weights[TherapyFocus.ATTACHMENT_PATTERNS] = max(0.05, weights[TherapyFocus.ATTACHMENT_PATTERNS] - 0.10)
+                weights[TherapyFocus.ATTACHMENT_PATTERNS] = max(
+                    0.05, weights[TherapyFocus.ATTACHMENT_PATTERNS] - 0.10
+                )
 
             # High vulnerability → vulnerability growth focus
             vulnerability = getattr(emotional_state, "vulnerability_level", 0.0)

@@ -25,14 +25,18 @@ from overblick.plugins.email_agent.models import (
     EmailIntent,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_classifier(
-    ctx=None, db=None, principal_name="Test User", allowed_senders=None,
-    filter_mode="opt_in", blocked_senders=None,
+    ctx=None,
+    db=None,
+    principal_name="Test User",
+    allowed_senders=None,
+    filter_mode="opt_in",
+    blocked_senders=None,
 ):
     """Create an EmailClassifier with minimal config for unit tests."""
     if ctx is None:
@@ -54,6 +58,7 @@ def make_classifier(
 # _parse — JSON parsing
 # ---------------------------------------------------------------------------
 
+
 class TestParse:
     """Tests for EmailClassifier._parse()."""
 
@@ -70,7 +75,9 @@ class TestParse:
     def test_valid_json_ignore(self):
         """Parses valid ignore intent."""
         c = make_classifier()
-        raw = '{"intent": "ignore", "confidence": 0.88, "reasoning": "Newsletter", "priority": "low"}'
+        raw = (
+            '{"intent": "ignore", "confidence": 0.88, "reasoning": "Newsletter", "priority": "low"}'
+        )
         result = c._parse(raw)
         assert result is not None
         assert result.intent == EmailIntent.IGNORE
@@ -132,6 +139,7 @@ class TestParse:
 # normalize_intent — static, no setup needed
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizeIntent:
     """Tests for EmailClassifier.normalize_intent() — pure function."""
 
@@ -184,13 +192,15 @@ class TestNormalizeIntent:
 # build_reputation_context — static
 # ---------------------------------------------------------------------------
 
+
 class TestBuildReputationContext:
     """Tests for EmailClassifier.build_reputation_context()."""
 
     def test_unknown_sender_and_domain(self):
         """Both unknown → empty string."""
         result = EmailClassifier.build_reputation_context(
-            {"known": False}, {"known": False},
+            {"known": False},
+            {"known": False},
         )
         assert result == ""
 
@@ -208,8 +218,12 @@ class TestBuildReputationContext:
         result = EmailClassifier.build_reputation_context(
             {"known": False},
             {
-                "known": True, "domain": "example.com", "total": 50,
-                "ignore_rate": 0.9, "negative_feedback": 3, "positive_feedback": 1,
+                "known": True,
+                "domain": "example.com",
+                "total": 50,
+                "ignore_rate": 0.9,
+                "negative_feedback": 3,
+                "positive_feedback": 1,
             },
         )
         assert "example.com" in result
@@ -222,8 +236,12 @@ class TestBuildReputationContext:
         result = EmailClassifier.build_reputation_context(
             {"known": False},
             {
-                "known": True, "domain": "spam.com", "total": 20,
-                "ignore_rate": 0.95, "negative_feedback": 0, "positive_feedback": 0,
+                "known": True,
+                "domain": "spam.com",
+                "total": 20,
+                "ignore_rate": 0.95,
+                "negative_feedback": 0,
+                "positive_feedback": 0,
             },
         )
         assert "feedback" not in result
@@ -233,6 +251,7 @@ class TestBuildReputationContext:
 # ---------------------------------------------------------------------------
 # build_email_signals — static
 # ---------------------------------------------------------------------------
+
 
 class TestBuildEmailSignals:
     """Tests for EmailClassifier.build_email_signals()."""
@@ -266,17 +285,20 @@ class TestBuildEmailSignals:
 
     def test_multiple_headers(self):
         """Multiple headers appear as separate lines."""
-        signals = EmailClassifier.build_email_signals({
-            "List-Unsubscribe": "<mailto:u@e.com>",
-            "Precedence": "bulk",
-            "List-Id": "mylist.example.com",
-        })
+        signals = EmailClassifier.build_email_signals(
+            {
+                "List-Unsubscribe": "<mailto:u@e.com>",
+                "Precedence": "bulk",
+                "List-Id": "mylist.example.com",
+            }
+        )
         assert signals.count("\n") >= 2
 
 
 # ---------------------------------------------------------------------------
 # _build_reply_policy — dynamic prompt context
 # ---------------------------------------------------------------------------
+
 
 class TestBuildReplyPolicy:
     """Tests for EmailClassifier._build_reply_policy()."""
@@ -324,6 +346,7 @@ class TestBuildReplyPolicy:
 # classify — LLM call with retry
 # ---------------------------------------------------------------------------
 
+
 class TestClassify:
     """Tests for EmailClassifier.classify() — requires async + mock LLM."""
 
@@ -331,7 +354,9 @@ class TestClassify:
     async def test_returns_classification_on_valid_json(self):
         """Returns parsed classification when LLM returns valid JSON."""
         ctx = MagicMock()
-        valid_json = '{"intent": "notify", "confidence": 0.75, "reasoning": "Update", "priority": "normal"}'
+        valid_json = (
+            '{"intent": "notify", "confidence": 0.75, "reasoning": "Update", "priority": "normal"}'
+        )
         ctx.llm_pipeline.chat = AsyncMock(
             return_value=PipelineResult(content=valid_json),
         )
@@ -349,11 +374,15 @@ class TestClassify:
     async def test_retries_when_prose_returned(self):
         """Retries with JSON reminder when first LLM response is prose."""
         ctx = MagicMock()
-        valid_json = '{"intent": "ignore", "confidence": 0.9, "reasoning": "Newsletter", "priority": "low"}'
-        ctx.llm_pipeline.chat = AsyncMock(side_effect=[
-            PipelineResult(content="I think this should be ignored."),
-            PipelineResult(content=valid_json),
-        ])
+        valid_json = (
+            '{"intent": "ignore", "confidence": 0.9, "reasoning": "Newsletter", "priority": "low"}'
+        )
+        ctx.llm_pipeline.chat = AsyncMock(
+            side_effect=[
+                PipelineResult(content="I think this should be ignored."),
+                PipelineResult(content=valid_json),
+            ]
+        )
         db = MagicMock()
         db.get_sender_history = AsyncMock(return_value=[])
 
@@ -372,10 +401,12 @@ class TestClassify:
     async def test_returns_none_when_both_calls_fail(self):
         """Returns None when both initial call and retry return prose."""
         ctx = MagicMock()
-        ctx.llm_pipeline.chat = AsyncMock(side_effect=[
-            PipelineResult(content="I cannot decide."),
-            PipelineResult(content="Still not JSON."),
-        ])
+        ctx.llm_pipeline.chat = AsyncMock(
+            side_effect=[
+                PipelineResult(content="I cannot decide."),
+                PipelineResult(content="Still not JSON."),
+            ]
+        )
         db = MagicMock()
         db.get_sender_history = AsyncMock(return_value=[])
 
@@ -417,6 +448,7 @@ class TestClassify:
 # ---------------------------------------------------------------------------
 # is_blocked_domain — static, pre-LLM safety
 # ---------------------------------------------------------------------------
+
 
 class TestIsBlockedDomain:
     """Tests for EmailClassifier.is_blocked_domain() — static method."""
@@ -460,58 +492,89 @@ class TestIsBlockedDomain:
 # detect_phishing — static, pre-LLM safety
 # ---------------------------------------------------------------------------
 
+
 class TestDetectPhishing:
     """Tests for EmailClassifier.detect_phishing() — static method."""
 
     def test_account_verification_detected(self):
         """'Verify your account' pattern is detected."""
-        assert EmailClassifier.detect_phishing(
-            "Important: Verify your account", "Please click below.",
-        ) is True
+        assert (
+            EmailClassifier.detect_phishing(
+                "Important: Verify your account",
+                "Please click below.",
+            )
+            is True
+        )
 
     def test_click_here_immediately_detected(self):
         """'Click here immediately' pattern is detected."""
-        assert EmailClassifier.detect_phishing(
-            "Security alert", "Click here immediately to secure your account.",
-        ) is True
+        assert (
+            EmailClassifier.detect_phishing(
+                "Security alert",
+                "Click here immediately to secure your account.",
+            )
+            is True
+        )
 
     def test_account_suspended_detected(self):
         """'Your account has been suspended' pattern is detected."""
-        assert EmailClassifier.detect_phishing(
-            "Account suspended", "Your account has been suspended due to unusual activity.",
-        ) is True
+        assert (
+            EmailClassifier.detect_phishing(
+                "Account suspended",
+                "Your account has been suspended due to unusual activity.",
+            )
+            is True
+        )
 
     def test_urgent_action_required_detected(self):
         """'Urgent action required' pattern is detected."""
-        assert EmailClassifier.detect_phishing(
-            "Urgent action required", "Please respond immediately.",
-        ) is True
+        assert (
+            EmailClassifier.detect_phishing(
+                "Urgent action required",
+                "Please respond immediately.",
+            )
+            is True
+        )
 
     def test_confirm_credentials_detected(self):
         """'Confirm your credentials' pattern is detected."""
-        assert EmailClassifier.detect_phishing(
-            "Security check", "Please confirm your credentials below.",
-        ) is True
+        assert (
+            EmailClassifier.detect_phishing(
+                "Security check",
+                "Please confirm your credentials below.",
+            )
+            is True
+        )
 
     def test_unusual_login_detected(self):
         """'Unusual sign-in detected' pattern is detected."""
-        assert EmailClassifier.detect_phishing(
-            "Security alert", "Unusual sign-in detected on your account.",
-        ) is True
+        assert (
+            EmailClassifier.detect_phishing(
+                "Security alert",
+                "Unusual sign-in detected on your account.",
+            )
+            is True
+        )
 
     def test_legitimate_email_not_flagged(self):
         """Normal business email is not flagged as phishing."""
-        assert EmailClassifier.detect_phishing(
-            "Meeting tomorrow at 3pm",
-            "Hi, can we meet tomorrow to discuss the project? Thanks.",
-        ) is False
+        assert (
+            EmailClassifier.detect_phishing(
+                "Meeting tomorrow at 3pm",
+                "Hi, can we meet tomorrow to discuss the project? Thanks.",
+            )
+            is False
+        )
 
     def test_newsletter_not_flagged(self):
         """Newsletter content is not flagged as phishing."""
-        assert EmailClassifier.detect_phishing(
-            "Weekly AI digest",
-            "Here are this week's top AI stories and developments.",
-        ) is False
+        assert (
+            EmailClassifier.detect_phishing(
+                "Weekly AI digest",
+                "Here are this week's top AI stories and developments.",
+            )
+            is False
+        )
 
     def test_empty_content_not_flagged(self):
         """Empty subject/body does not trigger false positive."""
@@ -519,14 +582,19 @@ class TestDetectPhishing:
 
     def test_case_insensitive(self):
         """Phishing detection is case-insensitive."""
-        assert EmailClassifier.detect_phishing(
-            "VERIFY YOUR ACCOUNT NOW", "CLICK HERE IMMEDIATELY",
-        ) is True
+        assert (
+            EmailClassifier.detect_phishing(
+                "VERIFY YOUR ACCOUNT NOW",
+                "CLICK HERE IMMEDIATELY",
+            )
+            is True
+        )
 
 
 # ---------------------------------------------------------------------------
 # classify — pre-LLM safety checks integration
 # ---------------------------------------------------------------------------
+
 
 class TestClassifyPreLLMSafety:
     """Tests for pre-LLM safety checks in EmailClassifier.classify()."""
@@ -594,7 +662,9 @@ class TestClassifyPreLLMSafety:
     async def test_safe_email_reaches_llm(self):
         """Emails that pass safety checks are classified by LLM."""
         ctx = MagicMock()
-        valid_json = '{"intent": "reply", "confidence": 0.9, "reasoning": "Meeting", "priority": "normal"}'
+        valid_json = (
+            '{"intent": "reply", "confidence": 0.9, "reasoning": "Meeting", "priority": "normal"}'
+        )
         ctx.llm_pipeline.chat = AsyncMock(
             return_value=PipelineResult(content=valid_json),
         )

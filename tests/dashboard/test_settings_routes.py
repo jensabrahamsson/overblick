@@ -353,6 +353,7 @@ class TestSettingsStep7:
     @pytest.mark.asyncio
     async def test_step7_renders(self, client, session_cookie, app):
         from overblick.setup.wizard import _get_state
+
         state = _get_state(app)
         state["selected_use_cases"] = ["social_media"]
 
@@ -366,6 +367,7 @@ class TestSettingsStep7:
     @pytest.mark.asyncio
     async def test_step7_post_redirects_to_review(self, client, session_cookie, app):
         from overblick.setup.wizard import _get_state
+
         state = _get_state(app)
         state["selected_use_cases"] = ["social_media"]
 
@@ -393,11 +395,17 @@ class TestSettingsStep8:
     @pytest.mark.asyncio
     async def test_step8_renders(self, client, session_cookie, app):
         from overblick.setup.wizard import _get_state
+
         state = _get_state(app)
         state["selected_use_cases"] = ["social_media"]
         state["assignments"] = {
-            "social_media": {"personality": "cherry", "temperature": 0.8,
-                             "max_tokens": 2000, "heartbeat_hours": 4, "quiet_hours": True},
+            "social_media": {
+                "personality": "cherry",
+                "temperature": 0.8,
+                "max_tokens": 2000,
+                "heartbeat_hours": 4,
+                "quiet_hours": True,
+            },
         }
 
         cookie_value, _ = session_cookie
@@ -411,30 +419,57 @@ class TestSettingsStep8:
     @pytest.mark.asyncio
     async def test_step8_post_provisions_and_redirects(self, client, session_cookie, app, tmp_path):
         from overblick.setup.wizard import _get_state, _derive_provisioner_state
+
         state = _get_state(app)
-        state["principal"] = {"principal_name": "Alice", "principal_email": "",
-                              "timezone": "Europe/Stockholm", "language_preference": "en"}
+        state["principal"] = {
+            "principal_name": "Alice",
+            "principal_email": "",
+            "timezone": "Europe/Stockholm",
+            "language_preference": "en",
+        }
         state["llm"] = {
             "gateway_url": "http://127.0.0.1:8200",
-            "local": {"enabled": True, "backend_type": "ollama",
-                      "host": "127.0.0.1", "port": 11434, "model": "qwen3:8b"},
-            "cloud": {"enabled": False, "backend_type": "ollama",
-                      "host": "", "port": 11434, "model": "qwen3:8b"},
-            "deepseek": {"enabled": False, "api_url": "https://api.deepseek.com/v1",
-                         "model": "deepseek-chat"},
-            "openai": {"enabled": False, "api_url": "https://api.openai.com/v1",
-                       "model": "gpt-4o"},
+            "local": {
+                "enabled": True,
+                "backend_type": "ollama",
+                "host": "127.0.0.1",
+                "port": 11434,
+                "model": "qwen3:8b",
+            },
+            "cloud": {
+                "enabled": False,
+                "backend_type": "ollama",
+                "host": "",
+                "port": 11434,
+                "model": "qwen3:8b",
+            },
+            "deepseek": {
+                "enabled": False,
+                "api_url": "https://api.deepseek.com/v1",
+                "model": "deepseek-chat",
+            },
+            "openai": {"enabled": False, "api_url": "https://api.openai.com/v1", "model": "gpt-4o"},
             "default_backend": "local",
             "default_temperature": 0.7,
             "default_max_tokens": 2000,
         }
-        state["communication"] = {"gmail_enabled": False, "gmail_address": "",
-                                  "gmail_app_password": "", "telegram_enabled": False,
-                                  "telegram_bot_token": "", "telegram_chat_id": ""}
+        state["communication"] = {
+            "gmail_enabled": False,
+            "gmail_address": "",
+            "gmail_app_password": "",
+            "telegram_enabled": False,
+            "telegram_bot_token": "",
+            "telegram_chat_id": "",
+        }
         state["selected_use_cases"] = ["social_media"]
         state["assignments"] = {
-            "social_media": {"personality": "cherry", "temperature": 0.8,
-                             "max_tokens": 2000, "heartbeat_hours": 4, "quiet_hours": True},
+            "social_media": {
+                "personality": "cherry",
+                "temperature": 0.8,
+                "max_tokens": 2000,
+                "heartbeat_hours": 4,
+                "quiet_hours": True,
+            },
         }
         _derive_provisioner_state(state)
 
@@ -459,18 +494,23 @@ class TestSettingsStep8:
     @pytest.mark.asyncio
     async def test_step8_provisioning_failure_shows_error(self, client, session_cookie, app):
         from overblick.setup.wizard import _get_state, _derive_provisioner_state
+
         state = _get_state(app)
         state["selected_use_cases"] = ["social_media"]
         state["assignments"] = {
-            "social_media": {"personality": "cherry", "temperature": 0.8,
-                             "max_tokens": 2000, "heartbeat_hours": 4, "quiet_hours": True},
+            "social_media": {
+                "personality": "cherry",
+                "temperature": 0.8,
+                "max_tokens": 2000,
+                "heartbeat_hours": 4,
+                "quiet_hours": True,
+            },
         }
         _derive_provisioner_state(state)
 
         cookie_value, csrf_token = session_cookie
 
-        with patch("overblick.setup.provisioner.provision",
-                   side_effect=RuntimeError("Disk full")):
+        with patch("overblick.setup.provisioner.provision", side_effect=RuntimeError("Disk full")):
             resp = await client.post(
                 "/settings/step/8",
                 headers={"X-CSRF-Token": csrf_token},

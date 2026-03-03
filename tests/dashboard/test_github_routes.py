@@ -50,8 +50,10 @@ class TestGitHubRoute:
                 },
             ],
             "stats": {
-                "events": 150, "actions_taken": 25,
-                "comments_posted": 12, "prs_tracked": 8,
+                "events": 150,
+                "actions_taken": 25,
+                "comments_posted": 12,
+                "prs_tracked": 8,
             },
             "prs": [
                 {
@@ -95,12 +97,14 @@ class TestGitHubRoute:
     def test_github_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when no identity has github."""
         from overblick.dashboard.routes import github_dash
+
         monkeypatch.chdir(tmp_path)
         assert github_dash.has_data() is False
 
     def test_github_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when github is configured."""
         from overblick.dashboard.routes import github_dash
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "smed"
         ids.mkdir(parents=True)

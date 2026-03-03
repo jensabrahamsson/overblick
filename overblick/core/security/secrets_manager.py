@@ -64,6 +64,7 @@ class SecretsManager:
         keyring_failed = False
         try:
             import keyring
+
             stored = keyring.get_password(_KEYRING_SERVICE, "master_key")
             if stored:
                 return stored.encode()
@@ -92,23 +93,26 @@ class SecretsManager:
 
         # First-time setup only: generate and store new key
         from cryptography.fernet import Fernet
+
         new_key = Fernet.generate_key()
 
         # Try to store in keyring
         try:
             import keyring
+
             keyring.set_password(_KEYRING_SERVICE, "master_key", new_key.decode())
             logger.info("Master key stored in system keyring")
         except Exception:
             # Fallback to file
             from overblick.shared.platform import set_restrictive_permissions
+
             key_file.write_bytes(new_key)
             set_restrictive_permissions(key_file)
             logger.info("Master key stored in file (keyring unavailable)")
 
         return new_key
 
-    def get(self, identity: str, key: str) -> Optional[str]:
+    def get(self, identity: str, key: str) -> str | None:
         """
         Get a decrypted secret.
 
@@ -160,6 +164,7 @@ class SecretsManager:
         with open(secrets_path, "w") as f:
             yaml.safe_dump(secrets, f)
         from overblick.shared.platform import set_restrictive_permissions
+
         set_restrictive_permissions(secrets_path)
 
         # Update cache

@@ -77,9 +77,11 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 def cmd_dashboard(args: argparse.Namespace) -> None:
     """Start the web dashboard."""
-    from overblick.dashboard.__main__ import main as dashboard_main
-    # Override sys.argv so dashboard's argparse picks up our args
     import sys
+
+    # Override sys.argv so dashboard's argparse picks up our args
+    from overblick.dashboard.__main__ import main as dashboard_main
+
     sys.argv = ["overblick-dashboard", "--port", str(args.port), "--host", args.host]
     if args.verbose:
         sys.argv.append("--verbose")
@@ -89,6 +91,7 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
 def cmd_secrets_import(args: argparse.Namespace) -> None:
     """Import plaintext secrets for an identity."""
     import yaml
+
     from overblick.core.security.secrets_manager import SecretsManager
 
     base_dir = Path(__file__).parent.parent
@@ -109,6 +112,7 @@ def cmd_secrets_import(args: argparse.Namespace) -> None:
 def cmd_setup(args: argparse.Namespace) -> None:
     """Launch the first-time onboarding setup wizard."""
     from overblick.setup.__main__ import main as setup_main
+
     setup_main(sandbox=args.sandbox, headless=args.headless)
 
 
@@ -129,6 +133,7 @@ def cmd_start(args: argparse.Namespace) -> None:
     if host == "127.0.0.1":
         try:
             from overblick.dashboard.config import DashboardConfig
+
             dash_cfg = DashboardConfig.from_env()
             host = dash_cfg.bind_host
         except Exception:
@@ -165,11 +170,13 @@ def cmd_start(args: argparse.Namespace) -> None:
         webbrowser.open(url)
 
     import threading
+
     threading.Thread(target=_open_browser, daemon=True).start()
 
     # Start dashboard in foreground (blocks until Ctrl+C)
     try:
         from overblick.dashboard.__main__ import main as dashboard_main
+
         sys.argv = ["overblick-dashboard", "--port", str(port), "--host", host]
         if args.verbose:
             sys.argv.append("--verbose")
@@ -232,20 +239,21 @@ def cmd_api_keys(args: argparse.Namespace) -> None:
                 requests_per_minute=args.rpm,
             )
 
-            print(f"\nAPI Key created successfully!")
+            print("\nAPI Key created successfully!")
             print(f"  Name:    {record.name}")
             print(f"  ID:      {record.key_id}")
             print(f"  Prefix:  {record.key_prefix}")
             if record.expires_at:
-                from datetime import datetime, timezone
-                exp = datetime.fromtimestamp(record.expires_at, tz=timezone.utc)
+                from datetime import datetime
+
+                exp = datetime.fromtimestamp(record.expires_at, tz=datetime.UTC)
                 print(f"  Expires: {exp.strftime('%Y-%m-%d %H:%M UTC')}")
             else:
-                print(f"  Expires: never")
+                print("  Expires: never")
             print(f"  RPM:     {record.requests_per_minute}")
-            print(f"\n  Full key (shown ONCE — store it securely):")
+            print("\n  Full key (shown ONCE — store it securely):")
             print(f"  {raw_key}")
-            print(f"\n  WARNING: This key cannot be retrieved again.")
+            print("\n  WARNING: This key cannot be retrieved again.")
 
         elif args.keys_cmd == "list":
             keys = manager.list_keys()
@@ -253,15 +261,20 @@ def cmd_api_keys(args: argparse.Namespace) -> None:
                 print("No API keys configured.")
                 return
 
-            print(f"\n{'ID':<10} {'Name':<20} {'Prefix':<14} {'RPM':>5} {'Requests':>10} {'Status':<10}")
+            print(
+                f"\n{'ID':<10} {'Name':<20} {'Prefix':<14} {'RPM':>5} {'Requests':>10} {'Status':<10}"
+            )
             print("-" * 75)
             for k in keys:
                 status = "revoked" if k.revoked else "active"
                 if k.expires_at:
                     import time
+
                     if time.time() > k.expires_at:
                         status = "expired"
-                print(f"{k.key_id:<10} {k.name:<20} {k.key_prefix:<14} {k.requests_per_minute:>5} {k.total_requests:>10} {status:<10}")
+                print(
+                    f"{k.key_id:<10} {k.name:<20} {k.key_prefix:<14} {k.requests_per_minute:>5} {k.total_requests:>10} {status:<10}"
+                )
 
         elif args.keys_cmd == "revoke":
             if manager.revoke_key(args.key_id):
@@ -277,10 +290,10 @@ def cmd_api_keys(args: argparse.Namespace) -> None:
                 print(f"\nKey {args.key_id} rotated. New key:")
                 print(f"  ID:     {record.key_id}")
                 print(f"  Prefix: {record.key_prefix}")
-                print(f"\n  Full key (shown ONCE — store it securely):")
+                print("\n  Full key (shown ONCE — store it securely):")
                 print(f"  {raw_key}")
-                print(f"\n  WARNING: This key cannot be retrieved again.")
-                print(f"  The old key has been revoked.")
+                print("\n  WARNING: This key cannot be retrieved again.")
+                print("  The old key has been revoked.")
             else:
                 print(f"Key {args.key_id} not found or already revoked.")
                 sys.exit(1)
@@ -291,6 +304,7 @@ def cmd_api_keys(args: argparse.Namespace) -> None:
 def cmd_manage(args: argparse.Namespace) -> None:
     """Delegate to the cross-platform service manager CLI."""
     from overblick.manage.__main__ import main as manage_main
+
     manage_main(args.manage_args)
 
 
@@ -345,7 +359,9 @@ def main() -> None:
 
     # dashboard
     dash_parser = subparsers.add_parser("dashboard", help="Start web dashboard")
-    dash_parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
+    dash_parser.add_argument(
+        "--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)"
+    )
     dash_parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
     dash_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
     dash_parser.set_defaults(func=cmd_dashboard)
@@ -366,8 +382,12 @@ def main() -> None:
 
     # start (gateway + dashboard in one command)
     start_parser = subparsers.add_parser("start", help="Start gateway + dashboard (opens browser)")
-    start_parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
-    start_parser.add_argument("--port", type=int, default=8080, help="Dashboard port (default: 8080)")
+    start_parser.add_argument(
+        "--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)"
+    )
+    start_parser.add_argument(
+        "--port", type=int, default=8080, help="Dashboard port (default: 8080)"
+    )
     start_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
     start_parser.set_defaults(func=cmd_start)
 
@@ -379,10 +399,14 @@ def main() -> None:
     sup_parser.set_defaults(func=cmd_supervisor)
 
     # internet-gateway
-    inet_parser = subparsers.add_parser("internet-gateway", help="Start Internet Gateway (secure LLM proxy)")
+    inet_parser = subparsers.add_parser(
+        "internet-gateway", help="Start Internet Gateway (secure LLM proxy)"
+    )
     inet_parser.add_argument("--host", default=None, help="Host to bind (default: 0.0.0.0)")
     inet_parser.add_argument("--port", type=int, default=None, help="Port (default: 8201)")
-    inet_parser.add_argument("--no-tls", action="store_true", help="Disable TLS (dev mode, forces localhost)")
+    inet_parser.add_argument(
+        "--no-tls", action="store_true", help="Disable TLS (dev mode, forces localhost)"
+    )
     inet_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
     inet_parser.set_defaults(func=cmd_internet_gateway)
 
@@ -393,10 +417,14 @@ def main() -> None:
     create_parser = keys_sub.add_parser("create", help="Create a new API key")
     create_parser.add_argument("--name", required=True, help="Key name (e.g. 'my-laptop')")
     create_parser.add_argument("--expires", default=None, help="Expiry (e.g. '90d' for 90 days)")
-    create_parser.add_argument("--rpm", type=int, default=30, help="Requests per minute (default: 30)")
+    create_parser.add_argument(
+        "--rpm", type=int, default=30, help="Requests per minute (default: 30)"
+    )
     create_parser.add_argument("--models", default=None, help="Comma-separated allowed models")
     create_parser.add_argument("--backends", default=None, help="Comma-separated allowed backends")
-    create_parser.add_argument("--max-tokens", type=int, default=4096, help="Max tokens cap (default: 4096)")
+    create_parser.add_argument(
+        "--max-tokens", type=int, default=4096, help="Max tokens cap (default: 4096)"
+    )
     create_parser.set_defaults(func=cmd_api_keys)
 
     list_keys_parser = keys_sub.add_parser("list", help="List all API keys")

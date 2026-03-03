@@ -21,10 +21,10 @@ from overblick.capabilities import (
     OpeningCapability,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_ctx(**overrides) -> CapabilityContext:
     """Create a minimal CapabilityContext for testing."""
@@ -41,6 +41,7 @@ def make_ctx(**overrides) -> CapabilityContext:
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
+
 
 class TestCapabilityRegistry:
     def test_default_registry_has_all_capabilities(self):
@@ -115,6 +116,7 @@ class TestResolveCapabilities:
 # DreamCapability
 # ---------------------------------------------------------------------------
 
+
 class TestDreamCapability:
     @pytest.mark.asyncio
     async def test_setup_creates_dream_system(self):
@@ -159,6 +161,7 @@ class TestDreamCapability:
 # TherapyCapability
 # ---------------------------------------------------------------------------
 
+
 class TestTherapyCapability:
     @pytest.mark.asyncio
     async def test_setup_creates_therapy_system(self):
@@ -194,6 +197,7 @@ class TestTherapyCapability:
 # ---------------------------------------------------------------------------
 # EmotionalCapability
 # ---------------------------------------------------------------------------
+
 
 class TestEmotionalCapability:
     @pytest.mark.asyncio
@@ -252,13 +256,10 @@ class TestEmotionalCapability:
         assert cap.name == "emotional_state"
 
 
-
-
-
-
 # ---------------------------------------------------------------------------
 # KnowledgeCapability
 # ---------------------------------------------------------------------------
+
 
 class TestKnowledgeCapability:
     @pytest.mark.asyncio
@@ -301,6 +302,7 @@ class TestKnowledgeCapability:
 # OpeningCapability
 # ---------------------------------------------------------------------------
 
+
 class TestOpeningCapability:
     @pytest.mark.asyncio
     async def test_setup_creates_selector(self):
@@ -336,6 +338,7 @@ class TestOpeningCapability:
 # ---------------------------------------------------------------------------
 # Integration: Plugin uses capabilities
 # ---------------------------------------------------------------------------
+
 
 class TestPluginCapabilityIntegration:
     """Verify that MoltbookPlugin correctly uses CapabilityRegistry."""

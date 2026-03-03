@@ -15,13 +15,15 @@ def main() -> None:
         description="Överblick Dashboard — Agent monitoring and onboarding",
     )
     parser.add_argument(
-        "--host", default="127.0.0.1",
+        "--host",
+        default="127.0.0.1",
         help="Host to bind (default: 127.0.0.1, use 0.0.0.0 for LAN access)",
     )
     parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
     parser.add_argument(
-        "--test", action="store_true",
+        "--test",
+        action="store_true",
         help="Test mode: disable auth, deterministic secret key, skip first-run redirect",
     )
 
@@ -39,6 +41,7 @@ def main() -> None:
     )
 
     from .config import get_config
+
     config = get_config()
     config.port = args.port
 
@@ -50,6 +53,7 @@ def main() -> None:
         print("TEST MODE ACTIVE")
 
     from .app import create_app
+
     app = create_app(config)
 
     # Determine host: CLI flag > config bind_host (with safety guard) > default
@@ -60,6 +64,7 @@ def main() -> None:
         config.host = config.bind_host
 
     import uvicorn
+
     uvicorn.run(
         app,
         host=config.host,

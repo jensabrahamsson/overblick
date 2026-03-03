@@ -28,10 +28,10 @@ class EmailConsultationHandler:
     and provide an advised action.
     """
 
-    def __init__(self, audit_log: Optional[AuditLog] = None):
+    def __init__(self, audit_log: AuditLog | None = None):
         self._audit_log = audit_log
         self._llm_pipeline = None
-        self._system_prompt: Optional[str] = None
+        self._system_prompt: str | None = None
         self._initialized = False
 
     async def _ensure_initialized(self) -> bool:
@@ -40,7 +40,7 @@ class EmailConsultationHandler:
             return True
 
         try:
-            from overblick.identities import load_identity, build_system_prompt
+            from overblick.identities import build_system_prompt, load_identity
 
             anomal = load_identity("anomal")
             base_prompt = build_system_prompt(anomal, platform="Supervisor IPC")
@@ -81,18 +81,14 @@ class EmailConsultationHandler:
             )
 
             self._initialized = True
-            logger.info(
-                "EmailConsultationHandler initialized with Anomal's personality"
-            )
+            logger.info("EmailConsultationHandler initialized with Anomal's personality")
             return True
 
         except Exception as e:
-            logger.error(
-                "Failed to initialize EmailConsultationHandler: %s", e, exc_info=True
-            )
+            logger.error("Failed to initialize EmailConsultationHandler: %s", e, exc_info=True)
             return False
 
-    async def handle(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def handle(self, msg: IPCMessage) -> IPCMessage | None:
         """
         Handle an email_consultation IPC message.
 
@@ -225,9 +221,7 @@ class EmailConsultationHandler:
             if start >= 0 and end > start:
                 try:
                     data = json.loads(raw[start:end])
-                    return data.get("advised_action", fallback_action), data.get(
-                        "reasoning", ""
-                    )
+                    return data.get("advised_action", fallback_action), data.get("reasoning", "")
                 except json.JSONDecodeError:
                     pass
 

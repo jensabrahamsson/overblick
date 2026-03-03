@@ -17,9 +17,10 @@ class PersonalityService:
     def list_identities(self) -> list[str]:
         """List available identity names."""
         from overblick.identities import list_identities
+
         return list_identities()
 
-    def get_personality(self, name: str) -> Optional[dict[str, Any]]:
+    def get_personality(self, name: str) -> dict[str, Any] | None:
         """
         Get personality character data as a serializable dict.
 
@@ -27,6 +28,7 @@ class PersonalityService:
         """
         try:
             from overblick.identities import load_identity
+
             p = load_identity(name)
             return {
                 "name": p.name,

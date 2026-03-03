@@ -9,7 +9,7 @@ import asyncio
 import logging
 import sqlite3
 
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
@@ -34,25 +34,29 @@ async def log_agent_page(request: Request, page: int = Query(default=1, ge=1)):
 
     all_actions = data["actions"]
     total = len(all_actions)
-    actions = all_actions[:page * _PAGE_SIZE]
+    actions = all_actions[: page * _PAGE_SIZE]
     has_more = total > page * _PAGE_SIZE
 
-    return templates.TemplateResponse("log_agent.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "actions": actions,
-        "goals": data["goals"],
-        "stats": data["stats"],
-        "ticks": data["ticks"],
-        "page": page,
-        "has_more": has_more,
-        "data_errors": data_errors,
-    })
+    return templates.TemplateResponse(
+        "log_agent.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "actions": actions,
+            "goals": data["goals"],
+            "stats": data["stats"],
+            "ticks": data["ticks"],
+            "page": page,
+            "has_more": has_more,
+            "data_errors": data_errors,
+        },
+    )
 
 
 def has_data() -> bool:
     """Return True if log_agent plugin is configured for any identity."""
     from overblick.dashboard.routes._plugin_utils import is_plugin_configured
+
     return is_plugin_configured("log_agent")
 
 
@@ -87,17 +91,19 @@ def _load_log_data(request: Request) -> dict:
                     "FROM action_log ORDER BY created_at DESC LIMIT 50"
                 ).fetchall()
                 for row in rows:
-                    actions.append({
-                        "identity": identity_name,
-                        "action_type": row["action_type"],
-                        "target": row["target"],
-                        "reasoning": row["reasoning"],
-                        "success": bool(row["success"]),
-                        "result": row["result"],
-                        "error": row["error"],
-                        "duration_ms": row["duration_ms"],
-                        "created_at": row["created_at"],
-                    })
+                    actions.append(
+                        {
+                            "identity": identity_name,
+                            "action_type": row["action_type"],
+                            "target": row["target"],
+                            "reasoning": row["reasoning"],
+                            "success": bool(row["success"]),
+                            "result": row["result"],
+                            "error": row["error"],
+                            "duration_ms": row["duration_ms"],
+                            "created_at": row["created_at"],
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 
@@ -108,14 +114,16 @@ def _load_log_data(request: Request) -> dict:
                     "FROM agent_goals ORDER BY priority DESC"
                 ).fetchall()
                 for row in rows:
-                    goals.append({
-                        "identity": identity_name,
-                        "name": row["name"],
-                        "description": row["description"],
-                        "priority": row["priority"],
-                        "status": row["status"],
-                        "progress": row["progress"],
-                    })
+                    goals.append(
+                        {
+                            "identity": identity_name,
+                            "name": row["name"],
+                            "description": row["description"],
+                            "priority": row["priority"],
+                            "status": row["status"],
+                            "progress": row["progress"],
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 
@@ -128,25 +136,25 @@ def _load_log_data(request: Request) -> dict:
                     "FROM tick_log ORDER BY tick_number DESC LIMIT 20"
                 ).fetchall()
                 for row in rows:
-                    ticks.append({
-                        "identity": identity_name,
-                        "tick": row["tick_number"],
-                        "observations": row["observations_count"],
-                        "planned": row["actions_planned"],
-                        "executed": row["actions_executed"],
-                        "succeeded": row["actions_succeeded"],
-                        "summary": row["reasoning_summary"],
-                        "duration_ms": row["duration_ms"],
-                        "completed_at": row["completed_at"],
-                    })
+                    ticks.append(
+                        {
+                            "identity": identity_name,
+                            "tick": row["tick_number"],
+                            "observations": row["observations_count"],
+                            "planned": row["actions_planned"],
+                            "executed": row["actions_executed"],
+                            "succeeded": row["actions_succeeded"],
+                            "summary": row["reasoning_summary"],
+                            "duration_ms": row["duration_ms"],
+                            "completed_at": row["completed_at"],
+                        }
+                    )
             except sqlite3.OperationalError:
                 pass
 
             # Stats
             try:
-                stats["total_ticks"] += conn.execute(
-                    "SELECT COUNT(*) FROM tick_log"
-                ).fetchone()[0]
+                stats["total_ticks"] += conn.execute("SELECT COUNT(*) FROM tick_log").fetchone()[0]
             except sqlite3.OperationalError:
                 pass
             try:

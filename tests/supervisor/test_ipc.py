@@ -97,16 +97,17 @@ class TestIPCMessage:
         assert msg.auth_token == "tok"
 
     def test_status_response_factory(self):
-        msg = IPCMessage.status_response(
-            status={"state": "running"}, sender="supervisor"
-        )
+        msg = IPCMessage.status_response(status={"state": "running"}, sender="supervisor")
         assert msg.msg_type == "status_response"
         assert msg.payload == {"state": "running"}
 
     def test_permission_request_factory(self):
         msg = IPCMessage.permission_request(
-            resource="moltbook", action="post", reason="heartbeat",
-            sender="anomal", auth_token="tok",
+            resource="moltbook",
+            action="post",
+            reason="heartbeat",
+            sender="anomal",
+            auth_token="tok",
         )
         assert msg.msg_type == "permission_request"
         assert msg.payload["resource"] == "moltbook"
@@ -164,6 +165,7 @@ class TestIPCServer:
     @pytest.mark.asyncio
     async def test_token_file_created_with_secure_permissions(self, ipc_dir):
         from overblick.supervisor.ipc import read_ipc_token
+
         srv = IPCServer(name="test", socket_dir=ipc_dir, auth_token="secrettoken")
         await srv.start()
         token_path = srv.token_path
@@ -225,7 +227,9 @@ class TestIPCServer:
         assert srv.rejected_count == 0
         # Send a message with wrong token
         client = IPCClient(
-            target="test", socket_dir=srv._socket_dir, auth_token="bad-token",
+            target="test",
+            socket_dir=srv._socket_dir,
+            auth_token="bad-token",
         )
         await client.send(IPCMessage(msg_type="test"))
         # Small delay for server to process
@@ -242,9 +246,7 @@ class TestIPCClientServer:
         srv = IPCServer(name="test", socket_dir=ipc_dir, auth_token=token)
 
         async def status_handler(msg: IPCMessage):
-            return IPCMessage.status_response(
-                status={"state": "running"}, sender="supervisor"
-            )
+            return IPCMessage.status_response(status={"state": "running"}, sender="supervisor")
 
         srv.on("status_request", status_handler)
         await srv.start()
@@ -314,9 +316,7 @@ class TestIPCClientServer:
         srv = IPCServer(name="test", socket_dir=ipc_dir, auth_token=token)
 
         async def perm_handler(msg: IPCMessage):
-            return IPCMessage.permission_response(
-                granted=True, reason="auto-approved"
-            )
+            return IPCMessage.permission_response(granted=True, reason="auto-approved")
 
         srv.on("permission_request", perm_handler)
         await srv.start()
@@ -324,8 +324,10 @@ class TestIPCClientServer:
         try:
             client = IPCClient(target="test", socket_dir=ipc_dir, auth_token=token)
             granted = await client.request_permission(
-                resource="moltbook", action="post",
-                reason="heartbeat", sender="anomal",
+                resource="moltbook",
+                action="post",
+                reason="heartbeat",
+                sender="anomal",
             )
             assert granted is True
         finally:
@@ -346,9 +348,7 @@ class TestIPCClientServer:
 
         try:
             client = IPCClient(target="test", socket_dir=ipc_dir, auth_token=token)
-            result = await client.send(
-                IPCMessage(msg_type="unknown_type", auth_token=token)
-            )
+            result = await client.send(IPCMessage(msg_type="unknown_type", auth_token=token))
             # No handler means no response
             assert result is None
         finally:
@@ -415,6 +415,7 @@ class TestReadIPCToken:
         # the internal write mechanism via start/stop
         # Instead, test read_ipc_token with a known token
         from overblick.supervisor.ipc import _encrypt_token
+
         token_path = tmp_path / "overblick-read_test.token"
         token_path.write_bytes(_encrypt_token(token))
         result = read_ipc_token("read_test", socket_dir=tmp_path)
@@ -463,9 +464,7 @@ class TestTCPTransport:
             srv = IPCServer(name="tcp_rt", socket_dir=ipc_dir, auth_token=token)
 
             async def status_handler(msg: IPCMessage):
-                return IPCMessage.status_response(
-                    status={"transport": "tcp"}, sender="supervisor"
-                )
+                return IPCMessage.status_response(status={"transport": "tcp"}, sender="supervisor")
 
             srv.on("status_request", status_handler)
             await srv.start()
@@ -516,9 +515,7 @@ class TestTCPTransport:
             srv = IPCServer(name="tcp_auto", socket_dir=ipc_dir, auth_token=token)
 
             async def handler(msg: IPCMessage):
-                return IPCMessage.status_response(
-                    status={"auto": True}, sender="supervisor"
-                )
+                return IPCMessage.status_response(status={"auto": True}, sender="supervisor")
 
             srv.on("status_request", handler)
             await srv.start()
@@ -531,9 +528,7 @@ class TestTCPTransport:
                     tcp_port=srv.tcp_port,  # Explicit for now (auto-read tested below)
                 )
                 # The token should be auto-loaded from .conn
-                response = await client.send(
-                    IPCMessage.status_request(sender="test")
-                )
+                response = await client.send(IPCMessage.status_request(sender="test"))
                 # Without matching token, it may be rejected
                 # This test verifies the TCP transport itself works
             finally:
@@ -582,6 +577,7 @@ class TestConnFile:
         """Reading plaintext JSON .conn file works as fallback."""
         conn_path = tmp_path / "plain.conn"
         import json
+
         conn_path.write_text(json.dumps({"port": 8888, "token": "abc"}))
         result = _read_conn_file(conn_path)
         assert result == {"port": 8888, "token": "abc"}
@@ -589,6 +585,7 @@ class TestConnFile:
     def test_read_ipc_token_from_conn(self, tmp_path):
         """read_ipc_token can read token from .conn file."""
         import json
+
         conn_path = tmp_path / "overblick-conn_test.conn"
         conn_path.write_text(json.dumps({"port": 9999, "token": "my_token"}))
         result = read_ipc_token("conn_test", socket_dir=tmp_path)

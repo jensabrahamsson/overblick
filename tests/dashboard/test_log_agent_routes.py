@@ -50,8 +50,10 @@ class TestLogAgentRoute:
                 },
             ],
             "stats": {
-                "total_ticks": 200, "actions_taken": 45,
-                "alerts_sent": 12, "learnings": 8,
+                "total_ticks": 200,
+                "actions_taken": 45,
+                "alerts_sent": 12,
+                "learnings": 8,
             },
             "ticks": [
                 {
@@ -93,12 +95,14 @@ class TestLogAgentRoute:
     def test_log_agent_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when no identity has log_agent."""
         from overblick.dashboard.routes import log_agent
+
         monkeypatch.chdir(tmp_path)
         assert log_agent.has_data() is False
 
     def test_log_agent_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when log_agent is configured."""
         from overblick.dashboard.routes import log_agent
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "smed"
         ids.mkdir(parents=True)

@@ -7,10 +7,11 @@ ONLY interface to the framework. This ensures clean isolation.
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Callable, Optional
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Optional
 
-from pydantic import BaseModel, ConfigDict, PrivateAttr, SkipValidation
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SkipValidation
 
 if TYPE_CHECKING:
     from overblick.core.db.engagement_db import EngagementDB
@@ -81,13 +82,13 @@ class PluginContext(BaseModel):
     learning_store: Annotated[Optional["LearningStore"], SkipValidation] = None
 
     # Shared capabilities (populated by orchestrator)
-    capabilities: dict[str, Any] = {}
+    capabilities: dict[str, Any] = Field(default_factory=dict)
 
     # Secrets accessor — Callable[[str], Optional[str]]
     _secrets_getter: Any = PrivateAttr(default=None)
     _llm_client: Any = PrivateAttr(default=None)
 
-    def get_secret(self, key: str) -> Optional[str]:
+    def get_secret(self, key: str) -> str | None:
         """
         Get a secret value by key.
 
@@ -101,7 +102,7 @@ class PluginContext(BaseModel):
             return self._secrets_getter(key)
         return None
 
-    def get_capability(self, name: str) -> Optional[Any]:
+    def get_capability(self, name: str) -> Any | None:
         """
         Get a capability by name from the shared capabilities dict.
 
@@ -192,10 +193,10 @@ class PluginContext(BaseModel):
         self,
         target: str,
         message_type: str,
-        payload: Optional[dict] = None,
+        payload: dict | None = None,
         ttl_seconds: float = 300.0,
         timeout: float = 10.0,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """
         Send a message to another agent via the Supervisor's MessageRouter.
 
@@ -235,9 +236,9 @@ class PluginContext(BaseModel):
     async def send_ipc_message(
         self,
         msg_type: str,
-        payload: Optional[dict] = None,
+        payload: dict | None = None,
         timeout: float = 30.0,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """
         Send a raw IPC message to the supervisor.
 
@@ -308,7 +309,7 @@ class PluginBase(ABC):
     # Capabilities required by this plugin (e.g., "network_outbound", "filesystem_write")
     # Plugins should declare minimal capabilities needed for operation.
     # Users must grant these capabilities in identity configuration.
-    REQUIRED_CAPABILITIES: list[str] = []
+    REQUIRED_CAPABILITIES: ClassVar[list[str]] = []
 
     def __init__(self, ctx: PluginContext):
         self.ctx = ctx

@@ -59,8 +59,12 @@ class TestDevRoute:
                 },
             ],
             "stats": {
-                "total_bugs": 10, "fixed": 6, "failed": 1,
-                "in_progress": 2, "fix_attempts": 18, "prs_created": 5,
+                "total_bugs": 10,
+                "fixed": 6,
+                "failed": 1,
+                "in_progress": 2,
+                "fix_attempts": 18,
+                "prs_created": 5,
             },
         }
 
@@ -89,12 +93,14 @@ class TestDevRoute:
     def test_dev_has_data_no_dir(self, tmp_path, monkeypatch):
         """has_data() returns False when no identity has dev_agent."""
         from overblick.dashboard.routes import dev
+
         monkeypatch.chdir(tmp_path)
         assert dev.has_data() is False
 
     def test_dev_has_data_with_config(self, tmp_path, monkeypatch):
         """has_data() returns True when dev_agent is configured."""
         from overblick.dashboard.routes import dev
+
         monkeypatch.chdir(tmp_path)
         ids = tmp_path / "overblick" / "identities" / "smed"
         ids.mkdir(parents=True)

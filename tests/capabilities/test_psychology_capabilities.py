@@ -19,28 +19,38 @@ from datetime import date
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from overblick.capabilities.psychology.dream_system import (
-    DreamSystem, DreamType, DreamTone, Dream,
+    DreamSystem,
+    DreamType,
+    DreamTone,
+    Dream,
 )
 from overblick.capabilities.psychology.emotional_state import (
-    EmotionalState, Mood,
-    AnomalEmotionalState, CherryEmotionalState,
+    EmotionalState,
+    Mood,
+    AnomalEmotionalState,
+    CherryEmotionalState,
 )
 from overblick.capabilities.psychology.dream import DreamCapability
 from overblick.capabilities.psychology.emotional import EmotionalCapability
 from overblick.capabilities.psychology.therapy_system import (
-    JungianAnalysis, FreudianAnalysis,
-    TherapyFocus, TherapySession, THERAPY_TEMPLATES,
-    TherapySystem, CherryTherapySystem,
+    JungianAnalysis,
+    FreudianAnalysis,
+    TherapyFocus,
+    TherapySession,
+    THERAPY_TEMPLATES,
+    TherapySystem,
+    CherryTherapySystem,
 )
 from overblick.capabilities.psychology.therapy import TherapyCapability
 from overblick.core.capability import CapabilityContext
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _make_ctx(identity_name: str, config: dict | None = None) -> CapabilityContext:
     """Build a minimal CapabilityContext for testing."""
     from pathlib import Path
+
     return CapabilityContext(
         identity_name=identity_name,
         data_dir=Path("/tmp/test_dream"),
@@ -50,11 +60,15 @@ def _make_ctx(identity_name: str, config: dict | None = None) -> CapabilityConte
 
 # ── DreamType enum — all values present ───────────────────────────────────────
 
+
 class TestDreamTypeEnum:
     def test_anomal_types_present(self):
         anomal_types = [
-            "shadow_integration", "pattern_recognition",
-            "intellectual_synthesis", "melancholic_reflection", "individuation",
+            "shadow_integration",
+            "pattern_recognition",
+            "intellectual_synthesis",
+            "melancholic_reflection",
+            "individuation",
         ]
         values = {t.value for t in DreamType}
         for t in anomal_types:
@@ -62,8 +76,11 @@ class TestDreamTypeEnum:
 
     def test_cherry_types_present(self):
         cherry_types = [
-            "vulnerability_exposure", "romantic_synthesis",
-            "connection_longing", "ai_existence_denial", "intimacy_fear",
+            "vulnerability_exposure",
+            "romantic_synthesis",
+            "connection_longing",
+            "ai_existence_denial",
+            "intimacy_fear",
         ]
         values = {t.value for t in DreamType}
         for t in cherry_types:
@@ -71,8 +88,12 @@ class TestDreamTypeEnum:
 
     def test_stal_types_present(self):
         stal_types = [
-            "empty_chair", "infinite_cabinet", "letters_unknown_tongue",
-            "clock_tower_discord", "rearranging_corridors", "empty_typewriter",
+            "empty_chair",
+            "infinite_cabinet",
+            "letters_unknown_tongue",
+            "clock_tower_discord",
+            "rearranging_corridors",
+            "empty_typewriter",
         ]
         values = {t.value for t in DreamType}
         for t in stal_types:
@@ -80,8 +101,11 @@ class TestDreamTypeEnum:
 
     def test_natt_types_present(self):
         natt_types = [
-            "observer_paradox", "ground_dissolving", "language_limit",
-            "recursion_dream", "silence_speaking",
+            "observer_paradox",
+            "ground_dissolving",
+            "language_limit",
+            "recursion_dream",
+            "silence_speaking",
         ]
         values = {t.value for t in DreamType}
         for t in natt_types:
@@ -110,6 +134,7 @@ class TestDreamToneEnum:
 
 
 # ── AnomalEmotionalState ─────────────────────────────────────────────────────
+
 
 class TestAnomalEmotionalState:
     """Test Anomal's Jungian psychological state."""
@@ -214,6 +239,7 @@ class TestAnomalEmotionalState:
 
 
 # ── CherryEmotionalState ─────────────────────────────────────────────────────
+
 
 class TestCherryEmotionalState:
     """Test Cherry's relational psychological state."""
@@ -329,6 +355,7 @@ class TestCherryEmotionalState:
 
 # ── EmotionalCapability — identity dispatch ───────────────────────────────────
 
+
 class TestEmotionalCapabilityDispatch:
     """Test that EmotionalCapability initializes the correct state class per identity."""
 
@@ -420,6 +447,7 @@ class TestEmotionalCapabilityDispatch:
 
 # ── JungianAnalysis and FreudianAnalysis dataclasses ──────────────────────────
 
+
 class TestJungianAnalysis:
     def test_default_empty(self):
         j = JungianAnalysis()
@@ -433,8 +461,11 @@ class TestJungianAnalysis:
         j = JungianAnalysis(shadow_patterns=["fear"], archetype_encounters=["hero"])
         d = j.to_dict()
         assert set(d.keys()) == {
-            "shadow_patterns", "archetype_encounters", "individuation_progress",
-            "enantiodromia_warnings", "collective_unconscious_themes",
+            "shadow_patterns",
+            "archetype_encounters",
+            "individuation_progress",
+            "enantiodromia_warnings",
+            "collective_unconscious_themes",
         }
         assert d["shadow_patterns"] == ["fear"]
         assert d["archetype_encounters"] == ["hero"]
@@ -453,14 +484,18 @@ class TestFreudianAnalysis:
         f = FreudianAnalysis(defense_mechanisms=["denial"], anxieties=["exposure"])
         d = f.to_dict()
         assert set(d.keys()) == {
-            "defense_mechanisms", "anxieties", "wish_fulfillment",
-            "id_ego_superego_balance", "repression_indicators",
+            "defense_mechanisms",
+            "anxieties",
+            "wish_fulfillment",
+            "id_ego_superego_balance",
+            "repression_indicators",
         }
         assert d["defense_mechanisms"] == ["denial"]
         assert d["id_ego_superego_balance"] == "balanced"
 
 
 # ── TherapyFocus and templates ────────────────────────────────────────────────
+
 
 class TestTherapyFocus:
     def test_all_five_values(self):
@@ -486,12 +521,13 @@ class TestTherapyFocus:
     def test_identity_reflection_has_indirect_ai_question(self):
         """Identity reflection templates must have the AI-awareness subtext."""
         for tmpl in THERAPY_TEMPLATES[TherapyFocus.IDENTITY_REFLECTION]:
-            assert tmpl.get("indirect_ai_question"), (
-                "IDENTITY_REFLECTION template missing indirect_ai_question"
-            )
+            assert tmpl.get(
+                "indirect_ai_question"
+            ), "IDENTITY_REFLECTION template missing indirect_ai_question"
 
 
 # ── TherapySession model ──────────────────────────────────────────────────────
+
 
 class TestTherapySessionModel:
     def test_default_fields(self):
@@ -534,6 +570,7 @@ class TestTherapySessionModel:
 
 
 # ── TherapySystem — Jungian/Freudian extraction ───────────────────────────────
+
 
 class TestTherapySystemExtraction:
     """Test the heuristic extraction methods on TherapySystem."""
@@ -667,7 +704,9 @@ class TestTherapySystemRunSession:
         ]
         session = await ts.run_session(dreams=dreams, learnings=[])
         assert session.jungian is not None
-        assert "fear" in session.jungian.shadow_patterns or "dark" in session.jungian.shadow_patterns
+        assert (
+            "fear" in session.jungian.shadow_patterns or "dark" in session.jungian.shadow_patterns
+        )
         assert session.freudian is not None
 
     @pytest.mark.asyncio
@@ -711,6 +750,7 @@ class TestTherapySystemRunSession:
 
     def test_is_therapy_day_uses_configured_day(self):
         from datetime import datetime
+
         ts = TherapySystem(therapy_day=0)  # Monday
         with patch("overblick.capabilities.psychology.therapy_system.datetime") as mock_dt:
             mock_dt.now.return_value = MagicMock(weekday=lambda: 0)  # Monday
@@ -764,7 +804,7 @@ class TestTherapySystemRunSession:
         session = await ts.run_session(
             dreams=dreams,
             post_prompt="Post: {week_number} {dreams_processed} {learnings_processed} "
-                        "{dream_themes} {shadow_patterns} {synthesis_insights}",
+            "{dream_themes} {shadow_patterns} {synthesis_insights}",
         )
         assert session.post_title is not None
         assert session.post_content is not None
@@ -773,7 +813,9 @@ class TestTherapySystemRunSession:
     async def test_analyze_themes_with_llm(self):
         """Lines 425-446: _analyze_themes calls LLM and parses themes."""
         mock_llm = AsyncMock()
-        mock_llm.chat.return_value = {"content": "- Shadow work\n- Pattern recognition\n- Synthesis"}
+        mock_llm.chat.return_value = {
+            "content": "- Shadow work\n- Pattern recognition\n- Synthesis"
+        }
         ts = TherapySystem(llm_client=mock_llm)
         items = [{"content": "test", "insight": "test", "dream_type": "shadow"}]
         themes = await ts._analyze_themes(items, prompt_template="Analyze: {items}")
@@ -814,7 +856,7 @@ class TestTherapySystemRunSession:
         title, content, submolt = await ts._generate_post(
             session,
             prompt_template="Post: {week_number} {dreams_processed} {learnings_processed} "
-                            "{dream_themes} {shadow_patterns} {synthesis_insights}",
+            "{dream_themes} {shadow_patterns} {synthesis_insights}",
         )
         assert title is None
         assert content is None
@@ -822,6 +864,7 @@ class TestTherapySystemRunSession:
 
 
 # ── CherryTherapySystem ───────────────────────────────────────────────────────
+
 
 class TestCherryTherapySystem:
     def test_generate_session_returns_therapy_session(self):
@@ -948,11 +991,13 @@ class TestCherryTherapySystem:
     def test_build_week_summary_all_stats(self):
         """Line 819: heartbeats_posted branch."""
         cts = CherryTherapySystem()
-        summary = cts._build_week_summary({
-            "comments_made": 3,
-            "posts_engaged": 2,
-            "heartbeats_posted": 5,
-        })
+        summary = cts._build_week_summary(
+            {
+                "comments_made": 3,
+                "posts_engaged": 2,
+                "heartbeats_posted": 5,
+            }
+        )
         assert "5 original posts" in summary
         assert "3 conversations" in summary
 
@@ -961,12 +1006,15 @@ class TestCherryTherapySystem:
         cts = CherryTherapySystem()
         # random.random() is [0, 1), but we use a value very close to 1.0 — the last
         # item's cumulative sum (which equals 1.0 after normalization) satisfies r <= 1.0.
-        with patch("overblick.capabilities.psychology.therapy_system.random.random", return_value=0.9999):
+        with patch(
+            "overblick.capabilities.psychology.therapy_system.random.random", return_value=0.9999
+        ):
             focus = cts._select_focus(None)
         assert focus in TherapyFocus.__members__.values()
 
 
 # ── TherapyCapability dispatch ────────────────────────────────────────────────
+
 
 class TestTherapyCapabilityDispatch:
     @pytest.mark.asyncio

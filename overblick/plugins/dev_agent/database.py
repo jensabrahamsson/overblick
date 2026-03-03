@@ -131,26 +131,43 @@ class DevAgentDB:
             "priority = ?, fix_attempts = ?, branch_name = ?, pr_url = ?, "
             "analysis = ?, updated_at = datetime('now')",
             (
-                bug.source.value, bug.source_ref, bug.title, bug.description,
-                bug.error_text, bug.file_path, bug.identity,
-                bug.status.value, bug.priority, bug.fix_attempts,
-                bug.max_attempts, bug.branch_name, bug.pr_url, bug.analysis,
+                bug.source.value,
+                bug.source_ref,
+                bug.title,
+                bug.description,
+                bug.error_text,
+                bug.file_path,
+                bug.identity,
+                bug.status.value,
+                bug.priority,
+                bug.fix_attempts,
+                bug.max_attempts,
+                bug.branch_name,
+                bug.pr_url,
+                bug.analysis,
                 # ON CONFLICT SET:
-                bug.title, bug.description, bug.error_text, bug.status.value,
-                bug.priority, bug.fix_attempts, bug.branch_name, bug.pr_url,
+                bug.title,
+                bug.description,
+                bug.error_text,
+                bug.status.value,
+                bug.priority,
+                bug.fix_attempts,
+                bug.branch_name,
+                bug.pr_url,
                 bug.analysis,
             ),
         )
         return row_id or 0
 
-    async def get_bug(self, bug_id: int) -> Optional[BugReport]:
+    async def get_bug(self, bug_id: int) -> BugReport | None:
         """Get a bug by ID."""
         row = await self._db.fetch_one(
-            "SELECT * FROM bugs WHERE id = ?", (bug_id,),
+            "SELECT * FROM bugs WHERE id = ?",
+            (bug_id,),
         )
         return self._row_to_bug(row) if row else None
 
-    async def get_bug_by_ref(self, source: str, source_ref: str) -> Optional[BugReport]:
+    async def get_bug_by_ref(self, source: str, source_ref: str) -> BugReport | None:
         """Get a bug by source + source_ref."""
         row = await self._db.fetch_one(
             "SELECT * FROM bugs WHERE source = ? AND source_ref = ?",
@@ -175,7 +192,10 @@ class DevAgentDB:
         return [self._row_to_bug(r) for r in rows]
 
     async def update_bug_status(
-        self, bug_id: int, status: str, **kwargs: str,
+        self,
+        bug_id: int,
+        status: str,
+        **kwargs: str,
     ) -> None:
         """Update a bug's status and optional fields."""
         updates = ["status = ?", "updated_at = datetime('now')"]
@@ -207,10 +227,15 @@ class DevAgentDB:
             "test_output, opencode_output, committed, branch_name, duration_seconds) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                attempt.bug_id, attempt.attempt_number, attempt.analysis,
-                files_json, 1 if attempt.tests_passed else 0,
-                attempt.test_output, attempt.opencode_output,
-                1 if attempt.committed else 0, attempt.branch_name,
+                attempt.bug_id,
+                attempt.attempt_number,
+                attempt.analysis,
+                files_json,
+                1 if attempt.tests_passed else 0,
+                attempt.test_output,
+                attempt.opencode_output,
+                1 if attempt.committed else 0,
+                attempt.branch_name,
                 attempt.duration_seconds,
             ),
         )
@@ -256,21 +281,36 @@ class DevAgentDB:
 
     async def get_stats(self) -> dict:
         """Get aggregate statistics."""
-        total_bugs = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM bugs",
-        ) or 0
-        fixed = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM bugs WHERE status = 'fixed'",
-        ) or 0
-        failed = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM bugs WHERE status = 'failed'",
-        ) or 0
-        attempts = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM fix_attempts",
-        ) or 0
-        prs = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM bugs WHERE pr_url != ''",
-        ) or 0
+        total_bugs = (
+            await self._db.fetch_scalar(
+                "SELECT COUNT(*) FROM bugs",
+            )
+            or 0
+        )
+        fixed = (
+            await self._db.fetch_scalar(
+                "SELECT COUNT(*) FROM bugs WHERE status = 'fixed'",
+            )
+            or 0
+        )
+        failed = (
+            await self._db.fetch_scalar(
+                "SELECT COUNT(*) FROM bugs WHERE status = 'failed'",
+            )
+            or 0
+        )
+        attempts = (
+            await self._db.fetch_scalar(
+                "SELECT COUNT(*) FROM fix_attempts",
+            )
+            or 0
+        )
+        prs = (
+            await self._db.fetch_scalar(
+                "SELECT COUNT(*) FROM bugs WHERE pr_url != ''",
+            )
+            or 0
+        )
 
         return {
             "total_bugs": total_bugs,

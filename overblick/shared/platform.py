@@ -36,8 +36,7 @@ def set_restrictive_permissions(path: Path) -> None:
     """
     if IS_WINDOWS:
         logger.debug(
-            "Skipping POSIX permissions on Windows for %s — "
-            "ensure NTFS ACLs restrict access",
+            "Skipping POSIX permissions on Windows for %s — " "ensure NTFS ACLs restrict access",
             path,
         )
         return
@@ -75,6 +74,7 @@ def register_shutdown_signals(
         loop = asyncio.get_running_loop()
 
     if IS_WINDOWS:
+
         def _handler(signum, frame):
             loop.call_soon_threadsafe(shutdown_event.set)
 

@@ -84,6 +84,7 @@ class TestSetRestrictivePermissions:
             # Re-import won't help; call directly with patched constant
             with patch.object(plat, "IS_WINDOWS", True):
                 import logging
+
                 with caplog.at_level(logging.DEBUG, logger="overblick.shared.platform"):
                     plat.set_restrictive_permissions(f)
 
@@ -100,6 +101,7 @@ class TestSetRestrictivePermissions:
 
         with patch.object(plat, "IS_WINDOWS", True):
             import logging
+
             with caplog.at_level(logging.DEBUG, logger="overblick.shared.platform"):
                 plat.set_restrictive_dir_permissions(d)
 
@@ -134,6 +136,7 @@ class TestRegisterShutdownSignals:
     async def test_windows_registers_sigint_and_sigbreak(self):
         """On Windows path (mocked), SIGINT and SIGBREAK are registered."""
         import overblick.shared.platform as plat
+
         loop = asyncio.get_running_loop()
         event = asyncio.Event()
 
@@ -148,9 +151,11 @@ class TestRegisterShutdownSignals:
             registered_signals.append(signum)
 
         # Patch IS_WINDOWS, signal.signal, and add SIGBREAK attribute
-        with patch.object(plat, "IS_WINDOWS", True), \
-             patch.object(plat.signal, "signal", side_effect=mock_signal_func), \
-             patch.object(plat.signal, "SIGBREAK", FAKE_SIGBREAK, create=True):
+        with (
+            patch.object(plat, "IS_WINDOWS", True),
+            patch.object(plat.signal, "signal", side_effect=mock_signal_func),
+            patch.object(plat.signal, "SIGBREAK", FAKE_SIGBREAK, create=True),
+        ):
             plat.register_shutdown_signals(event, loop)
 
         assert signal.SIGINT in registered_signals
@@ -160,6 +165,7 @@ class TestRegisterShutdownSignals:
     async def test_windows_does_not_register_sigterm(self):
         """On Windows path (mocked), SIGTERM should NOT be registered."""
         import overblick.shared.platform as plat
+
         loop = asyncio.get_running_loop()
         event = asyncio.Event()
 
@@ -168,8 +174,10 @@ class TestRegisterShutdownSignals:
         def mock_signal(signum, handler):
             registered_signals.append(signum)
 
-        with patch.object(plat, "IS_WINDOWS", True), \
-             patch("overblick.shared.platform.signal.signal", side_effect=mock_signal):
+        with (
+            patch.object(plat, "IS_WINDOWS", True),
+            patch("overblick.shared.platform.signal.signal", side_effect=mock_signal),
+        ):
             plat.register_shutdown_signals(event, loop)
 
         assert signal.SIGTERM not in registered_signals
@@ -196,6 +204,7 @@ class TestGetPythonExecutable:
         """When sysconfig returns None, falls back to sys.executable."""
         with patch("overblick.shared.platform.sysconfig.get_path", return_value=None):
             import overblick.shared.platform as plat
+
             result = plat.get_python_executable()
             assert result == sys.executable
 
@@ -203,6 +212,7 @@ class TestGetPythonExecutable:
         """When venv python doesn't exist, falls back to sys.executable."""
         with patch("overblick.shared.platform.sysconfig.get_path", return_value="/nonexistent"):
             import overblick.shared.platform as plat
+
             result = plat.get_python_executable()
             assert result == sys.executable
 
@@ -217,5 +227,6 @@ class TestGetPythonExecutable:
 
         with patch("overblick.shared.platform.sysconfig.get_path", return_value=str(tmp_path)):
             import overblick.shared.platform as plat
+
             result = plat.get_python_executable()
             assert result == str(fake_python)

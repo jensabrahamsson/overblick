@@ -23,7 +23,7 @@ class AuditService:
         self._data_dir = base_dir / "data"
         self._connections: dict[str, sqlite3.Connection] = {}
 
-    def _get_connection(self, identity: str) -> Optional[sqlite3.Connection]:
+    def _get_connection(self, identity: str) -> sqlite3.Connection | None:
         """Get or create a read-only connection to an identity's audit DB."""
         if identity in self._connections:
             return self._connections[identity]
@@ -129,7 +129,7 @@ class AuditService:
         identity: str = "",
         since_hours: int = 24,
         category: str = "",
-        success: Optional[bool] = None,
+        success: bool | None = None,
     ) -> int:
         """Count audit entries with optional category/success filters."""
         since = time.time() - (since_hours * 3600)
@@ -219,9 +219,7 @@ class AuditService:
         now = time.time()
         since = now - (hours * 3600)
         # Bucket map: hour_offset -> {total, failures}
-        buckets: dict[int, dict[str, int]] = {
-            h: {"total": 0, "failures": 0} for h in range(hours)
-        }
+        buckets: dict[int, dict[str, int]] = {h: {"total": 0, "failures": 0} for h in range(hours)}
 
         identities = [identity] if identity else self._discover_identities()
 
@@ -260,15 +258,18 @@ class AuditService:
 
         # Convert to list, sorted oldest-first (highest offset = oldest)
         import datetime
+
         result = []
         for offset in reversed(range(hours)):
             ts = now - (offset * 3600)
             hour_label = datetime.datetime.fromtimestamp(ts).strftime("%H:00")
-            result.append({
-                "hour": hour_label,
-                "total": buckets[offset]["total"],
-                "failures": buckets[offset]["failures"],
-            })
+            result.append(
+                {
+                    "hour": hour_label,
+                    "total": buckets[offset]["total"],
+                    "failures": buckets[offset]["failures"],
+                }
+            )
         return result
 
     def count_by_category(
@@ -355,9 +356,7 @@ class AuditService:
             return self._identity_cache
 
         self._identity_cache = sorted(
-            d.name
-            for d in self._data_dir.iterdir()
-            if d.is_dir() and (d / "audit.db").exists()
+            d.name for d in self._data_dir.iterdir() if d.is_dir() and (d / "audit.db").exists()
         )
         self._identity_cache_ts = now
         return self._identity_cache

@@ -9,7 +9,7 @@ protocols and handlers.
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any, Optional
 
 from overblick.core.agentic.database import AgenticDB
@@ -44,7 +44,7 @@ class AgentLoop:
         reflection: ReflectionPipeline,
         db: AgenticDB,
         max_actions_per_tick: int = 5,
-        get_extra_context: Optional[Any] = None,
+        get_extra_context: Any | None = None,
         learning_store=None,
     ):
         self._observer = observer
@@ -63,10 +63,11 @@ class AgentLoop:
         self._tick_count = await self._db.get_tick_count()
         logger.info(
             "Agent loop initialized (tick #%d, %d goals)",
-            self._tick_count, len(self._goals.active_goals),
+            self._tick_count,
+            len(self._goals.active_goals),
         )
 
-    async def tick(self) -> Optional[TickLog]:
+    async def tick(self) -> TickLog | None:
         """
         Run one complete agentic cycle.
 
@@ -76,7 +77,7 @@ class AgentLoop:
         self._tick_count += 1
         tick_number = self._tick_count
         start_time = time.monotonic()
-        started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        started_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         logger.info("Agent tick #%d starting", tick_number)
 
@@ -98,16 +99,19 @@ class AgentLoop:
         # Read learnings from LearningStore (semantic) or AgenticDB (legacy)
         if self._learning_store:
             store_learnings = await self._learning_store.get_relevant(
-                context=observations_text, limit=10,
+                context=observations_text,
+                limit=10,
             )
-            learnings_text = "\n".join(
-                f"- [{l.category}] {l.content}" for l in store_learnings
-            ) if store_learnings else ""
+            learnings_text = (
+                "\n".join(f"- [{l.category}] {l.content}" for l in store_learnings)
+                if store_learnings
+                else ""
+            )
         else:
             learnings = await self._db.get_learnings(limit=10)
-            learnings_text = "\n".join(
-                f"- [{l.category}] {l.insight}" for l in learnings
-            ) if learnings else ""
+            learnings_text = (
+                "\n".join(f"- [{l.category}] {l.insight}" for l in learnings) if learnings else ""
+            )
 
         extra_context = ""
         if self._get_extra_context:
@@ -129,7 +133,7 @@ class AgentLoop:
             tick_log = TickLog(
                 tick_number=tick_number,
                 started_at=started_at,
-                completed_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                completed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 observations_count=obs_count,
                 actions_planned=0,
                 actions_executed=0,
@@ -142,7 +146,8 @@ class AgentLoop:
 
         logger.info(
             "Agent tick #%d: plan has %d actions (reasoning: %s)",
-            tick_number, len(plan.actions),
+            tick_number,
+            len(plan.actions),
             plan.reasoning[:100] if plan.reasoning else "none",
         )
 
@@ -163,7 +168,7 @@ class AgentLoop:
         tick_log = TickLog(
             tick_number=tick_number,
             started_at=started_at,
-            completed_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            completed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             observations_count=obs_count,
             actions_planned=len(plan.actions),
             actions_executed=len(outcomes),
@@ -175,7 +180,10 @@ class AgentLoop:
 
         logger.info(
             "Agent tick #%d complete: %d/%d actions succeeded (%.0fms)",
-            tick_number, succeeded, len(outcomes), elapsed_ms,
+            tick_number,
+            succeeded,
+            len(outcomes),
+            elapsed_ms,
         )
 
         return tick_log
@@ -192,10 +200,7 @@ class AgentLoop:
     def _count_observations(observation: Any) -> int:
         """Estimate observation count. Supports dicts and objects with len()."""
         if isinstance(observation, dict):
-            return sum(
-                len(v) if isinstance(v, (list, dict)) else 1
-                for v in observation.values()
-            )
+            return sum(len(v) if isinstance(v, (list, dict)) else 1 for v in observation.values())
         if hasattr(observation, "__len__"):
             return len(observation)
         return 1

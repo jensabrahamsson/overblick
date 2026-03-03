@@ -47,11 +47,20 @@ class TestAuditPage:
 
         content = page.content()
         # Should contain some audit data from our mock
-        has_data = any(item in content for item in [
-            "llm_request", "engagement", "security_check",
-            "anomal", "cherry", "rost",
-            "moltbook", "security", "llm",
-        ])
+        has_data = any(
+            item in content
+            for item in [
+                "llm_request",
+                "engagement",
+                "security_check",
+                "anomal",
+                "cherry",
+                "rost",
+                "moltbook",
+                "security",
+                "llm",
+            ]
+        )
         assert has_data, "No audit data found on page"
 
     def test_audit_has_filter_controls(self, dashboard_server, page):
@@ -62,9 +71,15 @@ class TestAuditPage:
 
         # Look for form elements (select, input, button)
         content = page.content().lower()
-        has_controls = any(el in content for el in [
-            "<select", "<input", "filter", "search",
-        ])
+        has_controls = any(
+            el in content
+            for el in [
+                "<select",
+                "<input",
+                "filter",
+                "search",
+            ]
+        )
         # Audit page may or may not have filters
         # This is a soft check
         assert True  # Page loaded successfully

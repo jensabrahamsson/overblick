@@ -7,8 +7,9 @@ seamless switching between SQLite and PostgreSQL.
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -24,6 +25,7 @@ class DatabaseConfig(BaseModel):
 
     Supports both SQLite and PostgreSQL via a unified config structure.
     """
+
     backend: str = "sqlite"  # "sqlite" or "postgresql"
 
     # SQLite settings
@@ -123,7 +125,7 @@ class DatabaseBackend(ABC):
         """
 
     @abstractmethod
-    async def execute_returning_id(self, sql: str, params: Sequence[Any] = ()) -> Optional[int]:
+    async def execute_returning_id(self, sql: str, params: Sequence[Any] = ()) -> int | None:
         """
         Execute an INSERT and return the new row's ID.
 
@@ -131,7 +133,7 @@ class DatabaseBackend(ABC):
         """
 
     @abstractmethod
-    async def fetch_one(self, sql: str, params: Sequence[Any] = ()) -> Optional[DatabaseRow]:
+    async def fetch_one(self, sql: str, params: Sequence[Any] = ()) -> DatabaseRow | None:
         """Fetch a single row. Returns None if no results."""
 
     @abstractmethod
@@ -166,6 +168,7 @@ class DatabaseBackend(ABC):
 
 class Migration(BaseModel):
     """A single database migration."""
+
     version: int
     name: str
     up_sql: str
@@ -196,9 +199,7 @@ class MigrationManager:
         """Get the current schema version."""
         if not await self._db.table_exists("_migrations"):
             return 0
-        result = await self._db.fetch_scalar(
-            "SELECT MAX(version) FROM _migrations"
-        )
+        result = await self._db.fetch_scalar("SELECT MAX(version) FROM _migrations")
         return result or 0
 
     async def apply(self, migrations: list[Migration]) -> int:
@@ -215,9 +216,7 @@ class MigrationManager:
             if migration.version <= current:
                 continue
 
-            logger.info(
-                "Applying migration %d: %s", migration.version, migration.name
-            )
+            logger.info("Applying migration %d: %s", migration.version, migration.name)
             await self._db.execute_script(migration.up_sql)
             await self._db.execute(
                 f"INSERT INTO _migrations (version, name) VALUES ({self._db.ph(1)}, {self._db.ph(2)})",
@@ -226,6 +225,7 @@ class MigrationManager:
             applied += 1
 
         if applied:
-            logger.info("Applied %d migration(s), now at version %d",
-                        applied, await self.current_version())
+            logger.info(
+                "Applied %d migration(s), now at version %d", applied, await self.current_version()
+            )
         return applied

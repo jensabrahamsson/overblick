@@ -9,32 +9,32 @@ from fastapi import FastAPI
 
 def register_routes(app: FastAPI) -> None:
     """Register all dashboard routes."""
-    from .auth import router as auth_router
-    from .dashboard import router as dashboard_router
     from .agents import router as agents_router
-    from .audit import router as audit_router
-    from .identities import router as identities_router
-    from .onboarding import router as onboarding_router
     from .api import router as api_router
+    from .audit import router as audit_router
+    from .auth import router as auth_router
+    from .compass import router as compass_router
     from .conversations import router as conversations_router
-    from .llm import router as llm_router
-    from .system import router as system_router
+    from .dashboard import router as dashboard_router
+    from .dev import router as dev_router
+    from .digest import router as digest_router
+    from .email import router as email_router
+    from .github_dash import router as github_dash_router
+    from .identities import router as identities_router
     from .irc import router as irc_router
     from .kontrast import router as kontrast_router
-    from .spegel import router as spegel_router
-    from .skuggspel import router as skuggspel_router
-    from .compass import router as compass_router
-    from .stage import router as stage_router
-    from .moltbook import router as moltbook_router
-    from .settings import router as settings_router
-    from .observability import router as observability_router
-    from .email import router as email_router
-    from .telegram import router as telegram_router
-    from .digest import router as digest_router
-    from .github_dash import router as github_dash_router
-    from .dev import router as dev_router
+    from .llm import router as llm_router
     from .log_agent import router as log_agent_router
+    from .moltbook import router as moltbook_router
+    from .observability import router as observability_router
+    from .onboarding import router as onboarding_router
     from .psychology import router as psychology_router
+    from .settings import router as settings_router
+    from .skuggspel import router as skuggspel_router
+    from .spegel import router as spegel_router
+    from .stage import router as stage_router
+    from .system import router as system_router
+    from .telegram import router as telegram_router
 
     app.include_router(auth_router)
     app.include_router(dashboard_router)

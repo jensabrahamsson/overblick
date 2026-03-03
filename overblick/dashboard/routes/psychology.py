@@ -73,10 +73,7 @@ _PSYCHOLOGY_PLUGINS = [
 
 def _check_plugin_enabled(identities: list[dict], plugin_name: str) -> bool:
     """Check if any identity has this plugin configured."""
-    return any(
-        plugin_name in identity.get("plugins", [])
-        for identity in identities
-    )
+    return any(plugin_name in identity.get("plugins", []) for identity in identities)
 
 
 @router.get("/psychology", response_class=HTMLResponse)
@@ -88,13 +85,18 @@ async def psychology_hub(request: Request):
 
     plugins = []
     for plugin in _PSYCHOLOGY_PLUGINS:
-        plugins.append({
-            **plugin,
-            "enabled": _check_plugin_enabled(identities, plugin["name"]),
-        })
+        plugins.append(
+            {
+                **plugin,
+                "enabled": _check_plugin_enabled(identities, plugin["name"]),
+            }
+        )
 
-    return templates.TemplateResponse("psychology.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "plugins": plugins,
-    })
+    return templates.TemplateResponse(
+        "psychology.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "plugins": plugins,
+        },
+    )

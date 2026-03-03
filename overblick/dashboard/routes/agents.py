@@ -62,18 +62,21 @@ async def agent_detail(request: Request, name: str):
         if p in _PLUGIN_ROUTE_MAP
     ]
 
-    return templates.TemplateResponse("agent_detail.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "identity": identity,
-        "personality": personality,
-        "agent_status": agent_status,
-        "audit_entries": audit_entries,
-        "capability_bundles": capability_bundles,
-        "supervisor_running": supervisor_status is not None,
-        "can_start": not is_running,
-        "can_stop": is_running,
-        "poll_interval": request.app.state.config.poll_interval,
-        "plugin_links": plugin_links,
-        "plugin_route_map": _PLUGIN_ROUTE_MAP,
-    })
+    return templates.TemplateResponse(
+        "agent_detail.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "identity": identity,
+            "personality": personality,
+            "agent_status": agent_status,
+            "audit_entries": audit_entries,
+            "capability_bundles": capability_bundles,
+            "supervisor_running": supervisor_status is not None,
+            "can_start": not is_running,
+            "can_stop": is_running,
+            "poll_interval": request.app.state.config.poll_interval,
+            "plugin_links": plugin_links,
+            "plugin_route_map": _PLUGIN_ROUTE_MAP,
+        },
+    )

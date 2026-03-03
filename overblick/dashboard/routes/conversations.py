@@ -14,7 +14,7 @@ Future-proof: automatically discovers new conversation sources.
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -44,12 +44,12 @@ def _relative_time(timestamp_val: str | float | int) -> str:
     """
     try:
         if isinstance(timestamp_val, (int, float)):
-            ts = datetime.fromtimestamp(timestamp_val, tz=timezone.utc)
+            ts = datetime.fromtimestamp(timestamp_val, tz=UTC)
         else:
             ts = datetime.fromisoformat(timestamp_val)
             if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-        now = datetime.now(tz=timezone.utc)
+                ts = ts.replace(tzinfo=UTC)
+        now = datetime.now(tz=UTC)
         delta = now - ts
 
         seconds = int(delta.total_seconds())
@@ -137,7 +137,9 @@ def _load_conversations(data_dir: Path, identity_filter: str = "") -> tuple[list
                     conv["relative_time"] = _relative_time(conv.get("timestamp", ""))
                     conversations.append(conv)
             except (json.JSONDecodeError, KeyError) as e:
-                logger.warning("Failed to load conversations from '%s/%s': %s", ident_name, subdir, e)
+                logger.warning(
+                    "Failed to load conversations from '%s/%s': %s", ident_name, subdir, e
+                )
 
         # Source 2: Generic conversations.json in any plugin subdirectory
         for conv_file in ident_dir.glob("*/conversations.json"):
@@ -163,7 +165,9 @@ def _load_conversations(data_dir: Path, identity_filter: str = "") -> tuple[list
                     conv["relative_time"] = _relative_time(conv.get("timestamp", ""))
                     conversations.append(conv)
             except (json.JSONDecodeError, KeyError) as e:
-                logger.warning("Failed to load conversations from '%s/%s': %s", ident_name, source, e)
+                logger.warning(
+                    "Failed to load conversations from '%s/%s': %s", ident_name, source, e
+                )
 
         if found_convos:
             identities.add(ident_name)
@@ -233,13 +237,9 @@ def _load_audit_conversations(
 
     # Within each group, pair received→response by timestamp proximity
     for (_plugin, _sender), group_entries in groups.items():
-        received_entries = [
-            e for e in group_entries if e.get("action") in _PAIR_MAP
-        ]
+        received_entries = [e for e in group_entries if e.get("action") in _PAIR_MAP]
         response_actions = set(_PAIR_MAP.values())
-        resp_entries = [
-            e for e in group_entries if e.get("action") in response_actions
-        ]
+        resp_entries = [e for e in group_entries if e.get("action") in response_actions]
 
         used_response_ids: set[int] = set()
 
@@ -354,7 +354,9 @@ async def conversations_page(request: Request):
     templates = request.app.state.templates
 
     # Determine base data directory
-    base_dir = Path(request.app.state.config.base_dir) if request.app.state.config.base_dir else None
+    base_dir = (
+        Path(request.app.state.config.base_dir) if request.app.state.config.base_dir else None
+    )
     if not base_dir:
         base_dir = Path(__file__).parent.parent.parent.parent
     data_dir = base_dir / "data"
@@ -375,11 +377,11 @@ async def conversations_page(request: Request):
 
     # Deduplicate: skip audit health entries if JSON health exists for same identity
     json_health_identities = {
-        c["identity"] for c in json_conversations
-        if c.get("source") == "host_health"
+        c["identity"] for c in json_conversations if c.get("source") == "host_health"
     }
     deduped_audit = [
-        c for c in audit_conversations
+        c
+        for c in audit_conversations
         if not (c.get("conversation_type") == "health" and c["identity"] in json_health_identities)
     ]
 
@@ -389,10 +391,13 @@ async def conversations_page(request: Request):
 
     all_identities = sorted(set(json_identities) | audit_identities)
 
-    return templates.TemplateResponse("conversations.html", {
-        "request": request,
-        "csrf_token": request.state.session.get("csrf_token", ""),
-        "conversations": all_conversations,
-        "identities": all_identities,
-        "selected_identity": identity_filter,
-    })
+    return templates.TemplateResponse(
+        "conversations.html",
+        {
+            "request": request,
+            "csrf_token": request.state.session.get("csrf_token", ""),
+            "conversations": all_conversations,
+            "identities": all_identities,
+            "selected_identity": identity_filter,
+        },
+    )

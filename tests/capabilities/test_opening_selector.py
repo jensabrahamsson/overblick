@@ -30,27 +30,27 @@ class TestOpeningSelector:
     def test_select_tracks_history(self):
         phrases = ["A", "B", "C"]
         selector = OpeningSelector(phrases=phrases)
-        
+
         first = selector.select()
         assert len(selector._recent) == 1 or first == ""  # Empty string not tracked
-        
+
         # If we got empty string, select again
         if first == "":
             first = selector.select()
             while first == "":
                 first = selector.select()
-        
+
         assert first in selector._recent
 
     def test_select_avoids_recent(self):
         phrases = ["A", "B", "C", "D", "E"]
         selector = OpeningSelector(phrases=phrases, history_size=3)
-        
+
         selections = []
         for _ in range(10):
             choice = selector.select()
             selections.append(choice)
-        
+
         # Check that recent phrases are not repeated immediately
         # (statistical test - might occasionally fail due to randomness)
         # We just verify the mechanism works, not strict enforcement
@@ -59,7 +59,7 @@ class TestOpeningSelector:
     def test_select_handles_small_pool(self):
         phrases = ["Only one"]
         selector = OpeningSelector(phrases=phrases)
-        
+
         # Should still work even if pool exhausted
         for _ in range(5):
             choice = selector.select()
@@ -68,20 +68,20 @@ class TestOpeningSelector:
     def test_select_empty_string_not_tracked(self):
         phrases = ["", "A", "B"]
         selector = OpeningSelector(phrases=phrases)
-        
+
         # Select empty string multiple times
         while True:
             choice = selector.select()
             if choice == "":
                 break
-        
+
         # Empty string should not be in history
         assert "" not in selector._recent
 
     def test_add_phrases(self):
         selector = OpeningSelector(phrases=["A", "B"])
         selector.add_phrases(["C", "D"])
-        
+
         assert "A" in selector._phrases
         assert "B" in selector._phrases
         assert "C" in selector._phrases
@@ -92,26 +92,26 @@ class TestOpeningSelector:
         selector = OpeningSelector(phrases=["A"])
         original_count = len(selector._phrases)
         selector.add_phrases([])
-        
+
         assert len(selector._phrases) == original_count
 
     def test_variety_over_many_selections(self):
         phrases = ["A", "B", "C", "D", "E", "F"]
         selector = OpeningSelector(phrases=phrases, history_size=3)
-        
+
         selections = [selector.select() for _ in range(20)]
         unique = set(selections)
-        
+
         # Should see multiple different phrases
         assert len(unique) >= 3
 
     def test_history_size_limit(self):
         phrases = ["A", "B", "C", "D", "E"]
         selector = OpeningSelector(phrases=phrases, history_size=2)
-        
+
         selector.select()  # First
         selector.select()  # Second
         selector.select()  # Third (should evict first)
-        
+
         # History should only keep last 2
         assert len(selector._recent) <= 2

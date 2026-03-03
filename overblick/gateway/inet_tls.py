@@ -34,12 +34,14 @@ def _generate_self_signed(
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
-    subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, hostname),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Överblick Internet Gateway"),
-    ])
+    subject = issuer = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COMMON_NAME, hostname),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Överblick Internet Gateway"),
+        ]
+    )
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -49,12 +51,14 @@ def _generate_self_signed(
         .not_valid_before(now)
         .not_valid_after(now + datetime.timedelta(days=valid_days))
         .add_extension(
-            x509.SubjectAlternativeName([
-                x509.DNSName("localhost"),
-                x509.DNSName(hostname),
-                x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
-                x509.IPAddress(ipaddress.ip_address("::1")),
-            ]),
+            x509.SubjectAlternativeName(
+                [
+                    x509.DNSName("localhost"),
+                    x509.DNSName(hostname),
+                    x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
+                    x509.IPAddress(ipaddress.ip_address("::1")),
+                ]
+            ),
             critical=False,
         )
         .sign(key, hashes.SHA256())
@@ -63,11 +67,13 @@ def _generate_self_signed(
     cert_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(key_path, "wb") as f:
-        f.write(key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption(),
-        ))
+        f.write(
+            key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+        )
     os.chmod(key_path, 0o600)
 
     with open(cert_path, "wb") as f:
@@ -76,7 +82,8 @@ def _generate_self_signed(
 
     logger.info(
         "Generated self-signed TLS certificate: %s (valid %d days)",
-        cert_path, valid_days,
+        cert_path,
+        valid_days,
     )
 
 
@@ -86,7 +93,7 @@ def resolve_tls(
     tls_auto_selfsigned: bool,
     data_dir: Path,
     host: str = "0.0.0.0",
-) -> Optional[tuple[str, str]]:
+) -> tuple[str, str] | None:
     """Resolve TLS certificate and key paths.
 
     Returns:
@@ -126,7 +133,7 @@ def resolve_tls(
                 with open(cert, "rb") as f:
                     loaded_cert = x509_mod.load_pem_x509_certificate(f.read())
 
-                now = datetime.datetime.now(datetime.timezone.utc)
+                now = datetime.datetime.now(datetime.UTC)
                 if loaded_cert.not_valid_after_utc < now:
                     logger.warning("Self-signed certificate expired, regenerating...")
                     _generate_self_signed(cert, key)

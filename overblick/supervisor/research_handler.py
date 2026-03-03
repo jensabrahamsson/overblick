@@ -43,10 +43,10 @@ class ResearchHandler:
     4. Return summary via IPC
     """
 
-    def __init__(self, audit_log: Optional[AuditLog] = None):
+    def __init__(self, audit_log: AuditLog | None = None):
         self._audit_log = audit_log
         self._llm_pipeline = None
-        self._system_prompt: Optional[str] = None
+        self._system_prompt: str | None = None
         self._initialized = False
 
     async def _ensure_initialized(self) -> bool:
@@ -60,7 +60,7 @@ class ResearchHandler:
             return True
 
         try:
-            from overblick.identities import load_identity, build_system_prompt
+            from overblick.identities import build_system_prompt, load_identity
 
             anomal = load_identity("anomal")
             base_prompt = build_system_prompt(anomal, platform="Supervisor IPC")
@@ -104,7 +104,7 @@ class ResearchHandler:
             logger.error("Failed to initialize ResearchHandler: %s", e, exc_info=True)
             return False
 
-    async def handle(self, msg: IPCMessage) -> Optional[IPCMessage]:
+    async def handle(self, msg: IPCMessage) -> IPCMessage | None:
         """
         Handle a research_request IPC message.
 
@@ -288,7 +288,7 @@ class ResearchHandler:
         query: str,
         context: str,
         search_results: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Summarize search results using LLM via SafeLLMPipeline."""
         if not self._llm_pipeline or not self._system_prompt:
             return None

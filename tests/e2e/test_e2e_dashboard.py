@@ -42,9 +42,7 @@ class TestDashboardLoad:
         page.goto(dashboard_server)
         page.wait_for_load_state("networkidle")
 
-        bg_color = page.evaluate(
-            "getComputedStyle(document.body).backgroundColor"
-        )
+        bg_color = page.evaluate("getComputedStyle(document.body).backgroundColor")
         assert "rgb(" in bg_color
         values = bg_color.replace("rgb(", "").replace(")", "").split(",")
         r, g, b = [int(v.strip()) for v in values]

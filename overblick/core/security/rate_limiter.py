@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class _Bucket(BaseModel):
     """Single rate limit bucket."""
+
     tokens: float
     last_refill: float
     max_tokens: float

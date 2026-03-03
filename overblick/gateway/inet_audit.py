@@ -63,8 +63,8 @@ class InetAuditLog:
     def __init__(self, db_path: Path, retention_days: int = _DEFAULT_RETENTION_DAYS):
         self._db_path = db_path
         self._retention_days = retention_days
-        self._cleanup_task: Optional[asyncio.Task] = None
-        self._conn: Optional[sqlite3.Connection] = None
+        self._cleanup_task: asyncio.Task | None = None
+        self._conn: sqlite3.Connection | None = None
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), timeout=10, check_same_thread=False)
         assert self._conn is not None
@@ -175,10 +175,10 @@ class InetAuditLog:
 
     def query(
         self,
-        key_id: Optional[str] = None,
-        source_ip: Optional[str] = None,
-        violation: Optional[str] = None,
-        since: Optional[float] = None,
+        key_id: str | None = None,
+        source_ip: str | None = None,
+        violation: str | None = None,
+        since: float | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:

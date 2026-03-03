@@ -28,20 +28,21 @@ from typing import Optional
 
 import aiohttp
 
-# Import from split modules
-from .deobfuscator import (
-    deobfuscate_challenge,
-    _strip_letter_doubling,
-    _reassemble_fragments,
-    _edit_distance_one,
-    _ONES,
-    _TENS,
-)
 from .arithmetic_solver import (
-    solve_arithmetic,
     _extract_word_numbers,
     _fuzzy_match,
     _is_subsequence,
+    solve_arithmetic,
+)
+
+# Import from split modules
+from .deobfuscator import (
+    _ONES,
+    _TENS,
+    _edit_distance_one,
+    _reassemble_fragments,
+    _strip_letter_doubling,
+    deobfuscate_challenge,
 )
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ class PerContentChallengeHandler:
     def __init__(
         self,
         llm_pipeline=None,
-        http_session: Optional[aiohttp.ClientSession] = None,
+        http_session: aiohttp.ClientSession | None = None,
         api_key: str = "",
         base_url: str = "",
         timeout: int = 45,
@@ -129,9 +130,7 @@ class PerContentChallengeHandler:
         # Safe-mode enforcement
         if not llm_pipeline:
             if allow_raw_fallback and llm_client:
-                logger.warning(
-                    "ChallengeHandler using raw client (allow_raw_fallback=True)"
-                )
+                logger.warning("ChallengeHandler using raw client (allow_raw_fallback=True)")
                 self._llm = llm_client
             else:
                 raise ValueError(
@@ -201,7 +200,7 @@ class PerContentChallengeHandler:
         return False
 
     @staticmethod
-    def _traverse_path(data: dict, path: tuple[str, ...]) -> Optional[dict]:
+    def _traverse_path(data: dict, path: tuple[str, ...]) -> dict | None:
         """Traverse a nested dict path, returning the final dict or None."""
         current = data
         for key in path:
@@ -213,9 +212,9 @@ class PerContentChallengeHandler:
     async def solve(
         self,
         challenge_data: dict,
-        original_endpoint: Optional[str] = None,
-        original_payload: Optional[dict] = None,
-    ) -> Optional[dict]:
+        original_endpoint: str | None = None,
+        original_payload: dict | None = None,
+    ) -> dict | None:
         """Solve a challenge and submit the answer.
 
         Args:
@@ -359,9 +358,7 @@ class PerContentChallengeHandler:
         total_elapsed = time.monotonic() - start_time
 
         if submit_result is not None:
-            logger.info(
-                "CHALLENGE: Solved in %.1fs (limit: %ss)", total_elapsed, time_limit
-            )
+            logger.info("CHALLENGE: Solved in %.1fs (limit: %ss)", total_elapsed, time_limit)
             self._stats["challenges_solved"] += 1
         else:
             self._stats["challenges_failed"] += 1
@@ -376,17 +373,15 @@ class PerContentChallengeHandler:
             correct=submit_result is not None,
             endpoint=endpoint or original_endpoint,
             duration_ms=round(total_elapsed * 1000, 1),
-            http_status=submit_result.get("_http_status")
-            if isinstance(submit_result, dict)
-            else None,
+            http_status=(
+                submit_result.get("_http_status") if isinstance(submit_result, dict) else None
+            ),
             error=None if submit_result else "submit_failed",
         )
 
         return submit_result
 
-    async def _solve_with_llm(
-        self, clean_question: str, complexity: str = "low"
-    ) -> Optional[str]:
+    async def _solve_with_llm(self, clean_question: str, complexity: str = "low") -> str | None:
         """Solve challenge via LLM Gateway with specified complexity routing."""
         messages = [
             {"role": "system", "content": CHALLENGE_SOLVER_SYSTEM},
@@ -428,12 +423,12 @@ class PerContentChallengeHandler:
     async def _try_submit(
         self,
         answer: str,
-        nonce: Optional[str],
+        nonce: str | None,
         challenge_data: dict,
-        endpoint: Optional[str],
-        original_endpoint: Optional[str],
-        original_payload: Optional[dict],
-    ) -> Optional[dict]:
+        endpoint: str | None,
+        original_endpoint: str | None,
+        original_payload: dict | None,
+    ) -> dict | None:
         """Multi-strategy challenge submission.
 
         Tries strategies in order, returns the first successful result:
@@ -453,9 +448,7 @@ class PerContentChallengeHandler:
             verify_payload: dict = {"answer": formatted_answer}
             if nonce:
                 verify_payload["verification_code"] = nonce
-            challenge_id = challenge_data.get("challenge_id") or challenge_data.get(
-                "id"
-            )
+            challenge_id = challenge_data.get("challenge_id") or challenge_data.get("id")
             if challenge_id:
                 verify_payload["challenge_id"] = str(challenge_id)
 
@@ -479,9 +472,7 @@ class PerContentChallengeHandler:
 
         # Strategy 2: Explicit submit endpoint from challenge data (if different from /verify)
         if endpoint and endpoint != "/verify":
-            result = await self._submit_answer(
-                endpoint, formatted_answer, nonce, challenge_data
-            )
+            result = await self._submit_answer(endpoint, formatted_answer, nonce, challenge_data)
             strategies_tried.append(("explicit_endpoint", endpoint, result is not None))
             if result is not None:
                 self._audit(
@@ -507,9 +498,7 @@ class PerContentChallengeHandler:
                 retry_payload,
                 "retry_original",
             )
-            strategies_tried.append(
-                ("retry_original", original_endpoint, result is not None)
-            )
+            strategies_tried.append(("retry_original", original_endpoint, result is not None))
             if result is not None:
                 self._audit(
                     "challenge_submitted",
@@ -559,7 +548,7 @@ class PerContentChallengeHandler:
         url: str,
         payload: dict,
         strategy_name: str,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """POST with full forensic logging for submit strategies."""
         if not self._session:
             return None
@@ -618,7 +607,7 @@ class PerContentChallengeHandler:
             # If we can't parse as numbers, they're different
             return llm_answer != arithmetic_answer
 
-    def _extract_field(self, data: dict, field_names: tuple) -> Optional[str]:
+    def _extract_field(self, data: dict, field_names: tuple) -> str | None:
         """Extract a field value trying multiple possible names and nesting paths."""
         # Check top-level
         for name in field_names:
@@ -637,7 +626,7 @@ class PerContentChallengeHandler:
 
         return None
 
-    def _extract_time_limit(self, data: dict) -> Optional[int]:
+    def _extract_time_limit(self, data: dict) -> int | None:
         """Extract time limit from challenge data."""
         raw = self._extract_field(data, self.TIME_LIMIT_FIELDS)
         if raw is not None:
@@ -651,9 +640,9 @@ class PerContentChallengeHandler:
         self,
         endpoint: str,
         answer: str,
-        nonce: Optional[str],
+        nonce: str | None,
         challenge_data: dict,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Submit a challenge answer."""
         if not self._session:
             logger.error("CHALLENGE: No HTTP session available")
@@ -670,9 +659,7 @@ class PerContentChallengeHandler:
                     url,
                     self._base_url,
                 )
-                return await self._submit_answer_no_auth(
-                    url, answer, nonce, challenge_data
-                )
+                return await self._submit_answer_no_auth(url, answer, nonce, challenge_data)
         else:
             url = f"{self._base_url}{endpoint}"
 
@@ -698,14 +685,10 @@ class PerContentChallengeHandler:
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 raw_body = await response.text()
-                logger.info(
-                    "CHALLENGE: Response HTTP %d: %s", response.status, raw_body[:1000]
-                )
+                logger.info("CHALLENGE: Response HTTP %d: %s", response.status, raw_body[:1000])
 
                 if response.status >= 400:
-                    logger.error(
-                        "CHALLENGE: Rejected HTTP %d: %s", response.status, raw_body
-                    )
+                    logger.error("CHALLENGE: Rejected HTTP %d: %s", response.status, raw_body)
                     return None
 
                 try:
@@ -721,9 +704,9 @@ class PerContentChallengeHandler:
         self,
         url: str,
         answer: str,
-        nonce: Optional[str],
+        nonce: str | None,
         challenge_data: dict,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Submit without auth header (external endpoint — no API key leakage)."""
         payload = {"answer": answer}
         if nonce:
@@ -743,9 +726,7 @@ class PerContentChallengeHandler:
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 raw_body = await response.text()
-                logger.info(
-                    "CHALLENGE: Response HTTP %d: %s", response.status, raw_body[:1000]
-                )
+                logger.info("CHALLENGE: Response HTTP %d: %s", response.status, raw_body[:1000])
                 if response.status >= 400:
                     return None
                 try:
@@ -776,16 +757,16 @@ class PerContentChallengeHandler:
 
     async def _record_challenge(
         self,
-        challenge_id: Optional[str],
-        question_raw: Optional[str],
-        question_clean: Optional[str],
-        answer: Optional[str],
-        solver: Optional[str],
+        challenge_id: str | None,
+        question_raw: str | None,
+        question_clean: str | None,
+        answer: str | None,
+        solver: str | None,
         correct: bool,
-        endpoint: Optional[str],
+        endpoint: str | None,
         duration_ms: float,
-        http_status: Optional[int],
-        error: Optional[str],
+        http_status: int | None,
+        error: str | None,
     ) -> None:
         """Record challenge attempt to engagement DB if available."""
         if not self._engagement_db:

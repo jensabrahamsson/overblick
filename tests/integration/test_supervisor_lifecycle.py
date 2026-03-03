@@ -89,9 +89,7 @@ class TestSupervisorIPCLifecycle:
 
         async def handler(msg: IPCMessage):
             senders.append(msg.sender)
-            return IPCMessage.status_response(
-                status={"ok": True}, sender="supervisor"
-            )
+            return IPCMessage.status_response(status={"ok": True}, sender="supervisor")
 
         server.on("status_request", handler)
         await server.start()
@@ -129,14 +127,18 @@ class TestSupervisorIPCLifecycle:
             client = IPCClient(target="sup", socket_dir=ipc_dir, auth_token=token)
 
             allowed = await client.request_permission(
-                resource="moltbook", action="post",
-                reason="heartbeat", sender="anomal",
+                resource="moltbook",
+                action="post",
+                reason="heartbeat",
+                sender="anomal",
             )
             assert allowed is True
 
             denied = await client.request_permission(
-                resource="telegram", action="send",
-                reason="notification", sender="anomal",
+                resource="telegram",
+                action="send",
+                reason="notification",
+                sender="anomal",
             )
             assert denied is False
         finally:
@@ -149,9 +151,7 @@ class TestSupervisorIPCLifecycle:
         server = IPCServer(name="sup", socket_dir=ipc_dir, auth_token=token)
 
         async def handler(msg: IPCMessage):
-            return IPCMessage.status_response(
-                status={"ok": True}, sender="supervisor"
-            )
+            return IPCMessage.status_response(status={"ok": True}, sender="supervisor")
 
         server.on("status_request", handler)
         await server.start()
@@ -159,9 +159,7 @@ class TestSupervisorIPCLifecycle:
         try:
             # Bad client (wrong token)
             bad_client = IPCClient(target="sup", socket_dir=ipc_dir, auth_token="wrong")
-            result = await bad_client.send(
-                IPCMessage.status_request(sender="evil")
-            )
+            result = await bad_client.send(IPCMessage.status_request(sender="evil"))
             assert result is None  # Rejected
             assert server.rejected_count == 1
 
@@ -183,21 +181,18 @@ class TestSupervisorIPCLifecycle:
         async def handler(msg: IPCMessage):
             nonlocal count
             count += 1
-            return IPCMessage.status_response(
-                status={"count": count}, sender="supervisor"
-            )
+            return IPCMessage.status_response(status={"count": count}, sender="supervisor")
 
         server.on("status_request", handler)
         await server.start()
 
         try:
+
             async def send_request(name: str):
                 client = IPCClient(target="sup", socket_dir=ipc_dir, auth_token=token)
                 return await client.request_status(sender=name)
 
-            results = await asyncio.gather(*[
-                send_request(f"agent-{i}") for i in range(10)
-            ])
+            results = await asyncio.gather(*[send_request(f"agent-{i}") for i in range(10)])
 
             # All should have gotten responses
             assert all(r is not None for r in results)

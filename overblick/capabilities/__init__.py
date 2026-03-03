@@ -15,27 +15,27 @@ Bundles:
     monitoring     = [host_inspection]
 """
 
-from overblick.capabilities.psychology.dream import DreamCapability
-from overblick.capabilities.psychology.therapy import TherapyCapability
-from overblick.capabilities.psychology.emotional import EmotionalCapability
-from overblick.capabilities.psychology.mood_cycle import MoodCycleCapability
-from overblick.capabilities.knowledge.loader import KnowledgeCapability
-from overblick.capabilities.social.openings import OpeningCapability
-from overblick.capabilities.engagement.analyzer import AnalyzerCapability
-from overblick.capabilities.engagement.composer import ComposerCapability
-from overblick.capabilities.conversation.tracker import ConversationCapability
-from overblick.capabilities.content.summarizer import SummarizerCapability
-from overblick.capabilities.speech.stt import SpeechToTextCapability
-from overblick.capabilities.speech.tts import TextToSpeechCapability
-from overblick.capabilities.vision.analyzer import VisionCapability
 from overblick.capabilities.communication.boss_request import BossRequestCapability
 from overblick.capabilities.communication.email import EmailCapability
 from overblick.capabilities.communication.gmail import GmailCapability
 from overblick.capabilities.communication.style_trainer import StyleTrainerCapability
 from overblick.capabilities.communication.telegram_notifier import TelegramNotifier
 from overblick.capabilities.consulting.personality_consultant import PersonalityConsultantCapability
+from overblick.capabilities.content.summarizer import SummarizerCapability
+from overblick.capabilities.conversation.tracker import ConversationCapability
+from overblick.capabilities.engagement.analyzer import AnalyzerCapability
+from overblick.capabilities.engagement.composer import ComposerCapability
+from overblick.capabilities.knowledge.loader import KnowledgeCapability
 from overblick.capabilities.monitoring.inspector import HostInspectionCapability
+from overblick.capabilities.psychology.dream import DreamCapability
+from overblick.capabilities.psychology.emotional import EmotionalCapability
+from overblick.capabilities.psychology.mood_cycle import MoodCycleCapability
+from overblick.capabilities.psychology.therapy import TherapyCapability
+from overblick.capabilities.social.openings import OpeningCapability
+from overblick.capabilities.speech.stt import SpeechToTextCapability
+from overblick.capabilities.speech.tts import TextToSpeechCapability
 from overblick.capabilities.system.clock import SystemClockCapability
+from overblick.capabilities.vision.analyzer import VisionCapability
 
 # Name -> class mapping for registry
 CAPABILITY_REGISTRY: dict[str, type] = {
@@ -93,28 +93,28 @@ def resolve_capabilities(names: list[str]) -> list[str]:
 
 
 __all__ = [
-    "BossRequestCapability",
-    "DreamCapability",
-    "TherapyCapability",
-    "EmotionalCapability",
-    "KnowledgeCapability",
-    "OpeningCapability",
+    "CAPABILITY_BUNDLES",
+    "CAPABILITY_REGISTRY",
     "AnalyzerCapability",
+    "BossRequestCapability",
     "ComposerCapability",
     "ConversationCapability",
-    "SummarizerCapability",
-    "SpeechToTextCapability",
-    "TextToSpeechCapability",
-    "VisionCapability",
+    "DreamCapability",
     "EmailCapability",
+    "EmotionalCapability",
     "GmailCapability",
-    "StyleTrainerCapability",
-    "TelegramNotifier",
     "HostInspectionCapability",
+    "KnowledgeCapability",
     "MoodCycleCapability",
+    "OpeningCapability",
     "PersonalityConsultantCapability",
+    "SpeechToTextCapability",
+    "StyleTrainerCapability",
+    "SummarizerCapability",
     "SystemClockCapability",
-    "CAPABILITY_REGISTRY",
-    "CAPABILITY_BUNDLES",
+    "TelegramNotifier",
+    "TextToSpeechCapability",
+    "TherapyCapability",
+    "VisionCapability",
     "resolve_capabilities",
 ]

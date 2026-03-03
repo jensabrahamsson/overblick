@@ -55,7 +55,7 @@ class StagePlugin(PluginBase):
         super().__init__(ctx)
         self._scenario_dirs: list[Path] = []
         self._results: list[ScenarioResult] = []
-        self._state_file: Optional[Any] = None
+        self._state_file: Any | None = None
         self._tick_count: int = 0
 
     async def setup(self) -> None:
@@ -122,9 +122,7 @@ class StagePlugin(PluginBase):
         # Load identity and build system prompt
         try:
             identity = self.ctx.load_identity(scenario.identity)
-            system_prompt = self.ctx.build_system_prompt(
-                identity, platform="Stage Test"
-            )
+            system_prompt = self.ctx.build_system_prompt(identity, platform="Stage Test")
         except FileNotFoundError:
             return ScenarioResult(
                 scenario_name=scenario.name,
@@ -232,9 +230,7 @@ class StagePlugin(PluginBase):
 
         return scenario_result
 
-    async def run_all_scenarios(
-        self, directory: Optional[Path] = None
-    ) -> list[ScenarioResult]:
+    async def run_all_scenarios(self, directory: Path | None = None) -> list[ScenarioResult]:
         """
         Run all scenarios found in a directory.
 
@@ -301,9 +297,7 @@ class StagePlugin(PluginBase):
                     if scenario.identity:
                         scenarios.append(scenario)
                 except Exception as e:
-                    logger.error(
-                        "StagePlugin: failed to load %s: %s", yaml_file, e
-                    )
+                    logger.error("StagePlugin: failed to load %s: %s", yaml_file, e)
         return scenarios
 
     def get_results(self, limit: int = 50) -> list[ScenarioResult]:
@@ -319,9 +313,7 @@ class StagePlugin(PluginBase):
             try:
                 data = json.loads(self._state_file.read_text())
                 for result_data in data.get("results", []):
-                    self._results.append(
-                        ScenarioResult.model_validate(result_data)
-                    )
+                    self._results.append(ScenarioResult.model_validate(result_data))
             except Exception as e:
                 logger.warning("StagePlugin: failed to load state: %s", e)
 
@@ -329,10 +321,7 @@ class StagePlugin(PluginBase):
         if self._state_file:
             try:
                 data = {
-                    "results": [
-                        r.model_dump()
-                        for r in self._results[-_MAX_RESULTS_STORED:]
-                    ],
+                    "results": [r.model_dump() for r in self._results[-_MAX_RESULTS_STORED:]],
                 }
                 self._state_file.parent.mkdir(parents=True, exist_ok=True)
                 self._state_file.write_text(json.dumps(data, indent=2))

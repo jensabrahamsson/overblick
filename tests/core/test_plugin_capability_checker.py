@@ -23,19 +23,14 @@ def test_check_plugin_all_granted():
         }
     }
     checker = PluginCapabilityChecker("test_identity", config)
-    assert (
-        checker.check_plugin("test_plugin", ["network_outbound", "secrets_access"])
-        is True
-    )
+    assert checker.check_plugin("test_plugin", ["network_outbound", "secrets_access"]) is True
 
 
 def test_check_plugin_missing_grants_warning():
     """Missing grants trigger warning but plugin loads (non-strict)."""
     config = {"plugin_capabilities": {}}
     checker = PluginCapabilityChecker("test_identity", config)
-    with patch(
-        "overblick.core.plugin_capability_checker.logger.warning"
-    ) as mock_warning:
+    with patch("overblick.core.plugin_capability_checker.logger.warning") as mock_warning:
         result = checker.check_plugin("test_plugin", ["network_outbound"])
         # Should return False because missing grants
         assert result is False
@@ -84,9 +79,7 @@ def test_check_plugin_unknown_capability_warning():
     """Unknown capability triggers warning."""
     config = {"plugin_capabilities": {}}
     checker = PluginCapabilityChecker("test_identity", config)
-    with patch(
-        "overblick.core.plugin_capability_checker.logger.warning"
-    ) as mock_warning:
+    with patch("overblick.core.plugin_capability_checker.logger.warning") as mock_warning:
         result = checker.check_plugin("test_plugin", ["nonexistent_capability"])
         assert result is False
         mock_warning.assert_called()

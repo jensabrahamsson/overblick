@@ -42,13 +42,15 @@ class TestVisionLifecycle:
 
     @pytest.mark.asyncio
     async def test_setup_custom_config(self):
-        ctx = make_ctx(config={
-            "api_key": "sk-test",
-            "model": "claude-3-sonnet-20240229",
-            "max_tokens": 300,
-            "timeout_seconds": 60,
-            "default_prompt": "What is this?",
-        })
+        ctx = make_ctx(
+            config={
+                "api_key": "sk-test",
+                "model": "claude-3-sonnet-20240229",
+                "max_tokens": 300,
+                "timeout_seconds": 60,
+                "default_prompt": "What is this?",
+            }
+        )
         cap = VisionCapability(ctx)
         await cap.setup()
         assert cap._model == "claude-3-sonnet-20240229"
@@ -104,10 +106,12 @@ class TestAnalyzeBase64:
 
         mock_resp = AsyncMock()
         mock_resp.status = 200
-        mock_resp.json = AsyncMock(return_value={
-            "content": [{"type": "text", "text": "A cat sitting on a mat."}],
-            "model": "claude-3-haiku-20240307",
-        })
+        mock_resp.json = AsyncMock(
+            return_value={
+                "content": [{"type": "text", "text": "A cat sitting on a mat."}],
+                "model": "claude-3-haiku-20240307",
+            }
+        )
         mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
         mock_resp.__aexit__ = AsyncMock(return_value=False)
 
@@ -133,9 +137,11 @@ class TestAnalyzeBase64:
 
         mock_resp = AsyncMock()
         mock_resp.status = 200
-        mock_resp.json = AsyncMock(return_value={
-            "content": [{"type": "text", "text": "A trading chart."}],
-        })
+        mock_resp.json = AsyncMock(
+            return_value={
+                "content": [{"type": "text", "text": "A trading chart."}],
+            }
+        )
         mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
         mock_resp.__aexit__ = AsyncMock(return_value=False)
 
@@ -144,9 +150,7 @@ class TestAnalyzeBase64:
         mock_session.post = MagicMock(return_value=mock_resp)
         cap._session = mock_session
 
-        result = await cap.analyze_image_base64(
-            "aGVsbG8=", "image/png", context="crypto trading"
-        )
+        result = await cap.analyze_image_base64("aGVsbG8=", "image/png", context="crypto trading")
         assert result == "A trading chart."
 
         # Verify context was used in prompt
@@ -198,9 +202,7 @@ class TestAnalyzeBase64:
 
         mock_session = MagicMock()
         mock_session.closed = False
-        mock_session.post = MagicMock(
-            side_effect=aiohttp.ClientError("Connection failed")
-        )
+        mock_session.post = MagicMock(side_effect=aiohttp.ClientError("Connection failed"))
         cap._session = mock_session
 
         result = await cap.analyze_image_base64("aGVsbG8=")
@@ -243,9 +245,11 @@ class TestAnalyzeURL:
         # Mock Claude API response
         mock_api_resp = AsyncMock()
         mock_api_resp.status = 200
-        mock_api_resp.json = AsyncMock(return_value={
-            "content": [{"type": "text", "text": "A logo image."}],
-        })
+        mock_api_resp.json = AsyncMock(
+            return_value={
+                "content": [{"type": "text", "text": "A logo image."}],
+            }
+        )
         mock_api_resp.__aenter__ = AsyncMock(return_value=mock_api_resp)
         mock_api_resp.__aexit__ = AsyncMock(return_value=False)
 
@@ -278,9 +282,11 @@ class TestAnalyzeURL:
 
         mock_api_resp = AsyncMock()
         mock_api_resp.status = 200
-        mock_api_resp.json = AsyncMock(return_value={
-            "content": [{"type": "text", "text": "A photo."}],
-        })
+        mock_api_resp.json = AsyncMock(
+            return_value={
+                "content": [{"type": "text", "text": "A photo."}],
+            }
+        )
         mock_api_resp.__aenter__ = AsyncMock(return_value=mock_api_resp)
         mock_api_resp.__aexit__ = AsyncMock(return_value=False)
 
@@ -307,9 +313,11 @@ class TestAnalyzeURL:
 
         mock_api_resp = AsyncMock()
         mock_api_resp.status = 200
-        mock_api_resp.json = AsyncMock(return_value={
-            "content": [{"type": "text", "text": "An image."}],
-        })
+        mock_api_resp.json = AsyncMock(
+            return_value={
+                "content": [{"type": "text", "text": "An image."}],
+            }
+        )
         mock_api_resp.__aenter__ = AsyncMock(return_value=mock_api_resp)
         mock_api_resp.__aexit__ = AsyncMock(return_value=False)
 
@@ -350,9 +358,7 @@ class TestAnalyzeURL:
 
         mock_session = MagicMock()
         mock_session.closed = False
-        mock_session.get = MagicMock(
-            side_effect=aiohttp.ClientError("DNS failed")
-        )
+        mock_session.get = MagicMock(side_effect=aiohttp.ClientError("DNS failed"))
         cap._session = mock_session
 
         result = await cap.analyze_image_url("https://example.com/image.jpg")
@@ -375,15 +381,18 @@ class TestAnalyzeURL:
 class TestVisionRegistry:
     def test_registered_in_capability_registry(self):
         from overblick.capabilities import CAPABILITY_REGISTRY
+
         assert "vision" in CAPABILITY_REGISTRY
         assert CAPABILITY_REGISTRY["vision"] is VisionCapability
 
     def test_vision_bundle(self):
         from overblick.capabilities import CAPABILITY_BUNDLES
+
         assert "vision" in CAPABILITY_BUNDLES
         assert "vision" in CAPABILITY_BUNDLES["vision"]
 
     def test_resolve_vision_bundle(self):
         from overblick.capabilities import resolve_capabilities
+
         resolved = resolve_capabilities(["vision"])
         assert "vision" in resolved

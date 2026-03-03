@@ -77,13 +77,16 @@ class TestResearchHandlerInit:
 
     @pytest.mark.asyncio
     async def test_lazy_init_on_first_handle(
-        self, handler, research_request_msg, mock_personality,
+        self,
+        handler,
+        research_request_msg,
+        mock_personality,
     ):
         """First handle() call triggers initialization."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="The EUR/SEK rate is approximately 11.45."
-        ))
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="The EUR/SEK rate is approximately 11.45.")
+        )
 
         ddg_response = {
             "Abstract": "The exchange rate between EUR and SEK is 11.45",
@@ -94,7 +97,11 @@ class TestResearchHandlerInit:
         patches = _patch_init(mock_personality, mock_pipeline)
 
         with (
-            patches[0], patches[1], patches[2], patches[3], patches[4],
+            patches[0],
+            patches[1],
+            patches[2],
+            patches[3],
+            patches[4],
             patch.object(handler, "_web_search", return_value="EUR/SEK: 11.45"),
         ):
             response = await handler.handle(research_request_msg)
@@ -203,7 +210,10 @@ class TestResearchHandlerResponse:
 
     @pytest.mark.asyncio
     async def test_llm_failure_returns_raw_results(
-        self, handler, research_request_msg, mock_personality,
+        self,
+        handler,
+        research_request_msg,
+        mock_personality,
     ):
         """Returns raw search results when LLM summarization fails."""
         mock_pipeline = AsyncMock()
@@ -212,7 +222,11 @@ class TestResearchHandlerResponse:
         patches = _patch_init(mock_personality, mock_pipeline)
 
         with (
-            patches[0], patches[1], patches[2], patches[3], patches[4],
+            patches[0],
+            patches[1],
+            patches[2],
+            patches[3],
+            patches[4],
             patch.object(handler, "_web_search", return_value="Raw search data here"),
         ):
             response = await handler.handle(research_request_msg)
@@ -227,18 +241,24 @@ class TestResearchHandlerAudit:
 
     @pytest.mark.asyncio
     async def test_audit_logs_request_and_response(
-        self, handler, research_request_msg, mock_audit_log, mock_personality,
+        self,
+        handler,
+        research_request_msg,
+        mock_audit_log,
+        mock_personality,
     ):
         """Both request and response are audit-logged."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(
-            content="Summary text"
-        ))
+        mock_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Summary text"))
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
         with (
-            patches[0], patches[1], patches[2], patches[3], patches[4],
+            patches[0],
+            patches[1],
+            patches[2],
+            patches[3],
+            patches[4],
             patch.object(handler, "_web_search", return_value="Search results"),
         ):
             await handler.handle(research_request_msg)
@@ -262,7 +282,6 @@ class TestResearchHandlerAudit:
 
         assert response is not None
         error_logged = any(
-            call.args[0] == "research_request_error"
-            for call in mock_audit_log.log.call_args_list
+            call.args[0] == "research_request_error" for call in mock_audit_log.log.call_args_list
         )
         assert error_logged

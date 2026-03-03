@@ -8,8 +8,8 @@ identity-driven interest keywords, thresholds, and scoring rules.
 import logging
 from typing import Optional
 
-from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.capabilities.engagement.decision_engine import DecisionEngine, EngagementDecision
+from overblick.core.capability import CapabilityBase, CapabilityContext
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class AnalyzerCapability(CapabilityBase):
 
     def __init__(self, ctx: CapabilityContext):
         super().__init__(ctx)
-        self._engine: Optional[DecisionEngine] = None
+        self._engine: DecisionEngine | None = None
 
     async def setup(self) -> None:
         interest_keywords = self.ctx.config.get("interest_keywords", [])
@@ -54,7 +54,10 @@ class AnalyzerCapability(CapabilityBase):
         """Evaluate whether to engage with a post."""
         if not self._engine:
             return EngagementDecision(
-                should_engage=False, score=0.0, action="skip", reason="not initialized",
+                should_engage=False,
+                score=0.0,
+                action="skip",
+                reason="not initialized",
             )
         return self._engine.evaluate_post(title, content, agent_name, submolt)
 
@@ -67,11 +70,14 @@ class AnalyzerCapability(CapabilityBase):
         """Evaluate whether to reply to a comment."""
         if not self._engine:
             return EngagementDecision(
-                should_engage=False, score=0.0, action="skip", reason="not initialized",
+                should_engage=False,
+                score=0.0,
+                action="skip",
+                reason="not initialized",
             )
         return self._engine.evaluate_reply(comment_content, original_post_title, commenter_name)
 
     @property
-    def inner(self) -> Optional[DecisionEngine]:
+    def inner(self) -> DecisionEngine | None:
         """Access the underlying DecisionEngine (for tests/migration)."""
         return self._engine

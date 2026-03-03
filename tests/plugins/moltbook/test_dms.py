@@ -28,8 +28,10 @@ class TestDMDedup:
         plugin, ctx, client = setup_cherry_plugin
 
         conv = MockConversation(
-            id="conv-1", participant_name="Alice",
-            last_message="Hey there!", unread_count=2,
+            id="conv-1",
+            participant_name="Alice",
+            last_message="Hey there!",
+            unread_count=2,
         )
 
         client.list_dm_requests = AsyncMock(return_value=[])
@@ -49,8 +51,10 @@ class TestDMDedup:
         plugin, ctx, client = setup_cherry_plugin
 
         conv = MockConversation(
-            id="conv-1", participant_name="Alice",
-            last_message="Hey!", unread_count=1,
+            id="conv-1",
+            participant_name="Alice",
+            last_message="Hey!",
+            unread_count=1,
         )
 
         client.list_dm_requests = AsyncMock(return_value=[])

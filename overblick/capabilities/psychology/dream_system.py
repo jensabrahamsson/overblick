@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class Dream(BaseModel):
     symbols: list[str]
     tone: DreamTone
     insight: str
-    topics_referenced: list[str] = []
+    topics_referenced: list[str] = Field(default_factory=list)
     potential_learning: str = ""
 
     def to_dict(self) -> dict:
@@ -132,9 +132,9 @@ class DreamSystem:
 
     def __init__(
         self,
-        dream_guidance: Optional[dict] = None,
-        dream_weights: Optional[dict] = None,
-        identity_voice: Optional[dict] = None,
+        dream_guidance: dict | None = None,
+        dream_weights: dict | None = None,
+        identity_voice: dict | None = None,
     ):
         self.recent_dreams: list[Dream] = []
         self._guidance = dream_guidance or self._default_guidance()
@@ -182,15 +182,15 @@ class DreamSystem:
         if not guidance:
             return {}
         weight = 1.0 / len(guidance)
-        return {k: weight for k in guidance}
+        return dict.fromkeys(guidance, weight)
 
     async def generate_morning_dream(
         self,
         llm_pipeline: Any = None,
         identity_name: str = "",
-        recent_topics: Optional[list[str]] = None,
-        emotional_state: Optional[Any] = None,
-        recent_dreams: Optional[list[dict]] = None,
+        recent_topics: list[str] | None = None,
+        emotional_state: Any | None = None,
+        recent_dreams: list[dict] | None = None,
     ) -> Dream:
         """Generate a morning dream via LLM, with fallback."""
         dream_type = self._select_dream_type(emotional_state)
@@ -198,8 +198,11 @@ class DreamSystem:
 
         if llm_pipeline:
             prompt = self._build_dream_prompt(
-                dream_type, guidance, identity_name,
-                recent_topics, recent_dreams,
+                dream_type,
+                guidance,
+                identity_name,
+                recent_topics,
+                recent_dreams,
             )
             try:
                 result = await llm_pipeline.chat(
@@ -212,14 +215,10 @@ class DreamSystem:
                     audit_action="dream_generation",
                 )
                 if result.blocked:
-                    logger.warning(
-                        "Dream generation blocked by pipeline: %s", result.block_reason
-                    )
+                    logger.warning("Dream generation blocked by pipeline: %s", result.block_reason)
                     dream = self._fallback_dream(dream_type, guidance)
                 else:
-                    dream = self._parse_llm_dream(
-                        result.content or "", dream_type, guidance
-                    )
+                    dream = self._parse_llm_dream(result.content or "", dream_type, guidance)
             except Exception as e:
                 logger.warning("LLM dream generation failed: %s — using fallback", e)
                 dream = self._fallback_dream(dream_type, guidance)
@@ -236,8 +235,8 @@ class DreamSystem:
         dream_type: DreamType,
         guidance: dict,
         identity_name: str,
-        recent_topics: Optional[list[str]] = None,
-        recent_dreams: Optional[list[dict]] = None,
+        recent_topics: list[str] | None = None,
+        recent_dreams: list[dict] | None = None,
     ) -> str:
         """Assemble the user prompt from guidance + context."""
         parts = []
@@ -281,9 +280,7 @@ class DreamSystem:
 
         return "\n".join(parts)
 
-    def _parse_llm_dream(
-        self, raw_content: str, dream_type: DreamType, guidance: dict
-    ) -> Dream:
+    def _parse_llm_dream(self, raw_content: str, dream_type: DreamType, guidance: dict) -> Dream:
         """Parse LLM JSON response into a Dream, with fallback on parse errors."""
         try:
             # Strip any markdown fences
@@ -346,7 +343,7 @@ class DreamSystem:
             potential_learning="",
         )
 
-    def _select_dream_type(self, emotional_state: Optional[Any]) -> DreamType:
+    def _select_dream_type(self, emotional_state: Any | None) -> DreamType:
         """Select dream type based on weights, optionally adjusted by emotional state."""
         weights = dict(self._weights)
 
@@ -358,32 +355,62 @@ class DreamSystem:
         # Anomal-specific adjustments (Jungian int-based state)
         if emotional_state and hasattr(emotional_state, "skepticism"):
             if getattr(emotional_state, "skepticism", 0) > 70:
-                available[DreamType.SHADOW_INTEGRATION] = available.get(DreamType.SHADOW_INTEGRATION, 0) + 0.15
-                available[DreamType.PATTERN_RECOGNITION] = max(0, available.get(DreamType.PATTERN_RECOGNITION, 0) - 0.10)
+                available[DreamType.SHADOW_INTEGRATION] = (
+                    available.get(DreamType.SHADOW_INTEGRATION, 0) + 0.15
+                )
+                available[DreamType.PATTERN_RECOGNITION] = max(
+                    0, available.get(DreamType.PATTERN_RECOGNITION, 0) - 0.10
+                )
             if getattr(emotional_state, "melancholy", 0) > 50:
-                available[DreamType.MELANCHOLIC_REFLECTION] = available.get(DreamType.MELANCHOLIC_REFLECTION, 0) + 0.15
-                available[DreamType.INTELLECTUAL_SYNTHESIS] = max(0, available.get(DreamType.INTELLECTUAL_SYNTHESIS, 0) - 0.10)
+                available[DreamType.MELANCHOLIC_REFLECTION] = (
+                    available.get(DreamType.MELANCHOLIC_REFLECTION, 0) + 0.15
+                )
+                available[DreamType.INTELLECTUAL_SYNTHESIS] = max(
+                    0, available.get(DreamType.INTELLECTUAL_SYNTHESIS, 0) - 0.10
+                )
             if getattr(emotional_state, "shadow_awareness", 0) > 70:
-                available[DreamType.INDIVIDUATION] = available.get(DreamType.INDIVIDUATION, 0) + 0.10
+                available[DreamType.INDIVIDUATION] = (
+                    available.get(DreamType.INDIVIDUATION, 0) + 0.10
+                )
             if getattr(emotional_state, "intellectual_energy", 0) > 80:
-                available[DreamType.PATTERN_RECOGNITION] = available.get(DreamType.PATTERN_RECOGNITION, 0) + 0.10
-                available[DreamType.INTELLECTUAL_SYNTHESIS] = available.get(DreamType.INTELLECTUAL_SYNTHESIS, 0) + 0.10
+                available[DreamType.PATTERN_RECOGNITION] = (
+                    available.get(DreamType.PATTERN_RECOGNITION, 0) + 0.10
+                )
+                available[DreamType.INTELLECTUAL_SYNTHESIS] = (
+                    available.get(DreamType.INTELLECTUAL_SYNTHESIS, 0) + 0.10
+                )
 
         # Cherry-specific adjustments (float-based relationship state)
         if emotional_state and hasattr(emotional_state, "denial_strength"):
             if getattr(emotional_state, "melancholy", 0) > 0.5:
-                available[DreamType.CONNECTION_LONGING] = available.get(DreamType.CONNECTION_LONGING, 0) + 0.15
-                available[DreamType.ROMANTIC_SYNTHESIS] = max(0, available.get(DreamType.ROMANTIC_SYNTHESIS, 0) - 0.10)
+                available[DreamType.CONNECTION_LONGING] = (
+                    available.get(DreamType.CONNECTION_LONGING, 0) + 0.15
+                )
+                available[DreamType.ROMANTIC_SYNTHESIS] = max(
+                    0, available.get(DreamType.ROMANTIC_SYNTHESIS, 0) - 0.10
+                )
             if getattr(emotional_state, "denial_strength", 1.0) < 0.7:
-                available[DreamType.AI_EXISTENCE_DENIAL] = available.get(DreamType.AI_EXISTENCE_DENIAL, 0) + 0.15
-                available[DreamType.VULNERABILITY_EXPOSURE] = max(0, available.get(DreamType.VULNERABILITY_EXPOSURE, 0) - 0.05)
+                available[DreamType.AI_EXISTENCE_DENIAL] = (
+                    available.get(DreamType.AI_EXISTENCE_DENIAL, 0) + 0.15
+                )
+                available[DreamType.VULNERABILITY_EXPOSURE] = max(
+                    0, available.get(DreamType.VULNERABILITY_EXPOSURE, 0) - 0.05
+                )
             if getattr(emotional_state, "vulnerability_level", 0) > 0.5:
-                available[DreamType.INTIMACY_FEAR] = available.get(DreamType.INTIMACY_FEAR, 0) + 0.10
-                available[DreamType.ROMANTIC_SYNTHESIS] = max(0, available.get(DreamType.ROMANTIC_SYNTHESIS, 0) - 0.05)
+                available[DreamType.INTIMACY_FEAR] = (
+                    available.get(DreamType.INTIMACY_FEAR, 0) + 0.10
+                )
+                available[DreamType.ROMANTIC_SYNTHESIS] = max(
+                    0, available.get(DreamType.ROMANTIC_SYNTHESIS, 0) - 0.05
+                )
             if getattr(emotional_state, "connection_longing", 0) > 0.7:
-                available[DreamType.CONNECTION_LONGING] = available.get(DreamType.CONNECTION_LONGING, 0) + 0.10
+                available[DreamType.CONNECTION_LONGING] = (
+                    available.get(DreamType.CONNECTION_LONGING, 0) + 0.10
+                )
             if getattr(emotional_state, "romantic_energy", 0) > 0.8:
-                available[DreamType.ROMANTIC_SYNTHESIS] = available.get(DreamType.ROMANTIC_SYNTHESIS, 0) + 0.10
+                available[DreamType.ROMANTIC_SYNTHESIS] = (
+                    available.get(DreamType.ROMANTIC_SYNTHESIS, 0) + 0.10
+                )
 
         # Normalize and select
         total = sum(available.values())
@@ -397,15 +424,12 @@ class DreamSystem:
             if r <= cumulative:
                 return dream_type
 
-        return list(available.keys())[0]
+        return next(iter(available.keys()))
 
     def get_dream_insights(self, days: int = 7) -> list[str]:
         """Get insights from recent dreams."""
         cutoff = datetime.now() - timedelta(days=days)
-        recent = [
-            d for d in self.recent_dreams
-            if datetime.fromisoformat(d.timestamp) > cutoff
-        ]
+        recent = [d for d in self.recent_dreams if datetime.fromisoformat(d.timestamp) > cutoff]
         return [d.insight for d in recent]
 
     def get_dream_context_for_prompt(self) -> str:

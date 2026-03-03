@@ -44,7 +44,7 @@ class PRCreator:
         branch: str,
         files_changed: list[str] | None = None,
         test_summary: str = "",
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Create a pull request for a bug fix.
 
@@ -70,15 +70,24 @@ class PRCreator:
         return await self._run_gh_pr_create(title, body, branch)
 
     async def _run_gh_pr_create(
-        self, title: str, body: str, branch: str,
-    ) -> Optional[str]:
+        self,
+        title: str,
+        body: str,
+        branch: str,
+    ) -> str | None:
         """Run `gh pr create` via create_subprocess_exec (no shell — safe)."""
         cmd = [
-            "gh", "pr", "create",
-            "--title", title,
-            "--body", body,
-            "--base", self._default_branch,
-            "--head", branch,
+            "gh",
+            "pr",
+            "create",
+            "--title",
+            title,
+            "--body",
+            body,
+            "--base",
+            self._default_branch,
+            "--head",
+            branch,
         ]
 
         try:
@@ -89,7 +98,8 @@ class PRCreator:
                 cwd=str(self._workspace),
             )
             stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=_GH_TIMEOUT,
+                proc.communicate(),
+                timeout=_GH_TIMEOUT,
             )
 
             stdout_text = stdout.decode("utf-8", errors="replace") if stdout else ""
@@ -108,7 +118,7 @@ class PRCreator:
             logger.warning("Unexpected gh output: %s", stdout_text[:500])
             return stdout_text.strip() or None
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("gh pr create timed out")
             return None
         except FileNotFoundError:
@@ -145,10 +155,12 @@ class PRCreator:
         if test_summary:
             parts.extend(["", "### Test Results", test_summary[:1000]])
 
-        parts.extend([
-            "",
-            "---",
-            "*Automated PR by Smed (Overblick Dev Agent)*",
-        ])
+        parts.extend(
+            [
+                "",
+                "---",
+                "*Automated PR by Smed (Overblick Dev Agent)*",
+            ]
+        )
 
         return "\n".join(parts)

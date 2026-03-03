@@ -112,7 +112,8 @@ async def test_update_bug_status(db):
     bug_id = await db.upsert_bug(bug)
 
     await db.update_bug_status(
-        bug_id, BugStatus.FIXING.value,
+        bug_id,
+        BugStatus.FIXING.value,
         branch_name="fix/1-test",
     )
 

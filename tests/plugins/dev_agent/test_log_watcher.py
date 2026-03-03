@@ -88,9 +88,7 @@ class TestScanFile:
 
     def test_scan_critical(self, watcher, tmp_path):
         log_file = tmp_path / "anomal" / "logs" / "agent.log"
-        log_file.write_text(
-            "2026-02-23 10:00:00 CRITICAL Out of memory\n"
-        )
+        log_file.write_text("2026-02-23 10:00:00 CRITICAL Out of memory\n")
 
         errors, _ = watcher.scan_file(log_file, "anomal", 0)
         assert len(errors) == 1
@@ -99,8 +97,7 @@ class TestScanFile:
     def test_scan_from_offset(self, watcher, tmp_path):
         log_file = tmp_path / "anomal" / "logs" / "agent.log"
         content = (
-            "2026-02-23 10:00:00 ERROR First error\n"
-            "2026-02-23 10:00:01 ERROR Second error\n"
+            "2026-02-23 10:00:00 ERROR First error\n" "2026-02-23 10:00:01 ERROR Second error\n"
         )
         log_file.write_text(content)
 
@@ -136,6 +133,7 @@ class TestScanFile:
 
     def test_scan_missing_file(self, watcher):
         from pathlib import Path
+
         errors, offset = watcher.scan_file(Path("/nonexistent.log"), "test", 0)
         assert errors == []
         assert offset == 0
@@ -158,11 +156,13 @@ class TestDeduplicateErrors:
 
         errors = [
             LogErrorEntry(
-                file_path="a.log", message="Error",
+                file_path="a.log",
+                message="Error",
                 traceback="Traceback\nTypeError: NoneType",
             ),
             LogErrorEntry(
-                file_path="a.log", message="Error",
+                file_path="a.log",
+                message="Error",
                 traceback="Traceback\nValueError: invalid",
             ),
         ]

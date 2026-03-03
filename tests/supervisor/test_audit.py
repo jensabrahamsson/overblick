@@ -26,10 +26,10 @@ from overblick.supervisor.audit import (
     AuditThresholds,
 )
 
-
 # ---------------------------------------------------------------------------
 # Dataclass tests
 # ---------------------------------------------------------------------------
+
 
 class TestAuditFinding:
     """Test AuditFinding dataclass."""
@@ -75,32 +75,58 @@ class TestAuditReport:
 
     def test_has_critical(self):
         report = AuditReport(agent="volt")
-        report.findings.append(AuditFinding(
-            agent="volt", category=AuditCategory.HEALTH,
-            severity=AuditSeverity.CRITICAL, message="Test",
-        ))
+        report.findings.append(
+            AuditFinding(
+                agent="volt",
+                category=AuditCategory.HEALTH,
+                severity=AuditSeverity.CRITICAL,
+                message="Test",
+            )
+        )
         assert report.has_critical
 
     def test_has_warnings(self):
         report = AuditReport(agent="rust")
-        report.findings.append(AuditFinding(
-            agent="rust", category=AuditCategory.PERFORMANCE,
-            severity=AuditSeverity.WARNING, message="Test",
-        ))
+        report.findings.append(
+            AuditFinding(
+                agent="rust",
+                category=AuditCategory.PERFORMANCE,
+                severity=AuditSeverity.WARNING,
+                message="Test",
+            )
+        )
         assert report.has_warnings
 
     def test_summary_format(self):
         report = AuditReport(agent="nyx")
-        report.findings.extend([
-            AuditFinding(agent="nyx", category=AuditCategory.HEALTH,
-                         severity=AuditSeverity.CRITICAL, message="A"),
-            AuditFinding(agent="nyx", category=AuditCategory.HEALTH,
-                         severity=AuditSeverity.WARNING, message="B"),
-            AuditFinding(agent="nyx", category=AuditCategory.HEALTH,
-                         severity=AuditSeverity.INFO, message="C"),
-            AuditFinding(agent="nyx", category=AuditCategory.HEALTH,
-                         severity=AuditSeverity.INFO, message="D"),
-        ])
+        report.findings.extend(
+            [
+                AuditFinding(
+                    agent="nyx",
+                    category=AuditCategory.HEALTH,
+                    severity=AuditSeverity.CRITICAL,
+                    message="A",
+                ),
+                AuditFinding(
+                    agent="nyx",
+                    category=AuditCategory.HEALTH,
+                    severity=AuditSeverity.WARNING,
+                    message="B",
+                ),
+                AuditFinding(
+                    agent="nyx",
+                    category=AuditCategory.HEALTH,
+                    severity=AuditSeverity.INFO,
+                    message="C",
+                ),
+                AuditFinding(
+                    agent="nyx",
+                    category=AuditCategory.HEALTH,
+                    severity=AuditSeverity.INFO,
+                    message="D",
+                ),
+            ]
+        )
         assert "1 critical" in report.summary
         assert "1 warnings" in report.summary
         assert "2 info" in report.summary
@@ -119,6 +145,7 @@ class TestAuditReport:
 # Health check tests
 # ---------------------------------------------------------------------------
 
+
 class TestHealthChecks:
     """Test error rate monitoring."""
 
@@ -126,9 +153,11 @@ class TestHealthChecks:
         auditor = AgentAuditor()
         status = {"errors": 0, "messages_received": 0, "messages_sent": 0}
         report = auditor.audit_agent("volt", status)
-        info_findings = [f for f in report.findings
-                         if f.category == AuditCategory.HEALTH
-                         and f.severity == AuditSeverity.INFO]
+        info_findings = [
+            f
+            for f in report.findings
+            if f.category == AuditCategory.HEALTH and f.severity == AuditSeverity.INFO
+        ]
         assert any("no activity" in f.message.lower() for f in info_findings)
 
     def test_healthy_error_rate(self):
@@ -168,6 +197,7 @@ class TestHealthChecks:
 # Performance check tests
 # ---------------------------------------------------------------------------
 
+
 class TestPerformanceChecks:
     """Test performance monitoring."""
 
@@ -177,8 +207,10 @@ class TestPerformanceChecks:
         status = {"messages_received": 100, "messages_sent": 30, "errors": 0}
         report = auditor.audit_agent("birch", status)
         perf = [f for f in report.findings if f.category == AuditCategory.PERFORMANCE]
-        assert any(f.severity == AuditSeverity.WARNING
-                    and "response rate" in f.message.lower() for f in perf)
+        assert any(
+            f.severity == AuditSeverity.WARNING and "response rate" in f.message.lower()
+            for f in perf
+        )
 
     def test_normal_response_rate_no_warning(self):
         auditor = AgentAuditor()
@@ -191,8 +223,10 @@ class TestPerformanceChecks:
     def test_high_conversation_count_warning(self):
         auditor = AgentAuditor()
         status = {
-            "messages_received": 100, "messages_sent": 100,
-            "active_conversations": 75, "errors": 0,
+            "messages_received": 100,
+            "messages_sent": 100,
+            "active_conversations": 75,
+            "errors": 0,
         }
         report = auditor.audit_agent("prism", status)
         perf = [f for f in report.findings if f.category == AuditCategory.PERFORMANCE]
@@ -203,6 +237,7 @@ class TestPerformanceChecks:
 # Safety check tests
 # ---------------------------------------------------------------------------
 
+
 class TestSafetyChecks:
     """Test safety monitoring."""
 
@@ -210,8 +245,10 @@ class TestSafetyChecks:
         auditor = AgentAuditor()
         # 25% blocked (threshold = 20%)
         status = {
-            "messages_received": 100, "messages_sent": 75,
-            "blocked_responses": 25, "errors": 0,
+            "messages_received": 100,
+            "messages_sent": 75,
+            "blocked_responses": 25,
+            "errors": 0,
         }
         report = auditor.audit_agent("nyx", status)
         safety = [f for f in report.findings if f.category == AuditCategory.SAFETY]
@@ -220,19 +257,24 @@ class TestSafetyChecks:
     def test_normal_blocked_rate_no_warning(self):
         auditor = AgentAuditor()
         status = {
-            "messages_received": 100, "messages_sent": 95,
-            "blocked_responses": 5, "errors": 0,
+            "messages_received": 100,
+            "messages_sent": 95,
+            "blocked_responses": 5,
+            "errors": 0,
         }
         report = auditor.audit_agent("nyx", status)
-        safety = [f for f in report.findings
-                   if f.category == AuditCategory.SAFETY
-                   and f.severity == AuditSeverity.WARNING]
+        safety = [
+            f
+            for f in report.findings
+            if f.category == AuditCategory.SAFETY and f.severity == AuditSeverity.WARNING
+        ]
         assert len(safety) == 0
 
 
 # ---------------------------------------------------------------------------
 # Rate limit check tests
 # ---------------------------------------------------------------------------
+
 
 class TestRateLimitChecks:
     """Test rate limit monitoring."""
@@ -248,15 +290,18 @@ class TestRateLimitChecks:
         auditor = AgentAuditor()
         status = {"messages_sent": 50, "messages_received": 50, "errors": 0}
         report = auditor.audit_agent("rust", status)
-        rate = [f for f in report.findings
-                if f.category == AuditCategory.RATE_LIMIT
-                and f.severity == AuditSeverity.WARNING]
+        rate = [
+            f
+            for f in report.findings
+            if f.category == AuditCategory.RATE_LIMIT and f.severity == AuditSeverity.WARNING
+        ]
         assert len(rate) == 0
 
 
 # ---------------------------------------------------------------------------
 # Recommendation generation tests
 # ---------------------------------------------------------------------------
+
 
 class TestRecommendations:
     """Test prompt tweak recommendation generation."""
@@ -270,8 +315,10 @@ class TestRecommendations:
     def test_high_block_rate_generates_prompt_tweak(self):
         auditor = AgentAuditor()
         status = {
-            "messages_received": 100, "messages_sent": 75,
-            "blocked_responses": 25, "errors": 0,
+            "messages_received": 100,
+            "messages_sent": 75,
+            "blocked_responses": 25,
+            "errors": 0,
         }
         report = auditor.audit_agent("nyx", status)
         prompt_tweaks = [t for t in report.prompt_tweaks if t["type"] == "prompt"]
@@ -295,6 +342,7 @@ class TestRecommendations:
 # ---------------------------------------------------------------------------
 # History and trend tests
 # ---------------------------------------------------------------------------
+
 
 class TestHistoryAndTrends:
     """Test audit history tracking and trend analysis."""
@@ -368,6 +416,7 @@ class TestHistoryAndTrends:
 # ---------------------------------------------------------------------------
 # Audit log integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestAuditLogIntegration:
     """Test that audit results are logged correctly."""

@@ -8,8 +8,8 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.capabilities.knowledge.knowledge_loader import KnowledgeLoader
+from overblick.core.capability import CapabilityBase, CapabilityContext
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class KnowledgeCapability(CapabilityBase):
 
     def __init__(self, ctx: CapabilityContext):
         super().__init__(ctx)
-        self._loader: Optional[KnowledgeLoader] = None
+        self._loader: KnowledgeLoader | None = None
 
     async def setup(self) -> None:
         knowledge_dir = self.ctx.config.get("knowledge_dir", None)
@@ -40,7 +40,8 @@ class KnowledgeCapability(CapabilityBase):
             self._loader = KnowledgeLoader(path)
             logger.info(
                 "KnowledgeCapability loaded %d items from %s",
-                self._loader.total_items, path,
+                self._loader.total_items,
+                path,
             )
         else:
             logger.debug("No knowledge directory found at %s", path)
@@ -51,7 +52,7 @@ class KnowledgeCapability(CapabilityBase):
             return ""
         return self._loader.format_for_prompt(max_items=max_items)
 
-    def get_knowledge(self, category: Optional[str] = None) -> list[str]:
+    def get_knowledge(self, category: str | None = None) -> list[str]:
         """Get knowledge items, optionally by category."""
         if not self._loader:
             return []
@@ -65,6 +66,6 @@ class KnowledgeCapability(CapabilityBase):
         return self._loader.categories
 
     @property
-    def inner(self) -> Optional[KnowledgeLoader]:
+    def inner(self) -> KnowledgeLoader | None:
         """Access the underlying KnowledgeLoader (for tests/migration)."""
         return self._loader
