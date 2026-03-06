@@ -407,16 +407,12 @@ class EmailAgentPlugin(PluginBase):
             return True
 
     async def _mark_email_read(self, message_id: str) -> None:
-        """Mark an email as read in Gmail to prevent re-processing."""
-        if not message_id:
-            return
-        gmail_cap = self.ctx.get_capability("gmail")
-        if not gmail_cap:
-            return
-        try:
-            await gmail_cap.mark_as_read(message_id)
-        except Exception as e:
-            logger.warning("EmailAgent: failed to mark email %s as read: %s", message_id, e)
+        """Mark an email as read in Gmail to prevent re-processing.
+
+        Currently disabled - Stål processes emails but does NOT mark them as read.
+        This preserves the user's inbox state and allows manual review.
+        """
+        pass
 
     async def _process_email(self, email: dict[str, Any]) -> None:
         """
