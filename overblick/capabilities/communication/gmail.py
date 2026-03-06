@@ -210,14 +210,14 @@ class GmailCapability:
             if since_days is not None:
                 cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
                 imap_date = cutoff.strftime("%d-%b-%Y")  # e.g. "14-Feb-2026"
-                search_criteria = f"UNSEEN SINCE {imap_date}"
+                search_criteria = f"(UNSEEN SINCE {imap_date})"
                 logger.debug(
                     "GmailCapability: fetching unread since %s (last %d day(s))",
                     imap_date,
                     since_days,
                 )
 
-            status, data = imap.uid("search", "", search_criteria)
+            status, data = imap.uid("search", search_criteria)
             if status != "OK" or not data or not data[0]:
                 return []
 
