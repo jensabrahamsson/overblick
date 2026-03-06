@@ -25,7 +25,8 @@ import asyncio
 import imaplib
 import logging
 import smtplib
-from datetime import UTC, datetime, timedelta, timezone
+import time
+from datetime import datetime, timedelta, timezone
 from email import policy
 from email.header import decode_header as _decode_header
 from email.mime.text import MIMEText
@@ -41,6 +42,12 @@ GMAIL_IMAP_PORT = 993
 GMAIL_SMTP_HOST = "smtp.gmail.com"
 GMAIL_SMTP_PORT = 587
 IMAP_TIMEOUT = 30  # seconds — prevents indefinite hangs on unresponsive servers
+SMTP_TIMEOUT = 30  # seconds for SMTP operations
+
+# Retry configuration
+MAX_RETRIES = 3
+INITIAL_RETRY_DELAY = 1.0  # seconds
+RETRY_BACKOFF_FACTOR = 2.0
 
 
 class GmailMessage(BaseModel):
@@ -151,15 +158,34 @@ class GmailCapability:
             logger.warning("GmailCapability: not configured, cannot fetch")
             return []
 
-        try:
-            return await asyncio.to_thread(
-                self._imap_fetch_unread,
-                max_results,
-                since_days,
-            )
-        except Exception as e:
-            logger.error("Gmail fetch_unread failed: %s", e, exc_info=True)
-            return []
+        for attempt in range(MAX_RETRIES):
+            try:
+                return await asyncio.to_thread(
+                    self._imap_fetch_unread,
+                    max_results,
+                    since_days,
+                )
+            except Exception as e:
+                if attempt == MAX_RETRIES - 1:
+                    logger.error(
+                        "Gmail fetch_unread failed after %d attempts: %s",
+                        MAX_RETRIES,
+                        e,
+                        exc_info=True,
+                    )
+                    return []
+                delay = INITIAL_RETRY_DELAY * (RETRY_BACKOFF_FACTOR**attempt)
+                logger.warning(
+                    "Gmail fetch_unread attempt %d failed, retrying in %.1fs: %s",
+                    attempt + 1,
+                    delay,
+                    e,
+                )
+                await asyncio.sleep(delay)
+
+        # Should never reach here, but return empty list if all retries fail
+        return []
+        return []
 
     def _imap_fetch_unread(
         self,
@@ -182,7 +208,7 @@ class GmailCapability:
             # at the server level to avoid fetching ancient unread emails.
             search_criteria = "UNSEEN"
             if since_days is not None:
-                cutoff = datetime.now(UTC) - timedelta(days=since_days)
+                cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
                 imap_date = cutoff.strftime("%d-%b-%Y")  # e.g. "14-Feb-2026"
                 search_criteria = f"UNSEEN SINCE {imap_date}"
                 logger.debug(
@@ -212,7 +238,8 @@ class GmailCapability:
     ) -> GmailMessage | None:
         """Fetch and parse a single message by IMAP UID."""
         uid_str = uid.decode()
-        status, data = imap.uid("fetch", uid_str, "(RFC822)")
+        # BODY.PEEK[] fetches without marking as read (vs RFC822 which marks as seen)
+        status, data = imap.uid("fetch", uid_str, "(BODY.PEEK[])")
         if status != "OK" or not data or not data[0]:
             return None
 
@@ -341,18 +368,35 @@ class GmailCapability:
             mime_msg["In-Reply-To"] = message_id
             mime_msg["References"] = message_id
 
-        try:
-            await asyncio.to_thread(self._smtp_send, mime_msg)
-            logger.info("Gmail reply sent to %s: %s", to, reply_subject)
-            return True
-        except Exception as e:
-            logger.error("Gmail send_reply failed: %s", e, exc_info=True)
-            return False
+        for attempt in range(MAX_RETRIES):
+            try:
+                await asyncio.to_thread(self._smtp_send, mime_msg)
+                logger.info("Gmail reply sent to %s: %s", to, reply_subject)
+                return True
+            except Exception as e:
+                if attempt == MAX_RETRIES - 1:
+                    logger.error(
+                        "Gmail send_reply failed after %d attempts: %s",
+                        MAX_RETRIES,
+                        e,
+                        exc_info=True,
+                    )
+                    return False
+                delay = INITIAL_RETRY_DELAY * (RETRY_BACKOFF_FACTOR**attempt)
+                logger.warning(
+                    "Gmail send_reply attempt %d failed, retrying in %.1fs: %s",
+                    attempt + 1,
+                    delay,
+                    e,
+                )
+                await asyncio.sleep(delay)
+
+        return False  # Should never reach here
 
     def _smtp_send(self, msg: MIMEText) -> None:
         """Send email via SMTP with STARTTLS (blocking, run in thread pool)."""
         assert self._email is not None and self._password is not None, "Gmail credentials missing"
-        with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=30) as smtp:
+        with smtplib.SMTP(GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, timeout=SMTP_TIMEOUT) as smtp:
             smtp.starttls()
             smtp.login(self._email, self._password)
             smtp.send_message(msg)
@@ -364,7 +408,8 @@ class GmailCapability:
         Mark a message as read by setting the \\Seen flag via IMAP.
 
         Args:
-            message_id: RFC 2822 Message-ID (looked up from internal UID cache).
+            message_id: RFC 2822 Message-ID (looked up from internal UID cache,
+                with fallback search if missing).
 
         Returns:
             True if successful.
@@ -375,11 +420,14 @@ class GmailCapability:
 
         uid = self._uid_map.get(message_id)
         if not uid:
-            logger.warning(
-                "GmailCapability: no IMAP UID cached for message %s",
-                message_id,
-            )
-            return False
+            # Fallback: search for the message by its Message-ID header
+            uid = await self._find_uid_by_message_id(message_id)
+            if not uid:
+                logger.warning(
+                    "GmailCapability: no IMAP UID found for message %s",
+                    message_id,
+                )
+                return False
 
         try:
             await asyncio.to_thread(self._imap_mark_read, uid)
@@ -388,6 +436,51 @@ class GmailCapability:
         except Exception as e:
             logger.error("Gmail mark_as_read failed: %s", e, exc_info=True)
             return False
+
+    async def _find_uid_by_message_id(self, message_id: str) -> bytes | None:
+        """Search for a message by its Message-ID header and return its UID."""
+        if not self.configured:
+            return None
+
+        try:
+            return await asyncio.to_thread(self._imap_find_uid_by_message_id, message_id)
+        except Exception as e:
+            logger.error("Gmail UID search failed: %s", e, exc_info=True)
+            return None
+
+    def _imap_find_uid_by_message_id(self, message_id: str) -> bytes | None:
+        """Search for message by Message-ID header (blocking)."""
+        assert self._email is not None and self._password is not None, "Gmail credentials missing"
+
+        with imaplib.IMAP4_SSL(
+            GMAIL_IMAP_HOST,
+            GMAIL_IMAP_PORT,
+            timeout=IMAP_TIMEOUT,
+        ) as imap:
+            imap.login(self._email, self._password)
+            imap.select("INBOX")
+
+            # Search for messages with this Message-ID header
+            # Note: Message-ID includes angle brackets in headers
+            search_msg_id = message_id.strip()
+            if not search_msg_id.startswith("<"):
+                search_msg_id = f"<{search_msg_id}>"
+            if not search_msg_id.endswith(">"):
+                search_msg_id = f"{search_msg_id}>"
+
+            status, data = imap.uid("search", "", f'HEADER Message-ID "{search_msg_id}"')
+            if status != "OK" or not data or not data[0]:
+                return None
+
+            uids = data[0].split()
+            if not uids:
+                return None
+
+            # Return the first (should be only) matching UID
+            uid = uids[0]
+            # Cache it for future use
+            self._uid_map[message_id] = uid
+            return uid
 
     def _imap_mark_read(self, uid: bytes) -> None:
         """Set \\Seen flag on a message via IMAP (blocking, run in thread pool)."""

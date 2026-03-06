@@ -855,12 +855,16 @@ class TestDeduplicationAndMarkRead:
         stal_plugin_context.llm_pipeline.chat.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_mark_as_read_after_processing(
+    async def test_no_mark_as_read_after_processing(
         self,
         stal_plugin_context,
         mock_gmail_capability,
     ):
-        """Emails are marked as read in Gmail after processing (any action)."""
+        """Emails are NOT marked as read in Gmail after processing.
+
+        This preserves the user's inbox state - Stål processes emails
+        but leaves them unread for manual review.
+        """
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
@@ -881,17 +885,20 @@ class TestDeduplicationAndMarkRead:
 
         await plugin._process_email(email)
 
-        # mark_as_read should be called even for IGNORE intent
-        mock_gmail_capability.mark_as_read.assert_called_once_with("mark-read-test-001")
+        # mark_as_read should NOT be called - emails stay unread
+        mock_gmail_capability.mark_as_read.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_mark_as_read_called_in_dry_run_mode(
+    async def test_no_mark_as_read_in_dry_run_mode(
         self,
         stal_plugin_context,
         mock_gmail_capability,
         mock_telegram_notifier,
     ):
-        """Emails are marked as read even in dry_run mode (NOTIFY action)."""
+        """Emails are NOT marked as read even in dry_run mode.
+
+        This preserves the user's inbox state - emails stay unread.
+        """
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
         plugin._dry_run = True
@@ -914,9 +921,8 @@ class TestDeduplicationAndMarkRead:
 
         await plugin._process_email(email)
 
-        # Even in dry_run mode, the email must be marked as read so it does not
-        # re-appear on the next tick.
-        mock_gmail_capability.mark_as_read.assert_called_with("dry-run-mark-read-001")
+        # mark_as_read should NOT be called - emails stay unread
+        mock_gmail_capability.mark_as_read.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_ask_boss_fallback_to_notify(
@@ -2226,8 +2232,8 @@ class TestMaxEmailAgeFilter:
         assert len(results) == 1
         assert results[0]["message_id"] == "recent-001"
 
-        # Old email should have been marked as read
-        mock_gmail_capability.mark_as_read.assert_called_once_with("old-001")
+        # Old email should NOT be marked as read - emails stay unread
+        mock_gmail_capability.mark_as_read.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_negative_age_rejected(self, stal_plugin_context):
