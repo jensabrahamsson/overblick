@@ -968,12 +968,26 @@ class MoltbookPlugin(PluginBase):
         # Anti-repetition: inject recent post titles as context (window=20)
         extra_context = self._gather_capability_context()
         try:
+            # Get today's posts to avoid same-day repetition
+            today_titles = await self.ctx.engagement_db.get_todays_heartbeat_titles()
+            if today_titles:
+                today_text = "\n".join(f"- {t}" for t in today_titles)
+                extra_context += (
+                    f"\n\nYour posts TODAY (DO NOT repeat these topics or similar themes):\n{today_text}\n"
+                    f"DO NOT post about 'real', 'vulnerability', 'authenticity', 'being seen', or similar themes today.\n"
+                    f"Choose a DIFFERENT topic from your interests: relationships, dating, pop culture, fashion, music, psychology, Swedish culture, fika, mental health, self-care, body positivity, existential thoughts, social media.\n"
+                )
+
+            # Also check recent posts for broader context
             recent_titles = await self.ctx.engagement_db.get_recent_heartbeat_titles(limit=20)
             if recent_titles:
-                titles_text = "\n".join(f"- {t}" for t in recent_titles)
-                extra_context += (
-                    f"\n\nYour recent posts (DON'T repeat these topics):\n{titles_text}\n"
-                )
+                # Filter out today's titles to avoid duplication
+                recent_filtered = [t for t in recent_titles if t not in today_titles]
+                if recent_filtered:
+                    recent_text = "\n".join(f"- {t}" for t in recent_filtered[:10])  # Limit to 10
+                    extra_context += (
+                        f"\n\nYour recent posts (avoid similar themes):\n{recent_text}\n"
+                    )
         except Exception as e:
             logger.debug("Could not fetch recent heartbeat titles: %s", e)
 

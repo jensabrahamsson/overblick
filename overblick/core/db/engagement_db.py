@@ -145,6 +145,16 @@ class EngagementDB:
         )
         return [r["title"] for r in rows]
 
+    async def get_todays_heartbeat_titles(self) -> list[str]:
+        """Get titles of heartbeat posts created today (same day)."""
+        ph = self._db.ph
+        rows = await self._db.fetch_all(
+            f"SELECT title FROM heartbeats WHERE title != '' "
+            f"AND date(created_at) = date('now') "
+            f"ORDER BY created_at DESC",
+        )
+        return [r["title"] for r in rows]
+
     # ------------------------------------------------------------------
     # Reply processing
     # ------------------------------------------------------------------
@@ -306,7 +316,7 @@ class EngagementDB:
         """Get distinct post_ids where we left comments, most recent first."""
         ph = self._db.ph
         rows = await self._db.fetch_all(
-            f"SELECT DISTINCT post_id FROM my_comments " f"ORDER BY created_at DESC LIMIT {ph(1)}",
+            f"SELECT DISTINCT post_id FROM my_comments ORDER BY created_at DESC LIMIT {ph(1)}",
             (limit,),
         )
         return [r["post_id"] for r in rows]
