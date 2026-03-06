@@ -48,8 +48,7 @@ class _TopicAwarePrompts(_FallbackPrompts):
     """Prompts with free-form heartbeat (no forced topics)."""
 
     HEARTBEAT_PROMPT = (
-        "Write an original post about whatever you're thinking about.\n"
-        "Topic index: {topic_index}"
+        "Write an original post about whatever you're thinking about.\nTopic index: {topic_index}"
     )
     HEARTBEAT_TOPICS = []
 
@@ -134,7 +133,7 @@ class TestHeartbeatTopicFormatting:
         )
         user_content = [m for m in messages if m["role"] == "user"][0]["content"]
         assert "AI Consciousness" in user_content
-        assert "DON'T repeat" in user_content
+        assert "DO NOT repeat" in user_content
 
     @pytest.mark.asyncio
     async def test_heartbeat_no_topics_uses_fallback(
