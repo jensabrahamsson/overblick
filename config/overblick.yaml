@@ -1,0 +1,38 @@
+framework:
+  name: Överblick
+  version: 0.1.0
+principal:
+  timezone: Europe/Stockholm
+  language: en
+llm:
+  gateway_url: http://127.0.0.1:8200
+  default_backend: local
+  temperature: 0.7
+  max_tokens: 2000
+  backends:
+    local:
+      enabled: true
+      type: ollama
+      host: 127.0.0.1
+      port: 11434
+      model: qwen3:8b
+    cloud:
+      enabled: false
+      type: ollama
+      host: ''
+      port: 11434
+      model: qwen3:8b
+    deepseek:
+      enabled: false
+      type: deepseek
+      api_url: https://api.deepseek.com/v1
+      model: deepseek-chat
+    openai:
+      enabled: false
+      api_url: https://api.openai.com/v1
+      model: gpt-4o
+local_plugins:
+  stal: []
+dashboard:
+  network_access: false
+  password_hash: ""
