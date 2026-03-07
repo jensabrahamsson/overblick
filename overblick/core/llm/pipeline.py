@@ -7,14 +7,6 @@ Consolidates the full security chain into one pipeline:
 Plugins should use this instead of calling llm_client.chat() directly.
 This guarantees that every LLM interaction passes through all security layers,
 eliminating the risk of skipped checks.
-
-Usage:
-    pipeline = SafeLLMPipeline(llm_client=client, audit_log=audit, ...)
-    result = await pipeline.chat(messages=[{"role": "user", "content": "Hello"}])
-    if result.blocked:
-        print(f"Blocked: {result.block_reason}")
-    else:
-        print(result.content)
 """
 
 import logging
@@ -73,14 +65,6 @@ class SafeLLMPipeline:
     Wraps an LLMClient with the full security chain. All optional
     components degrade gracefully — if a security module is None,
     that stage is skipped (but logged as a warning on first use).
-
-    Pipeline stages:
-        1. Input sanitize — Clean user/external text
-        2. Preflight check — Block jailbreak/injection attempts
-        3. Rate limit — Token bucket throttling
-        4. LLM call — Actual model invocation
-        5. Output safety — Filter AI language leakage
-        6. Audit — Log the interaction
     """
 
     def __init__(
@@ -154,8 +138,8 @@ class SafeLLMPipeline:
             sanitize_messages: Whether to sanitize message content
             audit_action: Action name for audit log
             audit_details: Extra audit details
-            priority: Request priority ("high" or "low") for gateway queue ordering
-            complexity: Request complexity ("high" or "low") for backend routing
+            priority: Request priority ("high" or "low")
+            complexity: Request complexity ("high" or "low")
 
         Returns:
             PipelineResult with safe content or block information
@@ -223,7 +207,7 @@ class SafeLLMPipeline:
         stage_timings["preflight"] = (time.monotonic() - t0) * 1000
         stages.append(PipelineStage.PREFLIGHT)
 
-        # Stage 3: Rate limit (per-user composite key)
+        # Stage 3: Rate limit
         t0 = time.monotonic()
         if self._rate_limiter:
             rate_key = f"{self._rate_limit_key}:{user_id}"
@@ -460,7 +444,7 @@ class SafeLLMPipeline:
             )
 
     def _warn_missing(self, component: str) -> None:
-        """Warn about missing optional component (once per component).\"\"\"
+        """Warn about missing optional component (once per component)."""
         if component not in self._warned:
-            logger.warning(\"SafeLLMPipeline: %s not configured — stage skipped\", component)
+            logger.warning("SafeLLMPipeline: %s not configured — stage skipped", component)
             self._warned.add(component)
