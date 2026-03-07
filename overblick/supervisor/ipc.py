@@ -21,6 +21,7 @@ import secrets
 import socket
 import tempfile
 import time
+from collections import deque
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timezone
 from pathlib import Path
@@ -51,9 +52,8 @@ def generate_ipc_token() -> str:
 def _obfuscate_token(token: str) -> bytes:
     """Obfuscate IPC token with Fernet (key + encrypted token stored together).
 
-    WARNING: This provides obfuscation, not strong security — the encryption key
-    is stored alongside the encrypted token. Security relies on filesystem
-    permissions (0o600) preventing unauthorized read access.
+    Security relies on filesystem permissions (0o600) preventing unauthorized
+    read access.
     """
     try:
         from cryptography.fernet import Fernet
@@ -64,6 +64,13 @@ def _obfuscate_token(token: str) -> bytes:
         # Return key + newline + encrypted token
         return key + b"\n" + encrypted
     except ImportError:
+        from overblick.core.security.settings import safe_mode
+
+        if safe_mode():
+            raise RuntimeError(
+                "cryptography library missing. IPC token cannot be obfuscated "
+                "in safe mode. Install with 'pip install cryptography'."
+            )
         logger.warning("cryptography not installed — IPC token stored as plaintext")
         return token.encode()
 
@@ -79,7 +86,13 @@ def _deobfuscate_token(data: bytes) -> str:
             f = Fernet(key)
             return f.decrypt(encrypted).decode()
     except ImportError:
-        pass
+        from overblick.core.security.settings import safe_mode
+
+        if safe_mode():
+            raise RuntimeError(
+                "cryptography library missing. IPC token cannot be deobfuscated "
+                "in safe mode. Install with 'pip install cryptography'."
+            )
     except Exception as e:
         logger.warning("Failed to deobfuscate IPC token: %s", e)
     # Fallback: plaintext (backward compat or no cryptography)
@@ -94,12 +107,13 @@ def _deobfuscate_token(data: bytes) -> str:
 class _IPCRateLimiter:
     """Per-sender rate limiter for IPC connections.
 
-    Limits each sender to max_per_minute connections within a sliding window.
+    Uses a sliding window log with O(1) operations via deque.
+    Each sender is limited to max_per_minute connections.
     """
 
     def __init__(self, max_per_minute: int = 100):
         self._max_per_minute = max_per_minute
-        self._counters: dict[str, list[float]] = {}
+        self._counters: dict[str, deque[float]] = {}
 
     # Maximum tracked senders (prevents unbounded memory growth)
     _MAX_TRACKED_SENDERS = 1000
@@ -110,28 +124,24 @@ class _IPCRateLimiter:
         cutoff = now - 60.0
 
         if sender not in self._counters:
-            self._counters[sender] = []
+            # Evict least-recently-active senders if over limit BEFORE adding new one
+            if len(self._counters) >= self._MAX_TRACKED_SENDERS:
+                # O(1) eviction of an arbitrary sender
+                self._counters.pop(next(iter(self._counters)))
+            self._counters[sender] = deque()
 
-        # Prune old entries
-        self._counters[sender] = [t for t in self._counters[sender] if t > cutoff]
+        counter = self._counters[sender]
 
-        # Rate check (before modifying the dict further)
-        if len(self._counters[sender]) >= self._max_per_minute:
+        # Prune old entries from the left
+        while counter and counter[0] <= cutoff:
+            counter.popleft()
+
+        # Rate check
+        if len(counter) >= self._max_per_minute:
             return False
 
         # Record this request
-        self._counters[sender].append(now)
-
-        # Evict least-recently-active senders if over limit
-        if len(self._counters) > self._MAX_TRACKED_SENDERS:
-            least_recent = min(
-                (s for s in self._counters if s != sender),
-                key=lambda s: max(self._counters[s]) if self._counters[s] else 0,
-                default=None,
-            )
-            if least_recent:
-                del self._counters[least_recent]
-
+        counter.append(now)
         return True
 
 

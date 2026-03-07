@@ -127,7 +127,13 @@ When `Orchestrator.run()` is called, setup proceeds in this exact order:
 8. Setup Capabilities      Resolve bundles → create → setup each
 9. Load Plugins            For each connector: create PluginContext →
                            load plugin from registry → call setup()
+10. Start Cleanup         AuditLog and EngagementDB background tasks
 ```
+
+### Performance Optimizations
+
+- **Plugin Control Caching:** The Orchestrator caches the `plugin_control.json` dashboard file in memory with a 10-second TTL. This eliminates thousands of redundant disk reads per hour during the main agent loop.
+- **Async I/O:** All database and file operations use `asyncio.to_thread` or native async drivers (`aiosqlite`, `httpx`) to prevent blocking the event loop.
 
 After setup, the orchestrator registers each plugin's `tick()` in the scheduler, then runs the scheduler and a shutdown event listener concurrently. `SIGINT`/`SIGTERM` triggers graceful shutdown.
 
@@ -926,13 +932,14 @@ Text (post, comment, reflection)
         → EthosReviewer.review()        # LLM validates against identity ethos
         → embed_fn(content)             # Compute embedding (if available)
         → SQLite INSERT                 # Persist with status + embedding
-    → LearningStore.get_relevant(ctx)   # Cosine similarity search
+    → LearningStore.get_relevant(ctx)   # Recency-biased similarity search
         → Injected into LLM prompt      # Decorates personality with learned knowledge
 ```
 
 **Key design decisions:**
 - **Per identity, not per plugin** — all plugins for an identity share ONE learning store
 - **Immediate review** — ethos validation at propose time, not batched
+- **Recency Boost** — Similarity search prioritizes fresh knowledge (boosts newest 1000 candidates) to prevent stale learnings from dominating.
 - **Graceful degradation** — works without embeddings (recency fallback), without LLM (stays as CANDIDATE)
 - **Replaces** the old `safe_learning` capability (in-memory, per-plugin, batch review)
 

@@ -89,6 +89,8 @@ class Orchestrator:
         self._engagement_db: EngagementDB | None = None
         self._learning_store: object | None = None
         self._control_file: Path | None = None
+        self._control_cache: dict[str, str] = {}
+        self._control_cache_ts: float = 0.0
 
     @property
     def state(self) -> OrchestratorState:
@@ -265,6 +267,10 @@ class Orchestrator:
 
         self._audit_log.log("orchestrator_started", category="lifecycle")
         self._audit_log.start_background_cleanup()
+
+        if self._engagement_db:
+            self._engagement_db.start_background_cleanup()
+
         logger.info(f"Överblick orchestrator running as '{self._identity.display_name}'")
         print(f"\n  [ Överblick ] {self._identity.display_name} is awake.\n")
 
@@ -352,6 +358,12 @@ class Orchestrator:
         # Stop scheduler
         await self._scheduler.stop()
 
+        # Stop background cleanups
+        if self._audit_log:
+            self._audit_log.stop_background_cleanup()
+        if self._engagement_db:
+            self._engagement_db.stop_background_cleanup()
+
         # Teardown plugins (reverse order)
         for plugin in reversed(self._plugins):
             try:
@@ -386,14 +398,26 @@ class Orchestrator:
         logger.info("Orchestrator stopped cleanly")
 
     async def _is_plugin_stopped(self, plugin_name: str) -> bool:
-        """Check if a plugin is stopped via the dashboard control file."""
+        """Check if a plugin is stopped via the dashboard control file (cached for 10s)."""
         if not self._control_file:
             return False
+
+        import time as _time
+
+        now = _time.monotonic()
+        # Use cache if valid (10s TTL)
+        if now - self._control_cache_ts < 10.0:
+            return self._control_cache.get(plugin_name) == "stopped"
+
+        # Refresh cache
         try:
             if await asyncio.to_thread(self._control_file.exists):
                 text = await asyncio.to_thread(self._control_file.read_text)
-                data = json.loads(text)
-                return data.get(plugin_name) == "stopped"
+                self._control_cache = json.loads(text)
+            else:
+                self._control_cache = {}
+            self._control_cache_ts = now
+            return self._control_cache.get(plugin_name) == "stopped"
         except Exception as e:
             logger.debug("Could not read plugin control file: %s", e)
         return False

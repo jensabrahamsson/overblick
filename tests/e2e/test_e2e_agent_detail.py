@@ -92,13 +92,14 @@ class TestAgentDetail:
         )
 
     def test_unknown_agent_redirects(self, dashboard_server, page):
-        """Requesting an unknown agent should redirect to the dashboard."""
+        """Requesting an unknown agent should return a 404 error page."""
         _login(page, dashboard_server)
-        page.goto(f"{dashboard_server}/agent/doesnotexist")
+        response = page.goto(f"{dashboard_server}/agent/doesnotexist")
         page.wait_for_load_state("networkidle")
 
-        # Should be redirected away from /agent/doesnotexist
-        assert "/agent/doesnotexist" not in page.url
+        # Should render the 404 error page
+        assert response.status == 404
+        assert "404" in page.content()
 
     def test_stopped_agent_shows_offline_status(self, dashboard_server, page):
         """The 'rost' agent (stopped) should show 'stopped' status."""
