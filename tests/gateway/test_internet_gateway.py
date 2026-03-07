@@ -2,23 +2,23 @@
 
 import json
 import time
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from overblick.gateway.inet_auth import APIKeyManager
 from overblick.gateway.inet_audit import InetAuditLog
+from overblick.gateway.inet_auth import APIKeyManager
 from overblick.gateway.inet_config import InternetGatewayConfig, reset_inet_config
 from overblick.gateway.inet_middleware import ViolationTracker
-from overblick.gateway.internet_gateway import app, _error_json
+from overblick.gateway.internet_gateway import _error_json, app
 
 
 @pytest.fixture(autouse=True)
-def _reset() -> Generator[None, None, None]:
+def _reset() -> Generator[None]:
     """Reset config singleton before each test."""
     reset_inet_config()
     yield
@@ -44,7 +44,7 @@ def test_config(tmp_path: Path) -> InternetGatewayConfig:
 
 
 @pytest.fixture
-def key_manager(tmp_path: Path) -> Generator[APIKeyManager, None, None]:
+def key_manager(tmp_path: Path) -> Generator[APIKeyManager]:
     """Create a key manager with temp database."""
     mgr = APIKeyManager(tmp_path / "keys.db")
     yield mgr
@@ -52,7 +52,7 @@ def key_manager(tmp_path: Path) -> Generator[APIKeyManager, None, None]:
 
 
 @pytest.fixture
-def audit_log(tmp_path: Path) -> Generator[InetAuditLog, None, None]:
+def audit_log(tmp_path: Path) -> Generator[InetAuditLog]:
     """Create an audit log with temp database."""
     audit = InetAuditLog(tmp_path / "audit.db")
     yield audit
@@ -95,7 +95,7 @@ def client(
     key_manager: APIKeyManager,
     audit_log: InetAuditLog,
     violation_tracker: ViolationTracker,
-) -> Generator[TestClient, None, None]:
+) -> Generator[TestClient]:
     """Create a test client with mocked dependencies."""
     import overblick.gateway.internet_gateway as gw
     from overblick.core.security.rate_limiter import RateLimiter

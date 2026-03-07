@@ -99,8 +99,6 @@ ignore = [
     "RUF001",  # non-breaking hyphen in string
     "RUF002",  # en dash in docstring
     "RUF003",  # en dash in comment
-    "UP007",   # use X|Y syntax (requires Python 3.10, we have 3.13 but many existing)
-    "UP035",   # typing.List deprecated
     "E741",    # ambiguous variable name 'l'
 ]
 unfixable = [

@@ -1,8 +1,8 @@
 """Tests for Internet Gateway API key management."""
 
 import time
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 
@@ -10,7 +10,7 @@ from overblick.gateway.inet_auth import APIKeyManager
 
 
 @pytest.fixture
-def key_manager(tmp_path: Path) -> Generator[APIKeyManager, None, None]:
+def key_manager(tmp_path: Path) -> Generator[APIKeyManager]:
     """Create a key manager with temporary database."""
     manager = APIKeyManager(tmp_path / "test_keys.db")
     yield manager

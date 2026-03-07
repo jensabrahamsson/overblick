@@ -1,7 +1,7 @@
 """Tests for Internet Gateway configuration."""
 
 import os
-from typing import Generator
+from collections.abc import Generator
 from unittest.mock import patch
 
 import pytest
@@ -14,7 +14,7 @@ from overblick.gateway.inet_config import (
 
 
 @pytest.fixture(autouse=True)
-def _reset_config() -> Generator[None, None, None]:
+def _reset_config() -> Generator[None]:
     """Reset config singleton before each test."""
     reset_inet_config()
     yield

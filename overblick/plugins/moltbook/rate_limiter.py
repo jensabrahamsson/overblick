@@ -7,7 +7,7 @@ Implements token bucket rate limiting with specific limits for different actions
 import asyncio
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel
 

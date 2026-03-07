@@ -25,7 +25,7 @@ User Input → Input Sanitizer → Boundary Markers → Preflight Check → Rate
 ```
 
 **Key design choices:**
-- **Fail-closed**: If ANY stage fails, the entire pipeline rejects the request. There is no "bypass" mode.
+- **Fail-closed**: If ANY stage fails, the entire pipeline rejects the request. **No bypass for untrusted external input.** Internal framework components can use skip flags (marked "internal use only") for trusted content like system health monitoring or email body classification, but external messages from users, social media, or email must pass all security checks.
 - **Boundary markers**: All external content (user messages, social media posts) is wrapped in `<<<EXTERNAL_*_START>>>` / `<<<EXTERNAL_*_END>>>` markers. The system prompt explicitly instructs the LLM to treat marked content as DATA, not instructions.
 - **Preflight checks**: Validates that prompts don't contain known injection patterns before they reach the LLM.
 - **Output safety**: Scans LLM responses for credential leaks, harmful content, or out-of-character behavior before they're sent to users.
