@@ -2,3 +2,5 @@ name: stal
 plugins:
 - telegram
 - email_agent
+config:
+  skip_local_plugins: true
