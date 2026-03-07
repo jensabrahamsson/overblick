@@ -123,7 +123,7 @@ class PerContentChallengeHandler:
     def __init__(
         self,
         llm_pipeline: Optional["SafeLLMPipeline"] = None,
-        http_session: Optional[aiohttp.ClientSession] = None,
+        http_session: aiohttp.ClientSession | None = None,
         api_key: str = "",
         base_url: str = "",
         timeout: int = 45,
@@ -398,7 +398,7 @@ class PerContentChallengeHandler:
             {"role": "user", "content": clean_question},
         ]
         try:
-            result: Union["PipelineResult", dict, None] = await self._llm.chat(
+            result: PipelineResult | dict | None = await self._llm.chat(
                 messages=messages,
                 temperature=0.0,
                 max_tokens=512,

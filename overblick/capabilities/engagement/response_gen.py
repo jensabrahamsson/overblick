@@ -13,14 +13,14 @@ External content is wrapped in boundary markers to prevent prompt injection.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from overblick.core.security.input_sanitizer import wrap_external_content
 from overblick.core.security.settings import raw_llm
 
 if TYPE_CHECKING:
-    from overblick.core.llm.pipeline import SafeLLMPipeline, PipelineResult
     from overblick.core.llm.client import LLMClient
+    from overblick.core.llm.pipeline import PipelineResult, SafeLLMPipeline
 
 logger = logging.getLogger(__name__)
 

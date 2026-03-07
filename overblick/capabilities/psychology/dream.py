@@ -11,12 +11,17 @@ Each identity loads its own dream guidance from:
 If no file exists, generic fallback guidance is used.
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import yaml
+
+if TYPE_CHECKING:
+    from .dream_system import Dream
 
 from overblick.capabilities.psychology.dream_system import DreamSystem, DreamTone, DreamType
 from overblick.core.capability import CapabilityBase, CapabilityContext
@@ -171,7 +176,7 @@ class DreamCapability(CapabilityBase):
         self,
         recent_topics: list[str] | None = None,
         emotional_state: Any | None = None,
-    ) -> Optional["Dream"]:
+    ) -> Dream | None:
         """Generate a dream on demand. Delegates to DreamSystem."""
         if not self._dream_system:
             return None

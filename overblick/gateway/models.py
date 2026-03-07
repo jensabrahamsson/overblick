@@ -106,7 +106,7 @@ class ChatResponse(BaseModel):
         model: str,
         content: str,
         usage: dict[str, int] | None = None,
-    ) -> "ChatResponse":
+    ) -> ChatResponse:
         """Create a ChatResponse from a simple message string."""
         return cls(
             model=model,
@@ -127,8 +127,8 @@ class QueuedRequest:
     priority: Priority
     timestamp: float = field(compare=True)
     request_id: UUID = field(compare=False, default_factory=uuid4)
-    request: Optional[ChatRequest] = field(compare=False, default=None)
-    future: Optional[Future] = field(compare=False, default=None, repr=False)
+    request: ChatRequest | None = field(compare=False, default=None)
+    future: Future | None = field(compare=False, default=None, repr=False)
     backend: str | None = field(compare=False, default=None)
     complexity: str | None = field(compare=False, default=None)
 

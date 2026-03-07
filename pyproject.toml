@@ -94,8 +94,6 @@ select = [
 ]
 ignore = [
     "E501",  # line length (handled by black)
-    "F401",  # unused import (many existing)
-    "F821",  # undefined name (some false positives)
     "RUF001",  # non-breaking hyphen in string
     "RUF002",  # en dash in docstring
     "RUF003",  # en dash in comment

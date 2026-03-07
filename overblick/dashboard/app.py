@@ -177,8 +177,8 @@ def _create_templates() -> Jinja2Templates:
     env.globals["auth_enabled"] = lambda: False
 
     # Security alerts
-    from overblick.shared.platform import IS_WINDOWS
     from overblick.core.security.settings import safe_mode
+    from overblick.shared.platform import IS_WINDOWS
     env.globals["is_windows"] = lambda: IS_WINDOWS
     env.globals["safe_mode_enabled"] = safe_mode
 

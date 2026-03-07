@@ -251,11 +251,10 @@ class EngagementDB:
 
     async def get_todays_heartbeat_titles(self) -> list[str]:
         """Get titles of heartbeat posts created today (same day)."""
-        ph = self._db.ph
         rows = await self._db.fetch_all(
-            f"SELECT title FROM heartbeats WHERE title != '' "
-            f"AND date(created_at) = date('now') "
-            f"ORDER BY created_at DESC",
+            "SELECT title FROM heartbeats WHERE title != '' "
+            "AND date(created_at) = date('now') "
+            "ORDER BY created_at DESC",
         )
         return [r["title"] for r in rows]
 

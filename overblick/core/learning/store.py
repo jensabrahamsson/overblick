@@ -16,10 +16,11 @@ from typing import Any, Optional
 
 import aiosqlite
 
+from overblick.core.llm.pipeline import SafeLLMPipeline
+
 from .migrations import run_migrations
 from .models import Learning, LearningStatus
 from .reviewer import EthosReviewer
-from overblick.core.llm.pipeline import SafeLLMPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class LearningStore:
         self,
         db_path: Path,
         ethos_text: str,
-        llm_pipeline: Optional[SafeLLMPipeline] = None,
+        llm_pipeline: SafeLLMPipeline | None = None,
         embed_fn: Callable | None = None,
     ):
         self._db_path = Path(db_path)
@@ -216,7 +217,6 @@ class LearningStore:
             return []
 
         # Score and rank by similarity + recency decay
-        now_ts = datetime.now(UTC).timestamp()
         scored = []
 
         for i, row in enumerate(rows):

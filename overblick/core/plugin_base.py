@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SkipValidation
+
 from overblick.core.security.settings import raw_llm
 
 if TYPE_CHECKING:

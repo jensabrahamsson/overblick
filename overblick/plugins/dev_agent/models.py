@@ -12,7 +12,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 # Re-export core agentic models for convenience
-from overblick.core.agentic.models import (  # noqa: F401
+from overblick.core.agentic.models import (
     ActionOutcome,
     ActionPlan,
     AgentGoal,

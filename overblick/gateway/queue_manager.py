@@ -6,15 +6,20 @@ agents) are processed before LOW priority requests (background tasks).
 A single worker serializes GPU access. Supports multi-backend routing.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import time
 from collections import deque
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .config import GatewayConfig, get_config
 from .models import ChatRequest, ChatResponse, GatewayStats, Priority, QueuedRequest
 from .ollama_client import OllamaClient
+
+if TYPE_CHECKING:
+    from .backend_registry import BackendRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +40,7 @@ class QueueManager:
         self,
         config: GatewayConfig | None = None,
         client: OllamaClient | None = None,
-        registry: Optional["BackendRegistry"] = None,
+        registry: BackendRegistry | None = None,
     ):
         """Initialize the queue manager."""
         self.config = config or get_config()

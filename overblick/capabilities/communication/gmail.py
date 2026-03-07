@@ -21,19 +21,24 @@ Usage:
     await gmail.mark_as_read(message_id)
 """
 
+from __future__ import annotations
+
 import asyncio
 import imaplib
 import logging
 import smtplib
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from email import message, policy
 from email.header import decode_header as _decode_header
 from email.mime.text import MIMEText
 from email.parser import BytesParser
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from overblick.core.plugin_base import PluginContext
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +96,7 @@ class GmailCapability:
 
     name = "gmail"
 
-    def __init__(self, ctx: "PluginContext") -> None:
+    def __init__(self, ctx: PluginContext) -> None:
         self.ctx = ctx
         self._email: str | None = None
         self._password: str | None = None
@@ -207,7 +212,7 @@ class GmailCapability:
             # at the server level to avoid fetching ancient unread emails.
             search_criteria = "UNSEEN"
             if since_days is not None:
-                cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
+                cutoff = datetime.now(UTC) - timedelta(days=since_days)
                 imap_date = cutoff.strftime("%d-%b-%Y")  # e.g. "14-Feb-2026"
                 search_criteria = f"(UNSEEN SINCE {imap_date})"
                 logger.debug(
