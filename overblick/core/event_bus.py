@@ -27,7 +27,7 @@ class EventBus:
         await bus.emit("post.created", post_id="abc", title="Hello")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._handlers: dict[str, list[EventHandler]] = defaultdict(list)
         self._handler_count = 0
 

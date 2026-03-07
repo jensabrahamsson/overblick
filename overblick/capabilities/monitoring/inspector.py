@@ -65,6 +65,7 @@ async def _run_command(*args: str) -> str:
         logger.warning("Blocked non-whitelisted command: %s", executable)
         return ""
 
+    proc = None
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
@@ -80,10 +81,11 @@ async def _run_command(*args: str) -> str:
         return stdout.decode().strip()
     except TimeoutError:
         logger.warning("Command timed out after %.1fs: %s", _CMD_TIMEOUT, args)
-        try:
-            proc.kill()
-        except ProcessLookupError:
-            pass
+        if proc is not None:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
         return ""
     except FileNotFoundError:
         logger.debug("Command not found: %s", args[0])
@@ -101,7 +103,7 @@ class HostInspectionCapability:
     Each collector is isolated — if one fails, others still return data.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._platform = sys.platform
 
     async def inspect(self) -> HostHealth:
@@ -152,10 +154,10 @@ class HostInspectionCapability:
         return HostHealth(
             hostname=socket.gethostname(),
             platform=self._platform,
-            uptime=uptime,
-            memory=memory,
-            cpu=cpu,
-            power=power,
+            uptime=uptime,  # type: ignore[arg-type]
+            memory=memory,  # type: ignore[arg-type]
+            cpu=cpu,  # type: ignore[arg-type]
+            power=power,  # type: ignore[arg-type]
             errors=errors,
         )
 

@@ -53,7 +53,7 @@ class EmailCapability:
 
     name = "email"  # Required by CapabilityBase
 
-    def __init__(self, ctx):
+    def __init__(self, ctx: "PluginContext") -> None:
         self.ctx = ctx
         self._smtp_config: dict | None = None
         logger.info("EmailCapability initialized for %s", ctx.identity_name)
@@ -158,6 +158,7 @@ class EmailCapability:
 
         Supports both SSL (port 465) and STARTTLS (port 587).
         """
+        assert self._smtp_config is not None
         server = self._smtp_config["server"]
         port = self._smtp_config["port"]
         login = self._smtp_config["login"]

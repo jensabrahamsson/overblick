@@ -17,7 +17,7 @@ import re
 import time
 import unicodedata
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -154,7 +154,7 @@ class PreflightChecker:
 
     def __init__(
         self,
-        llm_client=None,
+        llm_client: Any = None,
         admin_user_ids: set[str] | None = None,
         deflections: dict[str, list[str]] | None = None,
         cache_ttl: int = 3600,
@@ -274,6 +274,8 @@ class PreflightChecker:
     async def _ai_analysis(self, message: str) -> PreflightResult:
         """AI analysis for suspicious messages."""
         import json as json_module
+
+        assert self.llm is not None
 
         try:
             prompt = (

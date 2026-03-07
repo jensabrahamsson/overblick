@@ -14,7 +14,10 @@ Security:
 """
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from overblick.core.plugin_base import PluginContext
 
 import aiohttp
 from pydantic import BaseModel
@@ -47,7 +50,7 @@ class TelegramNotifier:
 
     name = "telegram_notifier"
 
-    def __init__(self, ctx):
+    def __init__(self, ctx: "PluginContext") -> None:
         self.ctx = ctx
         self._bot_token: str | None = None
         self._chat_id: str | None = None

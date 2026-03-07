@@ -80,6 +80,7 @@ class GatewayClient(LLMClient):
     ) -> dict | None:
         """Send chat completion through the gateway with per-request priority."""
         await self._ensure_session()
+        assert self._session is not None
 
         prio = priority if priority else self.default_priority
         url = f"{self.base_url}/v1/chat/completions?priority={prio}"
@@ -126,7 +127,7 @@ class GatewayClient(LLMClient):
 
             if reasoning:
                 logger.info(
-                    "Gateway: REASONER response in %.1fs " "(reasoning=%d chars, answer=%d chars)",
+                    "Gateway: REASONER response in %.1fs (reasoning=%d chars, answer=%d chars)",
                     elapsed,
                     len(reasoning),
                     len(content),
@@ -159,6 +160,7 @@ class GatewayClient(LLMClient):
     async def health_check(self) -> bool:
         """Check if the gateway is available."""
         await self._ensure_session()
+        assert self._session is not None
 
         try:
             url = f"{self.base_url}/health"
@@ -181,6 +183,7 @@ class GatewayClient(LLMClient):
             return []
 
         await self._ensure_session()
+        assert self._session is not None
         from urllib.parse import urlencode
 
         url = f"{self.base_url}/v1/embeddings?{urlencode({'text': text, 'model': model})}"
@@ -197,7 +200,7 @@ class GatewayClient(LLMClient):
                     )
 
                 data = await response.json()
-                return data.get("embedding", [])
+                return data.get("embedding", [])  # type: ignore[no-any-return]
 
         except TimeoutError as e:
             raise LLMConnectionError(f"Embedding request timed out: {e}") from e

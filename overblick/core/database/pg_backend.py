@@ -7,16 +7,21 @@ Optional backend — requires asyncpg package:
 Uses async connection pooling for high-performance concurrent access.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 from collections.abc import Sequence
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from overblick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
 
 logger = logging.getLogger(__name__)
 
 # asyncpg is optional — only required when PostgreSQL is configured
+if TYPE_CHECKING:
+    import asyncpg
+
 try:
     import asyncpg
 
@@ -41,7 +46,7 @@ class PostgreSQLBackend(DatabaseBackend):
 
     def __init__(self, config: DatabaseConfig, identity: str = ""):
         super().__init__(config, identity)
-        self._pool = None
+        self._pool: "asyncpg.Pool | None" = None
 
         if not HAS_ASYNCPG:
             raise ImportError(
@@ -68,7 +73,7 @@ class PostgreSQLBackend(DatabaseBackend):
                 "Schema names must be alphanumeric identifiers (a-z, 0-9, _)."
             )
 
-        async def _init_conn(conn):
+        async def _init_conn(conn: "asyncpg.Connection") -> None:
             """Set search_path for every new pool connection."""
             if schema != "public":
                 await conn.execute(f"SET search_path TO {schema}, public")
@@ -97,17 +102,19 @@ class PostgreSQLBackend(DatabaseBackend):
         """Close the connection pool."""
         if self._pool:
             await self._pool.close()
-            self._pool = None
+        self._pool = None
         self._connected = False
 
-    def _check_connected(self) -> None:
-        if not self._pool:
+    def _check_connected(self) -> "asyncpg.Pool":
+        if self._pool is None:
             raise RuntimeError("Database not connected. Call connect() first.")
+        assert asyncpg is not None
+        return self._pool
 
     async def execute(self, sql: str, params: Sequence[Any] = ()) -> int:
         """Execute SQL and return affected row count."""
-        self._check_connected()
-        async with self._pool.acquire() as conn:
+        pool = self._check_connected()
+        async with pool.acquire() as conn:
             result = await conn.execute(sql, *params)
             # asyncpg returns "INSERT 0 1" style strings
             parts = result.split()
@@ -117,19 +124,19 @@ class PostgreSQLBackend(DatabaseBackend):
 
     async def execute_returning_id(self, sql: str, params: Sequence[Any] = ()) -> int | None:
         """Execute INSERT with RETURNING and return the new row ID."""
-        self._check_connected()
+        pool = self._check_connected()
         # Ensure SQL has RETURNING clause for PostgreSQL
         if "RETURNING" not in sql.upper():
             sql = sql.rstrip(";") + " RETURNING id"
 
-        async with self._pool.acquire() as conn:
+        async with pool.acquire() as conn:
             row = await conn.fetchrow(sql, *params)
             return row[0] if row else None
 
     async def fetch_one(self, sql: str, params: Sequence[Any] = ()) -> DatabaseRow | None:
         """Fetch a single row as a dict."""
-        self._check_connected()
-        async with self._pool.acquire() as conn:
+        pool = self._check_connected()
+        async with pool.acquire() as conn:
             row = await conn.fetchrow(sql, *params)
             if row is None:
                 return None
@@ -137,21 +144,21 @@ class PostgreSQLBackend(DatabaseBackend):
 
     async def fetch_all(self, sql: str, params: Sequence[Any] = ()) -> list[DatabaseRow]:
         """Fetch all matching rows as dicts."""
-        self._check_connected()
-        async with self._pool.acquire() as conn:
+        pool = self._check_connected()
+        async with pool.acquire() as conn:
             rows = await conn.fetch(sql, *params)
             return [dict(row) for row in rows]
 
     async def fetch_scalar(self, sql: str, params: Sequence[Any] = ()) -> Any:
         """Fetch a single scalar value."""
-        self._check_connected()
-        async with self._pool.acquire() as conn:
+        pool = self._check_connected()
+        async with pool.acquire() as conn:
             return await conn.fetchval(sql, *params)
 
     async def execute_script(self, sql: str) -> None:
         """Execute a multi-statement SQL script."""
-        self._check_connected()
-        async with self._pool.acquire() as conn:
+        pool = self._check_connected()
+        async with pool.acquire() as conn:
             await conn.execute(sql)
 
     async def table_exists(self, table_name: str) -> bool:
@@ -162,4 +169,4 @@ class PostgreSQLBackend(DatabaseBackend):
             "WHERE table_schema = $1 AND table_name = $2",
             (self._config.pg_schema, table_name),
         )
-        return result > 0
+        return int(result) > 0

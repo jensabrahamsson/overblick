@@ -7,8 +7,12 @@ identity's ethos values to prevent value drift or manipulation.
 
 import logging
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from .models import LearningStatus
+
+if TYPE_CHECKING:
+    from overblick.core.llm.pipeline import SafeLLMPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +52,7 @@ class EthosReviewer:
     since reviews are non-interactive background work.
     """
 
-    def __init__(self, llm_pipeline, ethos_text: str):
+    def __init__(self, llm_pipeline: "SafeLLMPipeline", ethos_text: str) -> None:
         self._llm_pipeline = llm_pipeline
         self._ethos_text = ethos_text
 

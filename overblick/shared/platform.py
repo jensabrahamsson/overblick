@@ -17,6 +17,7 @@ import sys
 import sysconfig
 import warnings
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ def set_restrictive_permissions(path: Path) -> None:
     """
     if IS_WINDOWS:
         logger.debug(
-            "Skipping POSIX permissions on Windows for %s — " "ensure NTFS ACLs restrict access",
+            "Skipping POSIX permissions on Windows for %s — ensure NTFS ACLs restrict access",
             path,
         )
         return
@@ -75,7 +76,7 @@ def register_shutdown_signals(
 
     if IS_WINDOWS:
 
-        def _handler(signum, frame):
+        def _handler(signum: int, frame: Any) -> None:
             loop.call_soon_threadsafe(shutdown_event.set)
 
         signal.signal(signal.SIGINT, _handler)
@@ -95,7 +96,7 @@ def get_python_executable() -> str:
     """
     scripts_dir = sysconfig.get_path("scripts")
     if scripts_dir is None:
-        return sys.executable
+        return sys.executable  # type: ignore[unreachable]
 
     if IS_WINDOWS:
         venv_python = os.path.join(scripts_dir, "python.exe")

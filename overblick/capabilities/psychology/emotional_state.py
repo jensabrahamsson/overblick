@@ -107,7 +107,7 @@ class AnomalEmotionalState:
     his perspective and engagement. Int-based (0-100 scale).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Core energy levels (0-100)
         self.intellectual_energy: int = 70  # Desire to engage with ideas
         self.social_energy: int = 60  # Desire to interact with others
@@ -232,7 +232,7 @@ class CherryEmotionalState:
     AI awareness. Normally high (~0.85), drops during dreams.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Core energy levels (0.0-1.0)
         self.romantic_energy: float = 0.6  # Excitement about love/romance topics
         self.social_energy: float = 0.7  # Engagement capacity

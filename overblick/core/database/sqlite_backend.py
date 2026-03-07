@@ -12,7 +12,9 @@ import sqlite3
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional, TypeVar
+
+T = TypeVar("T")
 
 from overblick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
 
@@ -89,12 +91,12 @@ class SQLiteBackend(DatabaseBackend):
         if not self._conn:
             raise RuntimeError("Database not connected. Call connect() first.")
 
-    async def _run_in_executor(self, fn, *args):
+    async def _run_in_executor(self, fn: Callable[..., T], *args: Any) -> T:
         """Run a write operation in the dedicated sqlite write thread."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(self._executor, fn, *args)
 
-    async def _run_in_read_executor(self, fn, *args):
+    async def _run_in_read_executor(self, fn: Callable[..., T], *args: Any) -> T:
         """Run a read operation in the read thread pool (up to 3 concurrent)."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(self._read_executor, fn, *args)
@@ -109,11 +111,13 @@ class SQLiteBackend(DatabaseBackend):
     # --- Write operations (use shared _conn via single-thread executor) ---
 
     def _execute_sync(self, sql: str, params: Sequence[Any]) -> int:
+        assert self._conn is not None
         with self._conn:
             cursor = self._conn.execute(sql, params)
             return cursor.rowcount
 
     def _execute_returning_id_sync(self, sql: str, params: Sequence[Any]) -> int | None:
+        assert self._conn is not None
         with self._conn:
             cursor = self._conn.execute(sql, params)
             return cursor.lastrowid
@@ -178,6 +182,7 @@ class SQLiteBackend(DatabaseBackend):
         return await self._run_in_read_executor(self._fetch_scalar_sync, sql, params)
 
     def _execute_many_sync(self, sql: str, params_list: list[Sequence[Any]]) -> int:
+        assert self._conn is not None
         with self._conn:
             self._conn.executemany(sql, params_list)
             return len(params_list)
@@ -191,6 +196,7 @@ class SQLiteBackend(DatabaseBackend):
 
     def _execute_script_sync(self, sql: str) -> None:
         """Execute a multi-statement SQL script (sync helper)."""
+        assert self._conn is not None
         self._conn.executescript(sql)
 
     async def execute_script(self, sql: str) -> None:
@@ -205,4 +211,4 @@ class SQLiteBackend(DatabaseBackend):
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
             (table_name,),
         )
-        return result > 0
+        return int(result) > 0

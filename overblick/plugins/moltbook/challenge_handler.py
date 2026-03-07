@@ -24,9 +24,9 @@ Architecture:
 import json as json_module
 import logging
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
-import aiohttp
+import aiohttp  # type: ignore[import-not-found]
 
 from .arithmetic_solver import (
     _extract_word_numbers,
@@ -44,6 +44,12 @@ from .deobfuscator import (
     _strip_letter_doubling,
     deobfuscate_challenge,
 )
+
+if TYPE_CHECKING:
+    from overblick.core.db.engagement_db import EngagementDB
+    from overblick.core.llm.client import LLMClient
+    from overblick.core.llm.pipeline import PipelineResult, SafeLLMPipeline
+    from overblick.core.security.audit_log import AuditLog
 
 logger = logging.getLogger(__name__)
 
@@ -112,19 +118,21 @@ class PerContentChallengeHandler:
         ("data", "challenge"),
     )
 
+    _llm: Union["SafeLLMPipeline", "LLMClient"]
+
     def __init__(
         self,
-        llm_pipeline=None,
-        http_session: aiohttp.ClientSession | None = None,
+        llm_pipeline: Optional["SafeLLMPipeline"] = None,
+        http_session: Optional[aiohttp.ClientSession] = None,
         api_key: str = "",
         base_url: str = "",
         timeout: int = 45,
-        audit_log=None,
-        engagement_db=None,
+        audit_log: Optional["AuditLog"] = None,
+        engagement_db: Optional["EngagementDB"] = None,
         *,
-        llm_client=None,
+        llm_client: Optional["LLMClient"] = None,
         allow_raw_fallback: bool = False,
-    ):
+    ) -> None:
         import os
 
         # Safe-mode enforcement
@@ -160,7 +168,7 @@ class PerContentChallengeHandler:
         Searches both top-level keys and nested paths (e.g. data.comment.verification)
         since the API may embed challenges at various depths.
         """
-        if not isinstance(response_data, dict):
+        if not isinstance(response_data, dict):  # type: ignore[unreachable]
             return False
 
         # Explicit flag from the API spec (top-level indicator)
@@ -185,7 +193,7 @@ class PerContentChallengeHandler:
 
     def _check_challenge_fields(self, data: dict) -> bool:
         """Check if a dict contains challenge indicator fields."""
-        if not isinstance(data, dict):
+        if not isinstance(data, dict):  # type: ignore[unreachable]
             return False
         keys_lower = {k.lower() for k in data.keys()}
         has_nonce = any(nf in keys_lower for nf in self.NONCE_FIELDS)
@@ -204,9 +212,9 @@ class PerContentChallengeHandler:
         """Traverse a nested dict path, returning the final dict or None."""
         current = data
         for key in path:
-            if not isinstance(current, dict):
+            if not isinstance(current, dict):  # type: ignore[unreachable]
                 return None
-            current = current.get(key)
+            current = current.get(key)  # type: ignore[assignment]
         return current if isinstance(current, dict) else None
 
     async def solve(
@@ -383,12 +391,14 @@ class PerContentChallengeHandler:
 
     async def _solve_with_llm(self, clean_question: str, complexity: str = "low") -> str | None:
         """Solve challenge via LLM Gateway with specified complexity routing."""
+        from overblick.core.llm.pipeline import PipelineResult
+
         messages = [
             {"role": "system", "content": CHALLENGE_SOLVER_SYSTEM},
             {"role": "user", "content": clean_question},
         ]
         try:
-            result = await self._llm.chat(
+            result: Union["PipelineResult", dict, None] = await self._llm.chat(
                 messages=messages,
                 temperature=0.0,
                 max_tokens=512,
@@ -400,7 +410,7 @@ class PerContentChallengeHandler:
             return None
 
         # Handle both pipeline result and raw client result
-        if hasattr(result, "blocked"):
+        if isinstance(result, PipelineResult):
             # Pipeline result
             if result.blocked:
                 logger.warning(
@@ -411,7 +421,7 @@ class PerContentChallengeHandler:
                 return None
             content = result.content
         else:
-            # Raw client result (dict)
+            # Raw client result (dict) or None
             if not result or not result.get("content"):
                 return None
             content = result["content"]

@@ -100,7 +100,7 @@ class Dream(BaseModel):
 
     @classmethod
     def from_dict(cls, data: dict) -> "Dream":
-        return cls.model_validate(data)
+        return cls.model_validate(data)  # type: ignore[no-any-return]
 
 
 # System prompt for dream generation — identity-agnostic, shared by all.
@@ -350,7 +350,7 @@ class DreamSystem:
         # Only types that have guidance
         available = {k: v for k, v in weights.items() if k in self._guidance}
         if not available:
-            return next(iter(self._guidance))
+            return next(iter(self._guidance))  # type: ignore[no-any-return]
 
         # Anomal-specific adjustments (Jungian int-based state)
         if emotional_state and hasattr(emotional_state, "skepticism"):
@@ -415,16 +415,16 @@ class DreamSystem:
         # Normalize and select
         total = sum(available.values())
         if total <= 0:
-            return next(iter(self._guidance))
+            return next(iter(self._guidance))  # type: ignore[no-any-return]
 
         r = random.random() * total
         cumulative = 0.0
         for dream_type, weight in available.items():
             cumulative += weight
             if r <= cumulative:
-                return dream_type
+                return dream_type  # type: ignore[no-any-return]
 
-        return next(iter(available.keys()))
+        return next(iter(available.keys()))  # type: ignore[no-any-return]
 
     def get_dream_insights(self, days: int = 7) -> list[str]:
         """Get insights from recent dreams."""
