@@ -46,7 +46,17 @@ class SecretsManager:
         if self._fernet is not None:
             return self._fernet
 
-        from cryptography.fernet import Fernet
+        try:
+            from cryptography.fernet import Fernet
+        except ImportError:
+            from overblick.core.security.settings import safe_mode
+
+            if safe_mode():
+                raise RuntimeError(
+                    "cryptography library is missing. Secrets cannot be decrypted "
+                    "in safe mode. Install with 'pip install cryptography'."
+                )
+            raise
 
         master_key = self._get_or_create_master_key()
         self._fernet = Fernet(master_key)

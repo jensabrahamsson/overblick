@@ -682,8 +682,8 @@ class TestFetchWithSinceDays:
         search_call = mock_imap.uid.call_args_list[0]
         search_args = search_call[0]
         assert search_args[0] == "search"
-        assert "SINCE" in search_args[2]
-        assert "UNSEEN" in search_args[2]
+        assert "SINCE" in search_args[1]
+        assert "UNSEEN" in search_args[1]
 
     @pytest.mark.asyncio
     async def test_fetch_without_since_days_uses_plain_unseen(self):
@@ -706,7 +706,7 @@ class TestFetchWithSinceDays:
         assert len(results) == 1
         search_call = mock_imap.uid.call_args_list[0]
         search_args = search_call[0]
-        assert search_args[2] == "UNSEEN"
+        assert search_args[1] == "UNSEEN"
 
     @pytest.mark.asyncio
     async def test_fetch_since_imap_date_format(self):
@@ -726,7 +726,7 @@ class TestFetchWithSinceDays:
             await cap.fetch_unread(since_days=3)
 
         search_call = mock_imap.uid.call_args_list[0]
-        criteria = search_call[0][2]
+        criteria = search_call[0][1]
         # Extract the date portion after SINCE
         match = re.search(r"SINCE (\S+)", criteria)
         assert match, f"No date found in criteria: {criteria}"

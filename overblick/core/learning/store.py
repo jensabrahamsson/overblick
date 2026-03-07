@@ -188,9 +188,8 @@ class LearningStore:
             learning.id = cursor.lastrowid
 
     # Maximum number of embeddings to load for in-memory similarity search.
-    # Keeps memory bounded while still returning good results (most recent
-    # learnings are most likely to be relevant).
-    _MAX_SIMILARITY_CANDIDATES = 500
+    # Keeps memory bounded while still returning good results.
+    _MAX_SIMILARITY_CANDIDATES = 1000
 
     async def _search_by_similarity(
         self,
@@ -199,9 +198,9 @@ class LearningStore:
     ) -> list[Learning]:
         """Search approved learnings by cosine similarity to query embedding.
 
-        Loads at most _MAX_SIMILARITY_CANDIDATES recent embeddings to keep
-        memory usage bounded. For large learning stores this trades perfect
-        recall for bounded latency.
+        Loads at most _MAX_SIMILARITY_CANDIDATES recent embeddings.
+        Applies a recency bias to ensure fresh knowledge is prioritized
+        when similarity scores are close.
         """
         async with aiosqlite.connect(str(self._db_path)) as conn:
             conn.row_factory = aiosqlite.Row
@@ -213,12 +212,24 @@ class LearningStore:
             )
             rows = await cursor.fetchall()
 
-        # Score and rank by similarity
+        if not rows:
+            return []
+
+        # Score and rank by similarity + recency decay
+        now_ts = datetime.now(UTC).timestamp()
         scored = []
-        for row in rows:
+
+        for i, row in enumerate(rows):
             embedding = _unpack_embedding(row["embedding"])
-            score = _cosine_similarity(query_embedding, embedding)
-            scored.append((score, row))
+            similarity = _cosine_similarity(query_embedding, embedding)
+
+            # Simple recency factor: newer rows (lower index i) get a small boost.
+            # Max boost is 0.1 for the very newest, decaying to 0.0 for the 1000th.
+            # This ensures that if two learnings have similar content, the newer wins.
+            recency_boost = (self._MAX_SIMILARITY_CANDIDATES - i) / self._MAX_SIMILARITY_CANDIDATES * 0.1
+            final_score = similarity + recency_boost
+
+            scored.append((final_score, row))
 
         scored.sort(key=lambda x: x[0], reverse=True)
         return [self._row_to_learning(row) for _, row in scored[:limit]]

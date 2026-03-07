@@ -571,6 +571,7 @@ class TherapySystem:
             )
             if result and result.get("content"):
                 return result["content"].strip()  # type: ignore[no-any-return]
+
         except Exception as e:
             logger.warning("Empty week post generation failed: %s", e)
         return "This week passed in quiet contemplation. Sometimes growth requires stillness."

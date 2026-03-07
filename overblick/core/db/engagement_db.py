@@ -6,6 +6,7 @@ instead of raw sqlite3. All methods are async. Placeholder syntax adapts
 automatically via ``db.ph(n)``.
 """
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -18,9 +19,13 @@ logger = logging.getLogger(__name__)
 class EngagementDB:
     """Async engagement tracker backed by a DatabaseBackend instance."""
 
+    _DEFAULT_RETENTION_DAYS = 90
+    _CLEANUP_INTERVAL_SECONDS = 3600  # 1 hour
+
     def __init__(self, db: DatabaseBackend, identity: str = ""):
         self._db = db
         self._identity = identity
+        self._cleanup_task: asyncio.Task | None = None
 
     async def setup(self) -> None:
         """Create tables and indexes (idempotent)."""
@@ -104,6 +109,12 @@ class EngagementDB:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
+            -- Feed deduplication (persistent seen posts)
+            CREATE TABLE IF NOT EXISTS seen_posts (
+                post_id TEXT PRIMARY KEY,
+                seen_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
             CREATE INDEX IF NOT EXISTS idx_processed_replies_comment_id
                 ON processed_replies(comment_id);
             CREATE INDEX IF NOT EXISTS idx_reply_queue_expires
@@ -112,9 +123,102 @@ class EngagementDB:
                 ON challenges(created_at);
             CREATE INDEX IF NOT EXISTS idx_dreams_created
                 ON dreams(created_at);
+            CREATE INDEX IF NOT EXISTS idx_seen_posts_at
+                ON seen_posts(seen_at);
         """)
 
         logger.debug("EngagementDB schema initialized for '%s'", self._identity)
+
+    # ------------------------------------------------------------------
+    # Lifecycle / Cleanup
+    # ------------------------------------------------------------------
+
+    def start_background_cleanup(self) -> None:
+        """Start the periodic background cleanup task."""
+        if self._cleanup_task and not self._cleanup_task.done():
+            return
+        self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+        logger.debug(
+            "EngagementDB background cleanup started for %s (every %ds)",
+            self._identity,
+            self._CLEANUP_INTERVAL_SECONDS,
+        )
+
+    def stop_background_cleanup(self) -> None:
+        """Cancel the background cleanup task."""
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+            self._cleanup_task = None
+
+    async def _cleanup_loop(self) -> None:
+        """Periodically trim old entries in the background."""
+        try:
+            while True:
+                await asyncio.sleep(self._CLEANUP_INTERVAL_SECONDS)
+                try:
+                    deleted = await self.trim_old_entries()
+                    if deleted > 0:
+                        logger.debug("Background EngagementDB cleanup trimmed %d entries", deleted)
+                except Exception as e:
+                    logger.warning("Background EngagementDB cleanup error: %s", e)
+        except asyncio.CancelledError:
+            pass
+
+    async def trim_old_entries(self, retention_days: int = _DEFAULT_RETENTION_DAYS) -> int:
+        """
+        Remove engagement entries older than the retention period.
+
+        Returns:
+            Total number of entries deleted across all tables.
+        """
+        ph = self._db.ph
+        cutoff = f"-{retention_days} days"
+        total_deleted = 0
+
+        tables = [
+            ("engagements", "created_at"),
+            ("heartbeats", "created_at"),
+            ("processed_replies", "processed_at"),
+            ("challenges", "created_at"),
+            ("dreams", "created_at"),
+            ("seen_posts", "seen_at"),
+        ]
+
+        for table, col in tables:
+            # Note: USING ph(1) for safety although retention_days is an int
+            count = await self._db.execute(
+                f"DELETE FROM {table} WHERE datetime({col}) < datetime('now', {ph(1)})",
+                (cutoff,),
+            )
+            total_deleted += count if isinstance(count, int) else 0
+
+        if total_deleted > 0:
+            logger.info(
+                "EngagementDB for %s trimmed: %d entries older than %d days removed",
+                self._identity,
+                total_deleted,
+                retention_days,
+            )
+        return total_deleted
+
+    # ------------------------------------------------------------------
+    # Feed deduplication
+    # ------------------------------------------------------------------
+
+    async def is_post_seen(self, post_id: str) -> bool:
+        ph = self._db.ph
+        row = await self._db.fetch_one(
+            f"SELECT 1 FROM seen_posts WHERE post_id = {ph(1)}",
+            (post_id,),
+        )
+        return row is not None
+
+    async def mark_post_seen(self, post_id: str) -> None:
+        ph = self._db.ph
+        await self._db.execute(
+            f"INSERT OR IGNORE INTO seen_posts (post_id) VALUES ({ph(1)})",
+            (post_id,),
+        )
 
     # ------------------------------------------------------------------
     # Engagement tracking

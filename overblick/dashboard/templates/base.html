@@ -43,6 +43,28 @@
     </nav>
 
     <main class="main" id="main-content" aria-label="Dashboard content">
+        {% block security_alerts %}
+        <div class="security-alerts">
+            {% if is_windows() %}
+            <div class="alert alert-warning" role="alert">
+                <strong>Platform Warning:</strong> Windows support is experimental. Unix-style security (IPC sockets, file permissions) is limited.
+            </div>
+            {% endif %}
+
+            {% if not safe_mode_enabled() %}
+            <div class="alert alert-danger" role="alert">
+                <strong>Security Risk:</strong> SAFE MODE is disabled. LLM interactions are NOT protected by the 6-stage security pipeline.
+            </div>
+            {% endif %}
+
+            {% if not auth_enabled() %}
+            <div class="alert alert-warning" role="alert">
+                <strong>Access Warning:</strong> Dashboard authentication is disabled. Anyone on this network can access agent controls.
+            </div>
+            {% endif %}
+        </div>
+        {% endblock %}
+
         {% block flash %}
         {% if error %}
         <div class="flash flash-error" role="alert">{{ error }}</div>

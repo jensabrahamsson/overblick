@@ -176,6 +176,12 @@ def _create_templates() -> Jinja2Templates:
     # Auth placeholder — overridden in lifespan once config is available
     env.globals["auth_enabled"] = lambda: False
 
+    # Security alerts
+    from overblick.shared.platform import IS_WINDOWS
+    from overblick.core.security.settings import safe_mode
+    env.globals["is_windows"] = lambda: IS_WINDOWS
+    env.globals["safe_mode_enabled"] = safe_mode
+
     # Register filters
     env.filters["epoch_to_datetime"] = _format_epoch
     env.filters["irc_time"] = _format_irc_time

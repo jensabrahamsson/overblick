@@ -69,6 +69,9 @@ class TestWizardNavigation:
         """Step 1 Next button should advance to step 2."""
         _login_with_csrf(page, dashboard_server)
 
+        # Fill the required name field to pass HTML5 validation
+        page.fill("input#name", "testagent")
+        
         page.locator("button[type='submit'], a.btn-primary").first.click()
         page.wait_for_load_state("networkidle")
 
