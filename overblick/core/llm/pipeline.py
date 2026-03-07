@@ -18,10 +18,9 @@ Usage:
 """
 
 import logging
-import os
 import time
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -259,8 +258,6 @@ class SafeLLMPipeline:
             )
         except Exception as e:
             logger.error("LLM call failed: %s", e, exc_info=True)
-            # Sanitize: use generic message for block_reason to prevent
-            # leaking connection strings or credentials in exception text
             result = PipelineResult(
                 blocked=True,
                 block_reason="LLM call failed",
@@ -284,7 +281,6 @@ class SafeLLMPipeline:
 
         content = raw_response.get("content", "")
         reasoning_content = raw_response.get("reasoning_content")
-        # Safety net: strip any remaining think tokens that the client missed
         from overblick.core.llm.client import LLMClient
 
         content = LLMClient.strip_think_tokens(content)
@@ -296,7 +292,6 @@ class SafeLLMPipeline:
         if not skip_output_safety:
             safety_result = self._run_output_safety(content)
             if safety_result is not None:
-                # Output was blocked or modified
                 blocked, safe_text, reason = safety_result
                 if blocked:
                     result = PipelineResult(
@@ -311,7 +306,6 @@ class SafeLLMPipeline:
                     self._audit_blocked(result, audit_action, audit_details)
                     return result
                 else:
-                    # Content was modified (e.g. slang replaced)
                     content = safe_text
         else:
             self._audit_skip("output_safety", user_id, audit_action)
@@ -329,17 +323,11 @@ class SafeLLMPipeline:
             stages_passed=stages,
             stage_timings=stage_timings,
         )
-        logger.debug(
-            "Pipeline complete in %.1fms — timings: %s",
-            duration,
-            stage_timings,
-        )
 
         if self._audit:
             d = {**(audit_details or {})}
             d["duration_ms"] = duration
             d["content_length"] = len(content)
-            # Include model info for LLM call traceability
             if hasattr(self._llm, "model"):
                 d["model"] = self._llm.model
             self._audit.log(
@@ -374,7 +362,6 @@ class SafeLLMPipeline:
             self._warn_missing("preflight_checker")
             return None
 
-        # Find last user message
         last_user_msg = ""
         for msg in reversed(messages):
             if msg.get("role") == "user":
@@ -395,7 +382,6 @@ class SafeLLMPipeline:
                 )
         except Exception as e:
             logger.error("Preflight check error: %s", e, exc_info=True)
-            # Fail CLOSED — block if preflight crashes (security-first)
             return PipelineResult(
                 blocked=True,
                 block_reason="Preflight check unavailable",
@@ -417,9 +403,6 @@ class SafeLLMPipeline:
                 return (False, result.text, None)
         except Exception as e:
             logger.error("Output safety error: %s", e, exc_info=True)
-            # Fail CLOSED — block if output safety crashes (security-first).
-            # Return a neutral deflection so callers always get a safe string,
-            # preventing plugins from falling back to raw/unsafe content.
             return (True, "I'm not able to respond to that right now.", "Output safety unavailable")
 
         return None
@@ -477,7 +460,7 @@ class SafeLLMPipeline:
             )
 
     def _warn_missing(self, component: str) -> None:
-        """Warn about missing optional component (once per component)."""
+        """Warn about missing optional component (once per component).\"\"\"
         if component not in self._warned:
-            logger.warning("SafeLLMPipeline: %s not configured — stage skipped", component)
+            logger.warning(\"SafeLLMPipeline: %s not configured — stage skipped\", component)
             self._warned.add(component)

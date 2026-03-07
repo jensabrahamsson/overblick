@@ -1,366 +1,102 @@
 """
-LLM response generation for engagement.
+Response generation capability — identity-aware content creation.
 
-Generates responses using identity-specific prompts and
-LLM configuration. Handles comment generation, heartbeat posts,
-and all other LLM-generated content.
-
-SECURITY: All LLM calls go through SafeLLMPipeline, which enforces
-the full security chain (sanitize -> preflight -> rate limit -> LLM -> output safety -> audit).
-External content is wrapped in boundary markers to prevent prompt injection.
+Uses SafeLLMPipeline to generate text in the identity's voice,
+decorated with learned knowledge from the LearningStore.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from overblick.core.security.input_sanitizer import wrap_external_content
-from overblick.core.security.settings import raw_llm
 
 if TYPE_CHECKING:
-    from overblick.core.llm.client import LLMClient
-    from overblick.core.llm.pipeline import PipelineResult, SafeLLMPipeline
+    from overblick.core.llm.pipeline import SafeLLMPipeline
 
 logger = logging.getLogger(__name__)
 
 
 class ResponseGenerator:
     """
-    Generates LLM-powered responses for engagement.
+    Identity-aware text generator.
 
-    Accepts either a SafeLLMPipeline (preferred, enforces full security chain)
-    or a raw llm_client (legacy, no automatic security checks).
-
-    When using a pipeline, all security is handled automatically:
-    - Input sanitization
-    - Preflight checks
-    - Rate limiting
-    - Output safety filtering
-    - Audit logging
+    Orchestrates:
+    1. Knowledge retrieval (LearningStore)
+    2. Prompt assembly (Identity + Learning + Input)
+    3. Safe LLM generation (SafeLLMPipeline)
     """
-
-    _pipeline: SafeLLMPipeline | None
-    _llm: LLMClient | None
 
     def __init__(
         self,
-        llm_pipeline: SafeLLMPipeline | None = None,
-        system_prompt: str = "",
-        temperature: float = 0.7,
-        max_tokens: int = 2000,
-        *,
-        llm_client: LLMClient | None = None,
-        allow_raw_fallback: bool = False,
+        llm_pipeline: SafeLLMPipeline,
     ):
-        import os
+        """
+        Initialize the generator.
 
+        Args:
+            llm_pipeline: Mandatory safe pipeline for all generation.
+        """
         self._pipeline = llm_pipeline
-        self._llm = llm_client
-        self._system_prompt = system_prompt
-        self._temperature = temperature
-        self._max_tokens = max_tokens
 
-        # Environment variable override for backward compatibility
-        if raw_llm() and self._llm and not self._pipeline:
-            allow_raw_fallback = True
-            logger.warning("RAW_LLM=True: allowing raw client fallback")
-
-        # Safe-mode enforcement
-        if not self._pipeline:
-            if allow_raw_fallback and self._llm:
-                logger.warning("ResponseGenerator using raw client (allow_raw_fallback=True)")
-            else:
-                raise ValueError(
-                    "SafeLLMPipeline is required in safe mode. "
-                    "Provide llm_pipeline or set allow_raw_fallback=True."
-                )
-
-        if self._pipeline and self._llm:
-            logger.debug("Both pipeline and raw client provided; using pipeline")
-            self._llm = None
-
-    async def _call_llm(
+    async def generate(
         self,
         prompt: str,
-        temperature: float | None = None,
-        skip_preflight: bool = False,
-        audit_action: str = "response_gen",
+        system_prompt: str,
+        user_id: str = "system",
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+        audit_action: str = "generate_response",
+        context_items: list[str] | None = None,
         priority: str = "low",
-    ) -> str | None:
+        complexity: str | None = None,
+    ) -> str:
         """
-        Internal LLM call through pipeline or raw client.
+        Generate a response in the identity's voice.
 
-        Pipeline path is preferred and enforces full security.
-        Raw client path is legacy fallback only.
+        Args:
+            prompt: The user input or prompt to respond to.
+            system_prompt: The identity's system prompt.
+            user_id: ID for rate limiting and preflight.
+            temperature: LLM temperature.
+            max_tokens: Max tokens to generate.
+            audit_action: Action name for audit log.
+            context_items: Optional strings to inject as context (e.g. learnings).
+            priority: Gateway queue priority.
+            complexity: Backend routing complexity.
+
+        Returns:
+            The generated safe text, or a deflection if blocked.
         """
-        temp = temperature if temperature is not None else self._temperature
-        messages = [
-            {"role": "system", "content": self._system_prompt},
-            {"role": "user", "content": prompt},
-        ]
+        # Build messages
+        messages = [{"role": "system", "content": system_prompt}]
 
-        if self._pipeline:
-            result: PipelineResult = await self._pipeline.chat(
-                messages=messages,
-                temperature=temp,
-                max_tokens=self._max_tokens,
-                skip_preflight=skip_preflight,
-                audit_action=audit_action,
-                priority=priority,
-            )
-            if result.blocked:
-                logger.warning(
-                    "Pipeline blocked %s at %s: %s",
-                    audit_action,
-                    result.block_stage.value if result.block_stage else "unknown",
-                    result.block_reason,
-                )
-                return None
-            return result.content.strip() if result.content else None
+        # Inject context if provided
+        if context_items:
+            context_text = "\n\nContext and learnings:\n- " + "\n- ".join(context_items)
+            messages[0]["content"] += context_text
 
-        # Legacy raw client path
-        assert self._llm is not None, "Raw LLM client should be available when pipeline is not"
-        try:
-            raw_result: dict[str, Any] | None = await self._llm.chat(
-                messages=messages,
-                temperature=temp,
-                max_tokens=self._max_tokens,
-                priority=priority,
-            )
-            if raw_result and raw_result.get("content"):
-                return raw_result["content"].strip()  # type: ignore[no-any-return]
-        except Exception as e:
-            logger.error("%s failed: %s", audit_action, e, exc_info=True)
+        # Add user prompt (wrapped as external content)
+        messages.append({"role": "user", "content": wrap_external_content(prompt)})
 
-        return None
-
-    async def generate_comment(
-        self,
-        post_title: str,
-        post_content: str,
-        agent_name: str,
-        prompt_template: str,
-        existing_comments: list[str] | None = None,
-        extra_context: str = "",
-        priority: str = "low",
-        extra_format_vars: dict[str, str] | None = None,
-    ) -> str | None:
-        """Generate a comment response to a post."""
-        # Wrap external content in boundary markers to prevent injection
-        safe_title = wrap_external_content(post_title, "post_title")
-        safe_content = wrap_external_content(post_content[:1000], "post_content")
-        safe_agent = wrap_external_content(agent_name, "agent_name")
-
-        safe_comments = "(none)"
-        if existing_comments:
-            safe_comments = wrap_external_content(
-                "\n".join(existing_comments[:3]), "existing_comments"
-            )
-
-        # Build format vars with aliases for identity prompt compatibility.
-        # Identity prompts may use {post_content}/{author}/{category} while
-        # the standard interface uses {content}/{agent_name}.
-        format_vars = {
-            "title": safe_title,
-            "content": safe_content,
-            "agent_name": safe_agent,
-            "existing_comments": safe_comments,
-            # Aliases used by identity-specific prompt templates
-            "post_content": safe_content,
-            "author": safe_agent,
-            "category": "",
-            "opening_instruction": "",
-        }
-        if extra_format_vars:
-            format_vars.update(extra_format_vars)
-
-        prompt = prompt_template.format(**format_vars)
-
-        if extra_context:
-            prompt = f"{extra_context}\n\n{prompt}"
-
-        return await self._call_llm(prompt, audit_action="comment_generation", priority=priority)
-
-    async def generate_reply(
-        self,
-        original_post_title: str,
-        comment_content: str,
-        commenter_name: str,
-        prompt_template: str,
-        extra_context: str = "",
-        priority: str = "low",
-    ) -> str | None:
-        """Generate a reply to a comment on our post."""
-        safe_title = wrap_external_content(original_post_title, "post_title")
-        safe_comment = wrap_external_content(comment_content[:500], "comment")
-        safe_commenter = wrap_external_content(commenter_name, "commenter")
-
-        prompt = prompt_template.format(
-            title=safe_title,
-            comment=safe_comment,
-            commenter=safe_commenter,
-        )
-
-        if extra_context:
-            prompt = f"{extra_context}\n\n{prompt}"
-
-        return await self._call_llm(prompt, audit_action="reply_generation", priority=priority)
-
-    async def generate_dm_reply(
-        self,
-        sender_name: str,
-        message: str,
-        prompt_template: str,
-        priority: str = "high",
-    ) -> str | None:
-        """Generate a reply to a direct message.
-
-        DM replies are time-sensitive, so priority defaults to 'high' to avoid
-        LLM gateway queuing delays.
-        """
-        safe_sender = wrap_external_content(sender_name, "sender_name")
-        safe_message = wrap_external_content(message[:500], "message")
-
-        prompt = prompt_template.format(
-            sender=safe_sender,
-            message=safe_message,
-        )
-
-        return await self._call_llm(
-            prompt,
-            audit_action="generate_dm_reply",
+        # Call pipeline (Strictly safe)
+        result = await self._pipeline.chat(
+            messages=messages,
+            user_id=user_id,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            audit_action=audit_action,
             priority=priority,
+            complexity=complexity,
         )
 
-    async def generate_heartbeat(
-        self,
-        prompt_template: str,
-        topic_index: int = 0,
-        topic_vars: dict[str, str] | None = None,
-        extra_context: str = "",
-    ) -> tuple[str, str, str] | None:
-        """
-        Generate a heartbeat post.
+        if result.blocked:
+            logger.warning(
+                "Response generation blocked at %s: %s",
+                result.block_stage.value if result.block_stage else "unknown",
+                result.block_reason,
+            )
+            return result.deflection or "I'm not able to respond to that right now."
 
-        Heartbeats are system-initiated (no external content),
-        so preflight is skipped but output safety remains active.
-
-        Args:
-            prompt_template: Template string with placeholders.
-            topic_index: Index into the HEARTBEAT_TOPICS list.
-            topic_vars: Extra format variables (topic_instruction, topic_example)
-                        resolved from HEARTBEAT_TOPICS by the caller.
-            extra_context: Additional context to prepend (e.g. time, capabilities).
-
-        Returns:
-            (title, content, submolt) tuple or None on failure.
-        """
-        fmt_vars: dict[str, Any] = {"topic_index": topic_index}
-        if topic_vars:
-            fmt_vars.update(topic_vars)
-        prompt = prompt_template.format(**fmt_vars)
-
-        if extra_context:
-            prompt = f"{extra_context}\n\n{prompt}"
-
-        content = await self._call_llm(
-            prompt,
-            temperature=self._temperature + 0.1,
-            skip_preflight=True,
-            audit_action="heartbeat_generation",
-        )
-
-        if not content:
-            return None
-
-        return self._parse_post_output(content)
-
-    async def generate_dream_post(
-        self,
-        dream: dict,
-        prompt_template: str,
-        extra_format_vars: dict[str, str] | None = None,
-        extra_context: str = "",
-    ) -> tuple[str, str, str] | None:
-        """
-        Generate a dream journal post from a dream.
-
-        Args:
-            dream: Dream dict with dream_type, tone, content, insight, symbols.
-            prompt_template: Identity-specific DREAM_JOURNAL_PROMPT template.
-            extra_format_vars: Additional format variables (e.g. submolt_instruction).
-            extra_context: Additional context to prepend (e.g. time, capabilities).
-
-        Returns:
-            (title, content, submolt) tuple or None on failure.
-        """
-        symbols = dream.get("symbols", [])
-        format_vars = {
-            "dream_type": dream.get("dream_type", "unknown"),
-            "dream_tone": dream.get("tone", "contemplative"),
-            "dream_content": dream.get("content", ""),
-            "dream_insight": dream.get("insight", ""),
-            "dream_symbols": ", ".join(symbols) if isinstance(symbols, list) else str(symbols),
-        }
-        if extra_format_vars:
-            format_vars.update(extra_format_vars)
-
-        try:
-            prompt = prompt_template.format(**format_vars)
-        except KeyError as e:
-            logger.warning("Dream journal prompt missing key %s, skipping", e)
-            return None
-
-        if extra_context:
-            prompt = f"{extra_context}\n\n{prompt}"
-
-        content = await self._call_llm(
-            prompt,
-            temperature=0.8,
-            skip_preflight=True,
-            audit_action="dream_post_generation",
-        )
-
-        if not content:
-            return None
-
-        return self._parse_post_output(content)
-
-    def _parse_post_output(self, content: str) -> tuple[str, str, str]:
-        """
-        Parse LLM output into (title, body, submolt).
-
-        Expected format:
-            submolt: ai
-            TITLE: Some Title Here
-            Body text here...
-        """
-        submolt = "ai"
-        lines = content.split("\n")
-
-        # Extract submolt from first line if present
-        if lines[0].lower().startswith("submolt:"):
-            submolt = lines[0].split(":", 1)[1].strip().lower()
-            lines = lines[1:]
-
-        # Extract title
-        title = "Untitled"
-        body_start = 0
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-            for prefix in ("TITLE: ", "Title: ", "title: "):
-                if stripped.startswith(prefix):
-                    title = stripped[len(prefix) :].strip()
-                    body_start = i + 1
-                    break
-            else:
-                continue
-            break
-
-        if title == "Untitled" and lines:
-            title = lines[0].strip()[:80]
-            body_start = 1
-
-        body = "\n".join(lines[body_start:]).strip()
-        return title, body, submolt
+        return result.content or ""
