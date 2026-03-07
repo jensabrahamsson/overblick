@@ -526,8 +526,11 @@ class IPCServer:
             if handler:
                 response = await handler(msg)
                 if response:
-                    writer.write((response.to_json() + "\n").encode())
-                    await writer.drain()
+                    try:
+                        writer.write((response.to_json() + "\n").encode())
+                        await writer.drain()
+                    except (ConnectionError, asyncio.TimeoutError):
+                        logger.debug("IPC client disconnected before response could be sent")
             else:
                 logger.warning("No handler for message type: %s", msg.msg_type)
 
@@ -535,13 +538,21 @@ class IPCServer:
             logger.warning("IPC message exceeds buffer limit, rejecting")
         except asyncio.IncompleteReadError:
             logger.debug("IPC client disconnected before sending complete message")
+        except (ConnectionError, asyncio.TimeoutError):
+            logger.debug("IPC connection lost during processing")
         except json.JSONDecodeError as e:
             logger.warning("Invalid IPC message: %s", e)
         except Exception as e:
             logger.error("IPC handler error: %s", e, exc_info=True)
         finally:
-            writer.close()
-            await writer.wait_closed()
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except (ConnectionError, asyncio.TimeoutError, OSError):
+                # Ignore errors during final cleanup of a broken pipe
+                pass
+            except Exception as e:
+                logger.debug("Error during IPC cleanup: %s", e)
 
 
 class IPCClient:

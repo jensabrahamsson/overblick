@@ -135,14 +135,14 @@ class HostHealthPlugin(PluginBase):
         # Send IPC inquiry
         logger.info("HostHealth: sending inquiry — %s", motivation[:80])
 
-        # 90s timeout: supervisor LLM generation can take 30-60s under load
+        # 180s timeout: supervisor LLM generation can take 30-150s under load
         response = await self.ctx.send_ipc_message(
             msg_type="health_inquiry",
             payload={
                 "motivation": motivation,
                 "previous_context": previous_context,
             },
-            timeout=90.0,
+            timeout=180.0,
         )
 
         if not response or response.msg_type != "health_response":
