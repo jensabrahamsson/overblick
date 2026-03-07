@@ -9,7 +9,6 @@ Constants:
     SAFE_MODE (bool): Enable fail‑closed SafeLLMPipeline (default True).
     RAW_LLM (bool): Allow plugins direct access to ctx.llm_client (default False).
     STRICT_CAPABILITIES (bool): Enforce capability grants (default False).
-    ALLOW_RAW_FALLBACK (bool): Allow raw LLM fallback when pipeline fails (default False).
 """
 
 import os
@@ -76,21 +75,6 @@ When True:
     • Recommended for production deployments.
 
 Set OVERBLICK_STRICT_CAPABILITIES=1 to enforce capability grants.
-"""
-
-
-# ── Raw LLM fallback ──────────────────────────────────────────────────────────
-
-ALLOW_RAW_FALLBACK = _env_bool("OVERBLICK_ALLOW_RAW_FALLBACK", default=False)
-"""Allow raw LLM fallback when SafeLLMPipeline fails (default False).
-
-When True:
-    • If SafeLLMPipeline raises ConfigError, the call may fall back to raw LLM client.
-    • Used only in trusted supervisor handlers (health, email, research).
-    • Never exposed to untrusted plugin code.
-
-When False:
-    • Pipeline failures propagate as ConfigError (fail‑closed).
 """
 
 

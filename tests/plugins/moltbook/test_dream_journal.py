@@ -82,12 +82,13 @@ class TestGenerateDreamPost:
             )
         )
 
-        gen = ResponseGenerator(llm_pipeline=mock_pipeline, system_prompt="Test")
+        gen = ResponseGenerator(llm_pipeline=mock_pipeline)
         dream = _make_dream()
         result = await gen.generate_dream_post(
             dream=dream.to_dict(),
             prompt_template=_MockPromptsWithDreamJournal.DREAM_JOURNAL_PROMPT,
             extra_format_vars={"submolt_instruction": "Pick a submolt."},
+            system_prompt="Test",
         )
 
         assert result is not None
@@ -114,7 +115,7 @@ class TestGenerateDreamPost:
             )
         )
 
-        gen = ResponseGenerator(llm_pipeline=mock_pipeline, system_prompt="Test")
+        gen = ResponseGenerator(llm_pipeline=mock_pipeline)
         result = await gen.generate_dream_post(
             dream=_make_dream().to_dict(),
             prompt_template="{dream_content}",
@@ -133,7 +134,7 @@ class TestGenerateDreamPost:
             )
         )
 
-        gen = ResponseGenerator(llm_pipeline=mock_pipeline, system_prompt="Test")
+        gen = ResponseGenerator(llm_pipeline=mock_pipeline)
         result = await gen.generate_dream_post(
             dream=_make_dream().to_dict(),
             prompt_template="{dream_content}",
@@ -144,7 +145,7 @@ class TestGenerateDreamPost:
     async def test_missing_template_key_returns_none(self):
         """Template with unknown placeholder returns None gracefully."""
         mock_pipeline = AsyncMock()
-        gen = ResponseGenerator(llm_pipeline=mock_pipeline, system_prompt="Test")
+        gen = ResponseGenerator(llm_pipeline=mock_pipeline)
         result = await gen.generate_dream_post(
             dream=_make_dream().to_dict(),
             prompt_template="{nonexistent_key}",
