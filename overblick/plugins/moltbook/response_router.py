@@ -71,29 +71,16 @@ class ResponseRouter:
 
     def __init__(
         self,
-        llm_pipeline=None,
+        llm_pipeline: "SafeLLMPipeline",
         max_response_size: int = 5000,
-        *,
-        llm_client=None,
-        allow_raw_fallback: bool = False,
     ):
-        import os
+        """Initialize the response router.
 
-        # Safe-mode enforcement
-        if not llm_pipeline:
-            if allow_raw_fallback and llm_client:
-                logger.warning("ResponseRouter using raw client (allow_raw_fallback=True)")
-                self._llm = llm_client
-            else:
-                raise ValueError(
-                    "SafeLLMPipeline is required in safe mode. "
-                    "Provide llm_pipeline or set allow_raw_fallback=True."
-                )
-        else:
-            self._llm = llm_pipeline
-            if llm_client:
-                logger.debug("Both pipeline and raw client provided; using pipeline")
-
+        Args:
+            llm_pipeline: Mandatory safe pipeline for classification.
+            max_response_size: Max JSON characters to send to LLM.
+        """
+        self._llm = llm_pipeline
         self._max_response_size = max_response_size
         self._stats = {
             "inspections_total": 0,
