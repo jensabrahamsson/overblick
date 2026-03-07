@@ -27,7 +27,7 @@ import logging
 import smtplib
 import time
 from datetime import datetime, timedelta, timezone
-from email import policy
+from email import message, policy
 from email.header import decode_header as _decode_header
 from email.mime.text import MIMEText
 from email.parser import BytesParser
@@ -91,7 +91,7 @@ class GmailCapability:
 
     name = "gmail"
 
-    def __init__(self, ctx):
+    def __init__(self, ctx: "PluginContext") -> None:
         self.ctx = ctx
         self._email: str | None = None
         self._password: str | None = None
@@ -184,7 +184,6 @@ class GmailCapability:
                 await asyncio.sleep(delay)
 
         # Should never reach here, but return empty list if all retries fail
-        return []
         return []
 
     def _imap_fetch_unread(
@@ -279,7 +278,7 @@ class GmailCapability:
             headers=signal_headers,
         )
 
-    def _extract_body(self, msg) -> str:
+    def _extract_body(self, msg: message.Message) -> str:
         """Extract plain text body from email message."""
         if msg.is_multipart():
             for part in msg.walk():
@@ -287,7 +286,7 @@ class GmailCapability:
                     payload = part.get_payload(decode=True)
                     if payload:
                         charset = part.get_content_charset() or "utf-8"
-                        return payload.decode(charset, errors="replace")
+                        return payload.decode(charset, errors="replace")  # type: ignore[no-any-return]
 
             # Fallback: text/html
             for part in msg.walk():
@@ -295,16 +294,16 @@ class GmailCapability:
                     payload = part.get_payload(decode=True)
                     if payload:
                         charset = part.get_content_charset() or "utf-8"
-                        return payload.decode(charset, errors="replace")
+                        return payload.decode(charset, errors="replace")  # type: ignore[no-any-return]
         else:
             payload = msg.get_payload(decode=True)
             if payload:
                 charset = msg.get_content_charset() or "utf-8"
-                return payload.decode(charset, errors="replace")
+                return payload.decode(charset, errors="replace")  # type: ignore[no-any-return]
 
         return ""
 
-    def _decode_header(self, header) -> str:
+    def _decode_header(self, header: str | None) -> str:
         """Decode RFC 2047 encoded header (e.g. =?UTF-8?Q?...?=)."""
         if not header:
             return ""
@@ -480,7 +479,7 @@ class GmailCapability:
             uid = uids[0]
             # Cache it for future use
             self._uid_map[message_id] = uid
-            return uid
+            return uid  # type: ignore[no-any-return]
 
     def _imap_mark_read(self, uid: bytes) -> None:
         """Set \\Seen flag on a message via IMAP (blocking, run in thread pool)."""

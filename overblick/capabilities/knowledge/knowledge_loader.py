@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 

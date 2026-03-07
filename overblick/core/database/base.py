@@ -70,7 +70,7 @@ class DatabaseConfig(BaseModel):
         if "echo_sql" in data:
             flat["echo_sql"] = data["echo_sql"]
 
-        return cls.model_validate(flat)
+        return cls.model_validate(flat)  # type: ignore[no-any-return]
 
 
 class DatabaseBackend(ABC):

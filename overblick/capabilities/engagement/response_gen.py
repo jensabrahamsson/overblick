@@ -10,11 +10,17 @@ the full security chain (sanitize -> preflight -> rate limit -> LLM -> output sa
 External content is wrapped in boundary markers to prevent prompt injection.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, TYPE_CHECKING
 
 from overblick.core.security.input_sanitizer import wrap_external_content
 from overblick.core.security.settings import raw_llm
+
+if TYPE_CHECKING:
+    from overblick.core.llm.pipeline import SafeLLMPipeline, PipelineResult
+    from overblick.core.llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +40,17 @@ class ResponseGenerator:
     - Audit logging
     """
 
+    _pipeline: SafeLLMPipeline | None
+    _llm: LLMClient | None
+
     def __init__(
         self,
-        llm_pipeline=None,
+        llm_pipeline: SafeLLMPipeline | None = None,
         system_prompt: str = "",
         temperature: float = 0.7,
         max_tokens: int = 2000,
         *,
-        llm_client=None,
+        llm_client: LLMClient | None = None,
         allow_raw_fallback: bool = False,
     ):
         import os
@@ -92,7 +101,7 @@ class ResponseGenerator:
         ]
 
         if self._pipeline:
-            result = await self._pipeline.chat(
+            result: PipelineResult = await self._pipeline.chat(
                 messages=messages,
                 temperature=temp,
                 max_tokens=self._max_tokens,
@@ -113,14 +122,14 @@ class ResponseGenerator:
         # Legacy raw client path
         assert self._llm is not None, "Raw LLM client should be available when pipeline is not"
         try:
-            result = await self._llm.chat(
+            raw_result: dict[str, Any] | None = await self._llm.chat(
                 messages=messages,
                 temperature=temp,
                 max_tokens=self._max_tokens,
                 priority=priority,
             )
-            if result and result.get("content"):
-                return result["content"].strip()
+            if raw_result and raw_result.get("content"):
+                return raw_result["content"].strip()  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("%s failed: %s", audit_action, e, exc_info=True)
 

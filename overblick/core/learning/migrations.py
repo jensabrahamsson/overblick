@@ -5,6 +5,7 @@ Creates the identity_learnings table with embedding BLOB support.
 """
 
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_learnings_created ON identity_learnings(created_a
 """
 
 
-async def run_migrations(db_path) -> None:
+async def run_migrations(db_path: Path) -> None:
     """Run learning system migrations on the given SQLite database."""
     import aiosqlite
 

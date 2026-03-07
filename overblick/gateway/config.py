@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)

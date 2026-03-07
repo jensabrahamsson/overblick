@@ -34,7 +34,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Optional
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from overblick.core.exceptions import ConfigError
@@ -226,9 +226,9 @@ class Identity(BaseModel):
     raw: dict[str, Any] = Field(default_factory=dict)
     raw_config: dict[str, Any] = Field(default_factory=dict)
 
-    @model_validator(mode="before")
+    @model_validator(mode="before")  # type: ignore[untyped-decorator]
     @classmethod
-    def _set_defaults(cls, data):
+    def _set_defaults(cls, data: Any) -> Any:
         if isinstance(data, dict):
             if not data.get("display_name"):
                 data["display_name"] = data.get("name", "").capitalize()
@@ -239,8 +239,8 @@ class Identity(BaseModel):
             data.pop("personality_ref", None)
         return data
 
-    @model_validator(mode="after")
-    def _validate_traits(self):
+    @model_validator(mode="after")  # type: ignore[untyped-decorator]
+    def _validate_traits(self) -> "Identity":
         """
         Validate personality traits.
 
@@ -312,11 +312,11 @@ class Identity(BaseModel):
 
     def get_banned_words(self) -> list[str]:
         """Get list of banned vocabulary words."""
-        return self.vocabulary.get("banned_words", [])
+        return self.vocabulary.get("banned_words", [])  # type: ignore[no-any-return]
 
     def get_preferred_words(self) -> list[str]:
         """Get list of preferred vocabulary words."""
-        return self.vocabulary.get("preferred_words", [])
+        return self.vocabulary.get("preferred_words", [])  # type: ignore[no-any-return]
 
     def get_plugin_config(self, plugin_name: str) -> dict[str, Any]:
         """Get typed plugin configuration from raw_config.
@@ -330,12 +330,12 @@ class Identity(BaseModel):
         Returns:
             Plugin config dict (never None)
         """
-        return self.raw_config.get(plugin_name, {})
+        return self.raw_config.get(plugin_name, {})  # type: ignore[no-any-return]
 
     def get_interest_topics(self, area: str) -> list[str]:
         """Get topics for a specific interest area."""
         interest = self.interests.get(area, {})
-        return interest.get("topics", [])
+        return interest.get("topics", [])  # type: ignore[no-any-return]
 
     # --- Operational accessors ---
 
@@ -367,7 +367,7 @@ Personality = Identity
 # ---------------------------------------------------------------------------
 
 
-def _deep_merge(base: dict, override: dict) -> dict:
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """Recursively merge *override* into *base* (new dict, no mutation).
 
     - Dicts are merged recursively.
@@ -382,7 +382,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return merged
 
 
-def _load_yaml(path: Path) -> dict:
+def _load_yaml(path: Path) -> dict[str, Any]:
     """Load YAML file, returning empty dict if missing."""
     if not path.exists():
         return {}
@@ -548,8 +548,8 @@ def load_llm_hints(identity: "Identity", model_slug: str = "") -> dict[str, Any]
     """
     if not model_slug:
         # Derive from configured model: 'qwen3:8b' -> 'qwen3_8b'
-        model_slug = identity.llm.model.replace(":", "_").replace("-", "_").split("_")[0:2]
-        model_slug = "_".join(model_slug) if model_slug else "qwen3_8b"
+        slug_parts = identity.llm.model.replace(":", "_").replace("-", "_").split("_")[0:2]
+        model_slug = "_".join(slug_parts) if slug_parts else "qwen3_8b"
 
     ident_dir = identity.identity_dir
     hints_file = ident_dir / "llm_hints" / f"{model_slug}.yaml"
@@ -786,7 +786,7 @@ def build_system_prompt(
     return prompt
 
 
-def _build_identity(name: str, data: dict, base_dir: Path | None = None) -> Identity:
+def _build_identity(name: str, data: dict[str, Any], base_dir: Path | None = None) -> Identity:
     """
     Build a unified Identity from raw YAML data.
 
@@ -808,9 +808,9 @@ def _build_identity(name: str, data: dict, base_dir: Path | None = None) -> Iden
 
     # Merge: operational section in personality.yaml takes precedence,
     # then identity.yaml, then defaults
-    def _merge_section(key: str) -> dict:
+    def _merge_section(key: str) -> dict[str, Any]:
         """Get section from operational, fall back to identity_config."""
-        return operational.get(key, identity_config.get(key, {}))
+        return operational.get(key, identity_config.get(key, {}))  # type: ignore[no-any-return]
 
     # Build sub-settings
     llm_data = _merge_section("llm")
@@ -826,7 +826,7 @@ def _build_identity(name: str, data: dict, base_dir: Path | None = None) -> Iden
     security = SecuritySettings.model_validate(sec_data) if sec_data else SecuritySettings()
 
     # Scalars from operational or identity_config
-    def _get(key: str, default=None):
+    def _get(key: str, default: Any = None) -> Any:
         """Get value from operational, fall back to identity_config."""
         val = operational.get(key)
         if val is not None:
@@ -837,16 +837,18 @@ def _build_identity(name: str, data: dict, base_dir: Path | None = None) -> Iden
         return default
 
     # Support both "plugins" (new) and "connectors" (legacy) YAML keys
-    plugins = _get("plugins", None)
-    if plugins is None:
-        plugins = _get("connectors", [])
-    capability_names = _get("capabilities", [])
-    enabled_modules = _get("enabled_modules", [])
-    deflections = _get("deflections", {})
-    interest_keywords = _get("interest_keywords", [])
-    engagement_threshold = _get("engagement_threshold", 35)
-    comment_cooldown_hours = _get("comment_cooldown_hours", 24)
-    prompts_module = _get("prompts_module", "")
+    plugins_raw = _get("plugins", None)
+    if plugins_raw is None:
+        plugins_raw = _get("connectors", [])
+    plugins = tuple(plugins_raw) if isinstance(plugins_raw, list) else ()
+    capability_names = tuple(_get("capabilities", []))
+    enabled_modules = tuple(_get("enabled_modules", []))
+    deflections_raw = _get("deflections", {})
+    deflections = deflections_raw if isinstance(deflections_raw, (dict, list)) else {}
+    interest_keywords = list(_get("interest_keywords", []))
+    engagement_threshold = int(_get("engagement_threshold", 35))
+    comment_cooldown_hours = int(_get("comment_cooldown_hours", 24))
+    prompts_module = str(_get("prompts_module", ""))
 
     # Auto-detect prompts module for identity directories
     if not prompts_module and base_dir:
@@ -911,7 +913,7 @@ def _build_identity(name: str, data: dict, base_dir: Path | None = None) -> Iden
         examples=data.get("example_conversations", {}),
         parallel_examples=data.get("parallel_examples", {}),
         moltbook_bio=data.get("moltbook_bio", ""),
-        moltbook_username=_get("moltbook_username", ""),
+        moltbook_username=str(_get("moltbook_username", "")),
         # Operational
         llm=llm,
         quiet_hours=quiet_hours,
@@ -936,7 +938,7 @@ def _build_identity(name: str, data: dict, base_dir: Path | None = None) -> Iden
 
     # Set loaded_personality to point to self (backward compat)
     # Since the model is frozen, we use model_copy for this circular ref
-    return ident.model_copy(update={"loaded_personality": ident})
+    return ident.model_copy(update={"loaded_personality": ident})  # type: ignore[no-any-return]
 
 
 # Backward-compatible alias

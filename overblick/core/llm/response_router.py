@@ -15,7 +15,10 @@ import logging
 import re
 import time
 from enum import Enum
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from overblick.core.llm.client import LLMClient
 
 from pydantic import BaseModel
 
@@ -82,7 +85,7 @@ class ResponseRouter:
             handle_challenge(response_data)
     """
 
-    def __init__(self, llm_client=None):
+    def __init__(self, llm_client: Optional["LLMClient"] = None) -> None:
         """
         Args:
             llm_client: LLM client for intelligent inspection (optional).
@@ -92,7 +95,7 @@ class ResponseRouter:
         self._inspection_count = 0
         self._challenge_count = 0
 
-    def set_llm_client(self, client) -> None:
+    def set_llm_client(self, client: Optional["LLMClient"]) -> None:
         """Update the LLM client."""
         self._llm = client
 
@@ -183,6 +186,7 @@ class ResponseRouter:
             truncated = text[:2000] if len(text) > 2000 else text
 
             prompt = _INSPECT_PROMPT.format(data=truncated)
+            assert self._llm is not None
             response = await self._llm.chat(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,

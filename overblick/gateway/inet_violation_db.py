@@ -10,7 +10,7 @@ import sqlite3
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class SQLiteBanStore:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db_path = db_path
         self._local = threading.local()
-        self._connections = []
+        self._connections: list[sqlite3.Connection] = []
         self._lock = threading.Lock()
 
         # Initialize schema
@@ -51,7 +51,7 @@ class SQLiteBanStore:
             self._local.conn = conn
             with self._lock:
                 self._connections.append(conn)
-        return self._local.conn
+        return cast(sqlite3.Connection, self._local.conn)
 
     def add_ban(self, ip: str, expires_at: float) -> None:
         """Record a banned IP with expiry timestamp."""

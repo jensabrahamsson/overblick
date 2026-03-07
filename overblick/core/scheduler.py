@@ -44,7 +44,7 @@ class Scheduler:
         await scheduler.start()  # runs until stop() is called
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._tasks: dict[str, ScheduledTask] = {}
         self._running = False
 

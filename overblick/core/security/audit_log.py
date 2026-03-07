@@ -15,7 +15,7 @@ import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,7 @@ class AuditLog:
         self._identity = identity
         self._retention_days = retention_days
         self._cleanup_task: asyncio.Task | None = None
+        self._conn: sqlite3.Connection | None = None
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), timeout=10, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -89,7 +90,9 @@ class AuditLog:
         error: str | None,
     ) -> int:
         """Synchronous log write (runs in executor thread)."""
-        cursor = self._conn.execute(
+        assert self._conn is not None
+        conn = self._conn
+        cursor = conn.execute(
             """
             INSERT INTO audit_log
                 (timestamp, action, category, identity, plugin, details, success, duration_ms, error)
@@ -107,7 +110,8 @@ class AuditLog:
                 error,
             ),
         )
-        self._conn.commit()
+        conn.commit()
+        assert cursor.lastrowid is not None
         return cursor.lastrowid
 
     def log(
@@ -189,6 +193,8 @@ class AuditLog:
         Returns:
             List of log entry dicts
         """
+        assert self._conn is not None
+        conn = self._conn
         conditions = []
         params: list[Any] = []
 
@@ -205,7 +211,7 @@ class AuditLog:
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         params.extend([limit, offset])
 
-        cursor = self._conn.execute(
+        cursor = conn.execute(
             f"""
             SELECT id, timestamp, action, category, identity, plugin,
                    details, success, duration_ms, error
@@ -239,8 +245,10 @@ class AuditLog:
         since: float | None = None,
     ) -> int:
         """Count log entries matching criteria."""
+        assert self._conn is not None
+        conn = self._conn
         conditions = []
-        params = []
+        params: list[Any] = []
 
         if action:
             conditions.append("action = ?")
@@ -251,11 +259,11 @@ class AuditLog:
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-        cursor = self._conn.execute(
+        cursor = conn.execute(
             f"SELECT COUNT(*) FROM audit_log {where}",
             params,
         )
-        return cursor.fetchone()[0]
+        return int(cursor.fetchone()[0])
 
     def _trim_old_entries(self) -> int:
         """
@@ -264,11 +272,13 @@ class AuditLog:
         Returns:
             Number of entries deleted
         """
+        assert self._conn is not None
+        conn = self._conn
         cutoff = time.time() - (self._retention_days * 86400)
-        cursor = self._conn.execute("DELETE FROM audit_log WHERE timestamp < ?", (cutoff,))
+        cursor = conn.execute("DELETE FROM audit_log WHERE timestamp < ?", (cutoff,))
         deleted = cursor.rowcount
         if deleted > 0:
-            self._conn.commit()
+            conn.commit()
             logger.info(
                 "Audit log trimmed: %d entries older than %d days removed",
                 deleted,

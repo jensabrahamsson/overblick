@@ -12,13 +12,14 @@ import struct
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import aiosqlite
 
 from .migrations import run_migrations
 from .models import Learning, LearningStatus
 from .reviewer import EthosReviewer
+from overblick.core.llm.pipeline import SafeLLMPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     norm_b = sum(x * x for x in b) ** 0.5
     if norm_a == 0.0 or norm_b == 0.0:
         return 0.0
-    return dot / (norm_a * norm_b)
+    return dot / (norm_a * norm_b)  # type: ignore[no-any-return]
 
 
 def _pack_embedding(embedding: list[float]) -> bytes:
@@ -59,11 +60,11 @@ class LearningStore:
         self,
         db_path: Path,
         ethos_text: str,
-        llm_pipeline=None,
+        llm_pipeline: Optional[SafeLLMPipeline] = None,
         embed_fn: Callable | None = None,
     ):
         self._db_path = Path(db_path)
-        self._reviewer = EthosReviewer(llm_pipeline, ethos_text)
+        self._reviewer = EthosReviewer(llm_pipeline, ethos_text)  # type: ignore[arg-type]
         self._embed_fn = embed_fn
 
     async def setup(self) -> None:
@@ -223,7 +224,7 @@ class LearningStore:
         return [self._row_to_learning(row) for _, row in scored[:limit]]
 
     @staticmethod
-    def _row_to_learning(row) -> Learning:
+    def _row_to_learning(row: aiosqlite.Row) -> Learning:
         """Convert a database row to a Learning model."""
         embedding = None
         if row["embedding"]:

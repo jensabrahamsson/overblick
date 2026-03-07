@@ -5,6 +5,8 @@ Defines request/response models, priority levels, and queue items
 for the priority-based request queuing system.
 """
 
+from __future__ import annotations
+
 import time as _time
 from asyncio import Future
 from dataclasses import dataclass, field
@@ -125,8 +127,8 @@ class QueuedRequest:
     priority: Priority
     timestamp: float = field(compare=True)
     request_id: UUID = field(compare=False, default_factory=uuid4)
-    request: ChatRequest = field(compare=False, default=None)
-    future: Future = field(compare=False, default=None, repr=False)
+    request: Optional[ChatRequest] = field(compare=False, default=None)
+    future: Optional[Future] = field(compare=False, default=None, repr=False)
     backend: str | None = field(compare=False, default=None)
     complexity: str | None = field(compare=False, default=None)
 
