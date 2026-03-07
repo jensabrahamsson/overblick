@@ -44,7 +44,9 @@ class MoltbookError(Exception):
 class RateLimitError(MoltbookError):
     """Raised when rate limited by Moltbook API."""
 
-    pass
+    def __init__(self, message: str, retry_after: int = 60):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class AuthenticationError(MoltbookError):

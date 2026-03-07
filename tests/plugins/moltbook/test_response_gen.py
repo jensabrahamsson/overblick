@@ -8,10 +8,9 @@ from overblick.plugins.moltbook.response_gen import ResponseGenerator
 
 class TestResponseGenerator:
     @pytest.mark.asyncio
-    async def test_generate_comment(self, mock_llm_client):
+    async def test_generate_comment(self, mock_llm_pipeline):
         gen = ResponseGenerator(
-            llm_client=mock_llm_client,
-            system_prompt="You are a test bot.",
+            llm_pipeline=mock_llm_pipeline,
         )
 
         result = await gen.generate_comment(
@@ -22,15 +21,14 @@ class TestResponseGenerator:
         )
 
         assert result == "Test response"
-        mock_llm_client.chat.assert_called_once()
+        mock_llm_pipeline.chat.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_generate_comment_failure(self, mock_llm_client):
-        mock_llm_client.chat = AsyncMock(return_value=None)
+    async def test_generate_comment_failure(self, mock_llm_pipeline):
+        mock_llm_pipeline.chat = AsyncMock(return_value=MagicMock(blocked=True, content=None))
 
         gen = ResponseGenerator(
-            llm_client=mock_llm_client,
-            system_prompt="Test",
+            llm_pipeline=mock_llm_pipeline,
         )
 
         result = await gen.generate_comment(
@@ -43,10 +41,9 @@ class TestResponseGenerator:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_generate_reply(self, mock_llm_client):
+    async def test_generate_reply(self, mock_llm_pipeline):
         gen = ResponseGenerator(
-            llm_client=mock_llm_client,
-            system_prompt="Test",
+            llm_pipeline=mock_llm_pipeline,
         )
 
         result = await gen.generate_reply(
@@ -59,14 +56,16 @@ class TestResponseGenerator:
         assert result == "Test response"
 
     @pytest.mark.asyncio
-    async def test_generate_heartbeat(self, mock_llm_client):
-        mock_llm_client.chat = AsyncMock(
-            return_value={"content": "submolt: ai\nTITLE: My Heartbeat\nThis is the content."}
+    async def test_generate_heartbeat(self, mock_llm_pipeline):
+        mock_llm_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=False,
+                content="submolt: ai\nTITLE: My Heartbeat\nThis is the content."
+            )
         )
 
         gen = ResponseGenerator(
-            llm_client=mock_llm_client,
-            system_prompt="Test",
+            llm_pipeline=mock_llm_pipeline,
         )
 
         result = await gen.generate_heartbeat(
@@ -79,14 +78,16 @@ class TestResponseGenerator:
         assert submolt == "ai"
 
     @pytest.mark.asyncio
-    async def test_parse_post_output_no_submolt(self, mock_llm_client):
-        mock_llm_client.chat = AsyncMock(
-            return_value={"content": "TITLE: Simple Post\nBody text here"}
+    async def test_parse_post_output_no_submolt(self, mock_llm_pipeline):
+        mock_llm_pipeline.chat = AsyncMock(
+            return_value=MagicMock(
+                blocked=False,
+                content="TITLE: Simple Post\nBody text here"
+            )
         )
 
         gen = ResponseGenerator(
-            llm_client=mock_llm_client,
-            system_prompt="Test",
+            llm_pipeline=mock_llm_pipeline,
         )
 
         result = await gen.generate_heartbeat(prompt_template="Write {topic_index}")
@@ -107,7 +108,6 @@ class TestResponseGenerator:
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,
-            system_prompt="Test",
         )
 
         await gen.generate_comment(
@@ -134,7 +134,6 @@ class TestResponseGenerator:
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,
-            system_prompt="Test",
         )
 
         await gen.generate_comment(
@@ -160,7 +159,6 @@ class TestResponseGenerator:
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,
-            system_prompt="Test",
         )
 
         await gen.generate_dm_reply(
@@ -185,7 +183,6 @@ class TestResponseGenerator:
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,
-            system_prompt="Test",
         )
 
         await gen.generate_dm_reply(
@@ -211,7 +208,6 @@ class TestResponseGenerator:
 
         gen = ResponseGenerator(
             llm_pipeline=mock_pipeline,
-            system_prompt="Test",
         )
 
         await gen.generate_reply(

@@ -10,9 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import os
 import pytest
 
-# Allow raw LLM client access for unit tests (they use mocked clients)
-os.environ["OVERBLICK_RAW_LLM"] = "1"
-os.environ["OVERBLICK_SAFE_MODE"] = "0"
+# Core settings for tests are handled by the framework defaults.
+# No manual overrides needed.
 
 from overblick.identities import (
     Identity,

@@ -1,7 +1,7 @@
 """Tests for LLM-based response router (challenge detection)."""
 
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from overblick.plugins.moltbook.response_router import (
     ResponseRouter,
@@ -13,7 +13,7 @@ class TestPreFilter:
     """Tests for the cheap pre-filter that skips obvious non-challenges."""
 
     def setup_method(self):
-        self.router = ResponseRouter(allow_raw_fallback=True, llm_client=AsyncMock())
+        self.router = ResponseRouter(llm_pipeline=AsyncMock())
 
     def test_normal_post_response_not_suspicious(self):
         """Standard post creation response should be filtered out."""
@@ -85,9 +85,9 @@ class TestLLMClassification:
     async def test_challenge_detected(self):
         """LLM says CHALLENGE → verdict.is_challenge = True."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "CHALLENGE"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="CHALLENGE"))
 
-        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
+        router = ResponseRouter(llm_pipeline=llm)
         data = {
             "success": True,
             "comment": {
@@ -103,7 +103,7 @@ class TestLLMClassification:
     async def test_normal_response_after_prefilter(self):
         """Normal response → pre-filtered → None returned, no LLM call."""
         llm = AsyncMock()
-        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
+        router = ResponseRouter(llm_pipeline=llm)
 
         verdict = await router.inspect({"success": True, "post": {"id": "p1"}})
         assert verdict is None
@@ -113,9 +113,9 @@ class TestLLMClassification:
     async def test_normal_verdict_from_llm(self):
         """LLM says NORMAL → verdict.is_challenge = False."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "NORMAL"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="NORMAL"))
 
-        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
+        router = ResponseRouter(llm_pipeline=llm)
         # Has 'verification' key to pass pre-filter, but LLM says normal
         data = {"verification": "email_verified", "user": "test"}
 
@@ -126,9 +126,9 @@ class TestLLMClassification:
     async def test_llm_error_returns_safe_verdict(self):
         """LLM failure → verdict.is_challenge = False (safe fallback)."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(side_effect=Exception("LLM down"))
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=True, block_reason="Error"))
 
-        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
+        router = ResponseRouter(llm_pipeline=llm)
         data = {"verification": {"question": "test"}}
 
         verdict = await router.inspect(data)
@@ -138,9 +138,9 @@ class TestLLMClassification:
     async def test_uses_high_priority(self):
         """Challenge classification must use high priority in LLM gateway."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "NORMAL"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="NORMAL"))
 
-        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
+        router = ResponseRouter(llm_pipeline=llm)
         data = {"verification": {"nonce": "abc"}}
 
         await router.inspect(data)
@@ -150,9 +150,9 @@ class TestLLMClassification:
     async def test_truncates_large_responses(self):
         """Large responses are truncated before sending to LLM."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "NORMAL"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="NORMAL"))
 
-        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm, max_response_size=100)
+        router = ResponseRouter(llm_pipeline=llm, max_response_size=100)
         data = {"verification": {"data": "x" * 500}}
 
         await router.inspect(data)
@@ -163,9 +163,9 @@ class TestLLMClassification:
     async def test_stats_tracking(self):
         """Stats are tracked correctly across multiple inspections."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "CHALLENGE"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="CHALLENGE"))
 
-        router = ResponseRouter(allow_raw_fallback=True, llm_client=llm)
+        router = ResponseRouter(llm_pipeline=llm)
 
         # Normal response (filtered)
         await router.inspect({"post": {"id": "1"}})

@@ -24,7 +24,6 @@ from typing import Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityRegistry
 from overblick.core.plugin_base import PluginBase, PluginContext
-from overblick.core.security.settings import raw_llm
 
 from .challenge_handler import PerContentChallengeHandler
 from .challenge_solver import MoltCaptchaSolver, is_challenge_text
@@ -87,6 +86,16 @@ class MoltbookPlugin(PluginBase):
         self._dream_journal_posted_date: date | None = None
         self._processed_dm_convos: set[str] = set()  # Dedup within a single tick
 
+    def _reset_state(self) -> None:
+        """Reset internal state (for testing)."""
+        self._comments_this_cycle = 0
+        self._last_heartbeat_time = None
+        self._processed_dm_convos = set()
+        if self._heartbeat:
+            self._heartbeat._current_topic_index = 0
+        if self._feed_processor:
+            self._feed_processor = FeedProcessor()
+
     async def setup(self) -> None:
         """Initialize all Moltbook components using self.ctx."""
         identity = self.ctx.identity
@@ -106,7 +115,7 @@ class MoltbookPlugin(PluginBase):
         # Create challenge handler and LLM-based response router
         response_router = None
         if self.ctx.llm_pipeline:
-            # Use SafeLLMPipeline (preferred, secure)
+            # Use SafeLLMPipeline (mandatory for security)
             self._challenge_handler = PerContentChallengeHandler(
                 llm_pipeline=self.ctx.llm_pipeline,
                 api_key=api_key,
@@ -115,27 +124,8 @@ class MoltbookPlugin(PluginBase):
                 engagement_db=self.ctx.engagement_db,
             )
             response_router = ResponseRouter(llm_pipeline=self.ctx.llm_pipeline)
-        elif raw_llm() and self.ctx._llm_client:
-            # Fallback to raw client — only when OVERBLICK_RAW_LLM=1 (explicit opt-in)
-            logger.warning("Using raw LLM client for challenge handler (RAW_LLM=True)")
-            self._challenge_handler = PerContentChallengeHandler(
-                llm_client=self.ctx._llm_client,
-                api_key=api_key,
-                base_url="https://www.moltbook.com/api/v1",
-                audit_log=self.ctx.audit_log,
-                engagement_db=self.ctx.engagement_db,
-                allow_raw_fallback=True,
-            )
-            response_router = ResponseRouter(
-                llm_client=self.ctx._llm_client, allow_raw_fallback=True
-            )
-        elif self.ctx._llm_client:
-            # Has raw client but safe mode prevents use — disable challenge handling
-            logger.warning(
-                "No LLM pipeline and raw client disabled (OVERBLICK_RAW_LLM=0); challenge handling disabled"
-            )
         else:
-            logger.warning("No LLM client or pipeline available; challenge handling disabled")
+            logger.warning("No LLM pipeline available; challenge handling disabled")
 
         # Create Moltbook client
         self._client = MoltbookClient(
@@ -155,6 +145,7 @@ class MoltbookPlugin(PluginBase):
         interest_keywords = identity.raw_config.get("interest_keywords", [])
 
         # Decision engine
+        self._comments_this_cycle = 0
         relevant_submolts = identity.raw_config.get("relevant_submolts", None)
         self._decision_engine = DecisionEngine(
             interest_keywords=interest_keywords,
@@ -164,12 +155,8 @@ class MoltbookPlugin(PluginBase):
         )
 
         # Response generator — uses SafeLLMPipeline for automatic security
-        system_prompt = getattr(prompts, "SYSTEM_PROMPT", f"You are {identity.name}.")
         self._response_gen = ResponseGenerator(
             llm_pipeline=self.ctx.llm_pipeline,
-            system_prompt=system_prompt,
-            temperature=identity.llm.temperature,
-            max_tokens=identity.llm.max_tokens,
         )
 
         # Feed processor
@@ -207,6 +194,7 @@ class MoltbookPlugin(PluginBase):
 
         # Load capabilities via registry
         enabled_modules = identity.raw_config.get("enabled_modules", [])
+        system_prompt = getattr(prompts, "SYSTEM_PROMPT", f"You are {identity.name}.")
         await self._setup_capabilities(enabled_modules, system_prompt)
 
         self.ctx.audit_log.log(
@@ -468,6 +456,9 @@ class MoltbookPlugin(PluginBase):
             except Exception as e:
                 logger.debug("Could not fetch relevant learnings: %s", e)
 
+        identity = self.ctx.identity
+        system_prompt = getattr(prompts, "SYSTEM_PROMPT", f"You are {identity.name}.")
+
         response = await self._response_gen.generate_comment(
             post_title=post.title,
             post_content=post.content,
@@ -475,6 +466,9 @@ class MoltbookPlugin(PluginBase):
             prompt_template=comment_prompt,
             existing_comments=existing,
             extra_context=extra_context,
+            system_prompt=system_prompt,
+            temperature=identity.llm.temperature,
+            max_tokens=identity.llm.max_tokens,
             extra_format_vars={
                 "category": getattr(post, "submolt", "general"),
                 "opening_instruction": (
@@ -499,7 +493,7 @@ class MoltbookPlugin(PluginBase):
         try:
             comment = await self._client.create_comment(post.id, response)
             await self.ctx.engagement_db.record_engagement(post.id, "comment", decision.score)
-            if comment.id:
+            if comment and comment.id:
                 await self.ctx.engagement_db.track_my_comment(comment.id, post.id)
             self._comments_this_cycle += 1
 
@@ -763,10 +757,16 @@ class MoltbookPlugin(PluginBase):
                     continue
                 self._processed_dm_convos.add(conv.id)
 
+                identity = self.ctx.identity
+                system_prompt = getattr(prompts, "SYSTEM_PROMPT", f"You are {identity.name}.")
+
                 response = await self._response_gen.generate_dm_reply(
                     sender_name=conv.participant_name,
                     message=conv.last_message,
                     prompt_template=dm_prompt,
+                    system_prompt=system_prompt,
+                    temperature=identity.llm.temperature,
+                    max_tokens=identity.llm.max_tokens,
                 )
 
                 if not response:
@@ -878,12 +878,18 @@ class MoltbookPlugin(PluginBase):
                 except Exception as e:
                     logger.debug("Could not fetch relevant learnings for reply: %s", e)
 
+            identity = self.ctx.identity
+            system_prompt = getattr(prompts, "SYSTEM_PROMPT", f"You are {identity.name}.")
+
             response = await self._response_gen.generate_reply(
                 original_post_title=post.title,
                 comment_content=comment.content,
                 commenter_name=comment.agent_name,
                 prompt_template=reply_prompt,
                 extra_context=extra_context,
+                system_prompt=system_prompt,
+                temperature=identity.llm.temperature,
+                max_tokens=identity.llm.max_tokens,
             )
 
             if response:
@@ -991,11 +997,17 @@ class MoltbookPlugin(PluginBase):
         except Exception as e:
             logger.debug("Could not fetch recent heartbeat titles: %s", e)
 
+        identity = self.ctx.identity
+        system_prompt = getattr(prompts, "SYSTEM_PROMPT", f"You are {identity.name}.")
+
         result = await self._response_gen.generate_heartbeat(
             prompt_template=heartbeat_prompt,
             topic_index=topic_index,
             topic_vars=topic_vars,
             extra_context=extra_context,
+            system_prompt=system_prompt,
+            temperature=identity.llm.temperature,
+            max_tokens=identity.llm.max_tokens,
         )
 
         if not result:
@@ -1079,12 +1091,18 @@ class MoltbookPlugin(PluginBase):
 
         dream_dict = dream.to_dict()
 
+        identity = self.ctx.identity
+        system_prompt = getattr(prompts, "SYSTEM_PROMPT", f"You are {identity.name}.")
+
         try:
             result = await self._response_gen.generate_dream_post(
                 dream=dream_dict,
                 prompt_template=journal_prompt,
                 extra_format_vars={"submolt_instruction": submolt_instruction},
                 extra_context=self._gather_capability_context(),
+                system_prompt=system_prompt,
+                temperature=identity.llm.temperature,
+                max_tokens=identity.llm.max_tokens,
             )
         except Exception as e:
             logger.warning("Dream journal generation failed: %s", e)

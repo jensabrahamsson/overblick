@@ -34,8 +34,7 @@ def _make_mock_session(status=200, body='{"success": true}'):
 class TestChallengeDetection:
     def setup_method(self):
         self.handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=AsyncMock(),
+            llm_pipeline=AsyncMock(),
         )
 
     def test_detect_nonce_and_question(self):
@@ -163,12 +162,11 @@ class TestChallengeSolving:
     async def test_solve_success_via_verify_endpoint(self):
         """Solve succeeds via POST /verify (strategy 1)."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "4"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="4"))
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
         )
@@ -188,21 +186,21 @@ class TestChallengeSolving:
         assert "/verify" in call_url
 
     async def test_solve_no_question(self):
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, llm_client=AsyncMock())
+        handler = PerContentChallengeHandler(llm_pipeline=AsyncMock())
         result = await handler.solve({"nonce": "abc"})
         assert result is None
         assert handler._stats["challenges_failed"] == 1
 
     async def test_solve_llm_error(self):
         llm = AsyncMock()
-        llm.chat = AsyncMock(side_effect=Exception("LLM down"))
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=True, block_reason="Error"))
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, llm_client=llm)
+        handler = PerContentChallengeHandler(llm_pipeline=llm)
         result = await handler.solve({"question": "test?", "nonce": "x"})
         assert result is None
 
     async def test_get_stats(self):
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, llm_client=AsyncMock())
+        handler = PerContentChallengeHandler(llm_pipeline=AsyncMock())
         stats = handler.get_stats()
         assert "challenges_detected" in stats
         assert stats["challenges_solved"] == 0
@@ -210,9 +208,9 @@ class TestChallengeSolving:
     async def test_solve_uses_high_priority(self):
         """LLM calls MUST use high priority."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "spider"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="spider"))
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, llm_client=llm)
+        handler = PerContentChallengeHandler(llm_pipeline=llm)
         await handler.solve(
             {
                 "question": "What animal has 8 legs?",
@@ -226,9 +224,9 @@ class TestChallengeSolving:
     async def test_solve_deobfuscates_question(self):
         """Challenge question is deobfuscated before sending to LLM."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "lobster"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="lobster"))
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, llm_client=llm)
+        handler = PerContentChallengeHandler(llm_pipeline=llm)
         await handler.solve(
             {
                 "question": "wHhAaTt aNnIiMmAaLl hHaAsS cClLaAwWsS?",
@@ -245,7 +243,7 @@ class TestChallengeSolving:
 
     async def test_extract_field_from_deep_nesting(self):
         """Fields are extracted from deeply nested paths like comment.verification."""
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, llm_client=AsyncMock())
+        handler = PerContentChallengeHandler(llm_pipeline=AsyncMock())
         data = {
             "success": True,
             "comment": {
@@ -265,7 +263,7 @@ class TestChallengeSolving:
 
     async def test_extract_field_official_api_format(self):
         """Extract fields from the official API challenge format."""
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, llm_client=AsyncMock())
+        handler = PerContentChallengeHandler(llm_pipeline=AsyncMock())
         data = {
             "verification_required": True,
             "verification": {
@@ -287,12 +285,11 @@ class TestComplexityRouting:
     async def test_ultra_complexity_tried_first(self):
         """Ultra complexity is tried before local LLM."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "50"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="50"))
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
         )
@@ -316,15 +313,14 @@ class TestComplexityRouting:
         # First call (ultra) fails, second call (low) succeeds
         llm.chat = AsyncMock(
             side_effect=[
-                Exception("Ultra backend unavailable"),
-                {"content": "blue"},
+                MagicMock(blocked=True, block_reason="Ultra backend unavailable"),
+                MagicMock(blocked=False, content="blue"),
             ]
         )
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
         )
@@ -346,12 +342,11 @@ class TestComplexityRouting:
     async def test_arithmetic_fallback_when_llm_fails(self):
         """Arithmetic solver is used as fallback when all LLMs fail."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value=None)  # Both LLM attempts fail
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=True, content=None))  # Both LLM attempts fail
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
         )
@@ -372,12 +367,11 @@ class TestComplexityRouting:
     async def test_llm_params_deterministic(self):
         """LLM calls use deterministic parameters: temperature=0.0, max_tokens=512, priority=high."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "answer"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="answer"))
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
         )
@@ -402,12 +396,11 @@ class TestSubmitStrategy:
     async def test_verify_endpoint_is_primary(self):
         """POST /verify is tried first, even when challenge data has no endpoint."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "50"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="50"))
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://www.moltbook.com/api/v1",
         )
@@ -427,7 +420,7 @@ class TestSubmitStrategy:
     async def test_retry_original_endpoint(self):
         """When /verify fails, retry original endpoint with verification fields."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "50"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="50"))
 
         # First call (to /verify) fails, second (retry) succeeds
         fail_response = AsyncMock()
@@ -448,8 +441,7 @@ class TestSubmitStrategy:
         session.post = MagicMock(side_effect=[fail_response, success_response])
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://www.moltbook.com/api/v1",
         )
@@ -466,7 +458,7 @@ class TestSubmitStrategy:
 
     async def test_answer_formatted_to_2_decimals(self):
         """Numeric answers are formatted to 2 decimal places per API convention."""
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, llm_client=AsyncMock())
+        handler = PerContentChallengeHandler(llm_pipeline=AsyncMock())
         assert handler._format_answer("50") == "50.00"
         assert handler._format_answer("3.5") == "3.50"
         assert handler._format_answer("100") == "100.00"
@@ -476,12 +468,11 @@ class TestSubmitStrategy:
     async def test_verify_payload_includes_verification_code(self):
         """POST /verify payload includes verification_code field."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "50"})
+        llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="50"))
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
         )
@@ -507,12 +498,12 @@ class TestAuditEvents:
         """challenge_received event is logged when solve() starts."""
         audit_log = MagicMock()
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "50"})
+        from overblick.core.llm.pipeline import PipelineResult
+        llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
             audit_log=audit_log,
@@ -540,12 +531,12 @@ class TestAuditEvents:
         """challenge_response event is logged after solving."""
         audit_log = MagicMock()
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "50"})
+        from overblick.core.llm.pipeline import PipelineResult
+        llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
             audit_log=audit_log,
@@ -573,12 +564,12 @@ class TestAuditEvents:
         """challenge_submitted event is logged after submission."""
         audit_log = MagicMock()
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "50"})
+        from overblick.core.llm.pipeline import PipelineResult
+        llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
             audit_log=audit_log,
@@ -610,12 +601,12 @@ class TestDBRecording:
         """record_challenge() is called after challenge attempt."""
         engagement_db = AsyncMock()
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "50"})
+        from overblick.core.llm.pipeline import PipelineResult
+        llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.test.com",
             engagement_db=engagement_db,
@@ -640,12 +631,12 @@ class TestDBRecording:
         """record_challenge() records failed attempts too."""
         engagement_db = AsyncMock()
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value={"content": "50"})
+        from overblick.core.llm.pipeline import PipelineResult
+        llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
 
         # No session = no submit possible
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=llm,
+            llm_pipeline=llm,
             engagement_db=engagement_db,
         )
 
@@ -666,11 +657,11 @@ class TestDeobfuscation:
     """Tests for challenge text deobfuscation (issue #134 community findings)."""
 
     def test_strip_letter_doubling_basic(self):
-        """tTwWeEnNtTyY → twenty (each char doubled with case swap)."""
+        """tTwWeEnNtTyY \u2192 twenty (each char doubled with case swap)."""
         assert _strip_letter_doubling("tTwWeEnNtTyY") == "twenty"
 
     def test_strip_letter_doubling_mixed_case(self):
-        """tWwEeNnTtYy → tWENTY → (caller lowercases)."""
+        """tWwEeNnTtYy \u2192 tWENTY \u2192 (caller lowercases)."""
         result = _strip_letter_doubling("tWwEeNnTtYy")
         assert result.lower() == "twenty"
 
@@ -703,7 +694,7 @@ class TestDeobfuscation:
         """Obfuscation punctuation injected between letters is stripped.
 
         This is the bug that caused 10 failures: lO.oBbSsStTeR
-        Alpha extraction: lOoBbSsStTeR → pair strip + collapse → lobster.
+        Alpha extraction: lOoBbSsStTeR \u2192 pair strip + collapse \u2192 lobster.
         """
         result = deobfuscate_challenge("lO.oBbSsStTeR")
         assert result == "lobster"
@@ -711,9 +702,9 @@ class TestDeobfuscation:
     def test_deobfuscate_various_punctuation(self):
         """Various obfuscation characters (^ / ~ + < >) are stripped.
 
-        h^Ee~Ll/Ll+Oo → alpha: hEeLlLlOo
+        h^Ee~Ll/Ll+Oo \u2192 alpha: hEeLlLlOo
         Pairs: Ee stripped, Ll stripped + trailing L consumed, l kept, Oo stripped
-        Result: hELlO → lower: hello
+        Result: hELlO \u2192 lower: hello
         """
         assert deobfuscate_challenge("h^Ee~Ll/Ll+Oo") == "hello"
 
@@ -734,15 +725,15 @@ class TestDeobfuscation:
         assert "+" in result
 
     def test_deobfuscate_case_mixing_only(self):
-        """Case mixing without doubling: tWeNtY → twenty.
+        """Case mixing without doubling: tWeNtY \u2192 twenty.
 
-        Note: tHrEe → thre (Ee is opposite-case, indistinguishable from
+        Note: tHrEe \u2192 thre (Ee is opposite-case, indistinguishable from
         obfuscation double). Acceptable for LLM solving.
         """
         result = deobfuscate_challenge("tWeNtY pLuS tHrEe")
         assert "twenty" in result
         assert "plus" in result
-        # tHrEe → thre (ambiguous Ee pair stripped — acceptable false positive)
+        # tHrEe \u2192 thre (ambiguous Ee pair stripped \u2014 acceptable false positive)
         assert "thr" in result
 
     def test_deobfuscate_preserves_operators(self):
@@ -769,7 +760,7 @@ class TestDeobfuscation:
         assert "18" in result
 
 
-# ── Real challenge regression tests (from Cherry logs 2026-02-22) ──────────
+# \u2500\u2500 Real challenge regression tests (from Cherry logs 2026-02-22) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 
 class TestRealChallengeDeobfuscation:
@@ -860,7 +851,7 @@ class TestRealChallengeArithmetic:
             "sEcOnD, Um- SlOwS | bY sEvEn ] wHaTs {tHe} nEw - vElAwCiTeE SpEeD?"
         )
         result = solve_arithmetic(clean)
-        # "twenty thre" → 23, "seven" → 7, "slows" → subtraction → 16
+        # "twenty thre" \u2192 23, "seven" \u2192 7, "slows" \u2192 subtraction \u2192 16
         assert result == "16.00"
 
     def test_25_plus_7_total_force(self):
@@ -873,7 +864,7 @@ class TestRealChallengeArithmetic:
         assert result == "32.00"
 
     def test_split_twenty_five_now_solved(self):
-        """Split 'T w/eN tY- fIvE' reassembled by fragment merger → correct answer."""
+        """Split 'T w/eN tY- fIvE' reassembled by fragment merger \u2192 correct answer."""
         clean = deobfuscate_challenge(
             "ThIs] LoOooBssst-Er S^wImS[ iN aC-iDd WaTeR, ShAkInG aNtEnNaS "
             "aNd MuLtInG; ItS VeLoOociTy Is T w/eN tY- fIvE mE^tErS PeR "
@@ -884,7 +875,7 @@ class TestRealChallengeArithmetic:
         assert result == "18.00"
 
     def test_split_thirty_five_now_solved(self):
-        """Split 'tHiR tY fIvE' reassembled by fragment merger → correct answer."""
+        """Split 'tHiR tY fIvE' reassembled by fragment merger \u2192 correct answer."""
         clean = deobfuscate_challenge(
             "A] lO b-.StEr ClAw] FoR cE Is^ tHiR tY] fIvE nEu-TonS um~ "
             "aNd| AfTeR- a DoMinAnCe] PiNcH gAiNs^ tWeLvE nEu>ToNs, "
@@ -981,15 +972,15 @@ class TestLLMAnswerValidation:
     async def test_llm_fallback_to_arithmetic_on_discrepancy(self):
         """When LLM answer differs from arithmetic, use arithmetic."""
         session = _make_mock_session(200, '{"success": true}')
+        llm = AsyncMock()
+        from overblick.core.llm.pipeline import PipelineResult
+        llm.chat = AsyncMock(return_value=PipelineResult(content="30"))
+
         handler = PerContentChallengeHandler(
-            allow_raw_fallback=True,
-            llm_client=AsyncMock(),
+            llm_pipeline=llm,
             http_session=session,
             base_url="https://api.moltbook.test",
         )
-
-        # Mock LLM to return wrong answer "30" for "twenty six + fourteen"
-        handler._llm.chat = AsyncMock(return_value={"content": "30"})
 
         challenge_data = {
             "question": "Lobster claw force is twenty six newtons and gains fourteen more, what is total force?",
@@ -1008,34 +999,34 @@ class TestLLMAnswerValidation:
         assert call_kwargs["json"]["answer"] == "40.00"
 
 
-# ── Fragment reassembly tests ──────────────────────────────────────────────
+# \u2500\u2500 Fragment reassembly tests \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 
 class TestFragmentReassembly:
-    """Tests for _reassemble_fragments() — space injection countermeasure."""
+    """Tests for _reassemble_fragments() \u2014 space injection countermeasure."""
 
     def test_reassemble_forty_five(self):
-        """'for ty f iv e' → 'forty' 'five' (two separate number words)."""
+        """'for ty f iv e' \u2192 'forty' 'five' (two separate number words)."""
         tokens = ["for", "ty", "f", "iv", "e"]
         result = _reassemble_fragments(tokens)
         assert "forty" in result
         assert "five" in result
 
     def test_reassemble_twenty_three(self):
-        """'twent y t hr ee' → 'twenty' 'three'."""
+        """'twent y t hr ee' \u2192 'twenty' 'three'."""
         tokens = ["twent", "y", "t", "hr", "ee"]
         result = _reassemble_fragments(tokens)
         assert "twenty" in result
         assert "three" in result
 
     def test_reassemble_newtons(self):
-        """'n ew ton s' → 'newtons'."""
+        """'n ew ton s' \u2192 'newtons'."""
         tokens = ["n", "ew", "ton", "s"]
         result = _reassemble_fragments(tokens)
         assert "newtons" in result
 
     def test_reassemble_fourteen(self):
-        """'four teen' → 'fourteen'."""
+        """'four teen' \u2192 'fourteen'."""
         tokens = ["four", "teen"]
         result = _reassemble_fragments(tokens)
         assert "fourteen" in result
@@ -1067,7 +1058,7 @@ class TestFragmentReassembly:
         assert "newtons" in result
 
     def test_reassemble_single_char_fragments(self):
-        """'f i v e' → 'five' (single-character fragments)."""
+        """'f i v e' \u2192 'five' (single-character fragments)."""
         tokens = ["f", "i", "v", "e"]
         result = _reassemble_fragments(tokens)
         assert "five" in result
@@ -1089,13 +1080,13 @@ class TestFragmentReassembly:
         assert _reassemble_fragments(["hello"]) == ["hello"]
 
     def test_reassemble_lobster(self):
-        """'lo b ster' → 'lobster'."""
+        """'lo b ster' \u2192 'lobster'."""
         tokens = ["lo", "b", "ster"]
         result = _reassemble_fragments(tokens)
         assert "lobster" in result
 
 
-# ── Edit-distance fuzzy match tests ────────────────────────────────────────
+# \u2500\u2500 Edit-distance fuzzy match tests \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 
 class TestEditDistanceFuzzyMatch:
@@ -1118,7 +1109,7 @@ class TestEditDistanceFuzzyMatch:
         assert result is None
 
     def test_edit_distance_one_deletion(self):
-        """Single deletion detected correctly (fourten → fourteen)."""
+        """Single deletion detected correctly (fourten \u2192 fourteen)."""
         assert _edit_distance_one("fourteen", "fourten") is True  # 1 char deleted
         assert _edit_distance_one("fourten", "fourteen") is True  # symmetric
 
@@ -1143,11 +1134,11 @@ class TestEditDistanceFuzzyMatch:
         assert result[1] == 17
 
 
-# ── Real challenge regression tests (from Cherry logs 2026-02-23) ──────────
+# \u2500\u2500 Real challenge regression tests (from Cherry logs 2026-02-23) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 
 class TestRealChallengeRegression20260223:
-    """Full pipeline regression tests: raw challenge → deobfuscate → arithmetic."""
+    """Full pipeline regression tests: raw challenge \u2192 deobfuscate \u2192 arithmetic."""
 
     def test_real_challenge_26_plus_14(self):
         """Challenge 1: twenty six + fourteen = 40 (LLM said 30)."""
