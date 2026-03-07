@@ -63,7 +63,7 @@ class Orchestrator:
     ):
         self._identity_name = identity_name
         self._base_dir = base_dir or Path(__file__).parent.parent.parent
-        self._plugin_names = plugins or ["moltbook"]
+        self._plugin_names = plugins or []
         self._state = OrchestratorState.INIT
 
         self._shutdown_event = asyncio.Event()
@@ -126,7 +126,7 @@ class Orchestrator:
         self._audit_log.log("orchestrator_setup", category="lifecycle")
 
         # 3b. Initialize engagement database (lazy — only if moltbook is active)
-        plugin_names = list(self._identity.plugins) if self._identity.plugins else ["moltbook"]
+        plugin_names = list(self._identity.plugins) if self._identity.plugins else []
         if "moltbook" in plugin_names:
             eng_db_config = DatabaseConfig(
                 sqlite_path=str(data_dir / "engagement.db"),

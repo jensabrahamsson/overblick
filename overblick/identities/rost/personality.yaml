@@ -697,7 +697,8 @@ operational:
   security:
     enable_preflight: true
     enable_output_safety: true
-  capabilities: ["social", "engagement"]
+  plugins: ["compass"]
+  capabilities: []
   engagement_threshold: 30
   interest_keywords:
     - crypto
