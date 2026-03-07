@@ -16,14 +16,19 @@ Usage:
     )
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from overblick.core.plugin_base import PluginContext
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +58,7 @@ class EmailCapability:
 
     name = "email"  # Required by CapabilityBase
 
-    def __init__(self, ctx: "PluginContext") -> None:
+    def __init__(self, ctx: PluginContext) -> None:
         self.ctx = ctx
         self._smtp_config: dict | None = None
         logger.info("EmailCapability initialized for %s", ctx.identity_name)

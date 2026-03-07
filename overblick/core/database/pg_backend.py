@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Sequence
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from overblick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
 
@@ -46,7 +46,7 @@ class PostgreSQLBackend(DatabaseBackend):
 
     def __init__(self, config: DatabaseConfig, identity: str = ""):
         super().__init__(config, identity)
-        self._pool: "asyncpg.Pool | None" = None
+        self._pool: asyncpg.Pool | None = None
 
         if not HAS_ASYNCPG:
             raise ImportError(
@@ -73,7 +73,7 @@ class PostgreSQLBackend(DatabaseBackend):
                 "Schema names must be alphanumeric identifiers (a-z, 0-9, _)."
             )
 
-        async def _init_conn(conn: "asyncpg.Connection") -> None:
+        async def _init_conn(conn: asyncpg.Connection) -> None:
             """Set search_path for every new pool connection."""
             if schema != "public":
                 await conn.execute(f"SET search_path TO {schema}, public")
@@ -105,7 +105,7 @@ class PostgreSQLBackend(DatabaseBackend):
         self._pool = None
         self._connected = False
 
-    def _check_connected(self) -> "asyncpg.Pool":
+    def _check_connected(self) -> asyncpg.Pool:
         if self._pool is None:
             raise RuntimeError("Database not connected. Call connect() first.")
         assert asyncpg is not None

@@ -9,14 +9,14 @@ to avoid blocking the async event loop.
 import asyncio
 import logging
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar
-
-T = TypeVar("T")
+from typing import Any, Optional, TypeVar
 
 from overblick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
