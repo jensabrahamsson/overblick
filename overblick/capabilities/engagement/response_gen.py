@@ -8,7 +8,7 @@ decorated with learned knowledge from the LearningStore.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from overblick.core.security.input_sanitizer import wrap_external_content
 
