@@ -118,37 +118,30 @@ class PerContentChallengeHandler:
         ("data", "challenge"),
     )
 
-    _llm: Union["SafeLLMPipeline", "LLMClient"]
+    _llm: "SafeLLMPipeline"
 
     def __init__(
         self,
-        llm_pipeline: Optional["SafeLLMPipeline"] = None,
+        llm_pipeline: "SafeLLMPipeline",
         http_session: aiohttp.ClientSession | None = None,
         api_key: str = "",
         base_url: str = "",
         timeout: int = 45,
         audit_log: Optional["AuditLog"] = None,
         engagement_db: Optional["EngagementDB"] = None,
-        *,
-        llm_client: Optional["LLMClient"] = None,
-        allow_raw_fallback: bool = False,
     ) -> None:
-        import os
+        """Initialize the challenge handler.
 
-        # Safe-mode enforcement
-        if not llm_pipeline:
-            if allow_raw_fallback and llm_client:
-                logger.warning("ChallengeHandler using raw client (allow_raw_fallback=True)")
-                self._llm = llm_client
-            else:
-                raise ValueError(
-                    "SafeLLMPipeline is required in safe mode. "
-                    "Provide llm_pipeline or set allow_raw_fallback=True."
-                )
-        else:
-            self._llm = llm_pipeline
-            if llm_client:
-                logger.debug("Both pipeline and raw client provided; using pipeline")
+        Args:
+            llm_pipeline: Mandatory safe pipeline for challenge solving.
+            http_session: ClientSession for submissions.
+            api_key: Auth for verify calls.
+            base_url: API base.
+            timeout: Submission timeout.
+            audit_log: Audit trail target.
+            engagement_db: Persistence for forensics.
+        """
+        self._llm = llm_pipeline
         self._session = http_session
         self._api_key = api_key
         self._base_url = base_url.rstrip("/") if base_url else ""

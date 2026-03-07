@@ -174,14 +174,9 @@ class CodeContextBuilder:
         )
 
         try:
-            # skip_output_safety=True is safe here because:
-            # 1. Output is internal JSON (file paths) used by the plugin, never shown to users.
-            # 2. Performance: avoids redundant safety checks on structured technical data.
-            # 3. Prevents false positives from filenames that might contain blocked terms.
             result = await self._llm_pipeline.chat(
                 messages=messages,
                 audit_action="github_file_selection",
-                skip_output_safety=True,
                 complexity="low",
             )
             if not result or result.blocked or not result.content:

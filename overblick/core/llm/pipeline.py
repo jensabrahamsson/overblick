@@ -135,8 +135,6 @@ class SafeLLMPipeline:
         max_tokens: int | None = None,
         top_p: float | None = None,
         sanitize_messages: bool = True,
-        skip_preflight: bool = False,
-        skip_output_safety: bool = False,
         audit_action: str = "llm_chat",
         audit_details: dict[str, Any] | None = None,
         priority: str = "low",
@@ -145,10 +143,8 @@ class SafeLLMPipeline:
         """
         Send a chat request through the full security pipeline.
 
-        SECURITY WARNING: skip_preflight and skip_output_safety are for CORE/SYSTEM-GENERATED
-        content only (e.g., dream system, internal code analysis). Never expose these flags
-        to plugin-controlled or external input paths. If you need to skip security stages,
-        you must validate that the content is 100% system-generated and contains no user input.
+        This is the standard secure interface for all plugins. It enforces
+        all security stages (Sanitize -> Preflight -> Rate Limit -> Output Safety).
 
         Args:
             messages: Chat messages (role + content dicts)
@@ -157,8 +153,6 @@ class SafeLLMPipeline:
             max_tokens: Override max tokens
             top_p: Override top_p
             sanitize_messages: Whether to sanitize message content
-            skip_preflight: Skip preflight check (for system-generated content)
-            skip_output_safety: Skip output safety (for internal queries)
             audit_action: Action name for audit log
             audit_details: Extra audit details
             priority: Request priority ("high" or "low") for gateway queue ordering
@@ -166,6 +160,42 @@ class SafeLLMPipeline:
 
         Returns:
             PipelineResult with safe content or block information
+        """
+        return await self._chat_with_overrides(
+            messages=messages,
+            user_id=user_id,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            sanitize_messages=sanitize_messages,
+            skip_preflight=False,
+            skip_output_safety=False,
+            audit_action=audit_action,
+            audit_details=audit_details,
+            priority=priority,
+            complexity=complexity,
+        )
+
+    async def _chat_with_overrides(
+        self,
+        messages: list[dict[str, str]],
+        user_id: str = "system",
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
+        sanitize_messages: bool = True,
+        skip_preflight: bool = False,
+        skip_output_safety: bool = False,
+        audit_action: str = "llm_chat",
+        audit_details: dict[str, Any] | None = None,
+        priority: str = "low",
+        complexity: str | None = None,
+    ) -> PipelineResult:
+        """
+        Internal chat implementation with security overrides.
+
+        CRITICAL: This method is for internal framework use only (e.g. system tasks
+        with 100% generated content). Never expose this to plugins.
         """
         start = time.monotonic()
         stages: list[PipelineStage] = []
