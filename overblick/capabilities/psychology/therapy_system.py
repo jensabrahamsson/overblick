@@ -13,7 +13,7 @@ import random
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -748,8 +748,7 @@ class TherapySystem:
         """Generate a brief session summary."""
         parts = [f"Week {session.week_number}."]
         parts.append(
-            f"Processed {session.dreams_processed} dreams, "
-            f"{session.learnings_processed} learnings."
+            f"Processed {session.dreams_processed} dreams, {session.learnings_processed} learnings."
         )
         if session.synthesis_insights:
             parts.append(f"Key: {session.synthesis_insights[0]}")

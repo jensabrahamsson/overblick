@@ -7,7 +7,7 @@ Weekly psychological reflection. Config-driven via 'therapy_model':
 """
 
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 from overblick.capabilities.psychology.therapy_system import (
     CherryTherapySystem,
@@ -19,7 +19,7 @@ from overblick.core.security.settings import raw_llm
 
 logger = logging.getLogger(__name__)
 
-_AnyTherapySystem = Union[TherapySystem, CherryTherapySystem]
+_AnyTherapySystem = TherapySystem | CherryTherapySystem
 
 
 class TherapyCapability(CapabilityBase):

@@ -12,7 +12,7 @@ emotional state variant:
 """
 
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 from overblick.capabilities.psychology.emotional_state import (
     AnomalEmotionalState,
@@ -23,7 +23,7 @@ from overblick.core.capability import CapabilityBase, CapabilityContext
 
 logger = logging.getLogger(__name__)
 
-_AnyState = Union[EmotionalState, AnomalEmotionalState, CherryEmotionalState]
+_AnyState = EmotionalState | AnomalEmotionalState | CherryEmotionalState
 
 
 class EmotionalCapability(CapabilityBase):

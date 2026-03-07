@@ -1,14 +1,14 @@
 """Pytest fixtures for LLM Gateway tests."""
 
 import asyncio
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
 
 from overblick.gateway.config import GatewayConfig, reset_config
-from overblick.gateway.models import ChatRequest, ChatResponse, ChatMessage, Priority
+from overblick.gateway.models import ChatMessage, ChatRequest, ChatResponse, Priority
 from overblick.gateway.ollama_client import OllamaClient
 from overblick.gateway.queue_manager import QueueManager
 
@@ -68,7 +68,7 @@ def mock_ollama_client(sample_response: ChatResponse) -> AsyncMock:
 async def queue_manager(
     test_config: GatewayConfig,
     mock_ollama_client: AsyncMock,
-) -> AsyncGenerator[QueueManager, None]:
+) -> AsyncGenerator[QueueManager]:
     """Create a queue manager with mocked client."""
     qm = QueueManager(config=test_config, client=mock_ollama_client)
     await qm.start()

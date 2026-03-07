@@ -29,9 +29,10 @@ Usage:
 import importlib
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator

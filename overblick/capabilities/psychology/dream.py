@@ -112,7 +112,7 @@ class DreamCapability(CapabilityBase):
             )
 
     async def tick(self) -> None:
-        """Generate morning dream once per day (06:00–07:00 local time)."""
+        """Generate morning dream once per day (06:00-07:00 local time)."""
         if not self._dream_system:
             return
 

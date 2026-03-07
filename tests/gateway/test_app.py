@@ -1,12 +1,13 @@
 """Tests for FastAPI application."""
 
 import asyncio
+from collections.abc import Generator
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from typing import Generator
-from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 
-from overblick.gateway.models import ChatResponse, ChatMessage, Priority
+from overblick.gateway.models import ChatMessage, ChatResponse, Priority
 from overblick.gateway.ollama_client import OllamaConnectionError
 
 
@@ -60,9 +61,7 @@ class TestFastAPIApp:
         return qm
 
     @pytest.fixture
-    def client(
-        self, mock_queue_manager, mock_backend_registry
-    ) -> Generator[TestClient, None, None]:
+    def client(self, mock_queue_manager, mock_backend_registry) -> Generator[TestClient]:
         with (
             patch("overblick.gateway.app._queue_manager", mock_queue_manager),
             patch("overblick.gateway.app._backend_registry", mock_backend_registry),
@@ -156,7 +155,7 @@ class TestFastAPIApp:
         assert response.status_code == 503
 
     def test_chat_completion_timeout(self, client, mock_queue_manager):
-        mock_queue_manager.submit = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_queue_manager.submit = AsyncMock(side_effect=TimeoutError())
 
         payload = {
             "model": "qwen3:8b",
@@ -260,9 +259,7 @@ class TestOriginMiddleware:
         return qm
 
     @pytest.fixture
-    def client(
-        self, mock_queue_manager, mock_backend_registry
-    ) -> Generator[TestClient, None, None]:
+    def client(self, mock_queue_manager, mock_backend_registry) -> Generator[TestClient]:
         with (
             patch("overblick.gateway.app._queue_manager", mock_queue_manager),
             patch("overblick.gateway.app._backend_registry", mock_backend_registry),

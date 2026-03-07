@@ -1,16 +1,18 @@
 """Tests for challenge handler."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from overblick.plugins.moltbook.challenge_handler import (
     PerContentChallengeHandler,
-    deobfuscate_challenge,
-    solve_arithmetic,
-    _strip_letter_doubling,
+    _edit_distance_one,
     _extract_word_numbers,
     _fuzzy_match,
     _reassemble_fragments,
-    _edit_distance_one,
+    _strip_letter_doubling,
+    deobfuscate_challenge,
+    solve_arithmetic,
 )
 
 
@@ -31,7 +33,8 @@ def _make_mock_session(status=200, body='{"success": true}'):
 
 class TestChallengeDetection:
     def setup_method(self):
-        self.handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        self.handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=AsyncMock(),
         )
 
@@ -163,7 +166,8 @@ class TestChallengeSolving:
         llm.chat = AsyncMock(return_value={"content": "4"})
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -286,7 +290,8 @@ class TestComplexityRouting:
         llm.chat = AsyncMock(return_value={"content": "50"})
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -317,7 +322,8 @@ class TestComplexityRouting:
         )
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -343,7 +349,8 @@ class TestComplexityRouting:
         llm.chat = AsyncMock(return_value=None)  # Both LLM attempts fail
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -368,7 +375,8 @@ class TestComplexityRouting:
         llm.chat = AsyncMock(return_value={"content": "answer"})
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -397,7 +405,8 @@ class TestSubmitStrategy:
         llm.chat = AsyncMock(return_value={"content": "50"})
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://www.moltbook.com/api/v1",
@@ -438,7 +447,8 @@ class TestSubmitStrategy:
         session = MagicMock()
         session.post = MagicMock(side_effect=[fail_response, success_response])
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://www.moltbook.com/api/v1",
@@ -469,7 +479,8 @@ class TestSubmitStrategy:
         llm.chat = AsyncMock(return_value={"content": "50"})
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -499,7 +510,8 @@ class TestAuditEvents:
         llm.chat = AsyncMock(return_value={"content": "50"})
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -531,7 +543,8 @@ class TestAuditEvents:
         llm.chat = AsyncMock(return_value={"content": "50"})
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -563,7 +576,8 @@ class TestAuditEvents:
         llm.chat = AsyncMock(return_value={"content": "50"})
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -599,7 +613,8 @@ class TestDBRecording:
         llm.chat = AsyncMock(return_value={"content": "50"})
         session = _make_mock_session()
 
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             http_session=session,
             base_url="https://api.test.com",
@@ -628,7 +643,8 @@ class TestDBRecording:
         llm.chat = AsyncMock(return_value={"content": "50"})
 
         # No session = no submit possible
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=llm,
             engagement_db=engagement_db,
         )
@@ -890,14 +906,14 @@ class TestFuzzyMatchStrictness:
 
     def test_ty_does_not_match_twenty(self):
         """'ty' (fragment of 'twenty') must NOT match any number."""
-        from overblick.plugins.moltbook.challenge_handler import _TENS, _ONES
+        from overblick.plugins.moltbook.challenge_handler import _ONES, _TENS
 
         assert _fuzzy_match("ty", _TENS) is None
         assert _fuzzy_match("ty", _ONES) is None
 
     def test_wen_does_not_match(self):
         """'wen' (fragment of 'twenty') must NOT match any number."""
-        from overblick.plugins.moltbook.challenge_handler import _TENS, _ONES
+        from overblick.plugins.moltbook.challenge_handler import _ONES, _TENS
 
         assert _fuzzy_match("wen", _TENS) is None
         assert _fuzzy_match("wen", _ONES) is None
@@ -912,7 +928,7 @@ class TestFuzzyMatchStrictness:
 
     def test_exact_matches_preserved(self):
         """Exact word matches must always work."""
-        from overblick.plugins.moltbook.challenge_handler import _TENS, _ONES
+        from overblick.plugins.moltbook.challenge_handler import _ONES, _TENS
 
         assert _fuzzy_match("twenty", _TENS) == ("twenty", 20)
         assert _fuzzy_match("seven", _ONES) == ("seven", 7)
@@ -965,7 +981,8 @@ class TestLLMAnswerValidation:
     async def test_llm_fallback_to_arithmetic_on_discrepancy(self):
         """When LLM answer differs from arithmetic, use arithmetic."""
         session = _make_mock_session(200, '{"success": true}')
-        handler = PerContentChallengeHandler(allow_raw_fallback=True, 
+        handler = PerContentChallengeHandler(
+            allow_raw_fallback=True,
             llm_client=AsyncMock(),
             http_session=session,
             base_url="https://api.moltbook.test",
