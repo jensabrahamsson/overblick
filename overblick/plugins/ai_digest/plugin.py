@@ -270,12 +270,13 @@ class AiDigestPlugin(PluginBase):
             },
         ]
 
-        result = await pipeline.chat(
+        result = await pipeline._chat_with_overrides(
             messages=messages,
             temperature=0.3,
             max_tokens=200,
             audit_action="ai_digest_rank",
             audit_details={"article_count": len(articles)},
+            skip_preflight=True,
         )
 
         if result.blocked:
@@ -341,12 +342,13 @@ class AiDigestPlugin(PluginBase):
             },
         ]
 
-        result = await pipeline.chat(
+        result = await pipeline._chat_with_overrides(
             messages=messages,
             temperature=self.ctx.identity.llm.temperature,
             max_tokens=self.ctx.identity.llm.max_tokens,
             audit_action="ai_digest_generate",
             audit_details={"article_count": len(articles)},
+            skip_preflight=True,
         )
 
         if result.blocked:
