@@ -508,7 +508,7 @@ class IRCPlugin(PluginBase):
             )
 
         try:
-            result = await self.ctx.llm_pipeline.chat(
+            result = await self.ctx.llm_pipeline._chat_with_overrides(
                 messages=messages,
                 user_id=speaker_name,
                 audit_action="irc_conversation",

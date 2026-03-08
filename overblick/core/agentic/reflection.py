@@ -77,7 +77,7 @@ class ReflectionPipeline:
         )
 
         try:
-            result = await self._llm_pipeline.chat(
+            result = await self._llm_pipeline._chat_with_overrides(
                 messages=messages,
                 audit_action=self._audit_action,
                 skip_preflight=True,

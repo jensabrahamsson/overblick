@@ -205,13 +205,13 @@ class DreamSystem:
                 recent_dreams,
             )
             try:
-                result = await llm_pipeline.chat(
+                result = await llm_pipeline._chat_with_overrides(
                     messages=[
                         {"role": "system", "content": _DREAM_SYSTEM_PROMPT},
                         {"role": "user", "content": prompt},
                     ],
                     skip_preflight=True,
-                    skip_output_safety=True,
+                    priority="low",
                     audit_action="dream_generation",
                 )
                 if result.blocked:
