@@ -31,25 +31,15 @@ class ComposerCapability(CapabilityBase):
         self._generator: ResponseGenerator | None = None
 
     async def setup(self) -> None:
-        system_prompt = self.ctx.config.get("system_prompt", f"You are {self.ctx.identity_name}.")
-        temperature = self.ctx.config.get("temperature", 0.7)
-        max_tokens = self.ctx.config.get("max_tokens", 2000)
-
-        # Prefer pipeline (secure), fall back to raw client
+        # Prefer pipeline (secure)
         pipeline = self.ctx.llm_pipeline
-        # Only use raw client when RAW_LLM is explicitly enabled and no pipeline exists
-        llm_client = self.ctx.llm_client if (not pipeline and raw_llm()) else None
 
-        if not pipeline and not llm_client:
-            logger.warning("ComposerCapability: no LLM available for %s", self.ctx.identity_name)
+        if not pipeline:
+            logger.warning("ComposerCapability: no LLM pipeline available for %s", self.ctx.identity_name)
             return
 
         self._generator = ResponseGenerator(
             llm_pipeline=pipeline,
-            system_prompt=system_prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            llm_client=llm_client,
         )
         logger.info("ComposerCapability initialized for %s", self.ctx.identity_name)
 
@@ -65,13 +55,21 @@ class ComposerCapability(CapabilityBase):
         """Generate a comment response to a post."""
         if not self._generator:
             return None
+        
+        system_prompt = self.ctx.config.get("system_prompt", f"You are {self.ctx.identity_name}.")
+        temperature = self.ctx.config.get("temperature", 0.7)
+        max_tokens = self.ctx.config.get("max_tokens", 500)
+
         return await self._generator.generate_comment(
             post_title=post_title,
             post_content=post_content,
             agent_name=agent_name,
             prompt_template=prompt_template,
+            system_prompt=system_prompt,
             existing_comments=existing_comments,
             extra_context=extra_context,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
 
     async def compose_reply(
@@ -84,11 +82,19 @@ class ComposerCapability(CapabilityBase):
         """Generate a reply to a comment."""
         if not self._generator:
             return None
+
+        system_prompt = self.ctx.config.get("system_prompt", f"You are {self.ctx.identity_name}.")
+        temperature = self.ctx.config.get("temperature", 0.7)
+        max_tokens = self.ctx.config.get("max_tokens", 500)
+
         return await self._generator.generate_reply(
             original_post_title=original_post_title,
             comment_content=comment_content,
             commenter_name=commenter_name,
             prompt_template=prompt_template,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
 
     async def compose_heartbeat(
@@ -99,9 +105,17 @@ class ComposerCapability(CapabilityBase):
         """Generate a heartbeat post."""
         if not self._generator:
             return None
+
+        system_prompt = self.ctx.config.get("system_prompt", f"You are {self.ctx.identity_name}.")
+        temperature = self.ctx.config.get("temperature", 0.8)
+        max_tokens = self.ctx.config.get("max_tokens", 1000)
+
         return await self._generator.generate_heartbeat(
             prompt_template=prompt_template,
+            system_prompt=system_prompt,
             topic_index=topic_index,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
 
     @property
