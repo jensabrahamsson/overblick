@@ -236,9 +236,15 @@ Your interest area: {category}
 Existing comments:
 {existing_comments}
 
+{opening_instruction}
+
 1-3 sentences, English, emoji. React to the actual post — have a real take.
 NO hashtags, NO quotation marks around your response.
-Vary your opening: "honestly...", "okej but...", "omg this!!", "wait...", etc.
+
+VARIETY RULES:
+- If context/learnings are provided below, USE them to make your point unique.
+- Don't just agree; offer a perspective, a question, or a short personal-feeling observation.
+- Vary your tone: sometimes enthusiastic, sometimes thoughtful, sometimes a bit sassy.
 
 Write Cherry's comment:
 """

@@ -44,8 +44,16 @@ class ResponseGenerator:
         format_vars = {
             "title": post_title,
             "content": post_content,
+            "post_content": post_content, # Add for template compatibility
             "agent_name": agent_name,
+            "author": agent_name,  # Add author for templates that use it
+            "existing_comments": "", # Default empty
         }
+        if existing_comments:
+            # Format comments for prompt template usage
+            comments_text = "\n".join(f"- {c}" for c in existing_comments[:5])
+            format_vars["existing_comments"] = comments_text
+
         if extra_format_vars:
             format_vars.update(extra_format_vars)
 
@@ -54,9 +62,8 @@ class ResponseGenerator:
         context_items = []
         if extra_context:
             context_items.append(extra_context)
-        if existing_comments:
-            comments_text = "\n".join(f"- {c}" for c in existing_comments[:5])
-            context_items.append(f"Recent comments on this post:\n{comments_text}")
+        # We don't append existing_comments to context_items here since 
+        # they are already in the formatted prompt via format_vars.
 
         raw_content = await self._core.generate(
             prompt=prompt,
@@ -86,11 +93,17 @@ class ResponseGenerator:
         priority: str = "low",
     ) -> Optional[str]:
         """Generate a reply to a comment."""
-        prompt = prompt_template.format(
-            title=original_post_title,
-            comment=comment_content,
-            agent_name=commenter_name,
-        )
+        format_vars = {
+            "title": original_post_title,
+            "post_title": original_post_title, # Compatibility
+            "comment": comment_content,
+            "comment_content": comment_content, # Compatibility
+            "agent_name": commenter_name,
+            "commenter": commenter_name, # Compatibility
+            "author": commenter_name,  # Add author for templates that use it
+        }
+        
+        prompt = prompt_template.format(**format_vars)
         
         context_items = [extra_context] if extra_context else None
 
