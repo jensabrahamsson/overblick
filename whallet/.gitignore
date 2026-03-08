@@ -1,0 +1,52 @@
+# Log files
+*.log
+whallet.log
+logs/
+
+# Database files (live, simulation, and testing)
+*.db
+*.db-*
+*.db.*
+whallet.db
+whallet_simulation.db
+whallet_test.db
+wallet.db
+positions.db
+trading.db
+whallet_positions.db
+
+# Configuration and runtime files
+.whallet.pid
+.whallet.mode
+
+# Cache directories
+__pycache__/
+.pytest_cache/
+.cache/
+
+# Temporary files
+.DS_Store
+.coverage
+
+# Work documents and reviews
+*.txt
+whallet-review-*.txt
+worklog_*.txt
+docs/*.txt
+
+# Python bytecode
+*.pyc
+*.pyo
+*.pyd
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

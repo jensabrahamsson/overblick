@@ -1,0 +1,9 @@
+{
+  "_comment": "Whallet Configuration - DO NOT COMMIT SECRETS TO GIT",
+  "_warning": "This file is gitignored. Store wallet credentials in environment variables instead.",
+  "_instructions": [
+    "Set WHALLET_PUBLIC_ADDRESS and WHALLET_PRIVATE_KEY environment variables",
+    "Set WHALLET_INFURA_API_KEY, WHALLET_ALCHEMY_API_KEY, WHALLET_ETHERSCAN_KEY",
+    "For simulation mode: export WHALLET_SIMULATION_ENABLED=1"
+  ]
+}
