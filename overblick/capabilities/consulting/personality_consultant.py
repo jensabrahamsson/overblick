@@ -97,7 +97,7 @@ class PersonalityConsultantCapability(CapabilityBase):
         ]
 
         try:
-            result = await pipeline.chat(
+            result = await pipeline._chat_with_overrides(
                 messages=messages,
                 temperature=temperature or self._temperature,
                 max_tokens=self._max_tokens,
