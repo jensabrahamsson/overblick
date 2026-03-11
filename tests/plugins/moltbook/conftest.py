@@ -2,17 +2,19 @@
 Shared fixtures for Moltbook plugin scenario tests.
 """
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import os
 import pytest
+
+from overblick.core.llm.pipeline import PipelineResult, PipelineStage
+from overblick.core.plugin_base import PluginContext
 
 # Core settings for tests are handled by the framework defaults.
 # No manual overrides needed.
-
 from overblick.identities import (
     Identity,
     LLMSettings,
@@ -20,9 +22,7 @@ from overblick.identities import (
     ScheduleSettings,
     SecuritySettings,
 )
-from overblick.core.llm.pipeline import PipelineResult, PipelineStage
-from overblick.core.plugin_base import PluginContext
-from overblick.plugins.moltbook.models import Post, Comment
+from overblick.plugins.moltbook.models import Comment, Post
 from overblick.plugins.moltbook.plugin import MoltbookPlugin
 
 # ---------------------------------------------------------------------------

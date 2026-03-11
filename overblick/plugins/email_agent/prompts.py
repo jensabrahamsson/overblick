@@ -72,12 +72,12 @@ def classification_prompt(
         "3. Marketing, newsletters, shipping updates, and automated messages = IGNORE.\n"
         "4. If sender history shows high ignore rate, continue to IGNORE.\n"
         "5. ONLY use intent values: ignore, notify, reply, ask_boss. No other values.\n\n"
-        'Respond in JSON ONLY:\n'
+        "Respond in JSON ONLY:\n"
         '{"intent": "ignore|notify|reply|ask_boss", "confidence": 0.0-1.0, '
         '"reasoning": "...", "priority": "low|normal|high|urgent"}'
     )
 
-    user = f"From: {sender}\n" f"Subject: {subject}\n" f"Body:\n{body}"
+    user = f"From: {sender}\nSubject: {subject}\nBody:\n{body}"
 
     return [
         {"role": "system", "content": system},
@@ -99,7 +99,7 @@ def reply_prompt(
         f"reply on behalf of {principal_name}.\n\n"
         "CRITICAL: Respond in the SAME LANGUAGE as the incoming email.\n"
         "Keep it professional, concise, and helpful.\n"
-        f"Sign as: \"Best regards, Stål / Digital Assistant to {principal_name}\"\n"
+        f'Sign as: "Best regards, Stål / Digital Assistant to {principal_name}"\n'
         "You are transparent about being a digital assistant. Never pretend to "
         f"be {principal_name} directly.\n"
         "If you're unsure about specific details, say you'll follow up.\n\n"
@@ -140,7 +140,7 @@ def notification_prompt(
         "IMPORTANT: Write the notification in Swedish."
     )
 
-    user = f"From: {sender}\n" f"Subject: {subject}\n" f"Body:\n{body}"
+    user = f"From: {sender}\nSubject: {subject}\nBody:\n{body}"
 
     return [
         {"role": "system", "content": system},
@@ -204,7 +204,7 @@ def reply_prompt_with_research(
         f"reply on behalf of {principal_name}.\n\n"
         "CRITICAL: Respond in the SAME LANGUAGE as the incoming email.\n"
         "Keep it professional, concise, and helpful.\n"
-        f"Sign as: \"Best regards, Stål / Digital Assistant to {principal_name}\"\n"
+        f'Sign as: "Best regards, Stål / Digital Assistant to {principal_name}"\n'
         "You are transparent about being a digital assistant. Never pretend to "
         f"be {principal_name} directly.\n"
         "If you're unsure about specific details, say you'll follow up.\n\n"
@@ -290,9 +290,9 @@ def feedback_classification_prompt(
     )
 
     user = (
-        f"Original notification was about email: \"{original_email_subject}\"\n"
+        f'Original notification was about email: "{original_email_subject}"\n'
         f"Notification sent: {original_notification}\n\n"
-        f"Principal's feedback: \"{feedback_text}\"\n\n"
+        f'Principal\'s feedback: "{feedback_text}"\n\n'
         "Classify the feedback:"
     )
 

@@ -7,6 +7,8 @@ import pytest
 from overblick.shared.onboarding_chat import (
     build_onboarding_prompt,
     chat_with_identity,
+)
+from overblick.shared.onboarding_chat import (
     test_llm_connection as check_llm_connection,
 )
 
@@ -26,7 +28,7 @@ class TestBuildOnboardingPrompt:
         assert result is not None
         assert "You are Anomal." in result
         assert "ONBOARDING CONTEXT" in result
-        assert "Överblick" in result  # noqa: RUF001
+        assert "Överblick" in result
         mock_load.assert_called_once_with("anomal")
         mock_build.assert_called_once_with(mock_load.return_value, platform="onboarding")
 

@@ -2,13 +2,14 @@
 Tests for SummarizerCapability — LLM-powered text summarization.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock
 
+import pytest
+
+from overblick.capabilities.content.summarizer import SummarizerCapability
 from overblick.core.capability import CapabilityContext
 from overblick.core.llm.pipeline import PipelineResult
-from overblick.capabilities.content.summarizer import SummarizerCapability
 
 
 def make_ctx(**overrides) -> CapabilityContext:

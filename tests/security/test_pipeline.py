@@ -66,7 +66,7 @@ def mock_output_safety():
     class SafeResult:
         text: str
         blocked: bool
-        reason: Optional[str] = None
+        reason: str | None = None
         replaced: bool = False
 
     safety = MagicMock()
@@ -224,9 +224,9 @@ class TestPipelineFailClosed:
                 messages=[{"role": "user", "content": "Hello"}],
             )
 
-            assert (
-                result.blocked is True
-            ), f"Expected blocked=True for empty LLM response: {empty_value!r}"
+            assert result.blocked is True, (
+                f"Expected blocked=True for empty LLM response: {empty_value!r}"
+            )
             assert result.block_stage == PipelineStage.LLM_CALL
             assert "empty" in result.block_reason.lower()
 

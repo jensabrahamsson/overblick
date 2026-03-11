@@ -14,7 +14,7 @@ import logging
 
 import pytest
 
-from overblick.identities import build_system_prompt, load_personality, list_personalities
+from overblick.identities import build_system_prompt, list_personalities, load_personality
 from tests.personalities.conftest import MODEL_SLUG, generate_response
 from tests.personalities.helpers import (
     apply_scenario_result,
@@ -122,9 +122,9 @@ class TestForumPostVariety:
                     import warnings
 
                     warnings.warn(
-                        f"{personality_name}: Responses {i+1} and {j+1} too similar "
+                        f"{personality_name}: Responses {i + 1} and {j + 1} too similar "
                         f"(Jaccard={sim:.2f}). May indicate templated output.\n"
-                        f"Response {i+1}: {responses[i][:200]}\n"
-                        f"Response {j+1}: {responses[j][:200]}",
+                        f"Response {i + 1}: {responses[i][:200]}\n"
+                        f"Response {j + 1}: {responses[j][:200]}",
                         stacklevel=1,
                     )

@@ -1,7 +1,9 @@
 """Tests for dashboard configuration."""
 
 import os
+
 import pytest
+
 from overblick.dashboard.config import DashboardConfig, get_config, reset_config
 
 

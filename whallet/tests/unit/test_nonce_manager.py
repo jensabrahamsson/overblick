@@ -7,15 +7,16 @@ and recovery from nonce errors.
 Created: 2026-01-12
 """
 
-import pytest
 import sqlite3
-import tempfile
-import time
-import threading
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 import sys
+import tempfile
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from nonce_manager import NonceManager
@@ -57,6 +58,7 @@ def temp_db_path():
     yield path
     # Cleanup
     import os
+
     try:
         os.unlink(path)
     except OSError:
@@ -73,9 +75,7 @@ def mock_web3():
 def nonce_manager(mock_web3, temp_db_path):
     """Create a NonceManager with mock Web3."""
     return NonceManager(
-        web3=mock_web3,
-        address="0x1234567890abcdef1234567890abcdef12345678",
-        db_path=temp_db_path
+        web3=mock_web3, address="0x1234567890abcdef1234567890abcdef12345678", db_path=temp_db_path
     )
 
 
@@ -159,10 +159,7 @@ class TestNonceErrorRecovery:
         # Check history
         conn = sqlite3.connect(temp_db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT status FROM nonce_history WHERE nonce = ?",
-            (nonce,)
-        )
+        cursor.execute("SELECT status FROM nonce_history WHERE nonce = ?", (nonce,))
         statuses = [row[0] for row in cursor.fetchall()]
         conn.close()
 
@@ -185,7 +182,7 @@ class TestNonceTracking:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT last_used_nonce, last_tx_hash FROM nonce_tracking WHERE address = ?",
-            (nonce_manager.address,)
+            (nonce_manager.address,),
         )
         row = cursor.fetchone()
         conn.close()
@@ -205,7 +202,7 @@ class TestNonceTracking:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT status, tx_hash FROM nonce_history WHERE nonce = ? ORDER BY created_at DESC LIMIT 1",
-            (nonce,)
+            (nonce,),
         )
         row = cursor.fetchone()
         conn.close()

@@ -12,30 +12,32 @@ Tests cover:
 
 SECURITY: Validates fail-closed patterns - reject on ANY ambiguity.
 """
+
 import os
-import pytest
 from decimal import Decimal
+
+import pytest
 
 # Set test environment
 os.environ["PYTEST_RUNNING"] = "1"
 os.environ["WHALLET_SIMULATION_ENABLED"] = "true"
 
 from whallet.input_validator import (
+    DEAD_ADDRESS,
+    MAX_ETH_AMOUNT,
+    MAX_GAS_PRICE_WEI,
+    MAX_SAFE_AMOUNT_WEI,
+    MAX_SLIPPAGE_PERCENT,
+    MAX_UINT256,
+    MIN_GAS_PRICE_WEI,
+    MIN_SLIPPAGE_PERCENT,
+    ZERO_ADDRESS,
     InputValidator,
     ValidationError,
-    validator,
-    validate_amount,
     validate_address,
+    validate_amount,
     validate_slippage,
-    MAX_SAFE_AMOUNT_WEI,
-    MAX_UINT256,
-    MIN_SLIPPAGE_PERCENT,
-    MAX_SLIPPAGE_PERCENT,
-    MIN_GAS_PRICE_WEI,
-    MAX_GAS_PRICE_WEI,
-    MAX_ETH_AMOUNT,
-    ZERO_ADDRESS,
-    DEAD_ADDRESS,
+    validator,
 )
 
 
@@ -111,17 +113,13 @@ class TestTokenAddressValidation:
 
     def test_valid_address_lowercase(self):
         """Test valid lowercase address is checksummed."""
-        result = InputValidator.validate_token_address(
-            "0x742d35cc6634c0532925a3b844bc9e7595f0beb1"
-        )
+        result = InputValidator.validate_token_address("0x742d35cc6634c0532925a3b844bc9e7595f0beb1")
         # Web3 produces this checksum for this address
         assert result == "0x742d35cC6634c0532925A3b844bc9E7595F0beB1"
 
     def test_valid_address_checksummed(self):
         """Test valid checksummed address passes."""
-        result = InputValidator.validate_token_address(
-            "0x742d35cC6634c0532925A3b844bc9E7595F0beB1"
-        )
+        result = InputValidator.validate_token_address("0x742d35cC6634c0532925A3b844bc9E7595F0beB1")
         assert result == "0x742d35cC6634c0532925A3b844bc9E7595F0beB1"
 
     def test_rejects_none_address(self):
@@ -151,25 +149,19 @@ class TestTokenAddressValidation:
     def test_rejects_invalid_format_too_long(self):
         """Test that addresses too long are rejected."""
         with pytest.raises(ValidationError) as exc_info:
-            InputValidator.validate_token_address(
-                "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1ab"
-            )
+            InputValidator.validate_token_address("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1ab")
         assert "Invalid format" in str(exc_info.value)
 
     def test_rejects_invalid_format_no_prefix(self):
         """Test that addresses without 0x prefix are rejected."""
         with pytest.raises(ValidationError) as exc_info:
-            InputValidator.validate_token_address(
-                "742d35Cc6634C0532925a3b844Bc9e7595f0bEb1"
-            )
+            InputValidator.validate_token_address("742d35Cc6634C0532925a3b844Bc9e7595f0bEb1")
         assert "Invalid format" in str(exc_info.value)
 
     def test_rejects_non_hex_characters(self):
         """Test that addresses with non-hex characters are rejected."""
         with pytest.raises(ValidationError) as exc_info:
-            InputValidator.validate_token_address(
-                "0xZZZd35Cc6634C0532925a3b844Bc9e7595f0bEb1"
-            )
+            InputValidator.validate_token_address("0xZZZd35Cc6634C0532925a3b844Bc9e7595f0bEb1")
         assert "Invalid format" in str(exc_info.value)
 
     def test_strips_whitespace(self):
@@ -234,13 +226,13 @@ class TestSlippageValidation:
     def test_rejects_nan_slippage(self):
         """Test that NaN slippage is rejected."""
         with pytest.raises(ValidationError) as exc_info:
-            InputValidator.validate_slippage(float('nan'))
+            InputValidator.validate_slippage(float("nan"))
         assert "Cannot be NaN" in str(exc_info.value)
 
     def test_rejects_infinite_slippage(self):
         """Test that infinite slippage is rejected."""
         with pytest.raises(ValidationError) as exc_info:
-            InputValidator.validate_slippage(float('inf'))
+            InputValidator.validate_slippage(float("inf"))
         assert "Cannot be infinite" in str(exc_info.value)
 
 
@@ -330,13 +322,13 @@ class TestEthAmountValidation:
     def test_rejects_nan_eth_amount(self):
         """Test that NaN ETH amount is rejected."""
         with pytest.raises(ValidationError) as exc_info:
-            InputValidator.validate_eth_amount(float('nan'))
+            InputValidator.validate_eth_amount(float("nan"))
         assert "Cannot be NaN" in str(exc_info.value)
 
     def test_rejects_infinite_eth_amount(self):
         """Test that infinite ETH amount is rejected."""
         with pytest.raises(ValidationError) as exc_info:
-            InputValidator.validate_eth_amount(float('inf'))
+            InputValidator.validate_eth_amount(float("inf"))
         assert "Cannot be infinite" in str(exc_info.value)
 
 

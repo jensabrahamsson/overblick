@@ -11,9 +11,9 @@ import pytest
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.core.plugin_base import PluginContext
 from overblick.plugins.ai_digest.plugin import (
+    _DEFAULT_FEEDS,
     AiDigestPlugin,
     FeedArticle,
-    _DEFAULT_FEEDS,
 )
 
 
@@ -57,7 +57,7 @@ class TestSetup:
         self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline
     ):
         """Plugin uses default feeds when none configured."""
-        from overblick.identities import Personality, LLMSettings
+        from overblick.identities import LLMSettings, Personality
 
         identity = Personality(
             name="test",
@@ -346,7 +346,7 @@ class TestSendDigest:
         self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline
     ):
         """Logs error when email capability is not available."""
-        from overblick.identities import Personality, LLMSettings
+        from overblick.identities import LLMSettings, Personality
 
         identity = Personality(
             name="test",
@@ -390,9 +390,10 @@ class TestTeardown:
         self, tmp_path, mock_llm_client, mock_audit_log, mock_pipeline
     ):
         """_save_state() creates parent directories if they do not exist."""
-        from overblick.identities import Personality, LLMSettings
-        from unittest.mock import MagicMock
         from pathlib import Path
+        from unittest.mock import MagicMock
+
+        from overblick.identities import LLMSettings, Personality
 
         identity = Personality(
             name="test",
@@ -583,7 +584,7 @@ class TestRecipientFromSecrets:
         mock_pipeline,
     ):
         """RuntimeError message guides user to set the secret."""
-        from overblick.identities import Personality, LLMSettings
+        from overblick.identities import LLMSettings, Personality
 
         identity = Personality(
             name="anomal",

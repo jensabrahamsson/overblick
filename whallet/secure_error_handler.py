@@ -7,27 +7,22 @@ in logs, exceptions, and error responses.
 CRITICAL: This module implements fail-closed security patterns.
 When in doubt, sanitize aggressively.
 """
+
 import re
 from typing import Any, Optional
 
-
 # Patterns that match private keys or sensitive hex data
 # Private keys are 64 hex characters (32 bytes), optionally prefixed with 0x
-PRIVATE_KEY_PATTERN = re.compile(
-    r'(?:0x)?[a-fA-F0-9]{64}\b',
-    re.IGNORECASE
-)
+PRIVATE_KEY_PATTERN = re.compile(r"(?:0x)?[a-fA-F0-9]{64}\b", re.IGNORECASE)
 
 # Additional patterns for API keys (various lengths)
 API_KEY_PATTERN = re.compile(
-    r'(?:api[_-]?key|secret|token)[=:\s]+[\'"]?[\w\-]{20,}[\'"]?',
-    re.IGNORECASE
+    r'(?:api[_-]?key|secret|token)[=:\s]+[\'"]?[\w\-]{20,}[\'"]?', re.IGNORECASE
 )
 
 # Pattern for hex strings that look like private keys in error messages
 HEX_IN_ERROR_PATTERN = re.compile(
-    r'(?:key|secret|private)[^:]*:\s*(?:0x)?[a-fA-F0-9]{32,}',
-    re.IGNORECASE
+    r"(?:key|secret|private)[^:]*:\s*(?:0x)?[a-fA-F0-9]{32,}", re.IGNORECASE
 )
 
 
@@ -95,7 +90,7 @@ class SecureErrorHandler:
         return f"{exc_type}: {safe_msg}"
 
     @classmethod
-    def sanitize_dict(cls, data: dict, sensitive_keys: Optional[set] = None) -> dict:
+    def sanitize_dict(cls, data: dict, sensitive_keys: set | None = None) -> dict:
         """
         Recursively sanitize a dictionary, redacting sensitive values.
 
@@ -108,8 +103,14 @@ class SecureErrorHandler:
         """
         if sensitive_keys is None:
             sensitive_keys = {
-                'private_key', 'privateKey', 'secret', 'api_key',
-                'apiKey', 'password', 'token', 'key'
+                "private_key",
+                "privateKey",
+                "secret",
+                "api_key",
+                "apiKey",
+                "password",
+                "token",
+                "key",
             }
 
         if not isinstance(data, dict):
@@ -119,7 +120,7 @@ class SecureErrorHandler:
         for key, value in data.items():
             # Check if key is sensitive
             key_lower = str(key).lower()
-            if any(s in key_lower for s in ['key', 'secret', 'password', 'token']):
+            if any(s in key_lower for s in ["key", "secret", "password", "token"]):
                 result[key] = cls.REDACTED
             elif isinstance(value, dict):
                 result[key] = cls.sanitize_dict(value, sensitive_keys)

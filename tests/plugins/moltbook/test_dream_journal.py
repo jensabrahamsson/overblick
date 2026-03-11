@@ -15,10 +15,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from overblick.capabilities.engagement.response_gen import ResponseGenerator
 from overblick.capabilities.psychology.dream_system import Dream, DreamTone, DreamType
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.moltbook.models import Post
+from overblick.plugins.moltbook.response_gen import ResponseGenerator
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -83,11 +83,12 @@ class TestGenerateDreamPost:
             )
         )
 
-        gen = ResponseGenerator(llm_pipeline=mock_pipeline, system_prompt="Test")
+        gen = ResponseGenerator(llm_pipeline=mock_pipeline)
         dream = _make_dream()
         result = await gen.generate_dream_post(
             dream=dream.to_dict(),
             prompt_template=_MockPromptsWithDreamJournal.DREAM_JOURNAL_PROMPT,
+            system_prompt=_MockPromptsWithDreamJournal.SYSTEM_PROMPT,
             extra_format_vars={"submolt_instruction": "Pick a submolt."},
         )
 
@@ -119,6 +120,7 @@ class TestGenerateDreamPost:
         result = await gen.generate_dream_post(
             dream=_make_dream().to_dict(),
             prompt_template="{dream_content}",
+            system_prompt="Test system prompt",
         )
         assert result is None
 
@@ -138,6 +140,7 @@ class TestGenerateDreamPost:
         result = await gen.generate_dream_post(
             dream=_make_dream().to_dict(),
             prompt_template="{dream_content}",
+            system_prompt="Test system prompt",
         )
         assert result is None
 
@@ -145,12 +148,15 @@ class TestGenerateDreamPost:
     async def test_missing_template_key_returns_none(self):
         """Template with unknown placeholder returns None gracefully."""
         mock_pipeline = AsyncMock()
+        mock_pipeline._chat_with_overrides = AsyncMock()
         gen = ResponseGenerator(llm_pipeline=mock_pipeline)
         result = await gen.generate_dream_post(
             dream=_make_dream().to_dict(),
             prompt_template="{nonexistent_key}",
+            system_prompt="Test system prompt",
         )
         assert result is None
+        mock_pipeline._chat_with_overrides.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

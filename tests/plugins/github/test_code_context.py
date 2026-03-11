@@ -2,8 +2,9 @@
 Tests for the code context builder — file tree caching and targeted file fetch.
 """
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from overblick.core.database.base import DatabaseConfig
 from overblick.core.database.sqlite_backend import SQLiteBackend

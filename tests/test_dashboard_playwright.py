@@ -6,7 +6,7 @@ Run separately: pytest tests/test_dashboard_playwright.py -v -m e2e
 """
 
 import pytest
-from playwright.sync_api import sync_playwright, expect
+from playwright.sync_api import expect, sync_playwright
 
 # Exclude from default test runs — requires running server + browser
 pytestmark = [pytest.mark.e2e]
@@ -65,7 +65,7 @@ def test_dashboard_plugin_cards():
                 card = plugin_cards.nth(i)
                 card_name = card.locator(".agent-card-name").text_content()
                 card_desc = card.locator(".agent-card-desc").text_content()
-                print(f"  Card {i+1}: {card_name}")
+                print(f"  Card {i + 1}: {card_name}")
                 print(f"    {card_desc}")
 
         # Now fetch the partial directly

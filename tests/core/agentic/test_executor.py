@@ -2,8 +2,9 @@
 Tests for ActionExecutor — dispatch, timing, max-actions.
 """
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from overblick.core.agentic.executor import ActionExecutor
 from overblick.core.agentic.models import ActionOutcome, ActionPlan, PlannedAction

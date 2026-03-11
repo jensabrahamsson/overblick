@@ -1,6 +1,7 @@
 """Tests for Moltbook decision engine."""
 
 import pytest
+
 from overblick.plugins.moltbook.decision_engine import DecisionEngine, EngagementDecision
 
 

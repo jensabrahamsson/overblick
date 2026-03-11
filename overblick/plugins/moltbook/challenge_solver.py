@@ -290,8 +290,7 @@ class MoltCaptchaSolver:
         letters = self._find_letter_combination(spec.target_ascii_sum, spec.word_count)
         if not letters:
             logger.warning(
-                f"Cannot find letter combo for sum={spec.target_ascii_sum}, "
-                f"count={spec.word_count}"
+                f"Cannot find letter combo for sum={spec.target_ascii_sum}, count={spec.word_count}"
             )
             return None
 

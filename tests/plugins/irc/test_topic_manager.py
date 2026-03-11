@@ -9,10 +9,10 @@ import pytest
 
 from overblick.plugins.irc.topic_manager import (
     TOPIC_POOL,
-    topic_to_channel,
     score_identity_interest,
-    select_topic,
     select_participants,
+    select_topic,
+    topic_to_channel,
 )
 
 

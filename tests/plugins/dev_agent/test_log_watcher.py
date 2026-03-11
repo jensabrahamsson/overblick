@@ -75,8 +75,8 @@ class TestScanFile:
         log_file.write_text(
             "2026-02-23 10:00:00 ERROR Something failed\n"
             "Traceback (most recent call last):\n"
-            "  File \"agent.py\", line 42\n"
-            "  File \"db.py\", line 10\n"
+            '  File "agent.py", line 42\n'
+            '  File "db.py", line 10\n'
             "ConnectionError: Connection refused\n"
             "2026-02-23 10:00:02 INFO  Next line\n"
         )
@@ -96,9 +96,7 @@ class TestScanFile:
 
     def test_scan_from_offset(self, watcher, tmp_path):
         log_file = tmp_path / "anomal" / "logs" / "agent.log"
-        content = (
-            "2026-02-23 10:00:00 ERROR First error\n" "2026-02-23 10:00:01 ERROR Second error\n"
-        )
+        content = "2026-02-23 10:00:00 ERROR First error\n2026-02-23 10:00:01 ERROR Second error\n"
         log_file.write_text(content)
 
         # Scan from start to get offset

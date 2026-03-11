@@ -22,7 +22,7 @@ import os
 import pytest
 
 from overblick.core.llm.gateway_client import GatewayClient
-from overblick.identities import build_system_prompt, load_personality, list_personalities
+from overblick.identities import build_system_prompt, list_personalities, load_personality
 
 logger = logging.getLogger(__name__)
 

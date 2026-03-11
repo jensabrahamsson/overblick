@@ -2,12 +2,13 @@
 Tests for SpeechToTextCapability and TextToSpeechCapability — placeholder speech capabilities.
 """
 
-import pytest
 from pathlib import Path
 
-from overblick.core.capability import CapabilityContext
+import pytest
+
 from overblick.capabilities.speech.stt import SpeechToTextCapability
 from overblick.capabilities.speech.tts import TextToSpeechCapability
+from overblick.core.capability import CapabilityContext
 
 
 def make_ctx(**overrides) -> CapabilityContext:

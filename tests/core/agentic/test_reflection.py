@@ -3,9 +3,9 @@ Tests for ReflectionPipeline — learning extraction.
 """
 
 import json
+from unittest.mock import AsyncMock
 
 import pytest
-from unittest.mock import AsyncMock
 
 from overblick.core.agentic.models import ActionOutcome, PlannedAction
 from overblick.core.agentic.reflection import ReflectionPipeline

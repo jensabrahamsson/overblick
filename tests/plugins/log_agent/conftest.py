@@ -76,7 +76,7 @@ def sample_log_dir(tmp_path):
         "2026-02-26 03:00:01,000 - core.llm - INFO - LLM request started\n"
         "2026-02-26 03:00:02,000 - core.llm - ERROR - LLM call failed: timeout\n"
         "  Traceback (most recent call last):\n"
-        "    File \"pipeline.py\", line 42\n"
+        '    File "pipeline.py", line 42\n'
         "    TimeoutError: Request timed out\n"
         "2026-02-26 03:00:03,000 - plugins.moltbook - INFO - Tick complete\n"
         "2026-02-26 03:00:04,000 - core.security - CRITICAL - Preflight check blocked dangerous input\n"

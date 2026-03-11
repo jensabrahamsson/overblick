@@ -1,6 +1,7 @@
 """Tests for identities page."""
 
 import pytest
+
 from overblick.dashboard.auth import SESSION_COOKIE
 
 

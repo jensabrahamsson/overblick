@@ -11,33 +11,35 @@ Tests cover:
 
 SECURITY: Validates fail-closed patterns and proper error handling.
 """
-import os
-import pytest
+
 import asyncio
+import os
 import time
 from unittest.mock import AsyncMock
+
+import pytest
 
 # Set test environment
 os.environ["PYTEST_RUNNING"] = "1"
 os.environ["WHALLET_SIMULATION_ENABLED"] = "true"
 
 from whallet.rpc_retry import (
-    RPCErrorCategory,
-    RPCError,
-    RateLimitError,
-    TimeoutError,
-    CircuitOpenError,
-    NonRetryableError,
-    RetryPolicy,
     RETRY_POLICIES,
     CircuitBreaker,
-    circuit_breaker,
-    categorize_error,
-    with_retry,
-    retry_decorator,
+    CircuitOpenError,
     MultiProviderRPC,
+    NonRetryableError,
+    RateLimitError,
+    RetryPolicy,
+    RPCError,
+    RPCErrorCategory,
+    TimeoutError,
+    categorize_error,
+    circuit_breaker,
     get_circuit_breaker,
     get_retry_policy,
+    retry_decorator,
+    with_retry,
 )
 
 
@@ -126,9 +128,7 @@ class TestRetryPolicy:
 
     def test_max_delay_cap(self):
         """Test that delay is capped at max_delay."""
-        policy = RetryPolicy(
-            base_delay=1.0, max_delay=10.0, jitter_factor=0.0
-        )
+        policy = RetryPolicy(base_delay=1.0, max_delay=10.0, jitter_factor=0.0)
 
         # 1 * 2^5 = 32, but should be capped at 10
         delay = policy.calculate_delay(5)
@@ -136,9 +136,7 @@ class TestRetryPolicy:
 
     def test_rate_limit_multiplier(self):
         """Test that rate limit multiplier is applied."""
-        policy = RetryPolicy(
-            base_delay=1.0, jitter_factor=0.0, rate_limit_multiplier=3.0
-        )
+        policy = RetryPolicy(base_delay=1.0, jitter_factor=0.0, rate_limit_multiplier=3.0)
 
         delay_normal = policy.calculate_delay(0, is_rate_limited=False)
         delay_rate_limited = policy.calculate_delay(0, is_rate_limited=True)
@@ -285,9 +283,7 @@ class TestCircuitBreaker:
 
     def test_close_after_success_in_half_open(self):
         """Test circuit closes after successes in half-open."""
-        cb = CircuitBreaker(
-            failure_threshold=2, success_threshold=2, timeout_seconds=0.05
-        )
+        cb = CircuitBreaker(failure_threshold=2, success_threshold=2, timeout_seconds=0.05)
 
         # Open the circuit
         cb.record_failure("provider")
@@ -366,9 +362,7 @@ class TestWithRetry:
         """Test successful call returns immediately."""
         mock_func = AsyncMock(return_value="success")
 
-        result = await with_retry(
-            mock_func, policy_name="default", provider="test"
-        )
+        result = await with_retry(mock_func, policy_name="default", provider="test")
 
         assert result == "success"
         assert mock_func.call_count == 1
@@ -376,14 +370,10 @@ class TestWithRetry:
     @pytest.mark.asyncio
     async def test_retries_on_retryable_error(self):
         """Test that retryable errors trigger retries."""
-        mock_func = AsyncMock(
-            side_effect=[Exception("temporary"), "success"]
-        )
+        mock_func = AsyncMock(side_effect=[Exception("temporary"), "success"])
 
         policy = RetryPolicy(max_retries=3, base_delay=0.01)
-        result = await with_retry(
-            mock_func, policy=policy, provider="test"
-        )
+        result = await with_retry(mock_func, policy=policy, provider="test")
 
         assert result == "success"
         assert mock_func.call_count == 2
@@ -396,9 +386,7 @@ class TestWithRetry:
         policy = RetryPolicy(max_retries=2, base_delay=0.01)
 
         with pytest.raises(RPCError) as exc_info:
-            await with_retry(
-                mock_func, policy=policy, provider="test"
-            )
+            await with_retry(mock_func, policy=policy, provider="test")
 
         assert "failed after 3 attempts" in str(exc_info.value)
         assert mock_func.call_count == 3  # 1 initial + 2 retries
@@ -415,9 +403,7 @@ class TestWithRetry:
         policy = RetryPolicy(max_retries=3, base_delay=0.01)
 
         with pytest.raises(NonRetryableError):
-            await with_retry(
-                mock_func, policy=policy, provider="test"
-            )
+            await with_retry(mock_func, policy=policy, provider="test")
 
         # Should not retry
         assert mock_func.call_count == 1

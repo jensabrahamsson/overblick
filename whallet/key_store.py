@@ -7,8 +7,8 @@ from web3 import Web3
 
 @dataclass
 class WalletKeys:
-    private_key: Optional[str] = None
-    address: Optional[str] = None
+    private_key: str | None = None
+    address: str | None = None
 
 
 class KeyStore:

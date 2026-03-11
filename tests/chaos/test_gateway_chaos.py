@@ -14,10 +14,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from overblick.gateway.config import GatewayConfig, reset_config
 from overblick.gateway.backend_registry import BackendRegistry
-from overblick.gateway.router import RequestRouter
-from overblick.gateway.queue_manager import QueueManager
+from overblick.gateway.config import GatewayConfig, reset_config
 from overblick.gateway.models import (
     ChatMessage,
     ChatRequest,
@@ -25,6 +23,8 @@ from overblick.gateway.models import (
     ChatResponseChoice,
     ChatResponseUsage,
 )
+from overblick.gateway.queue_manager import QueueManager
+from overblick.gateway.router import RequestRouter
 
 
 def _make_response(content: str = "OK") -> ChatResponse:

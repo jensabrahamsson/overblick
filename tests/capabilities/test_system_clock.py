@@ -1,9 +1,10 @@
 """Tests for SystemClockCapability."""
 
-import pytest
 from datetime import datetime
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from overblick.capabilities.system.clock import SystemClockCapability
 from overblick.core.capability import CapabilityContext

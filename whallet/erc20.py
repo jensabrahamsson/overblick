@@ -90,8 +90,8 @@ class ERC20Token:
         owner: str,
         spender: str,
         amount: int,
-        gas_params: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        gas_params: dict[str, Any],
+    ) -> dict[str, Any]:
         txn = self.contract.functions.approve(spender, amount).build_transaction(
             {
                 "from": owner,
@@ -106,4 +106,4 @@ class ERC20Token:
         return web3.eth.contract(address=address, abi=ERC20_ABI)
 
 
-__all__ = ["ERC20Token", "ERC20_ABI"]
+__all__ = ["ERC20_ABI", "ERC20Token"]

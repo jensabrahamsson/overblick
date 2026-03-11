@@ -8,8 +8,8 @@ from overblick.core.event_bus import EventBus
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.core.plugin_base import PluginContext
 from overblick.identities import (
-    Personality,
     LLMSettings,
+    Personality,
     QuietHoursSettings,
     ScheduleSettings,
     SecuritySettings,

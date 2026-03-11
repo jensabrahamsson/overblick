@@ -2,14 +2,16 @@
 Tests for ObservationCollector — world state gathering.
 """
 
-import pytest
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from overblick.plugins.github.models import CIStatus, VersionBumpType
 from overblick.plugins.github.observation import (
     ObservationCollector,
-    _parse_version_bump,
     _age_hours,
+    _parse_version_bump,
 )
 
 
@@ -38,9 +40,9 @@ class TestAgeHours:
 
     def test_valid_timestamp(self):
         # Recent timestamp should give small age
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
-        recent = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        recent = (datetime.now(UTC) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
         age = _age_hours(recent)
         assert 1.9 < age < 2.5
 

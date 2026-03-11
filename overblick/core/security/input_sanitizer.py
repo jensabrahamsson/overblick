@@ -81,11 +81,7 @@ def wrap_external_content(content: str, source: str = "external") -> str:
         prev = safe
         safe = safe.replace("<<<EXTERNAL_", "").replace(">>>", "")
 
-    return (
-        f"<<<EXTERNAL_{source.upper()}_START>>>\n"
-        f"{safe}\n"
-        f"<<<EXTERNAL_{source.upper()}_END>>>"
-    )
+    return f"<<<EXTERNAL_{source.upper()}_START>>>\n{safe}\n<<<EXTERNAL_{source.upper()}_END>>>"
 
 
 def sanitize_dict(data: dict, max_length: int = MAX_INPUT_LENGTH) -> dict:

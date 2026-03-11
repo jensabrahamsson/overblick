@@ -1,6 +1,7 @@
 """Tests for audit trail routes."""
 
 import pytest
+
 from overblick.dashboard.auth import SESSION_COOKIE
 
 

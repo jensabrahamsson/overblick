@@ -544,7 +544,7 @@ class MockMoltbookServer:
     state: MockMoltbookState
     base_url: str
 
-    async def __aenter__(self) -> "MockMoltbookServer":
+    async def __aenter__(self) -> MockMoltbookServer:
         self.state = MockMoltbookState()
         self._app = create_mock_app(self.state)
         self._runner = web.AppRunner(self._app)

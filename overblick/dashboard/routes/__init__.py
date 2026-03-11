@@ -22,13 +22,13 @@ def register_routes(app: FastAPI) -> None:
     from .github_dash import router as github_dash_router
     from .identities import router as identities_router
     from .irc import router as irc_router
-    from .polymarket_dash import router as polymarket_dash_router
     from .kontrast import router as kontrast_router
     from .llm import router as llm_router
     from .log_agent import router as log_agent_router
     from .moltbook import router as moltbook_router
     from .observability import router as observability_router
     from .onboarding import router as onboarding_router
+    from .polymarket_dash import router as polymarket_dash_router
     from .psychology import router as psychology_router
     from .settings import router as settings_router
     from .skuggspel import router as skuggspel_router

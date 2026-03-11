@@ -18,7 +18,6 @@ import aiohttp
 import pytest
 
 from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
-
 from overblick.core.llm.gateway_client import GatewayClient
 
 # ---------------------------------------------------------------------------
@@ -398,7 +397,7 @@ class TestGatewayClientErrors:
     async def test_chat_timeout(self):
         """chat() raises LLMTimeoutError on asyncio.TimeoutError."""
         mock_response = AsyncMock()
-        mock_response.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_response.__aenter__ = AsyncMock(side_effect=TimeoutError())
         mock_response.__aexit__ = AsyncMock(return_value=False)
 
         session = MagicMock()
@@ -509,7 +508,7 @@ class TestGatewayClientHealthCheck:
         """health_check() returns False on timeout."""
         health_response = AsyncMock()
         health_response.__aenter__ = AsyncMock(
-            side_effect=asyncio.TimeoutError(),
+            side_effect=TimeoutError(),
         )
         health_response.__aexit__ = AsyncMock(return_value=False)
 

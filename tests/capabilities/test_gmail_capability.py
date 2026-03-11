@@ -11,17 +11,17 @@ Verifies:
 """
 
 from email.mime.text import MIMEText
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
 from overblick.capabilities.communication.gmail import (
-    GmailCapability,
-    GmailMessage,
     GMAIL_IMAP_HOST,
     GMAIL_IMAP_PORT,
     GMAIL_SMTP_HOST,
     GMAIL_SMTP_PORT,
+    GmailCapability,
+    GmailMessage,
 )
 
 
@@ -520,8 +520,8 @@ class TestMessageParsing:
         ctx = _make_ctx()
         cap = GmailCapability(ctx)
 
-        from email.parser import BytesParser
         from email import policy as ep
+        from email.parser import BytesParser
 
         raw = _build_raw_email(body="Simple text body.")
         msg = BytesParser(policy=ep.default).parsebytes(raw)
@@ -534,8 +534,8 @@ class TestMessageParsing:
         ctx = _make_ctx()
         cap = GmailCapability(ctx)
 
-        from email.parser import BytesParser
         from email import policy as ep
+        from email.parser import BytesParser
 
         raw = _build_multipart_email(
             plain_text="Plain version",
@@ -551,9 +551,9 @@ class TestMessageParsing:
         ctx = _make_ctx()
         cap = GmailCapability(ctx)
 
+        from email import policy as ep
         from email.mime.multipart import MIMEMultipart
         from email.parser import BytesParser
-        from email import policy as ep
 
         # Build multipart with only HTML
         outer = MIMEMultipart("alternative")
@@ -711,8 +711,8 @@ class TestFetchWithSinceDays:
     @pytest.mark.asyncio
     async def test_fetch_since_imap_date_format(self):
         """SINCE date is formatted as DD-Mon-YYYY (IMAP RFC 3501 format)."""
-        from datetime import datetime, timezone, timedelta
         import re
+        from datetime import datetime, timedelta, timezone
 
         ctx = _make_ctx()
         cap = GmailCapability(ctx)
@@ -732,9 +732,9 @@ class TestFetchWithSinceDays:
         assert match, f"No date found in criteria: {criteria}"
         date_str = match.group(1)
         # Must match DD-Mon-YYYY (e.g. "14-Feb-2026")
-        assert re.match(
-            r"\d{2}-[A-Z][a-z]{2}-\d{4}", date_str
-        ), f"IMAP date not in RFC 3501 format: {date_str}"
+        assert re.match(r"\d{2}-[A-Z][a-z]{2}-\d{4}", date_str), (
+            f"IMAP date not in RFC 3501 format: {date_str}"
+        )
 
 
 class TestFetchMultipleMessages:

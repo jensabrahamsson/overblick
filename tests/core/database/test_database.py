@@ -1,7 +1,8 @@
 """Tests for the database abstraction layer."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from overblick.core.database.base import (
     DatabaseConfig,
@@ -9,9 +10,9 @@ from overblick.core.database.base import (
     Migration,
     MigrationManager,
 )
-from overblick.core.database.sqlite_backend import SQLiteBackend
 from overblick.core.database.factory import create_backend
 from overblick.core.database.migrations import MIGRATIONS
+from overblick.core.database.sqlite_backend import SQLiteBackend
 
 # ---------------------------------------------------------------------------
 # DatabaseConfig

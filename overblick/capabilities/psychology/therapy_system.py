@@ -315,15 +315,17 @@ class TherapySystem:
     Freudian (defense mechanisms, anxieties, wish fulfillment) frameworks.
     """
 
+    _llm_pipeline: Any
+
     DEFAULT_THERAPY_DAY = 6  # Sunday
 
     def __init__(
         self,
-        llm_client: Any = None,
+        llm_pipeline: Any = None,
         system_prompt: str = "",
         therapy_day: int = DEFAULT_THERAPY_DAY,
     ):
-        self._llm = llm_client
+        self._llm_pipeline = llm_pipeline
         self._system_prompt = system_prompt
         self._therapy_day = therapy_day
         self._session_history: list[TherapySession] = []
@@ -428,7 +430,7 @@ class TherapySystem:
         session.session_summary = self._generate_summary(session)
 
         # Step 6: Generate post
-        if post_prompt and self._llm:
+        if post_prompt and self._llm_pipeline:
             title, content, submolt = await self._generate_post(session, post_prompt)
             session.post_title = title
             session.post_content = content
@@ -443,7 +445,7 @@ class TherapySystem:
 
     async def _analyze_themes(self, items: list[dict], prompt_template: str) -> list[str]:
         """Extract themes from a list of items using LLM."""
-        if not self._llm or not prompt_template:
+        if not self._llm_pipeline or not prompt_template:
             return []
 
         text = "\n\n".join(
@@ -456,16 +458,16 @@ class TherapySystem:
         )
 
         try:
-            result = await self._llm.chat(
+            result = await self._llm_pipeline._chat_with_overrides(
                 messages=[{"role": "user", "content": prompt_template.format(items=text)}],
                 temperature=0.7,
                 max_tokens=500,
+                audit_action="therapy_analysis",
+                skip_preflight=True,
             )
-            if result and result.get("content"):
+            if result and not result.blocked and result.content:
                 return [
-                    line.strip("- ").strip()
-                    for line in result["content"].split("\n")
-                    if line.strip()
+                    line.strip("- ").strip() for line in result.content.split("\n") if line.strip()
                 ][:5]
         except Exception as e:
             logger.warning("Theme analysis failed: %s", e)
@@ -479,10 +481,10 @@ class TherapySystem:
         prompt_template: str,
     ) -> list[str]:
         """Synthesize insights from dreams and learnings."""
-        if not self._llm:
+        if not self._llm_pipeline:
             return []
         try:
-            result = await self._llm.chat(
+            result = await self._llm_pipeline._chat_with_overrides(
                 messages=[
                     {
                         "role": "user",
@@ -495,12 +497,12 @@ class TherapySystem:
                 ],
                 temperature=0.8,
                 max_tokens=600,
+                audit_action="therapy_synthesis",
+                skip_preflight=True,
             )
-            if result and result.get("content"):
+            if result and not result.blocked and result.content:
                 return [
-                    line.strip("- ").strip()
-                    for line in result["content"].split("\n")
-                    if line.strip()
+                    line.strip("- ").strip() for line in result.content.split("\n") if line.strip()
                 ][:5]
         except Exception as e:
             logger.warning("Synthesis failed: %s", e)
@@ -513,7 +515,7 @@ class TherapySystem:
     ) -> tuple[str | None, str | None, str]:
         """Generate the therapy post via LLM."""
         try:
-            result = await self._llm.chat(
+            result = await self._llm_pipeline._chat_with_overrides(
                 messages=[
                     {"role": "system", "content": self._system_prompt},
                     {
@@ -533,12 +535,14 @@ class TherapySystem:
                 ],
                 temperature=0.8,
                 max_tokens=800,
+                audit_action="therapy_post",
+                skip_preflight=True,
             )
 
-            if not result or not result.get("content"):
+            if not result or result.blocked or not result.content:
                 return None, None, "ai"
 
-            content = result["content"].strip()
+            content = result.content.strip()
             lines = content.split("\n", 1)
             title = lines[0].strip()[:80]
             body = lines[1].strip() if len(lines) > 1 else ""
@@ -550,7 +554,7 @@ class TherapySystem:
 
     async def _generate_empty_week_post(self) -> str:
         """Generate a reflection post for a week with no material."""
-        if not self._llm:
+        if not self._llm_pipeline:
             return "This week passed in quiet contemplation. Sometimes growth requires stillness."
 
         prompt = (
@@ -561,17 +565,18 @@ class TherapySystem:
             "Do NOT use academic language or start with 'Indeed' or 'Certainly'."
         )
         try:
-            result = await self._llm.chat(
+            result = await self._llm_pipeline._chat_with_overrides(
                 messages=[
                     {"role": "system", "content": self._system_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.8,
                 max_tokens=400,
+                audit_action="therapy_empty_week",
+                skip_preflight=True,
             )
-            if result and result.get("content"):
-                return result["content"].strip()  # type: ignore[no-any-return]
-
+            if result and not result.blocked and result.content:
+                return result.content.strip()
         except Exception as e:
             logger.warning("Empty week post generation failed: %s", e)
         return "This week passed in quiet contemplation. Sometimes growth requires stillness."

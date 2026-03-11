@@ -183,7 +183,7 @@ async def stream_response(
                 if chunk.get("done", False):
                     break
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print(f"\n{RED}(timeout after 300s){RESET}")
         return None
     except aiohttp.ClientError as e:

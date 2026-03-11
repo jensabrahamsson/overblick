@@ -1,15 +1,16 @@
 """Tests for the System Health dashboard page and metrics partial."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from overblick.dashboard.auth import SESSION_COOKIE
+import pytest
+
 from overblick.capabilities.monitoring.models import (
+    CPUInfo,
     HostHealth,
     MemoryInfo,
-    CPUInfo,
     PowerInfo,
 )
+from overblick.dashboard.auth import SESSION_COOKIE
 
 
 def _fake_host_health() -> HostHealth:
@@ -134,7 +135,7 @@ class TestSystemMetricsPartial:
         ):
             resp = await client.get("/system/metrics", cookies={SESSION_COOKIE: cookie_value})
 
-        assert "gauge-sublabel\">Battery</text>" not in resp.text
+        assert 'gauge-sublabel">Battery</text>' not in resp.text
 
 
 class TestSystemGracefulDegradation:

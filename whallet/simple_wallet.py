@@ -7,8 +7,8 @@ import logging
 from decimal import Decimal
 from typing import Optional
 
-from web3 import Web3
 from eth_account import Account
+from web3 import Web3
 
 from .whallet_config import get_settings
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class SimpleWallet:
     """Simple Ethereum wallet for sending transactions."""
 
-    def __init__(self, rpc_url: Optional[str] = None, private_key: Optional[str] = None):
+    def __init__(self, rpc_url: str | None = None, private_key: str | None = None):
         self.settings = get_settings()
         self.rpc_url = rpc_url or self.settings.rpc_url
         self.web3 = Web3(Web3.HTTPProvider(self.rpc_url))
@@ -48,7 +48,7 @@ class SimpleWallet:
 
         return self.web3.eth.get_transaction_count(self.account.address)
 
-    def get_eth_balance(self, address: Optional[str] = None) -> Decimal:
+    def get_eth_balance(self, address: str | None = None) -> Decimal:
         """Get ETH balance in ether."""
         target_address = address or (self.account.address if self.account else None)
         if not target_address:
@@ -61,8 +61,8 @@ class SimpleWallet:
         self,
         to_address: str,
         amount_eth: Decimal,
-        gas_price_gwei: Optional[Decimal] = None,
-        nonce: Optional[int] = None,
+        gas_price_gwei: Decimal | None = None,
+        nonce: int | None = None,
     ) -> str:
         """
         Send ETH to address.
@@ -111,8 +111,8 @@ class SimpleWallet:
         token_address: str,
         to_address: str,
         amount: Decimal,
-        gas_price_gwei: Optional[Decimal] = None,
-        nonce: Optional[int] = None,
+        gas_price_gwei: Decimal | None = None,
+        nonce: int | None = None,
     ) -> str:
         """
         Send ERC20 token to address.

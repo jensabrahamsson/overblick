@@ -3,12 +3,12 @@ Tests for ConversationCapability — multi-turn conversation tracker.
 """
 
 import time
-
-import pytest
 from pathlib import Path
 
-from overblick.core.capability import CapabilityContext
+import pytest
+
 from overblick.capabilities.conversation.tracker import ConversationCapability, ConversationEntry
+from overblick.core.capability import CapabilityContext
 
 
 def make_ctx(**overrides) -> CapabilityContext:

@@ -210,7 +210,7 @@ class TestOllamaClientChat:
     @pytest.mark.asyncio
     async def test_chat_timeout(self):
         client = OllamaClient()
-        client._session = _make_mock_session(post_side_effect=asyncio.TimeoutError())
+        client._session = _make_mock_session(post_side_effect=TimeoutError())
 
         with pytest.raises(LLMTimeoutError, match="timeout"):
             await client.chat(
@@ -252,8 +252,7 @@ class TestThinkTokenStripping:
 
     def test_strip_multiline_think(self):
         text = (
-            "<think>\nStep 1: Consider options\nStep 2: Choose best\n</think>\n"
-            "Here is my response."
+            "<think>\nStep 1: Consider options\nStep 2: Choose best\n</think>\nHere is my response."
         )
         assert OllamaClient.strip_think_tokens(text) == "Here is my response."
 

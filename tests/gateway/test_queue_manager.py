@@ -1,11 +1,12 @@
 """Tests for QueueManager."""
 
 import asyncio
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
+
 from overblick.gateway.config import GatewayConfig
-from overblick.gateway.models import ChatRequest, ChatMessage, ChatResponse, Priority
+from overblick.gateway.models import ChatMessage, ChatRequest, ChatResponse, Priority
 from overblick.gateway.queue_manager import QueueManager
 
 

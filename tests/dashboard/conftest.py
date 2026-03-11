@@ -2,13 +2,14 @@
 Dashboard test fixtures — mock services, test client.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
-from overblick.dashboard.config import DashboardConfig, reset_config
+import pytest
+
 from overblick.dashboard.app import create_app
-from overblick.dashboard.auth import SessionManager, SESSION_COOKIE
+from overblick.dashboard.auth import SESSION_COOKIE, SessionManager
+from overblick.dashboard.config import DashboardConfig, reset_config
 from overblick.dashboard.security import RateLimiter
 
 
@@ -258,7 +259,7 @@ def app(
 @pytest.fixture
 def client(app):
     """Create httpx test client."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
 
     transport = ASGITransport(app=app)
     return AsyncClient(transport=transport, base_url="http://testserver")

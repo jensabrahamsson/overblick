@@ -1,6 +1,7 @@
 """Tests for event bus."""
 
 import pytest
+
 from overblick.core.event_bus import EventBus
 
 

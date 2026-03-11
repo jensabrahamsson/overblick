@@ -59,7 +59,7 @@ class AlertFormatter:
     def format_critical_alert(entry: LogEntry) -> str:
         """Format a single critical entry as an urgent alert."""
         msg = entry.message[:200]
-        text = f"*CRITICAL ALERT — {entry.identity}*\n" f"{msg}\n"
+        text = f"*CRITICAL ALERT — {entry.identity}*\n{msg}\n"
         if entry.traceback:
             tb = entry.traceback[:500]
             text += f"\n```\n{tb}\n```"

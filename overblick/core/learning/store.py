@@ -226,7 +226,9 @@ class LearningStore:
             # Simple recency factor: newer rows (lower index i) get a small boost.
             # Max boost is 0.1 for the very newest, decaying to 0.0 for the 1000th.
             # This ensures that if two learnings have similar content, the newer wins.
-            recency_boost = (self._MAX_SIMILARITY_CANDIDATES - i) / self._MAX_SIMILARITY_CANDIDATES * 0.1
+            recency_boost = (
+                (self._MAX_SIMILARITY_CANDIDATES - i) / self._MAX_SIMILARITY_CANDIDATES * 0.1
+            )
             final_score = similarity + recency_boost
 
             scored.append((final_score, row))

@@ -13,6 +13,7 @@ SECURITY: These tests verify that private keys are NEVER exposed in logs.
 """
 
 import os
+
 import pytest
 
 # Set test environment
@@ -20,9 +21,9 @@ os.environ["PYTEST_RUNNING"] = "1"
 os.environ["WHALLET_SIMULATION_ENABLED"] = "true"
 
 from whallet.secure_error_handler import (
+    PRIVATE_KEY_PATTERN,
     SecureErrorHandler,
     sanitize_error,
-    PRIVATE_KEY_PATTERN,
 )
 
 

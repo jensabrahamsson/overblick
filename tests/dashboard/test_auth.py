@@ -11,28 +11,28 @@ Covers:
 
 import hmac
 import time
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from overblick.dashboard.auth import (
-    AuthMiddleware,
-    SessionManager,
-    SESSION_COOKIE,
     CSRF_COOKIE,
     LOGIN_CSRF_COOKIE,
     PUBLIC_PATHS,
-    get_session,
+    SESSION_COOKIE,
+    AuthMiddleware,
+    SessionManager,
     check_csrf,
+    get_session,
 )
 from overblick.dashboard.security import (
-    RateLimiter,
-    LoginForm,
-    OnboardingNameForm,
-    OnboardingLLMForm,
-    OnboardingSecretsForm,
     AuditFilterForm,
+    LoginForm,
+    OnboardingLLMForm,
+    OnboardingNameForm,
+    OnboardingSecretsForm,
+    RateLimiter,
 )
 
 # ---------------------------------------------------------------------------
@@ -509,8 +509,9 @@ class TestAutoLogin:
         mock_onboarding_service,
     ):
         """When no password is set, /login auto-redirects with session."""
-        from overblick.dashboard.app import create_app, _create_templates
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
+
+        from overblick.dashboard.app import _create_templates, create_app
 
         app = create_app(config_no_password)
         app.state.session_manager = SessionManager(

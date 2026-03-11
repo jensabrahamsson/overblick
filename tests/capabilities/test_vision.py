@@ -1,13 +1,13 @@
 """Tests for VisionCapability — image analysis via Claude API."""
 
 import base64
-
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from overblick.core.capability import CapabilityContext
+import pytest
+
 from overblick.capabilities.vision.analyzer import VisionCapability
+from overblick.core.capability import CapabilityContext
 
 
 def make_ctx(**overrides) -> CapabilityContext:

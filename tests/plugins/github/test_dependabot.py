@@ -2,8 +2,9 @@
 Tests for DependabotHandler — auto-merge logic and safety guards.
 """
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from overblick.plugins.github.dependabot_handler import DependabotHandler
 from overblick.plugins.github.models import (

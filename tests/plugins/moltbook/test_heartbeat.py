@@ -3,8 +3,9 @@ Tests for HeartbeatManager — topic rotation, recording, and state persistence.
 """
 
 import json
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from overblick.plugins.moltbook.heartbeat import HeartbeatManager
 

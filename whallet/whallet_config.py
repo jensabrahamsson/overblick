@@ -1,8 +1,8 @@
 import json
 import os
-from pathlib import Path
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 
 
@@ -14,10 +14,10 @@ class Settings:
     etherscan_api_key: str
     infura_api_key: str  # Infura API key for token metadata
     infura_rpc_url: str  # Backup RPC URL
-    default_public_address: Optional[str]
-    default_private_key: Optional[str]
+    default_public_address: str | None
+    default_private_key: str | None
     simulation_enabled_by_default: bool = False
-    api_key: Optional[str] = None  # API key for authentication
+    api_key: str | None = None  # API key for authentication
     chain_id: int = 1  # Ethereum mainnet
     uniswap_router_address: str = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
     weth_address: str = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
@@ -35,7 +35,7 @@ class Settings:
         return self.max_slippage_bps / 10_000
 
 
-def _get_env(name: str, fallback: Optional[str] = None) -> Optional[str]:
+def _get_env(name: str, fallback: str | None = None) -> str | None:
     value = os.getenv(name)
     if value:
         return value

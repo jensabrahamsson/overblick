@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.moltbook.challenge_handler import (
     PerContentChallengeHandler,
     _edit_distance_one,
@@ -14,7 +15,6 @@ from overblick.plugins.moltbook.challenge_handler import (
     deobfuscate_challenge,
     solve_arithmetic,
 )
-from overblick.core.llm.pipeline import PipelineResult
 
 
 def _make_mock_session(status=200, body='{"success": true}'):

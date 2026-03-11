@@ -10,18 +10,18 @@ Provides:
 
 SECURITY: Fail-closed design - if uncertain, reject the operation.
 """
+
 import asyncio
 import logging
 import random
 import time
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import wraps
 from threading import Lock
 from typing import (
     Any,
-    Callable,
-    Coroutine,
     Dict,
     List,
     Optional,
@@ -50,9 +50,9 @@ class RPCError(Exception):
         self,
         message: str,
         category: RPCErrorCategory = RPCErrorCategory.RETRYABLE,
-        status_code: Optional[int] = None,
-        provider: Optional[str] = None,
-        original_error: Optional[Exception] = None,
+        status_code: int | None = None,
+        provider: str | None = None,
+        original_error: Exception | None = None,
     ):
         super().__init__(message)
         self.category = category
@@ -75,8 +75,8 @@ class RateLimitError(RPCError):
     def __init__(
         self,
         message: str = "Rate limited",
-        retry_after: Optional[float] = None,
-        provider: Optional[str] = None,
+        retry_after: float | None = None,
+        provider: str | None = None,
     ):
         super().__init__(
             message,
@@ -93,8 +93,8 @@ class TimeoutError(RPCError):
     def __init__(
         self,
         message: str = "Request timed out",
-        provider: Optional[str] = None,
-        original_error: Optional[Exception] = None,
+        provider: str | None = None,
+        original_error: Exception | None = None,
     ):
         super().__init__(
             message,
@@ -110,8 +110,8 @@ class CircuitOpenError(RPCError):
     def __init__(
         self,
         message: str = "Circuit breaker open",
-        provider: Optional[str] = None,
-        reset_at: Optional[float] = None,
+        provider: str | None = None,
+        reset_at: float | None = None,
     ):
         super().__init__(
             message,
@@ -127,9 +127,9 @@ class NonRetryableError(RPCError):
     def __init__(
         self,
         message: str,
-        status_code: Optional[int] = None,
-        provider: Optional[str] = None,
-        original_error: Optional[Exception] = None,
+        status_code: int | None = None,
+        provider: str | None = None,
+        original_error: Exception | None = None,
     ):
         super().__init__(
             message,
@@ -161,9 +161,7 @@ class RetryPolicy:
     jitter_factor: float = 0.3
     rate_limit_multiplier: float = 3.0
 
-    def calculate_delay(
-        self, attempt: int, is_rate_limited: bool = False
-    ) -> float:
+    def calculate_delay(self, attempt: int, is_rate_limited: bool = False) -> float:
         """
         Calculate delay for a given attempt number.
 
@@ -175,7 +173,7 @@ class RetryPolicy:
             Delay in seconds with jitter applied
         """
         # Exponential backoff
-        delay = self.base_delay * (self.exponential_base ** attempt)
+        delay = self.base_delay * (self.exponential_base**attempt)
 
         # Apply rate limit multiplier
         if is_rate_limited:
@@ -223,9 +221,9 @@ class CircuitBreakerState:
 
     failure_count: int = 0
     success_count: int = 0
-    last_failure_time: Optional[float] = None
+    last_failure_time: float | None = None
     state: str = "closed"  # closed, open, half_open
-    opened_at: Optional[float] = None
+    opened_at: float | None = None
 
 
 class CircuitBreaker:
@@ -260,7 +258,7 @@ class CircuitBreaker:
         self.failure_threshold = failure_threshold
         self.success_threshold = success_threshold
         self.timeout_seconds = timeout_seconds
-        self._states: Dict[str, CircuitBreakerState] = {}
+        self._states: dict[str, CircuitBreakerState] = {}
         self._lock = Lock()
 
     def _get_state(self, provider: str) -> CircuitBreakerState:
@@ -280,15 +278,11 @@ class CircuitBreaker:
 
             if state.state == "open":
                 # Check if timeout has passed
-                if state.opened_at and (
-                    time.time() - state.opened_at >= self.timeout_seconds
-                ):
+                if state.opened_at and (time.time() - state.opened_at >= self.timeout_seconds):
                     # Transition to half-open
                     state.state = "half_open"
                     state.success_count = 0
-                    logger.info(
-                        f"Circuit breaker for {provider} transitioning to HALF_OPEN"
-                    )
+                    logger.info(f"Circuit breaker for {provider} transitioning to HALF_OPEN")
                     return False
                 return True
 
@@ -306,9 +300,7 @@ class CircuitBreaker:
             if state.state == "half_open":
                 if state.success_count >= self.success_threshold:
                     state.state = "closed"
-                    logger.info(
-                        f"Circuit breaker for {provider} CLOSED (recovered)"
-                    )
+                    logger.info(f"Circuit breaker for {provider} CLOSED (recovered)")
 
     def record_failure(self, provider: str) -> None:
         """Record a failed request."""
@@ -323,21 +315,15 @@ class CircuitBreaker:
                 # Any failure in half-open opens the circuit
                 state.state = "open"
                 state.opened_at = time.time()
-                logger.warning(
-                    f"Circuit breaker for {provider} OPEN (failed in half-open)"
-                )
-            elif (
-                state.state == "closed"
-                and state.failure_count >= self.failure_threshold
-            ):
+                logger.warning(f"Circuit breaker for {provider} OPEN (failed in half-open)")
+            elif state.state == "closed" and state.failure_count >= self.failure_threshold:
                 state.state = "open"
                 state.opened_at = time.time()
                 logger.warning(
-                    f"Circuit breaker for {provider} OPEN "
-                    f"(failures: {state.failure_count})"
+                    f"Circuit breaker for {provider} OPEN (failures: {state.failure_count})"
                 )
 
-    def get_status(self, provider: str) -> Dict[str, Any]:
+    def get_status(self, provider: str) -> dict[str, Any]:
         """Get current status for a provider."""
         state = self._get_state(provider)
 
@@ -368,9 +354,7 @@ class CircuitBreaker:
 circuit_breaker = CircuitBreaker()
 
 
-def categorize_error(
-    error: Exception, status_code: Optional[int] = None
-) -> RPCErrorCategory:
+def categorize_error(error: Exception, status_code: int | None = None) -> RPCErrorCategory:
     """
     Categorize an error to determine retry strategy.
 
@@ -392,10 +376,7 @@ def categorize_error(
         return RPCErrorCategory.NON_RETRYABLE
 
     # Timeout errors
-    if any(
-        keyword in error_str
-        for keyword in ["timeout", "timed out", "connection reset", "eof"]
-    ):
+    if any(keyword in error_str for keyword in ["timeout", "timed out", "connection reset", "eof"]):
         return RPCErrorCategory.TIMEOUT
 
     # Connection errors (retryable)
@@ -437,11 +418,11 @@ def categorize_error(
 async def with_retry(
     func: Callable[..., Coroutine[Any, Any, T]],
     *args,
-    policy: Optional[RetryPolicy] = None,
+    policy: RetryPolicy | None = None,
     policy_name: str = "default",
     provider: str = "unknown",
     operation: str = "rpc_call",
-    circuit: Optional[CircuitBreaker] = None,
+    circuit: CircuitBreaker | None = None,
     **kwargs,
 ) -> T:
     """
@@ -473,18 +454,14 @@ async def with_retry(
     # Check circuit breaker
     if circuit.is_open(provider):
         state = circuit.get_status(provider)
-        reset_at = (
-            state["opened_at"] + circuit.timeout_seconds
-            if state["opened_at"]
-            else None
-        )
+        reset_at = state["opened_at"] + circuit.timeout_seconds if state["opened_at"] else None
         raise CircuitOpenError(
             f"Circuit breaker open for {provider}",
             provider=provider,
             reset_at=reset_at,
         )
 
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
 
     for attempt in range(policy.max_retries + 1):
         try:
@@ -552,7 +529,7 @@ def retry_decorator(
     """
 
     def decorator(
-        func: Callable[..., Coroutine[Any, Any, T]]
+        func: Callable[..., Coroutine[Any, Any, T]],
     ) -> Callable[..., Coroutine[Any, Any, T]]:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> T:
@@ -580,8 +557,8 @@ class MultiProviderRPC:
 
     def __init__(
         self,
-        providers: Dict[str, str],  # name -> url
-        circuit: Optional[CircuitBreaker] = None,
+        providers: dict[str, str],  # name -> url
+        circuit: CircuitBreaker | None = None,
     ):
         """
         Initialize multi-provider RPC.
@@ -594,13 +571,9 @@ class MultiProviderRPC:
         self.provider_order = list(providers.keys())
         self.circuit = circuit or circuit_breaker
 
-    def get_available_providers(self) -> List[str]:
+    def get_available_providers(self) -> list[str]:
         """Get list of available (non-open circuit) providers."""
-        return [
-            name
-            for name in self.provider_order
-            if not self.circuit.is_open(name)
-        ]
+        return [name for name in self.provider_order if not self.circuit.is_open(name)]
 
     async def call(
         self,
@@ -630,7 +603,7 @@ class MultiProviderRPC:
                 category=RPCErrorCategory.CIRCUIT_OPEN,
             )
 
-        errors: List[str] = []
+        errors: list[str] = []
 
         for provider_name in available:
             provider_url = self.providers[provider_name]
@@ -653,9 +626,7 @@ class MultiProviderRPC:
                 raise
             except RPCError as e:
                 errors.append(f"{provider_name}: {e}")
-                logger.warning(
-                    f"Provider {provider_name} failed for {operation}, trying next"
-                )
+                logger.warning(f"Provider {provider_name} failed for {operation}, trying next")
                 continue
 
         raise RPCError(
@@ -675,20 +646,20 @@ def get_retry_policy(name: str) -> RetryPolicy:
 
 
 __all__ = [
-    "RPCErrorCategory",
-    "RPCError",
-    "RateLimitError",
-    "TimeoutError",
-    "CircuitOpenError",
-    "NonRetryableError",
-    "RetryPolicy",
     "RETRY_POLICIES",
     "CircuitBreaker",
-    "circuit_breaker",
-    "categorize_error",
-    "with_retry",
-    "retry_decorator",
+    "CircuitOpenError",
     "MultiProviderRPC",
+    "NonRetryableError",
+    "RPCError",
+    "RPCErrorCategory",
+    "RateLimitError",
+    "RetryPolicy",
+    "TimeoutError",
+    "categorize_error",
+    "circuit_breaker",
     "get_circuit_breaker",
     "get_retry_policy",
+    "retry_decorator",
+    "with_retry",
 ]

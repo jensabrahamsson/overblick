@@ -8,7 +8,7 @@ import pytest
 
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.plugins.skuggspel.models import ShadowPost, ShadowProfile
-from overblick.plugins.skuggspel.plugin import SkuggspelPlugin, _DEFAULT_SHADOWS
+from overblick.plugins.skuggspel.plugin import _DEFAULT_SHADOWS, SkuggspelPlugin
 
 
 def _make_mock_identity(name="anomal"):

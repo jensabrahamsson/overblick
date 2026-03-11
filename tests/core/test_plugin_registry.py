@@ -21,8 +21,8 @@ import pytest
 
 from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.plugin_registry import (
-    PluginRegistry,
     _KNOWN_PLUGINS,
+    PluginRegistry,
 )
 
 # ---------------------------------------------------------------------------
@@ -416,9 +416,9 @@ class TestPluginRegistrySecurity:
             assert isinstance(module_path, str)
             assert isinstance(class_name, str)
             # Module paths must start with overblick.plugins
-            assert module_path.startswith(
-                "overblick.plugins."
-            ), f"Plugin '{name}' has unexpected module path: {module_path}"
+            assert module_path.startswith("overblick.plugins."), (
+                f"Plugin '{name}' has unexpected module path: {module_path}"
+            )
 
     def test_load_does_not_use_eval_or_exec(self, registry, plugin_ctx, _cleanup_known_plugins):
         """Verify the load path uses importlib, not eval or exec."""

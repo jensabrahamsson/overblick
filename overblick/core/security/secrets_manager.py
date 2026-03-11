@@ -26,7 +26,7 @@ Usage:
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -65,14 +65,14 @@ class SecretsManager:
         self._secrets_dir.mkdir(parents=True, exist_ok=True)
 
         # Key rotation support
-        self._keys: dict[str, "Fernet"] = {}  # key_id -> Fernet instance
+        self._keys: dict[str, Fernet] = {}  # key_id -> Fernet instance
         self._active_key_id: str | None = None
 
         # Load existing keys if any
         self._load_keys()
 
         # Initialize with current fernet or create new one
-        self._fernet: Optional["Fernet"] = None
+        self._fernet: Fernet | None = None
         self._cache: dict[str, dict[str, str]] = {}
 
     def _load_keys(self) -> None:
@@ -201,7 +201,7 @@ class SecretsManager:
 
         return new_key
 
-    def decrypt_with_all_keys(self, encrypted_data: str) -> Optional[bytes]:
+    def decrypt_with_all_keys(self, encrypted_data: str) -> bytes | None:
         """Try to decrypt data with all known keys (for rotation support).
 
         Args:
@@ -252,7 +252,7 @@ class SecretsManager:
 
             # Generate new key
             new_key = Fernet.generate_key()
-            timestamp = datetime.now(timezone.utc).strftime("%Y_%m_%d")
+            timestamp = datetime.now(UTC).strftime("%Y_%m_%d")
             new_key_id = f"key_{timestamp}"
 
             logger.info("Starting key rotation: %s", new_key_id)

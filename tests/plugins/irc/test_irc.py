@@ -602,8 +602,8 @@ class TestIRCPluginPrompts:
     @pytest.mark.asyncio
     async def test_continuation_prompt_includes_points_summary(self, irc_plugin, mock_ctx):
         """Continuation prompt includes 'Points already made' and message counter."""
-        from overblick.plugins.irc.models import IRCConversation, IRCTurn
         from overblick.core.llm.pipeline import PipelineResult
+        from overblick.plugins.irc.models import IRCConversation, IRCTurn
 
         irc_plugin._data_dir = mock_ctx.data_dir / "irc"
         irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
@@ -645,8 +645,8 @@ class TestIRCPluginPrompts:
     @pytest.mark.asyncio
     async def test_context_window_is_20(self, irc_plugin, mock_ctx):
         """Conversation context uses last 20 turns, not 10."""
-        from overblick.plugins.irc.models import IRCConversation, IRCTurn
         from overblick.core.llm.pipeline import PipelineResult
+        from overblick.plugins.irc.models import IRCConversation, IRCTurn
 
         irc_plugin._data_dir = mock_ctx.data_dir / "irc"
         irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)

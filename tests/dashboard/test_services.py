@@ -1,10 +1,11 @@
 """Tests for dashboard services."""
 
-import sqlite3
 import json
+import sqlite3
 import time
-import pytest
 from pathlib import Path
+
+import pytest
 
 from overblick.dashboard.services.audit import AuditService
 

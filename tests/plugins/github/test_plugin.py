@@ -3,9 +3,9 @@ Tests for the GitHubAgentPlugin — lifecycle, configuration, status.
 """
 
 import time
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.github.models import PluginState

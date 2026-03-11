@@ -48,7 +48,7 @@ class PersonalityConsultantCapability(CapabilityBase):
         self._temperature = self.ctx.config.get("temperature", 0.7)
         self._max_tokens = self.ctx.config.get("max_tokens", 800)
         logger.info(
-            "PersonalityConsultantCapability initialized for %s " "(default consultant: %s)",
+            "PersonalityConsultantCapability initialized for %s (default consultant: %s)",
             self.ctx.identity_name,
             self._default_consultant,
         )

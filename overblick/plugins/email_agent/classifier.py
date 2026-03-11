@@ -114,7 +114,7 @@ class EmailClassifier:
             return "No senders are allowed for replies (empty allow-list)"
         # opt_out mode
         if self._blocked_senders:
-            return "Can reply to any sender except: " f"{', '.join(sorted(self._blocked_senders))}"
+            return f"Can reply to any sender except: {', '.join(sorted(self._blocked_senders))}"
         return "Can reply to any sender"
 
     @staticmethod
@@ -217,8 +217,8 @@ class EmailClassifier:
                     {"role": "assistant", "content": result.content},
                     {
                         "role": "user",
-                        "content": 'Your response must be valid JSON only. '
-                        'Respond with ONLY this JSON object, no other text:\n'
+                        "content": "Your response must be valid JSON only. "
+                        "Respond with ONLY this JSON object, no other text:\n"
                         '{"intent": "ignore|notify|reply|ask_boss", "confidence": 0.0-1.0, '
                         '"reasoning": "one sentence", "priority": "low|normal|high|urgent"}',
                     },
@@ -310,7 +310,7 @@ class EmailClassifier:
         if sender_rep.get("known"):
             parts.append(
                 f"Sender: {sender_rep['total']} previous emails, "
-                f"{sender_rep['ignore_rate']*100:.0f}% ignored, "
+                f"{sender_rep['ignore_rate'] * 100:.0f}% ignored, "
                 f"{sender_rep.get('notify_count', 0)} notified, "
                 f"{sender_rep.get('reply_count', 0)} replied"
             )
@@ -322,7 +322,7 @@ class EmailClassifier:
                 feedback = f", feedback: {pos} positive / {neg} negative"
             parts.append(
                 f"Domain ({domain_rep['domain']}): {domain_rep['total']} total emails, "
-                f"{domain_rep['ignore_rate']*100:.0f}% ignored{feedback}"
+                f"{domain_rep['ignore_rate'] * 100:.0f}% ignored{feedback}"
             )
         return "\n".join(parts)
 

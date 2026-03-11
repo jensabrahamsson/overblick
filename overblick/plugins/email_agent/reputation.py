@@ -63,8 +63,8 @@ class ReputationManager:
         if "<" in addr and ">" in addr:
             addr = addr[addr.index("<") + 1 : addr.index(">")]
         safe = addr.replace("@", "_at_").replace(".", "_")
-        safe = re.sub(r'[<>:"/\\|?*\'"&()!,\s]', '_', safe)
-        safe = re.sub(r'_+', '_', safe).strip('_')
+        safe = re.sub(r'[<>:"/\\|?*\'"&()!,\s]', "_", safe)
+        safe = re.sub(r"_+", "_", safe).strip("_")
         return safe[:200]
 
     async def load_sender_profile(self, sender: str) -> SenderProfile:

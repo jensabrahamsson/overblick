@@ -11,14 +11,15 @@ Covers:
 """
 
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from overblick.capabilities.psychology.dream_system import (
-    DreamSystem,
-    DreamType,
-    DreamTone,
     Dream,
+    DreamSystem,
+    DreamTone,
+    DreamType,
 )
 
 # -- Fixtures ----------------------------------------------------------------

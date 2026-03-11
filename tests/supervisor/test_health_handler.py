@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from overblick.capabilities.monitoring.models import HostHealth, MemoryInfo, CPUInfo
+from overblick.capabilities.monitoring.models import CPUInfo, HostHealth, MemoryInfo
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.supervisor.health_handler import HealthInquiryHandler
 from overblick.supervisor.ipc import IPCMessage
@@ -195,7 +195,6 @@ class TestHealthHandlerAudit:
             "overblick.supervisor.health_handler.HostInspectionCapability",
             side_effect=Exception("boom"),
         ):
-
             msg = IPCMessage(msg_type="health_inquiry", payload={}, sender="natt")
             response = await handler.handle(msg)
 

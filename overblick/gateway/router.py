@@ -74,7 +74,7 @@ class RequestRouter:
                 )
             # Backend exists but is excluded (unhealthy) — fall back
             logger.warning(
-                "Router: explicit backend '%s' excluded (unhealthy), " "falling back to default",
+                "Router: explicit backend '%s' excluded (unhealthy), falling back to default",
                 explicit_backend,
             )
             return self._registry.default_backend

@@ -4,11 +4,12 @@ Input validation utilities for Whallet.
 Implements fail-closed validation patterns for all user inputs.
 SECURITY: Reject on ANY ambiguity - never assume input is valid.
 """
-import re
-from typing import Union
-from decimal import Decimal
-from web3 import Web3
 
+import re
+from decimal import Decimal
+from typing import Union
+
+from web3 import Web3
 
 # Constants for validation limits
 MAX_UINT256 = (1 << 256) - 1
@@ -29,7 +30,7 @@ ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD"
 
 # Ethereum address pattern (40 hex chars with 0x prefix)
-ETH_ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
+ETH_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
 
 class ValidationError(ValueError):
@@ -53,7 +54,7 @@ class InputValidator:
     """
 
     @staticmethod
-    def validate_transaction_amount(amount_wei: Union[int, str, Decimal]) -> int:
+    def validate_transaction_amount(amount_wei: int | str | Decimal) -> int:
         """
         Validate transaction amount in wei.
 
@@ -77,14 +78,10 @@ class InputValidator:
                 raise ValidationError(
                     "amount_wei",
                     "Float values not allowed for wei amounts (precision loss)",
-                    amount_wei
+                    amount_wei,
                 )
         except (ValueError, TypeError) as e:
-            raise ValidationError(
-                "amount_wei",
-                f"Must be a valid integer: {e}",
-                amount_wei
-            )
+            raise ValidationError("amount_wei", f"Must be a valid integer: {e}", amount_wei)
 
         # Range validation
         if amount_wei is None:
@@ -92,31 +89,19 @@ class InputValidator:
 
         if not isinstance(amount_wei, int):
             raise ValidationError(
-                "amount_wei",
-                f"Must be integer, got {type(amount_wei).__name__}",
-                amount_wei
+                "amount_wei", f"Must be integer, got {type(amount_wei).__name__}", amount_wei
             )
 
         if amount_wei <= 0:
-            raise ValidationError(
-                "amount_wei",
-                f"Must be positive (got {amount_wei})",
-                amount_wei
-            )
+            raise ValidationError("amount_wei", f"Must be positive (got {amount_wei})", amount_wei)
 
         if amount_wei > MAX_SAFE_AMOUNT_WEI:
             raise ValidationError(
-                "amount_wei",
-                f"Exceeds maximum safe amount ({MAX_SAFE_AMOUNT_WEI} wei)",
-                amount_wei
+                "amount_wei", f"Exceeds maximum safe amount ({MAX_SAFE_AMOUNT_WEI} wei)", amount_wei
             )
 
         if amount_wei > MAX_UINT256:
-            raise ValidationError(
-                "amount_wei",
-                "Exceeds MAX_UINT256 (overflow risk)",
-                amount_wei
-            )
+            raise ValidationError("amount_wei", "Exceeds MAX_UINT256 (overflow risk)", amount_wei)
 
         return amount_wei
 
@@ -139,9 +124,7 @@ class InputValidator:
 
         if not isinstance(address, str):
             raise ValidationError(
-                "token_address",
-                f"Must be string, got {type(address).__name__}",
-                address
+                "token_address", f"Must be string, got {type(address).__name__}", address
             )
 
         # Strip whitespace
@@ -152,39 +135,29 @@ class InputValidator:
             raise ValidationError(
                 "token_address",
                 "Invalid format (must be 0x followed by 40 hex characters)",
-                address
+                address,
             )
 
         # Check for zero address
         if address.lower() == ZERO_ADDRESS.lower():
-            raise ValidationError(
-                "token_address",
-                "Zero address (0x0) is not allowed",
-                address
-            )
+            raise ValidationError("token_address", "Zero address (0x0) is not allowed", address)
 
         # Check for dead address (common burn address)
         if address.lower() == DEAD_ADDRESS.lower():
             raise ValidationError(
-                "token_address",
-                "Dead address (0x...dEaD) is not allowed",
-                address
+                "token_address", "Dead address (0x...dEaD) is not allowed", address
             )
 
         # Convert to checksum address (validates checksum if mixed case)
         try:
             checksummed = Web3.to_checksum_address(address)
         except ValueError as e:
-            raise ValidationError(
-                "token_address",
-                f"Invalid checksum: {e}",
-                address
-            )
+            raise ValidationError("token_address", f"Invalid checksum: {e}", address)
 
         return checksummed
 
     @staticmethod
-    def validate_slippage(slippage_percent: Union[float, int, str, Decimal]) -> float:
+    def validate_slippage(slippage_percent: float | int | str | Decimal) -> float:
         """
         Validate slippage tolerance percentage.
 
@@ -205,9 +178,7 @@ class InputValidator:
                 slippage_percent = float(slippage_percent)
         except (ValueError, TypeError) as e:
             raise ValidationError(
-                "slippage_percent",
-                f"Must be a valid number: {e}",
-                slippage_percent
+                "slippage_percent", f"Must be a valid number: {e}", slippage_percent
             )
 
         if slippage_percent is None:
@@ -217,14 +188,14 @@ class InputValidator:
             raise ValidationError(
                 "slippage_percent",
                 f"Must be numeric, got {type(slippage_percent).__name__}",
-                slippage_percent
+                slippage_percent,
             )
 
         # Check for NaN/Inf
         if slippage_percent != slippage_percent:  # NaN check
             raise ValidationError("slippage_percent", "Cannot be NaN")
 
-        if abs(slippage_percent) == float('inf'):
+        if abs(slippage_percent) == float("inf"):
             raise ValidationError("slippage_percent", "Cannot be infinite")
 
         # Range validation
@@ -232,20 +203,20 @@ class InputValidator:
             raise ValidationError(
                 "slippage_percent",
                 f"Must be at least {MIN_SLIPPAGE_PERCENT}% (got {slippage_percent}%)",
-                slippage_percent
+                slippage_percent,
             )
 
         if slippage_percent > MAX_SLIPPAGE_PERCENT:
             raise ValidationError(
                 "slippage_percent",
                 f"Cannot exceed {MAX_SLIPPAGE_PERCENT}% (got {slippage_percent}%)",
-                slippage_percent
+                slippage_percent,
             )
 
         return float(slippage_percent)
 
     @staticmethod
-    def validate_gas_price(gas_price_wei: Union[int, str]) -> int:
+    def validate_gas_price(gas_price_wei: int | str) -> int:
         """
         Validate gas price in wei.
 
@@ -263,11 +234,7 @@ class InputValidator:
             if isinstance(gas_price_wei, str):
                 gas_price_wei = int(gas_price_wei)
         except (ValueError, TypeError) as e:
-            raise ValidationError(
-                "gas_price_wei",
-                f"Must be a valid integer: {e}",
-                gas_price_wei
-            )
+            raise ValidationError("gas_price_wei", f"Must be a valid integer: {e}", gas_price_wei)
 
         if gas_price_wei is None:
             raise ValidationError("gas_price_wei", "Cannot be None")
@@ -276,27 +243,25 @@ class InputValidator:
             raise ValidationError(
                 "gas_price_wei",
                 f"Must be integer, got {type(gas_price_wei).__name__}",
-                gas_price_wei
+                gas_price_wei,
             )
 
         if gas_price_wei < MIN_GAS_PRICE_WEI:
             raise ValidationError(
-                "gas_price_wei",
-                f"Below minimum ({MIN_GAS_PRICE_WEI} wei = 1 gwei)",
-                gas_price_wei
+                "gas_price_wei", f"Below minimum ({MIN_GAS_PRICE_WEI} wei = 1 gwei)", gas_price_wei
             )
 
         if gas_price_wei > MAX_GAS_PRICE_WEI:
             raise ValidationError(
                 "gas_price_wei",
                 f"Exceeds maximum ({MAX_GAS_PRICE_WEI} wei = 10,000 gwei)",
-                gas_price_wei
+                gas_price_wei,
             )
 
         return gas_price_wei
 
     @staticmethod
-    def validate_eth_amount(amount_eth: Union[float, int, str, Decimal]) -> float:
+    def validate_eth_amount(amount_eth: float | int | str | Decimal) -> float:
         """
         Validate ETH amount (human-readable format).
 
@@ -316,11 +281,7 @@ class InputValidator:
             elif isinstance(amount_eth, (int, Decimal)):
                 amount_eth = float(amount_eth)
         except (ValueError, TypeError) as e:
-            raise ValidationError(
-                "amount_eth",
-                f"Must be a valid number: {e}",
-                amount_eth
-            )
+            raise ValidationError("amount_eth", f"Must be a valid number: {e}", amount_eth)
 
         if amount_eth is None:
             raise ValidationError("amount_eth", "Cannot be None")
@@ -329,28 +290,24 @@ class InputValidator:
         if amount_eth != amount_eth:  # NaN check
             raise ValidationError("amount_eth", "Cannot be NaN")
 
-        if abs(amount_eth) == float('inf'):
+        if abs(amount_eth) == float("inf"):
             raise ValidationError("amount_eth", "Cannot be infinite")
 
         # Range validation
         if amount_eth < MIN_ETH_AMOUNT:
             raise ValidationError(
-                "amount_eth",
-                f"Below dust threshold ({MIN_ETH_AMOUNT} ETH)",
-                amount_eth
+                "amount_eth", f"Below dust threshold ({MIN_ETH_AMOUNT} ETH)", amount_eth
             )
 
         if amount_eth > MAX_ETH_AMOUNT:
             raise ValidationError(
-                "amount_eth",
-                f"Exceeds maximum ({MAX_ETH_AMOUNT} ETH)",
-                amount_eth
+                "amount_eth", f"Exceeds maximum ({MAX_ETH_AMOUNT} ETH)", amount_eth
             )
 
         return float(amount_eth)
 
     @staticmethod
-    def validate_percentage(value: Union[float, int], field_name: str = "percentage") -> float:
+    def validate_percentage(value: float | int, field_name: str = "percentage") -> float:
         """
         Validate a percentage value (0-100).
 
@@ -373,11 +330,7 @@ class InputValidator:
             raise ValidationError(field_name, f"Must be numeric: {e}", value)
 
         if value < 0 or value > 100:
-            raise ValidationError(
-                field_name,
-                f"Must be between 0 and 100 (got {value})",
-                value
-            )
+            raise ValidationError(field_name, f"Must be between 0 and 100 (got {value})", value)
 
         return value
 
@@ -402,15 +355,15 @@ def validate_slippage(slippage: float) -> float:
 
 
 __all__ = [
+    "MAX_SAFE_AMOUNT_WEI",
+    "MAX_SLIPPAGE_PERCENT",
+    "MAX_UINT256",
+    "MIN_SLIPPAGE_PERCENT",
+    "ZERO_ADDRESS",
     "InputValidator",
     "ValidationError",
-    "validator",
-    "validate_amount",
     "validate_address",
+    "validate_amount",
     "validate_slippage",
-    "MAX_UINT256",
-    "MAX_SAFE_AMOUNT_WEI",
-    "MIN_SLIPPAGE_PERCENT",
-    "MAX_SLIPPAGE_PERCENT",
-    "ZERO_ADDRESS",
+    "validator",
 ]

@@ -12,20 +12,21 @@ Covers:
 """
 
 import json
-import pytest
 from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from overblick.capabilities.psychology.dream_system import (
-    DreamSystem,
-    DreamType,
-    DreamTone,
-    Dream,
-)
+import pytest
+
 from overblick.capabilities.psychology.dream import (
     DreamCapability,
     _load_dream_guidance,
+)
+from overblick.capabilities.psychology.dream_system import (
+    Dream,
+    DreamSystem,
+    DreamTone,
+    DreamType,
 )
 from overblick.core.capability import CapabilityContext
 

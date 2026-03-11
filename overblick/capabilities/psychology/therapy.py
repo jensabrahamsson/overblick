@@ -48,20 +48,18 @@ class TherapyCapability(CapabilityBase):
                 self.ctx.identity_name,
             )
         else:
-            # TherapySystem handles llm_client=None gracefully (template fallback).
-            # Only pass the raw client if RAW_LLM is explicitly enabled.
-            raw_client = self.ctx.llm_client if raw_llm() else None
+            # TherapySystem handles llm_pipeline=None gracefully (template fallback).
+            llm_pipeline = self.ctx.llm_pipeline
             system_prompt = self.ctx.config.get("system_prompt", "")
             self._therapy_system = TherapySystem(
-                llm_client=raw_client,
+                llm_pipeline=llm_pipeline,
                 system_prompt=system_prompt,
                 therapy_day=therapy_day,
             )
             logger.info(
-                "TherapyCapability (LLM/Jungian-Freudian) initialized for %s (day=%s, raw_llm=%s)",
+                "TherapyCapability (LLM/Jungian-Freudian) initialized for %s (day=%s)",
                 self.ctx.identity_name,
                 TherapySystem._day_name(therapy_day),
-                raw_llm(),
             )
 
     def is_therapy_day(self) -> bool:

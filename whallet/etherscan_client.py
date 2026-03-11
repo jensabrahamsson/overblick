@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 import requests
 
@@ -28,7 +29,7 @@ class TokenHolding:
     def normalized_balance(self) -> Decimal:
         if self.decimals == 0:
             return Decimal(self.raw_balance)
-        return Decimal(self.raw_balance) / Decimal(10 ** self.decimals)
+        return Decimal(self.raw_balance) / Decimal(10**self.decimals)
 
 
 class EtherscanClient:
@@ -38,7 +39,7 @@ class EtherscanClient:
     CHAIN_ID = 1  # Ethereum mainnet
     RATE_LIMIT_DELAY = 0.5  # 500ms delay = 2 calls/sec (safe margin for parallel instances)
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         settings = get_settings()
         self.api_key = api_key or settings.etherscan_api_key
         self._last_request_time = 0.0
@@ -55,10 +56,10 @@ class EtherscanClient:
         response = self._request(params)
         return int(response["result"])
 
-    def get_token_holdings(self, address: str) -> List[TokenHolding]:
+    def get_token_holdings(self, address: str) -> list[TokenHolding]:
         transfers = self._get_token_transfers(address)
         tokens = self._extract_unique_tokens(transfers)
-        holdings: List[TokenHolding] = []
+        holdings: list[TokenHolding] = []
         for token in tokens.values():
             try:
                 raw_balance = self._get_token_balance(address, token["contractAddress"])  # type: ignore[index]
@@ -79,7 +80,7 @@ class EtherscanClient:
             )
         return holdings
 
-    def _get_token_transfers(self, address: str) -> List[Dict[str, str]]:
+    def _get_token_transfers(self, address: str) -> list[dict[str, str]]:
         params = {
             "chainid": self.CHAIN_ID,
             "module": "account",
@@ -110,8 +111,8 @@ class EtherscanClient:
         return int(response["result"])
 
     @staticmethod
-    def _extract_unique_tokens(transfers: Iterable[Dict[str, str]]) -> Dict[str, Dict[str, str]]:
-        tokens: Dict[str, Dict[str, str]] = {}
+    def _extract_unique_tokens(transfers: Iterable[dict[str, str]]) -> dict[str, dict[str, str]]:
+        tokens: dict[str, dict[str, str]] = {}
         for transfer in transfers:
             contract = transfer.get("contractAddress")
             if not contract:
@@ -120,7 +121,7 @@ class EtherscanClient:
                 tokens[contract] = transfer
         return tokens
 
-    def _request(self, params: Dict[str, str]) -> Dict[str, str]:
+    def _request(self, params: dict[str, str]) -> dict[str, str]:
         # Rate limiting: ensure minimum delay between requests
         elapsed = time.time() - self._last_request_time
         if elapsed < self.RATE_LIMIT_DELAY:

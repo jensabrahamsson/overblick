@@ -2,8 +2,8 @@
 
 import pytest
 
-from overblick.plugins.compass.stylometry import analyze_text, compute_drift_score
 from overblick.plugins.compass.models import StyleMetrics
+from overblick.plugins.compass.stylometry import analyze_text, compute_drift_score
 
 
 class TestAnalyzeText:

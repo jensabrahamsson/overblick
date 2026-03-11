@@ -1,9 +1,9 @@
 """Integration tests for the learning system — end-to-end flows."""
 
 import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from overblick.core.learning.models import Learning, LearningStatus
 from overblick.core.learning.store import LearningStore
@@ -22,7 +22,9 @@ def _make_pipeline(responses: list[str] | str = "APPROVED: Good"):
         results.append(r)
 
     pipeline = AsyncMock()
-    pipeline._chat_with_overrides = AsyncMock(side_effect=results if len(results) > 1 else results * 100)
+    pipeline._chat_with_overrides = AsyncMock(
+        side_effect=results if len(results) > 1 else results * 100
+    )
     return pipeline
 
 

@@ -4,7 +4,7 @@ Tests for OpeningSelector — variety in engagement openings.
 
 import pytest
 
-from overblick.capabilities.social.opening_selector import OpeningSelector, DEFAULT_OPENINGS
+from overblick.capabilities.social.opening_selector import DEFAULT_OPENINGS, OpeningSelector
 
 
 class TestOpeningSelector:

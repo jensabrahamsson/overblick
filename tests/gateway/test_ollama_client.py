@@ -1,15 +1,16 @@
 """Tests for Ollama client."""
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import httpx
+import pytest
 
 from overblick.gateway.config import GatewayConfig
-from overblick.gateway.models import ChatRequest, ChatMessage
+from overblick.gateway.models import ChatMessage, ChatRequest
 from overblick.gateway.ollama_client import (
     OllamaClient,
-    OllamaError,
     OllamaConnectionError,
+    OllamaError,
     OllamaTimeoutError,
 )
 

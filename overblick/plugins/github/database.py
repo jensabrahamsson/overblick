@@ -406,8 +406,7 @@ class GitHubDB:
     async def was_pr_auto_merged(self, repo: str, pr_number: int) -> bool:
         """Check if a PR was already auto-merged by us."""
         count = await self._db.fetch_scalar(
-            "SELECT COUNT(*) FROM pr_tracking "
-            "WHERE repo = ? AND pr_number = ? AND auto_merged = 1",
+            "SELECT COUNT(*) FROM pr_tracking WHERE repo = ? AND pr_number = ? AND auto_merged = 1",
             (repo, pr_number),
         )
         return (count or 0) > 0

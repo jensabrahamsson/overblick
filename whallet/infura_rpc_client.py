@@ -5,13 +5,14 @@ Uses Infura HTTP endpoint for standard JSON-RPC calls.
 Standalone version for Whallet - copied from ethereum_ng.
 """
 
-import aiohttp
 import asyncio
 import logging
 import random
 import time
-from typing import Dict, Optional, List
 from collections import OrderedDict
+from typing import Dict, List, Optional
+
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class MetadataCache:
     """
 
     # Only these fields are safe to cache (immutable after deployment)
-    CACHEABLE_FIELDS = {'name', 'symbol', 'decimals', 'total_supply', 'address', 'source'}
+    CACHEABLE_FIELDS = {"name", "symbol", "decimals", "total_supply", "address", "source"}
 
     def __init__(self, ttl_hours: int = 24, max_size: int = 50000):
         """
@@ -46,7 +47,7 @@ class MetadataCache:
         self.hits = 0
         self.misses = 0
 
-    def get(self, address: str) -> Optional[Dict]:
+    def get(self, address: str) -> dict | None:
         """
         Get cached metadata if available and fresh.
 
@@ -60,23 +61,23 @@ class MetadataCache:
 
         if key in self.cache:
             entry = self.cache[key]
-            age = time.time() - entry['timestamp']
+            age = time.time() - entry["timestamp"]
 
             if age < self.ttl:
                 # Move to end (LRU)
                 self.cache.move_to_end(key)
                 self.hits += 1
-                logger.debug(f"✅ Cache HIT for {address[:10]}... (age: {age/3600:.1f}h)")
-                return entry['data'].copy()
+                logger.debug(f"✅ Cache HIT for {address[:10]}... (age: {age / 3600:.1f}h)")
+                return entry["data"].copy()
             else:
                 # Expired - remove
                 del self.cache[key]
-                logger.debug(f"⏰ Cache EXPIRED for {address[:10]}... (age: {age/3600:.1f}h)")
+                logger.debug(f"⏰ Cache EXPIRED for {address[:10]}... (age: {age / 3600:.1f}h)")
 
         self.misses += 1
         return None
 
-    def set(self, address: str, metadata: Dict) -> None:
+    def set(self, address: str, metadata: dict) -> None:
         """
         Cache metadata (only immutable fields).
 
@@ -87,13 +88,14 @@ class MetadataCache:
         key = address.lower()
 
         # Extract only cacheable (immutable) fields
-        cached_data = {
-            k: v for k, v in metadata.items()
-            if k in self.CACHEABLE_FIELDS
-        }
+        cached_data = {k: v for k, v in metadata.items() if k in self.CACHEABLE_FIELDS}
 
         # Only cache if we have useful data
-        if cached_data.get('name') or cached_data.get('symbol') or cached_data.get('decimals') is not None:
+        if (
+            cached_data.get("name")
+            or cached_data.get("symbol")
+            or cached_data.get("decimals") is not None
+        ):
             # Enforce max size (LRU eviction)
             if len(self.cache) >= self.max_size:
                 # Remove oldest entry
@@ -101,26 +103,24 @@ class MetadataCache:
                 del self.cache[oldest_key]
                 logger.debug(f"🗑️ Cache eviction (max size reached): {oldest_key[:10]}...")
 
-            self.cache[key] = {
-                'data': cached_data,
-                'timestamp': time.time()
-            }
+            self.cache[key] = {"data": cached_data, "timestamp": time.time()}
             self.cache.move_to_end(key)  # Mark as recently used
             logger.debug(f"💾 Cached metadata for {address[:10]}...")
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get cache statistics."""
         total_requests = self.hits + self.misses
         hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0
 
         return {
-            'size': len(self.cache),
-            'max_size': self.max_size,
-            'hits': self.hits,
-            'misses': self.misses,
-            'hit_rate_percent': hit_rate,
-            'ttl_hours': self.ttl / 3600
+            "size": len(self.cache),
+            "max_size": self.max_size,
+            "hits": self.hits,
+            "misses": self.misses,
+            "hit_rate_percent": hit_rate,
+            "ttl_hours": self.ttl / 3600,
         }
+
 
 class InfuraRPCClient:
     """
@@ -155,20 +155,15 @@ class InfuraRPCClient:
         if self.session:
             await self.session.close()
 
-    async def _make_rpc_call(self, method: str, params: List) -> Optional[Dict]:
+    async def _make_rpc_call(self, method: str, params: list) -> dict | None:
         """Make a JSON-RPC call to Ethereum node."""
         if not self.session:
             self.session = aiohttp.ClientSession()
 
-        payload = {
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-            "id": 1
-        }
+        payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
 
         for attempt in range(self._max_retries):
-            backoff = self._base_backoff * (2 ** attempt)
+            backoff = self._base_backoff * (2**attempt)
             jitter = random.uniform(0.0, 0.3)
             await self._throttle()
 
@@ -177,7 +172,7 @@ class InfuraRPCClient:
                     self.rpc_url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
-                    timeout=aiohttp.ClientTimeout(total=10)
+                    timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -216,27 +211,29 @@ class InfuraRPCClient:
                 now = asyncio.get_running_loop().time()
             self._last_call_ts = now
 
-    async def get_transaction(self, tx_hash: str) -> Optional[Dict]:
+    async def get_transaction(self, tx_hash: str) -> dict | None:
         """Get transaction details by hash."""
         return await self._make_rpc_call("eth_getTransactionByHash", [tx_hash])
 
-    async def get_transaction_receipt(self, tx_hash: str) -> Optional[Dict]:
+    async def get_transaction_receipt(self, tx_hash: str) -> dict | None:
         """Get transaction receipt by hash."""
         return await self._make_rpc_call("eth_getTransactionReceipt", [tx_hash])
 
-    async def get_block_by_number(self, block_number: int, full_transactions: bool = False) -> Optional[Dict]:
+    async def get_block_by_number(
+        self, block_number: int, full_transactions: bool = False
+    ) -> dict | None:
         """Get block by number."""
         block_hex = hex(block_number)
         return await self._make_rpc_call("eth_getBlockByNumber", [block_hex, full_transactions])
 
-    async def get_latest_block_number(self) -> Optional[int]:
+    async def get_latest_block_number(self) -> int | None:
         """Get the latest block number."""
         result = await self._make_rpc_call("eth_blockNumber", [])
         if result:
             return int(result, 16)
         return None
 
-    async def get_code(self, address: str, block: str = "latest") -> Optional[str]:
+    async def get_code(self, address: str, block: str = "latest") -> str | None:
         """
         Get the compiled byte code of a smart contract at the given address.
 
@@ -249,15 +246,14 @@ class InfuraRPCClient:
         """
         return await self._make_rpc_call("eth_getCode", [address, block])
 
-    async def call_contract(self, contract_address: str, data: str, block: str = "latest") -> Optional[str]:
+    async def call_contract(
+        self, contract_address: str, data: str, block: str = "latest"
+    ) -> str | None:
         """Make a contract call."""
-        call_data = {
-            "to": contract_address,
-            "data": data
-        }
+        call_data = {"to": contract_address, "data": data}
         return await self._make_rpc_call("eth_call", [call_data, block])
 
-    async def get_erc20_token_info(self, contract_address: str) -> Dict:
+    async def get_erc20_token_info(self, contract_address: str) -> dict:
         """
         Get ERC-20 token information by calling standard methods.
         Returns name, symbol, decimals, and total supply.
@@ -274,13 +270,13 @@ class InfuraRPCClient:
             "symbol": None,
             "decimals": None,
             "total_supply": None,
-            "source": "ethereum_rpc"
+            "source": "ethereum_rpc",
         }
 
         try:
             # Standard ERC-20 method signatures
-            name_sig = "0x06fdde03"      # name()
-            symbol_sig = "0x95d89b41"    # symbol()
+            name_sig = "0x06fdde03"  # name()
+            symbol_sig = "0x95d89b41"  # symbol()
             decimals_sig = "0x313ce567"  # decimals()
             total_supply_sig = "0x18160ddd"  # totalSupply()
 
@@ -289,7 +285,7 @@ class InfuraRPCClient:
                 self.call_contract(contract_address, name_sig),
                 self.call_contract(contract_address, symbol_sig),
                 self.call_contract(contract_address, decimals_sig),
-                self.call_contract(contract_address, total_supply_sig)
+                self.call_contract(contract_address, total_supply_sig),
             ]
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -318,12 +314,16 @@ class InfuraRPCClient:
 
             # Validate this is a proper ERC-20 token (must have decimals)
             if (token_info["name"] or token_info["symbol"]) and token_info["decimals"] is not None:
-                logger.info(f"✅ Retrieved ERC-20 token info for {contract_address}: {token_info['name']} ({token_info['symbol']}) - {token_info['decimals']} decimals")
+                logger.info(
+                    f"✅ Retrieved ERC-20 token info for {contract_address}: {token_info['name']} ({token_info['symbol']}) - {token_info['decimals']} decimals"
+                )
                 # Cache successful metadata (only immutable fields)
                 self.metadata_cache.set(contract_address, token_info)
                 return token_info
             else:
-                logger.debug(f"❌ Not a valid ERC-20 token {contract_address} (missing decimals or metadata)")
+                logger.debug(
+                    f"❌ Not a valid ERC-20 token {contract_address} (missing decimals or metadata)"
+                )
                 token_info["source"] = "not_erc20"
                 return token_info
 
@@ -332,7 +332,9 @@ class InfuraRPCClient:
             token_info["source"] = "error"
             return token_info
 
-    async def batch_get_erc20_metadata(self, contract_addresses: List[str], max_concurrent: int = 10) -> List[Dict]:
+    async def batch_get_erc20_metadata(
+        self, contract_addresses: list[str], max_concurrent: int = 10
+    ) -> list[dict]:
         """
         Batch fetch ERC-20 metadata for multiple tokens concurrently.
 
@@ -351,7 +353,7 @@ class InfuraRPCClient:
         # Create tasks with semaphore to limit concurrency
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def fetch_with_semaphore(address: str) -> Dict:
+        async def fetch_with_semaphore(address: str) -> dict:
             async with semaphore:
                 try:
                     return await self.get_erc20_token_info(address)
@@ -363,7 +365,7 @@ class InfuraRPCClient:
                         "symbol": None,
                         "decimals": None,
                         "total_supply": None,
-                        "source": "error"
+                        "source": "error",
                     }
 
         # Fetch all concurrently
@@ -375,23 +377,27 @@ class InfuraRPCClient:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.error(f"Exception fetching {contract_addresses[i]}: {result}")
-                metadata_list.append({
-                    "address": contract_addresses[i],
-                    "name": None,
-                    "symbol": None,
-                    "decimals": None,
-                    "total_supply": None,
-                    "source": "exception"
-                })
+                metadata_list.append(
+                    {
+                        "address": contract_addresses[i],
+                        "name": None,
+                        "symbol": None,
+                        "decimals": None,
+                        "total_supply": None,
+                        "source": "exception",
+                    }
+                )
             else:
                 metadata_list.append(result)
 
         successful = sum(1 for m in metadata_list if m.get("source") == "ethereum_rpc")
-        logger.info(f"✅ Batch metadata fetch complete: {successful}/{len(contract_addresses)} successful")
+        logger.info(
+            f"✅ Batch metadata fetch complete: {successful}/{len(contract_addresses)} successful"
+        )
 
         return metadata_list
 
-    def _decode_string(self, hex_data: str) -> Optional[str]:
+    def _decode_string(self, hex_data: str) -> str | None:
         """
         Decode hex-encoded string from contract call.
         Handles both fixed-length and dynamic string encoding.
@@ -410,21 +416,21 @@ class InfuraRPCClient:
                 length = int(length_hex, 16)
 
                 # Extract the actual string data
-                string_hex = hex_data[128:128 + (length * 2)]
+                string_hex = hex_data[128 : 128 + (length * 2)]
 
                 # Convert to bytes and decode
                 string_bytes = bytes.fromhex(string_hex)
-                return string_bytes.decode('utf-8', errors='ignore').strip('\x00')
+                return string_bytes.decode("utf-8", errors="ignore").strip("\x00")
             else:
                 # Simple hex to string conversion
                 string_bytes = bytes.fromhex(hex_data)
-                return string_bytes.decode('utf-8', errors='ignore').strip('\x00')
+                return string_bytes.decode("utf-8", errors="ignore").strip("\x00")
 
         except Exception as e:
             logger.debug(f"Failed to decode string from {hex_data}: {e}")
             return None
 
-    async def analyze_transaction_for_token_creation(self, tx_hash: str) -> Optional[Dict]:
+    async def analyze_transaction_for_token_creation(self, tx_hash: str) -> dict | None:
         """
         Analyze a transaction to determine if it created a new ERC-20 token.
         Returns token creation details if found.
@@ -452,7 +458,7 @@ class InfuraRPCClient:
                         "creator": tx_data.get("from"),
                         "token_info": token_info,
                         "gas_used": int(tx_receipt["gasUsed"], 16),
-                        "status": int(tx_receipt["status"], 16)
+                        "status": int(tx_receipt["status"], 16),
                     }
 
             return None
@@ -461,12 +467,11 @@ class InfuraRPCClient:
             logger.error(f"Error analyzing transaction {tx_hash}: {e}")
             return None
 
-    async def get_logs(self, from_block: int, to_block: int, address: str = None, topics: List[str] = None) -> List[Dict]:
+    async def get_logs(
+        self, from_block: int, to_block: int, address: str = None, topics: list[str] = None
+    ) -> list[dict]:
         """Get logs for specified block range and filters."""
-        params = {
-            "fromBlock": hex(from_block),
-            "toBlock": hex(to_block)
-        }
+        params = {"fromBlock": hex(from_block), "toBlock": hex(to_block)}
 
         if address:
             params["address"] = address

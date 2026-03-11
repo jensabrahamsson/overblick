@@ -9,20 +9,20 @@ Verifies:
 - Session lifecycle: lazy creation, close, auth headers
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
 
 from overblick.gateway.deepseek_client import (
     DeepseekClient,
-    DeepseekError,
     DeepseekConnectionError,
+    DeepseekError,
     DeepseekTimeoutError,
 )
 from overblick.gateway.models import (
-    ChatRequest,
     ChatMessage,
+    ChatRequest,
     ChatResponse,
 )
 

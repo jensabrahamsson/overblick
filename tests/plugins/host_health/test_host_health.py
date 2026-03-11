@@ -10,9 +10,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from overblick.plugins.host_health.plugin import (
-    HostHealthPlugin,
     _DEFAULT_INTERVAL_SECONDS,
     _FALLBACK_MOTIVATIONS,
+    HostHealthPlugin,
 )
 from overblick.supervisor.ipc import IPCMessage
 

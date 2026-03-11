@@ -1,9 +1,9 @@
 """Unit tests for LearningStore."""
 
 import struct
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from overblick.core.learning.models import Learning, LearningStatus
 from overblick.core.learning.store import (

@@ -143,7 +143,7 @@ class BugObserver:
         parts.append("\n## Workspace")
         ws = obs.workspace
         parts.append(
-            f"- Cloned: {ws.cloned}, Branch: {ws.current_branch or 'N/A'}, " f"Clean: {ws.is_clean}"
+            f"- Cloned: {ws.cloned}, Branch: {ws.current_branch or 'N/A'}, Clean: {ws.is_clean}"
         )
 
         # Recent activity

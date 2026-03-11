@@ -2,8 +2,9 @@
 Tests for AgentLoop — full cycle with mock observer/handlers.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from overblick.core.agentic.executor import ActionExecutor
 from overblick.core.agentic.goal_tracker import GoalTracker

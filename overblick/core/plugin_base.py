@@ -129,7 +129,6 @@ class PluginContext(BaseModel):
         Returns:
             Raw LLM client if OVERBLICK_RAW_LLM=1, otherwise raises RuntimeError.
         """
-        from overblick.core.security.settings import raw_llm
 
         if not raw_llm():
             # Log critical security event with stack trace to identify who's calling this

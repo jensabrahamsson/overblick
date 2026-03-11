@@ -10,15 +10,15 @@ Covers:
 - _derive_provisioner_state with plugin_configs
 """
 
-import yaml
-import pytest
 from pathlib import Path
 
+import pytest
+import yaml
 from cryptography.fernet import Fernet
 
-from overblick.identities import _deep_merge, _build_identity, _load_yaml
+from overblick.identities import _build_identity, _deep_merge, _load_yaml
 from overblick.setup.provisioner import _build_plugin_configs, provision
-from overblick.setup.wizard import _uc_to_plugin_key, _derive_provisioner_state, _USE_CASE_MAP
+from overblick.setup.wizard import _USE_CASE_MAP, _derive_provisioner_state, _uc_to_plugin_key
 
 # ---------------------------------------------------------------------------
 # _deep_merge tests

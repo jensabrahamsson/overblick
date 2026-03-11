@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from overblick.core.llm.pipeline import PipelineResult, PipelineStage
+from overblick.core.plugin_base import PluginContext
 from overblick.identities import (
     Identity,
     LLMSettings,
@@ -14,8 +16,6 @@ from overblick.identities import (
     ScheduleSettings,
     SecuritySettings,
 )
-from overblick.core.llm.pipeline import PipelineResult, PipelineStage
-from overblick.core.plugin_base import PluginContext
 from overblick.plugins.telegram.plugin import TelegramPlugin
 
 # ---------------------------------------------------------------------------

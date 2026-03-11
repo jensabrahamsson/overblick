@@ -17,7 +17,8 @@ import logging
 import sqlite3
 import threading
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
+from typing import Optional
 
 from web3 import Web3
 
@@ -49,7 +50,7 @@ class NonceManager:
         web3,
         address: str,
         db_path: str,
-        chain_nonce_fn: Optional[Callable[[str], int]] = None,
+        chain_nonce_fn: Callable[[str], int] | None = None,
     ):
         """
         Initialize NonceManager.
@@ -69,7 +70,9 @@ class NonceManager:
         self._lock = threading.Lock()
         self._init_database()
 
-        logger.info(f"NonceManager initialized for {self._checksum_address[:10]}... (db: {db_path})")
+        logger.info(
+            f"NonceManager initialized for {self._checksum_address[:10]}... (db: {db_path})"
+        )
 
     def _init_database(self) -> None:
         """Initialize SQLite database with nonce tracking table."""
@@ -126,8 +129,7 @@ class NonceManager:
         try:
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT local_nonce FROM {self.TABLE_NAME} WHERE address = ?",
-                (self.address,)
+                f"SELECT local_nonce FROM {self.TABLE_NAME} WHERE address = ?", (self.address,)
             )
             row = cursor.fetchone()
             return row["local_nonce"] if row else 0
@@ -141,13 +143,16 @@ class NonceManager:
             cursor = conn.cursor()
             now = time.time()
 
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 INSERT INTO {self.TABLE_NAME} (address, local_nonce, last_updated)
                 VALUES (?, ?, ?)
                 ON CONFLICT(address) DO UPDATE SET
                     local_nonce = excluded.local_nonce,
                     last_updated = excluded.last_updated
-            """, (self.address, nonce, now))
+            """,
+                (self.address, nonce, now),
+            )
 
             conn.commit()
         finally:
@@ -198,8 +203,7 @@ class NonceManager:
             self._update_sync_time()
 
             logger.debug(
-                f"Nonce allocated: {next_nonce} "
-                f"(chain={chain_nonce}, local={local_nonce})"
+                f"Nonce allocated: {next_nonce} (chain={chain_nonce}, local={local_nonce})"
             )
 
             return next_nonce
@@ -210,10 +214,13 @@ class NonceManager:
         try:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO nonce_history (address, nonce, status)
                 VALUES (?, ?, 'allocated')
-            """, (self.address, nonce))
+            """,
+                (self.address, nonce),
+            )
 
             conn.commit()
         finally:
@@ -226,11 +233,14 @@ class NonceManager:
             cursor = conn.cursor()
             now = time.time()
 
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 UPDATE {self.TABLE_NAME}
                 SET last_sync_time = ?
                 WHERE address = ?
-            """, (now, self.address))
+            """,
+                (now, self.address),
+            )
 
             conn.commit()
         finally:
@@ -251,16 +261,20 @@ class NonceManager:
                 now = time.time()
 
                 # Update main tracking table
-                cursor.execute(f"""
+                cursor.execute(
+                    f"""
                     UPDATE {self.TABLE_NAME}
                     SET last_used_nonce = ?,
                         last_tx_hash = ?,
                         last_updated = ?
                     WHERE address = ?
-                """, (nonce, tx_hash, now, self.address))
+                """,
+                    (nonce, tx_hash, now, self.address),
+                )
 
                 # Update history record (using subquery since SQLite doesn't support ORDER BY in UPDATE)
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE nonce_history
                     SET tx_hash = ?, status = 'submitted'
                     WHERE rowid = (
@@ -269,7 +283,9 @@ class NonceManager:
                         ORDER BY created_at DESC
                         LIMIT 1
                     )
-                """, (tx_hash, self.address, nonce))
+                """,
+                    (tx_hash, self.address, nonce),
+                )
 
                 conn.commit()
             finally:
@@ -293,9 +309,7 @@ class NonceManager:
         with self._lock:
             local_nonce = self._get_local_nonce()
             if local_nonce != nonce + 1:
-                logger.debug(
-                    f"Nonce release skipped: local_nonce={local_nonce}, nonce={nonce}"
-                )
+                logger.debug(f"Nonce release skipped: local_nonce={local_nonce}, nonce={nonce}")
                 return False
 
             # Roll back local nonce to the released value
@@ -305,7 +319,8 @@ class NonceManager:
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE nonce_history
                     SET status = 'released'
                     WHERE rowid = (
@@ -314,7 +329,9 @@ class NonceManager:
                         ORDER BY created_at DESC
                         LIMIT 1
                     )
-                """, (self.address, nonce))
+                """,
+                    (self.address, nonce),
+                )
                 conn.commit()
             finally:
                 conn.close()
@@ -348,7 +365,8 @@ class NonceManager:
                 cursor = conn.cursor()
 
                 # Using subquery since SQLite doesn't support ORDER BY in UPDATE
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE nonce_history
                     SET status = ?
                     WHERE rowid = (
@@ -357,7 +375,9 @@ class NonceManager:
                         ORDER BY created_at DESC
                         LIMIT 1
                     )
-                """, (f"failed_{error_type}", self.address, failed_nonce))
+                """,
+                    (f"failed_{error_type}", self.address, failed_nonce),
+                )
 
                 conn.commit()
             finally:
@@ -423,19 +443,21 @@ class NonceManager:
 
                 # Get main tracking data
                 cursor.execute(
-                    f"SELECT * FROM {self.TABLE_NAME} WHERE address = ?",
-                    (self.address,)
+                    f"SELECT * FROM {self.TABLE_NAME} WHERE address = ?", (self.address,)
                 )
                 row = cursor.fetchone()
 
                 # Get recent history
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT nonce, status, tx_hash, created_at
                     FROM nonce_history
                     WHERE address = ?
                     ORDER BY created_at DESC
                     LIMIT 10
-                """, (self.address,))
+                """,
+                    (self.address,),
+                )
                 history = [dict(r) for r in cursor.fetchall()]
             finally:
                 conn.close()
@@ -455,4 +477,4 @@ class NonceManager:
             }
 
 
-__all__ = ['NonceManager']
+__all__ = ["NonceManager"]

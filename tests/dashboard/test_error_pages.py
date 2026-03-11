@@ -1,7 +1,9 @@
 """Tests for branded error pages (404, 500, generic exceptions)."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
+
 from overblick.dashboard.auth import SESSION_COOKIE
 
 
