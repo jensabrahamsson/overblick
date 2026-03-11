@@ -18,10 +18,10 @@ llm:
       model: qwen3:8b
     cloud:
       enabled: false
-      type: ollama
-      host: ''
-      port: 11434
-      model: qwen3:8b
+      type: openai
+      host: '10.8.0.24'
+      port: 1234
+      model: qwen/qwen3.5-35b-a3b
     deepseek:
       enabled: false
       type: deepseek
