@@ -39,7 +39,7 @@ class TestSummarizerCapability:
     @pytest.mark.asyncio
     async def test_summarize_with_pipeline(self):
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
+        pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content="This is a summary of the text.",
             )
@@ -50,18 +50,18 @@ class TestSummarizerCapability:
 
         result = await cap.summarize("A long text about many topics.", max_length=50)
         assert result == "This is a summary of the text."
-        pipeline.chat.assert_called_once()
+        pipeline._chat_with_overrides.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_summarize_with_client_fallback(self):
-        client = AsyncMock()
-        client.chat = AsyncMock(return_value={"content": "Summary via client."})
-        ctx = make_ctx(llm_client=client)
+        # Test that summarizer returns None when no LLM is available
+        # (no pipeline, and raw LLM access is disabled by default)
+        ctx = make_ctx()  # No llm_pipeline, no llm_client
         cap = SummarizerCapability(ctx)
         await cap.setup()
 
         result = await cap.summarize("A long text about many topics.")
-        assert result == "Summary via client."
+        assert result is None  # No LLM available
 
     @pytest.mark.asyncio
     async def test_summarize_empty_text(self):

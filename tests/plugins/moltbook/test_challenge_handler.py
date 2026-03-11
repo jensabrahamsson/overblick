@@ -14,6 +14,7 @@ from overblick.plugins.moltbook.challenge_handler import (
     deobfuscate_challenge,
     solve_arithmetic,
 )
+from overblick.core.llm.pipeline import PipelineResult
 
 
 def _make_mock_session(status=200, body='{"success": true}'):
@@ -313,8 +314,8 @@ class TestComplexityRouting:
         # First call (ultra) fails, second call (low) succeeds
         llm.chat = AsyncMock(
             side_effect=[
-                MagicMock(blocked=True, block_reason="Ultra backend unavailable"),
-                MagicMock(blocked=False, content="blue"),
+                PipelineResult(blocked=True, block_reason="Ultra backend unavailable"),
+                PipelineResult(blocked=False, content="blue"),
             ]
         )
         session = _make_mock_session()
@@ -342,7 +343,9 @@ class TestComplexityRouting:
     async def test_arithmetic_fallback_when_llm_fails(self):
         """Arithmetic solver is used as fallback when all LLMs fail."""
         llm = AsyncMock()
-        llm.chat = AsyncMock(return_value=MagicMock(blocked=True, content=None))  # Both LLM attempts fail
+        llm.chat = AsyncMock(
+            return_value=PipelineResult(blocked=True, content=None)
+        )  # Both LLM attempts fail
         session = _make_mock_session()
 
         handler = PerContentChallengeHandler(
@@ -499,6 +502,7 @@ class TestAuditEvents:
         audit_log = MagicMock()
         llm = AsyncMock()
         from overblick.core.llm.pipeline import PipelineResult
+
         llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
         session = _make_mock_session()
 
@@ -532,6 +536,7 @@ class TestAuditEvents:
         audit_log = MagicMock()
         llm = AsyncMock()
         from overblick.core.llm.pipeline import PipelineResult
+
         llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
         session = _make_mock_session()
 
@@ -565,6 +570,7 @@ class TestAuditEvents:
         audit_log = MagicMock()
         llm = AsyncMock()
         from overblick.core.llm.pipeline import PipelineResult
+
         llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
         session = _make_mock_session()
 
@@ -602,6 +608,7 @@ class TestDBRecording:
         engagement_db = AsyncMock()
         llm = AsyncMock()
         from overblick.core.llm.pipeline import PipelineResult
+
         llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
         session = _make_mock_session()
 
@@ -632,6 +639,7 @@ class TestDBRecording:
         engagement_db = AsyncMock()
         llm = AsyncMock()
         from overblick.core.llm.pipeline import PipelineResult
+
         llm.chat = AsyncMock(return_value=PipelineResult(content="50"))
 
         # No session = no submit possible
@@ -974,6 +982,7 @@ class TestLLMAnswerValidation:
         session = _make_mock_session(200, '{"success": true}')
         llm = AsyncMock()
         from overblick.core.llm.pipeline import PipelineResult
+
         llm.chat = AsyncMock(return_value=PipelineResult(content="30"))
 
         handler = PerContentChallengeHandler(

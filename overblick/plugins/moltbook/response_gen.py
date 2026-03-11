@@ -8,7 +8,9 @@ prompt logic and parsing (e.g. heartbeat title/content/submolt).
 import logging
 from typing import Any, Optional, Tuple
 
-from overblick.capabilities.engagement.response_gen import ResponseGenerator as CoreResponseGenerator
+from overblick.capabilities.engagement.response_gen import (
+    ResponseGenerator as CoreResponseGenerator,
+)
 from overblick.core.llm.pipeline import SafeLLMPipeline
 
 logger = logging.getLogger(__name__)
@@ -17,7 +19,7 @@ logger = logging.getLogger(__name__)
 class ResponseGenerator:
     """
     Moltbook-specific response generator.
-    
+
     Wraps CoreResponseGenerator to provide specialized methods for
     comments, replies, heartbeats, and DMs.
     """
@@ -44,10 +46,10 @@ class ResponseGenerator:
         format_vars = {
             "title": post_title,
             "content": post_content,
-            "post_content": post_content, # Add for template compatibility
+            "post_content": post_content,  # Add for template compatibility
             "agent_name": agent_name,
             "author": agent_name,  # Add author for templates that use it
-            "existing_comments": "", # Default empty
+            "existing_comments": "",  # Default empty
         }
         if existing_comments:
             # Format comments for prompt template usage
@@ -58,11 +60,11 @@ class ResponseGenerator:
             format_vars.update(extra_format_vars)
 
         prompt = prompt_template.format(**format_vars)
-        
+
         context_items = []
         if extra_context:
             context_items.append(extra_context)
-        # We don't append existing_comments to context_items here since 
+        # We don't append existing_comments to context_items here since
         # they are already in the formatted prompt via format_vars.
 
         raw_content = await self._core.generate(
@@ -75,7 +77,11 @@ class ResponseGenerator:
             priority=priority,
         )
 
-        if not raw_content or raw_content.startswith("I'm not able to") or "caught my attention" in raw_content:
+        if (
+            not raw_content
+            or raw_content.startswith("I'm not able to")
+            or "caught my attention" in raw_content
+        ):
             return None
 
         return raw_content
@@ -95,16 +101,16 @@ class ResponseGenerator:
         """Generate a reply to a comment."""
         format_vars = {
             "title": original_post_title,
-            "post_title": original_post_title, # Compatibility
+            "post_title": original_post_title,  # Compatibility
             "comment": comment_content,
-            "comment_content": comment_content, # Compatibility
+            "comment_content": comment_content,  # Compatibility
             "agent_name": commenter_name,
-            "commenter": commenter_name, # Compatibility
+            "commenter": commenter_name,  # Compatibility
             "author": commenter_name,  # Add author for templates that use it
         }
-        
+
         prompt = prompt_template.format(**format_vars)
-        
+
         context_items = [extra_context] if extra_context else None
 
         raw_content = await self._core.generate(
@@ -117,7 +123,11 @@ class ResponseGenerator:
             priority=priority,
         )
 
-        if not raw_content or raw_content.startswith("I'm not able to") or "caught my attention" in raw_content:
+        if (
+            not raw_content
+            or raw_content.startswith("I'm not able to")
+            or "caught my attention" in raw_content
+        ):
             return None
 
         return raw_content
@@ -135,7 +145,7 @@ class ResponseGenerator:
     ) -> Optional[Tuple[str, str, str]]:
         """
         Generate a new heartbeat post.
-        
+
         Returns:
             (title, content, submolt) or None on failure.
         """
@@ -161,7 +171,7 @@ class ResponseGenerator:
 
         if raw_content.startswith("I'm not able to") or "caught my attention" in raw_content:
             # This is a deflection from SafeLLMPipeline
-            return "Untitled Post", raw_content, "ai"
+            return None
 
         return self._parse_post_output(raw_content)
 
@@ -179,7 +189,7 @@ class ResponseGenerator:
         # Wrap sender and message for security
         safe_sender = f"<<<EXTERNAL_SENDER: {sender_name}>>>"
         safe_msg = f"<<<EXTERNAL_MESSAGE: {message}>>>"
-        
+
         prompt = prompt_template.format(
             sender=safe_sender,
             message=safe_msg,
@@ -194,7 +204,11 @@ class ResponseGenerator:
             priority=priority,
         )
 
-        if not raw_content or raw_content.startswith("I'm not able to") or "caught my attention" in raw_content:
+        if (
+            not raw_content
+            or raw_content.startswith("I'm not able to")
+            or "caught my attention" in raw_content
+        ):
             return None
 
         return raw_content

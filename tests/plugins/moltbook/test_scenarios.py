@@ -260,7 +260,7 @@ async def test_tick_capability_error_does_not_crash(setup_anomal_plugin):
 @pytest.mark.asyncio
 async def test_challenge_during_comment(setup_anomal_plugin):
     """Moltbook API issues a challenge during comment creation — solved and retried.
-    
+
     NOTE: In the current architecture, the retry logic is handled internally
     by MoltbookClient. Since we mock the client here, we're mostly testing
     that the plugin calls create_comment.
@@ -347,7 +347,9 @@ async def test_dream_context_in_comments(setup_anomal_plugin):
     post = make_post(id="post-dream-001", title="Data Analysis")
     client.get_posts = AsyncMock(return_value=[post])
 
-    ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Standard observations."))
+    pipeline_result = PipelineResult(content="Standard observations.")
+    ctx.llm_pipeline.chat = AsyncMock(return_value=pipeline_result)
+    ctx.llm_pipeline._chat_with_overrides = AsyncMock(return_value=pipeline_result)
 
     # Ensure engagement is triggered
     plugin._decision_engine.evaluate_post = MagicMock(
@@ -365,16 +367,20 @@ async def test_dream_context_in_comments(setup_anomal_plugin):
 
     await plugin.tick()
 
-    # Find the chat call and verify context was included
+    # Find the chat call and verify context was included (plugin may use chat or _chat_with_overrides)
     found_context = False
-    for call in ctx.llm_pipeline.chat.call_args_list:
-        messages = call.kwargs["messages"]
-        system_content = messages[0]["content"].lower()
-        if "analyzing" in system_content or "data" in system_content:
-            found_context = True
+    for method_name in ("chat", "_chat_with_overrides"):
+        method = getattr(ctx.llm_pipeline, method_name)
+        for call in method.call_args_list:
+            messages = call.kwargs["messages"]
+            system_content = messages[0]["content"].lower()
+            if "analyzing" in system_content or "data" in system_content:
+                found_context = True
+                break
+        if found_context:
             break
 
-    assert found_context, "Reflection context not found in pipeline.chat messages"
+    assert found_context, "Reflection context not found in pipeline chat messages"
 
 
 # ---------------------------------------------------------------------------
@@ -533,9 +539,9 @@ async def test_heartbeat_post(setup_anomal_plugin):
     ctx.engagement_db.get_todays_heartbeat_titles = AsyncMock(return_value=[])
     ctx.engagement_db.get_recent_heartbeat_titles = AsyncMock(return_value=[])
 
-    ctx.llm_pipeline.chat = AsyncMock(
-        return_value=PipelineResult(content="TITLE: New Thoughts\nThis is a heartbeat post.")
-    )
+    pipeline_result = PipelineResult(content="TITLE: New Thoughts\nThis is a heartbeat post.")
+    ctx.llm_pipeline.chat = AsyncMock(return_value=pipeline_result)
+    ctx.llm_pipeline._chat_with_overrides = AsyncMock(return_value=pipeline_result)
 
     # Mock post return
     client.create_post = AsyncMock(
@@ -596,9 +602,9 @@ async def test_output_safety_modifies_response(setup_anomal_plugin):
     client.get_posts = AsyncMock(return_value=[post])
 
     # Pipeline returns modified content (e.g. slang replaced)
-    ctx.llm_pipeline.chat = AsyncMock(
-        return_value=PipelineResult(content="A safe and clean response.")
-    )
+    pipeline_result = PipelineResult(content="A safe and clean response.")
+    ctx.llm_pipeline.chat = AsyncMock(return_value=pipeline_result)
+    ctx.llm_pipeline._chat_with_overrides = AsyncMock(return_value=pipeline_result)
 
     # Ensure engagement is triggered
     plugin._decision_engine.evaluate_post = MagicMock(
@@ -643,13 +649,13 @@ async def test_preflight_blocks_comment(setup_anomal_plugin):
     client.get_posts = AsyncMock(return_value=[post])
 
     # Pipeline blocks the request at preflight stage
-    ctx.llm_pipeline.chat = AsyncMock(
-        return_value=PipelineResult(
-            blocked=True,
-            block_reason="Preflight block",
-            block_stage=PipelineStage.PREFLIGHT,
-        )
+    pipeline_result = PipelineResult(
+        blocked=True,
+        block_reason="Preflight block",
+        block_stage=PipelineStage.PREFLIGHT,
     )
+    ctx.llm_pipeline.chat = AsyncMock(return_value=pipeline_result)
+    ctx.llm_pipeline._chat_with_overrides = AsyncMock(return_value=pipeline_result)
 
     # Ensure engagement is triggered
     plugin._decision_engine.evaluate_post = MagicMock(

@@ -66,7 +66,7 @@ class SummarizerCapability(CapabilityBase):
 
         if pipeline:
             try:
-                result = await pipeline.chat(
+                result = await pipeline._chat_with_overrides(
                     messages=[{"role": "user", "content": prompt}],
                     temperature=self._temperature,
                     max_tokens=self._max_tokens,

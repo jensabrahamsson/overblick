@@ -35,7 +35,9 @@ class ComposerCapability(CapabilityBase):
         pipeline = self.ctx.llm_pipeline
 
         if not pipeline:
-            logger.warning("ComposerCapability: no LLM pipeline available for %s", self.ctx.identity_name)
+            logger.warning(
+                "ComposerCapability: no LLM pipeline available for %s", self.ctx.identity_name
+            )
             return
 
         self._generator = ResponseGenerator(
@@ -55,21 +57,38 @@ class ComposerCapability(CapabilityBase):
         """Generate a comment response to a post."""
         if not self._generator:
             return None
-        
+
         system_prompt = self.ctx.config.get("system_prompt", f"You are {self.ctx.identity_name}.")
         temperature = self.ctx.config.get("temperature", 0.7)
         max_tokens = self.ctx.config.get("max_tokens", 500)
 
-        return await self._generator.generate_comment(
-            post_title=post_title,
-            post_content=post_content,
-            agent_name=agent_name,
-            prompt_template=prompt_template,
+        # Build prompt from template
+        format_vars = {
+            "title": post_title,
+            "content": post_content,
+            "post_content": post_content,
+            "agent_name": agent_name,
+            "author": agent_name,
+            "existing_comments": "",
+        }
+        if existing_comments:
+            comments_text = "\n".join(f"- {c}" for c in existing_comments[:5])
+            format_vars["existing_comments"] = comments_text
+
+        prompt = prompt_template.format(**format_vars)
+
+        context_items = []
+        if extra_context:
+            context_items.append(extra_context)
+
+        return await self._generator.generate(
+            prompt=prompt,
             system_prompt=system_prompt,
-            existing_comments=existing_comments,
-            extra_context=extra_context,
             temperature=temperature,
             max_tokens=max_tokens,
+            context_items=context_items,
+            audit_action="composer_comment",
+            priority="low",
         )
 
     async def compose_reply(
@@ -87,14 +106,23 @@ class ComposerCapability(CapabilityBase):
         temperature = self.ctx.config.get("temperature", 0.7)
         max_tokens = self.ctx.config.get("max_tokens", 500)
 
-        return await self._generator.generate_reply(
-            original_post_title=original_post_title,
-            comment_content=comment_content,
-            commenter_name=commenter_name,
-            prompt_template=prompt_template,
+        format_vars = {
+            "title": original_post_title,
+            "post_title": original_post_title,
+            "comment": comment_content,
+            "comment_content": comment_content,
+            "commenter_name": commenter_name,
+            "commenter": commenter_name,
+        }
+        prompt = prompt_template.format(**format_vars)
+
+        return await self._generator.generate(
+            prompt=prompt,
             system_prompt=system_prompt,
             temperature=temperature,
             max_tokens=max_tokens,
+            audit_action="composer_reply",
+            priority="low",
         )
 
     async def compose_heartbeat(
@@ -110,13 +138,50 @@ class ComposerCapability(CapabilityBase):
         temperature = self.ctx.config.get("temperature", 0.8)
         max_tokens = self.ctx.config.get("max_tokens", 1000)
 
-        return await self._generator.generate_heartbeat(
-            prompt_template=prompt_template,
+        format_vars = {"topic_index": topic_index}
+        prompt = prompt_template.format(**format_vars)
+
+        raw_content = await self._generator.generate(
+            prompt=prompt,
             system_prompt=system_prompt,
-            topic_index=topic_index,
             temperature=temperature,
             max_tokens=max_tokens,
+            audit_action="composer_heartbeat",
+            priority="low",
         )
+
+        if not raw_content:
+            return None
+
+        if raw_content.startswith("I'm not able to") or "caught my attention" in raw_content:
+            # This is a deflection from SafeLLMPipeline
+            return "Untitled Post", raw_content, "ai"
+
+        return self._parse_post_output(raw_content)
+
+    def _parse_post_output(self, text: str) -> tuple[str, str, str]:
+        """Parse LLM output into (title, content, submolt)."""
+        lines = text.strip().split("\n")
+        title = "Untitled Post"
+        submolt = "ai"
+        content_lines = []
+
+        for line in lines:
+            if line.upper().startswith("TITLE:"):
+                title = line[6:].strip()
+            elif line.upper().startswith("SUBMOLT:"):
+                submolt = line[8:].strip().lower()
+            else:
+                content_lines.append(line)
+
+        content = "\n".join(content_lines).strip()
+        # Fallback if title was just first line
+        if title == "Untitled Post" and content_lines:
+            title = content_lines[0][:50]
+            if len(content_lines[0]) > 50:
+                title += "..."
+
+        return title, content, submolt
 
     @property
     def inner(self) -> ResponseGenerator | None:

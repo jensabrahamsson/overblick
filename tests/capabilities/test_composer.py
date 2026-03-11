@@ -41,6 +41,11 @@ class TestComposerCapability:
 
     @pytest.mark.asyncio
     async def test_setup_with_client_fallback(self):
+        """Test that composer falls back to LLM client when pipeline unavailable.
+
+        Note: This behavior was changed - composer now requires pipeline for security.
+        The fallback approach is deprecated in favor of SecureLLMPipeline.
+        """
         client = AsyncMock()
         ctx = make_ctx(
             llm_client=client,
@@ -48,7 +53,9 @@ class TestComposerCapability:
         )
         cap = ComposerCapability(ctx)
         await cap.setup()
-        assert cap.inner is not None
+
+        # Composer now requires pipeline for security - no fallback to raw client
+        assert cap._generator is None
 
     @pytest.mark.asyncio
     async def test_setup_no_llm(self):
