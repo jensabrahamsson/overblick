@@ -72,3 +72,21 @@ config/.wizard_state.json
 
 # Internal review documents (may contain security findings)
 gemini_granskning_*.txt
+
+# Log files in root
+*.log
+
+# Review/help markdown documents
+*_granskning_*.md
+*_help_*.md
+*_sent_*.md
+Opus_granskar_*.md
+overblick_kvällsgranskning_*.md
+over-night_granskning_*.md
+
+# Code review documents
+OVERBLICK_CODE_REVIEW.md
+
+# Pipeline debug files
+overblick/core/llm/pipeline_*.txt
+overblick/core/llm/pipeline_*.py

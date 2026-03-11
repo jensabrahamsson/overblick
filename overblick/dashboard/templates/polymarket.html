@@ -1,0 +1,526 @@
+{% extends "base.html" %}
+
+{% block title %}Polymarket Trading{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Polymarket Trading</h1>
+    <p class="page-subtitle">AI-powered prediction market trading — markets, opportunities, portfolio, and risk management</p>
+</div>
+
+{% if data_errors %}
+<div class="card">
+    {% for err in data_errors %}
+    <p class="text-muted">{{ err }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Trading Dashboard Overview -->
+<div class="trading-overview">
+    <!-- Portfolio Stats -->
+    <div class="card">
+        <h3>Portfolio Value</h3>
+        <p class="stat-value">${{ "%.2f"|format(stats.portfolio_value_usd|float) }}</p>
+        <div class="stat-details">
+            <span class="stat-label">Total P&L:</span>
+            <span class="stat-number {% if stats.total_pnl_usd|float > 0 %}positive{% elif stats.total_pnl_usd|float < 0 %}negative{% endif %}">
+                ${{ "%.2f"|format(stats.total_pnl_usd|float) }}
+            </span>
+        </div>
+        <div class="stat-details">
+            <span class="stat-label">Daily P&L:</span>
+            <span class="stat-number {% if stats.daily_pnl_usd|float > 0 %}positive{% elif stats.daily_pnl_usd|float < 0 %}negative{% endif %}">
+                ${{ "%.2f"|format(stats.daily_pnl_usd|float) }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Market Stats -->
+    <div class="card">
+        <h3>Markets</h3>
+        <p class="stat-value">{{ stats.total_markets }}</p>
+        <div class="stat-details">
+            <span class="stat-label">Active:</span>
+            <span class="stat-number">{{ stats.active_markets }}</span>
+        </div>
+        <div class="stat-details">
+            <span class="stat-label">Volume 24h:</span>
+            <span class="stat-number">${{ "%.0f"|format(stats.total_markets * 1000) }}</span>
+        </div>
+    </div>
+
+    <!-- Trading Performance -->
+    <div class="card">
+        <h3>Performance</h3>
+        <p class="stat-value">{{ "%.1f"|format(risk_metrics.win_rate_percent|float) }}%</p>
+        <div class="stat-details">
+            <span class="stat-label">Total Trades:</span>
+            <span class="stat-number">{{ stats.total_trades }}</span>
+        </div>
+        <div class="stat-details">
+            <span class="stat-label">W/L:</span>
+            <span class="stat-number">{{ stats.winning_trades }}/{{ stats.losing_trades }}</span>
+        </div>
+    </div>
+
+    <!-- Risk Metrics -->
+    <div class="card">
+        <h3>Risk Exposure</h3>
+        <p class="stat-value {% if risk_metrics.current_exposure_percent|float > 20 %}negative{% elif risk_metrics.current_exposure_percent|float > 10 %}warning{% else %}positive{% endif %}">
+            {{ "%.1f"|format(risk_metrics.current_exposure_percent|float) }}%
+        </p>
+        <div class="stat-details">
+            <span class="stat-label">Max Drawdown:</span>
+            <span class="stat-number">{{ "%.1f"|format(risk_metrics.max_drawdown_percent|float) }}%</span>
+        </div>
+        <div class="stat-details">
+            <span class="stat-label">Sharpe Ratio:</span>
+            <span class="stat-number">{{ "%.2f"|format(risk_metrics.sharpe_ratio|float) }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Main Trading Dashboard -->
+<div class="trading-dashboard">
+    <!-- Left Column: Markets & Opportunities -->
+    <div class="trading-column">
+        <!-- Markets Table -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Markets</h2>
+                <span class="badge">{{ markets|length }}</span>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Market</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            <th>Volume</th>
+                            <th>Liquidity</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for market in markets %}
+                        <tr>
+                            <td>
+                                <strong>{{ market.market_question|truncate(60) }}</strong>
+                                <small class="text-muted">{{ market.market_id[:8] }}...</small>
+                            </td>
+                            <td>{{ market.category|default("Unknown") }}</td>
+                            <td>
+                                {% if market.implied_probability %}
+                                <span class="price-badge">{{ "%.0f"|format(market.implied_probability * 100) }}%</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>${{ "%.0f"|format(market.volume_24h|default(0)) }}</td>
+                            <td>${{ "%.0f"|format(market.liquidity|default(0)) }}</td>
+                            <td>
+                                {% if market.status == "OPEN" %}
+                                <span class="badge badge-success">Open</span>
+                                {% elif market.status == "RESOLVED" %}
+                                <span class="badge badge-info">Resolved</span>
+                                {% else %}
+                                <span class="badge badge-warning">{{ market.status|default("Unknown") }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if markets|length == 0 %}
+                        <tr>
+                            <td colspan="6" class="text-muted text-center">No markets monitored yet</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Trading Opportunities -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Trading Opportunities</h2>
+                <span class="badge">{{ opportunities|length }}</span>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Market</th>
+                            <th>Edge</th>
+                            <th>Confidence</th>
+                            <th>Action</th>
+                            <th>Signal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for opp in opportunities %}
+                        <tr>
+                            <td>
+                                <strong>{{ opp.market_question|truncate(50) }}</strong>
+                            </td>
+                            <td>
+                                <span class="badge {% if opp.probability_edge|float >= 0.05 %}badge-success{% elif opp.probability_edge|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">
+                                    +{{ "%.1f"|format(opp.probability_edge * 100) }}%
+                                </span>
+                            </td>
+                            <td>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" style="width: {{ opp.confidence_score|default(50) }}%"></div>
+                                    <span>{{ "%.0f"|format(opp.confidence_score|default(50)) }}%</span>
+                                </div>
+                            </td>
+                            <td>
+                                {% if opp.recommended_outcome == "YES" %}
+                                <span class="badge badge-success">BUY YES</span>
+                                {% elif opp.recommended_outcome == "NO" %}
+                                <span class="badge badge-danger">BUY NO</span>
+                                {% else %}
+                                <span class="badge badge-info">{{ opp.recommended_outcome }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-muted">
+                                    Market: {{ "%.0f"|format(opp.market_price * 100) }}% |
+                                    Our: {{ "%.0f"|format(opp.our_probability * 100) }}%
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if opportunities|length == 0 %}
+                        <tr>
+                            <td colspan="5" class="text-muted text-center">No trading opportunities detected</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Portfolio & Trades -->
+    <div class="trading-column">
+        <!-- Portfolio Positions -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Portfolio Positions</h2>
+                <span class="badge">{{ positions|length }}</span>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Market</th>
+                            <th>Position</th>
+                            <th>Avg Price</th>
+                            <th>Current</th>
+                            <th>P&L</th>
+                            <th>Size</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for position in positions %}
+                        <tr>
+                            <td>
+                                <strong>{{ position.market_id|truncate(40) }}</strong>
+                            </td>
+                            <td>
+                                {% if position.outcome == "YES" %}
+                                <span class="badge badge-success">YES</span>
+                                {% else %}
+                                <span class="badge badge-danger">NO</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ "%.2f"|format(position.average_price|default(0)) }}</td>
+                            <td>{{ "%.2f"|format(position.current_price|default(0)) }}</td>
+                            <td>
+                                <span class="{% if position.unrealized_pnl_usd|default(0) > 0 %}positive{% elif position.unrealized_pnl_usd|default(0) < 0 %}negative{% endif %}">
+                                    ${{ "%.2f"|format(position.unrealized_pnl_usd|default(0)) }}
+                                </span>
+                                <small class="text-muted">
+                                    ({{ "%.1f"|format(position.unrealized_pnl_percent|default(0)) }}%)
+                                </small>
+                            </td>
+                            <td>${{ "%.0f"|format(position.current_value_usd|default(0)) }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if positions|length == 0 %}
+                        <tr>
+                            <td colspan="6" class="text-muted text-center">No active positions</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Trades -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Recent Trades</h2>
+                <span class="badge">{{ trades|length }}</span>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Market</th>
+                            <th>Action</th>
+                            <th>Size</th>
+                            <th>Price</th>
+                            <th>P&L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trade in trades %}
+                        <tr>
+                            <td>
+                                <small>{{ trade.executed_at|default("")|replace("T", " ")|replace("Z", "")|truncate(16, True, "") }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ trade.market_id|truncate(30) }}</strong>
+                            </td>
+                            <td>
+                                {% if trade.action == "BUY_YES" %}
+                                <span class="badge badge-success">BUY YES</span>
+                                {% elif trade.action == "BUY_NO" %}
+                                <span class="badge badge-danger">BUY NO</span>
+                                {% elif trade.action == "SELL_YES" %}
+                                <span class="badge badge-warning">SELL YES</span>
+                                {% elif trade.action == "SELL_NO" %}
+                                <span class="badge badge-warning">SELL NO</span>
+                                {% else %}
+                                <span class="badge badge-info">{{ trade.action }}</span>
+                                {% endif %}
+                            </td>
+                            <td>${{ "%.0f"|format(trade.position_size_usd|default(0)) }}</td>
+                            <td>{{ "%.3f"|format(trade.execution_price|default(0)) }}</td>
+                            <td>
+                                <span class="{% if trade.realized_pnl_usd|default(0) > 0 %}positive{% elif trade.realized_pnl_usd|default(0) < 0 %}negative{% endif %}">
+                                    ${{ "%.2f"|format(trade.realized_pnl_usd|default(0)) }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if trades|length == 0 %}
+                        <tr>
+                            <td colspan="6" class="text-muted text-center">No trades yet</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Alerts</h2>
+                <span class="badge">{{ alerts|length }}</span>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Message</th>
+                            <th>Severity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alert in alerts %}
+                        <tr>
+                            <td>
+                                <small>{{ alert.triggered_at|default("")|replace("T", " ")|replace("Z", "")|truncate(16, True, "") }}</small>
+                            </td>
+                            <td>{{ alert.condition.name|default("Unknown") }}</td>
+                            <td>{{ alert.message|default("")|truncate(60) }}</td>
+                            <td>
+                                {% if alert.severity == "critical" %}
+                                <span class="badge badge-danger">Critical</span>
+                                {% elif alert.severity == "warning" %}
+                                <span class="badge badge-warning">Warning</span>
+                                {% else %}
+                                <span class="badge badge-info">Info</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if alerts|length == 0 %}
+                        <tr>
+                            <td colspan="4" class="text-muted text-center">No alerts</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Real-time Updates Section -->
+<div class="card">
+    <div class="card-header">
+        <h2>Real-time Market Data</h2>
+        <button class="btn btn-sm btn-secondary" 
+                hx-get="/partials/polymarket-update" 
+                hx-target="#market-updates"
+                hx-trigger="click">
+            Refresh
+        </button>
+    </div>
+    <div id="market-updates">
+        <p class="text-muted text-center">Click refresh to load real-time market data</p>
+    </div>
+</div>
+
+<!-- Trading Controls (Simulation Mode) -->
+<div class="card">
+    <div class="card-header">
+        <h2>Trading Controls</h2>
+        <span class="badge badge-warning">Simulation Mode</span>
+    </div>
+    <div class="control-grid">
+        <button class="btn btn-success" disabled>
+            <span class="btn-icon">▶</span>
+            Start Live Trading
+        </button>
+        <button class="btn btn-warning" disabled>
+            <span class="btn-icon">⏸</span>
+            Pause Trading
+        </button>
+        <button class="btn btn-danger" disabled>
+            <span class="btn-icon">⏹</span>
+            Emergency Stop
+        </button>
+        <button class="btn btn-info" 
+                hx-get="/partials/polymarket-simulation-report" 
+                hx-target="#simulation-report"
+                hx-trigger="click">
+            <span class="btn-icon">📊</span>
+            Generate Simulation Report
+        </button>
+    </div>
+    <div id="simulation-report" class="mt-3"></div>
+</div>
+
+<style>
+.trading-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.trading-dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 1200px) {
+    .trading-dashboard {
+        grid-template-columns: 1fr;
+    }
+}
+
+.trading-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin: 0.5rem 0;
+    font-family: 'Courier New', monospace;
+}
+
+.stat-details {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.stat-label {
+    color: #aaa;
+}
+
+.stat-number {
+    font-weight: bold;
+}
+
+.positive {
+    color: #10b981;
+}
+
+.negative {
+    color: #ef4444;
+}
+
+.warning {
+    color: #f59e0b;
+}
+
+.confidence-bar {
+    position: relative;
+    height: 20px;
+    background: #2d3748;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.confidence-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    transition: width 0.3s ease;
+}
+
+.confidence-bar span {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.price-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    background: #374151;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+
+.control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.btn-icon {
+    margin-right: 0.5rem;
+}
+</style>
+{% endblock %}
