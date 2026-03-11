@@ -106,6 +106,23 @@ def raw_llm() -> bool:
     return _env_bool("OVERBLICK_RAW_LLM", default=False)
 
 
+# Cache for strict capabilities check
+_strict_capabilities_cache: bool | None = None
+
+
 def strict_capabilities() -> bool:
-    """Return strict capability enforcement (reads environment variable each call)."""
-    return _env_bool("OVERBLICK_STRICT_CAPABILITIES", default=False)
+    """Return strict capability enforcement (cached after first read).
+
+    Caches the value to avoid repeated environment variable reads.
+    Only changes when Python process restarts (not during runtime).
+    """
+    global _strict_capabilities_cache
+    if _strict_capabilities_cache is None:
+        _strict_capabilities_cache = _env_bool("OVERBLICK_STRICT_CAPABILITIES", default=False)
+    return _strict_capabilities_cache
+
+
+def reset_strict_capabilities() -> None:
+    """Reset strict capabilities cache (useful for tests)."""
+    global _strict_capabilities_cache
+    _strict_capabilities_cache = None

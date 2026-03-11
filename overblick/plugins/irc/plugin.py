@@ -40,6 +40,9 @@ _MAX_STORED_CONVERSATIONS = 50
 # Default turn interval (seconds between turns)
 _TURN_INTERVAL = 5.0
 
+# Daily limit for IRC conversations
+_MAX_CONVERSATIONS_PER_DAY = 3
+
 # IRC has its own quiet hours (later than Moltbook since it uses less resources)
 _IRC_QUIET_START = 23  # 23:00
 _IRC_QUIET_END = 7  # 07:00
@@ -65,6 +68,8 @@ class IRCPlugin(PluginBase):
         self._running = False
         self._host_inspector = None
         self._recent_participants: list[str] = []  # Track recent participants for diversity
+        self._conversations_today = 0
+        self._last_reset_date = ""  # ISO format: YYYY-MM-DD
         # Protects multi-step mutations of _current_conversation across await points
         self._conversation_lock = asyncio.Lock()
 
@@ -241,6 +246,21 @@ class IRCPlugin(PluginBase):
 
     async def _start_conversation(self) -> None:
         """Start a new conversation with selected topic and participants."""
+        # Check daily limit
+        today = datetime.now().date().isoformat()
+        if self._last_reset_date != today:
+            self._conversations_today = 0
+            self._last_reset_date = today
+            self._save_topic_state()
+
+        if self._conversations_today >= _MAX_CONVERSATIONS_PER_DAY:
+            logger.debug(
+                "IRC: Daily limit reached (%d/%d), skipping conversation",
+                self._conversations_today,
+                _MAX_CONVERSATIONS_PER_DAY,
+            )
+            return
+
         topic = select_topic(self._used_topics)
         if not topic:
             logger.info("IRC: No available topics")
@@ -294,13 +314,16 @@ class IRCPlugin(PluginBase):
 
         self._current_conversation = conversation
         self._used_topics.append(topic["id"])
+        self._conversations_today += 1
         self._save_topic_state()
 
         logger.info(
-            "IRC: Started conversation '%s' in %s with %s",
+            "IRC: Started conversation '%s' in %s with %s (daily count: %d/%d)",
             topic["topic"],
             channel,
             participant_names,
+            self._conversations_today,
+            _MAX_CONVERSATIONS_PER_DAY,
         )
 
         # Emit event
@@ -560,15 +583,19 @@ class IRCPlugin(PluginBase):
     # -------------------------------------------------------------------------
 
     def _save_topic_state(self) -> None:
-        """Save used topic IDs to disk to survive restarts."""
+        """Save topic state and daily limit tracking to disk."""
         if not self._data_dir:
             return
-        state = {"used_topic_ids": self._used_topics}
+        state = {
+            "used_topic_ids": self._used_topics,
+            "conversations_today": self._conversations_today,
+            "last_reset_date": self._last_reset_date,
+        }
         topic_file = self._data_dir / "topic_state.json"
         topic_file.write_text(json.dumps(state, indent=2))
 
     def _load_topic_state(self) -> None:
-        """Load used topic IDs from disk."""
+        """Load topic state and daily limit tracking from disk."""
         if not self._data_dir:
             return
         topic_file = self._data_dir / "topic_state.json"
@@ -577,6 +604,8 @@ class IRCPlugin(PluginBase):
         try:
             state = json.loads(topic_file.read_text())
             self._used_topics = state.get("used_topic_ids", [])
+            self._conversations_today = state.get("conversations_today", 0)
+            self._last_reset_date = state.get("last_reset_date", "")
         except Exception as e:
             logger.warning("IRC: Failed to load topic state: %s", e)
 

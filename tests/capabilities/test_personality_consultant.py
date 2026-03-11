@@ -66,7 +66,7 @@ class TestPersonalityConsultantCapability:
     async def test_consult_returns_response(self):
         """Happy path: pipeline returns advice from consultant."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
+        pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content='{"tone": "warm", "guidance": "The sender sounds stressed."}',
             )
@@ -95,10 +95,10 @@ class TestPersonalityConsultantCapability:
 
         assert result is not None
         assert "warm" in result
-        pipeline.chat.assert_called_once()
+        pipeline._chat_with_overrides.assert_called_once()
 
         # Verify system prompt was passed
-        call_args = pipeline.chat.call_args
+        call_args = pipeline._chat_with_overrides.call_args
         messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
         assert messages[0]["role"] == "system"
         assert "Cherry" in messages[0]["content"]
@@ -107,7 +107,7 @@ class TestPersonalityConsultantCapability:
     async def test_consult_uses_default_consultant(self):
         """When no consultant_name given, uses default from config."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
+        pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content="Some advice.",
             )
@@ -130,14 +130,14 @@ class TestPersonalityConsultantCapability:
             result = await cap.consult(query="Give me advice.")
 
         assert result == "Some advice."
-        call_args = pipeline.chat.call_args
+        call_args = pipeline._chat_with_overrides.call_args
         assert call_args.kwargs.get("audit_action") == "consult_blixt"
 
     @pytest.mark.asyncio
     async def test_consult_caches_personality(self):
         """Second call to same personality doesn't reload from disk."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
+        pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content="Advice.",
             )
@@ -181,13 +181,13 @@ class TestPersonalityConsultantCapability:
             )
 
         assert result is None
-        pipeline.chat.assert_not_called()
+        pipeline._chat_with_overrides.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_consult_blocked_returns_none(self):
         """If pipeline blocks the response, returns None."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
+        pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 blocked=True,
                 block_reason="Output safety triggered",
@@ -225,7 +225,7 @@ class TestPersonalityConsultantCapability:
     async def test_consult_pipeline_error_returns_none(self):
         """If pipeline raises an exception, returns None gracefully."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(side_effect=Exception("LLM down"))
+        pipeline._chat_with_overrides = AsyncMock(side_effect=Exception("LLM down"))
         ctx = make_ctx(llm_pipeline=pipeline)
         cap = PersonalityConsultantCapability(ctx)
         await cap.setup()
@@ -248,7 +248,7 @@ class TestPersonalityConsultantCapability:
     async def test_consult_includes_context_in_message(self):
         """Context parameter is appended to the user message."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
+        pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content="Got it.",
             )
@@ -273,7 +273,7 @@ class TestPersonalityConsultantCapability:
                 consultant_name="cherry",
             )
 
-        call_args = pipeline.chat.call_args
+        call_args = pipeline._chat_with_overrides.call_args
         messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
         user_msg = messages[1]["content"]
         assert "Tone check?" in user_msg
@@ -283,7 +283,7 @@ class TestPersonalityConsultantCapability:
     async def test_consult_skip_preflight_and_low_priority(self):
         """Verify internal consultation uses skip_preflight and low priority."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
+        pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content="Advice.",
             )
@@ -304,7 +304,7 @@ class TestPersonalityConsultantCapability:
         ):
             await cap.consult(query="Test.", consultant_name="cherry")
 
-        call_kwargs = pipeline.chat.call_args.kwargs
+        call_kwargs = pipeline._chat_with_overrides.call_args.kwargs
         assert call_kwargs.get("skip_preflight") is True
         assert call_kwargs.get("priority") == "low"
         assert call_kwargs.get("audit_action") == "consult_cherry"

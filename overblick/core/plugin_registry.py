@@ -25,10 +25,15 @@ _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
     "log_agent": ("overblick.plugins.log_agent.plugin", "LogAgentPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
+    "polymarket_monitor": (
+        "overblick.plugins.polymarket_monitor.plugin",
+        "PolymarketMonitorPlugin",
+    ),
     "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
     "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
     "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
     "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
+    "whallet_trader": ("overblick.plugins.whallet_trader.plugin", "WhalletTraderPlugin"),
 }
 
 # Module-level alias for backward compatibility (tests import this)
@@ -81,7 +86,7 @@ class PluginRegistry:
         """
         if name not in self._plugins:
             raise ValueError(
-                f"Unknown plugin: '{name}'. " f"Available: {', '.join(self._plugins.keys())}"
+                f"Unknown plugin: '{name}'. Available: {', '.join(self._plugins.keys())}"
             )
 
         module_path, class_name = self._plugins[name]

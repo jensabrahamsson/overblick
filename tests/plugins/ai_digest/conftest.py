@@ -112,7 +112,7 @@ def ai_digest_context(
         identity_name="test",
         data_dir=tmp_path / "data",
         log_dir=tmp_path / "logs",
-        llm_client=mock_llm_client,
+        # llm_client removed - plugins should use llm_pipeline only
         llm_pipeline=mock_pipeline,
         event_bus=mock_event_bus,
         scheduler=MagicMock(),
@@ -122,6 +122,8 @@ def ai_digest_context(
         engagement_db=MagicMock(),
         capabilities={"email": mock_email_capability},
     )
+    # Set _llm_client directly for tests that need it
+    ctx._llm_client = mock_llm_client
     return ctx
 
 
@@ -139,7 +141,7 @@ def ai_digest_context_quiet(
         identity_name="test",
         data_dir=tmp_path / "data",
         log_dir=tmp_path / "logs",
-        llm_client=mock_llm_client,
+        # llm_client removed - plugins should use llm_pipeline only
         llm_pipeline=mock_pipeline,
         event_bus=mock_event_bus,
         scheduler=MagicMock(),
@@ -148,6 +150,8 @@ def ai_digest_context_quiet(
         identity=ai_digest_identity,
         engagement_db=MagicMock(),
     )
+    # Set _llm_client directly for tests that need it
+    ctx._llm_client = mock_llm_client
     return ctx
 
 
@@ -169,10 +173,12 @@ def ai_digest_context_no_recipient(
         identity_name="test",
         data_dir=tmp_path / "data",
         log_dir=tmp_path / "logs",
-        llm_client=mock_llm_client,
+        # llm_client removed - plugins should use llm_pipeline only
         llm_pipeline=mock_pipeline,
         audit_log=mock_audit_log,
         quiet_hours_checker=MagicMock(is_quiet_hours=MagicMock(return_value=False)),
         identity=identity,
     )
+    # Set _llm_client directly for tests that need it
+    ctx._llm_client = mock_llm_client
     return ctx

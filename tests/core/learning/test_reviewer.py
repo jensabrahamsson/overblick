@@ -14,7 +14,7 @@ def _make_pipeline(response_text: str, blocked: bool = False):
     result.blocked = blocked
 
     pipeline = AsyncMock()
-    pipeline.chat = AsyncMock(return_value=result)
+    pipeline._chat_with_overrides = AsyncMock(return_value=result)
     return pipeline
 
 
@@ -68,6 +68,7 @@ class TestEthosReviewer:
     async def test_handles_llm_failure_gracefully(self):
         pipeline = AsyncMock()
         pipeline.chat = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+        pipeline._chat_with_overrides = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
         reviewer = EthosReviewer(pipeline, ethos_text="Be kind")
 
         status, reason = await reviewer.review("Some learning", "general")
@@ -82,9 +83,9 @@ class TestEthosReviewer:
 
         await reviewer.review("Test content", "factual")
 
-        call_kwargs = pipeline.chat.call_args[1]
-        assert call_kwargs["complexity"] == "low"
+        call_kwargs = pipeline._chat_with_overrides.call_args[1]
         assert call_kwargs["priority"] == "low"
+        assert "complexity" not in call_kwargs
 
     @pytest.mark.asyncio
     async def test_no_llm_pipeline(self):
@@ -108,4 +109,4 @@ class TestEthosReviewer:
 
         status, reason = await reviewer.review("Test", "factual")
         assert status == LearningStatus.REJECTED
-        assert "unclear" in reason.lower()
+        assert "ambiguous" in reason.lower()

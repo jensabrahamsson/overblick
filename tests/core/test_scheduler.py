@@ -2,58 +2,66 @@
 
 import asyncio
 import pytest
-from overblick.core.scheduler import Scheduler, ScheduledTask
+from overblick.core.scheduler import Scheduler, ScheduledTask, TaskPriority
 
 
 class TestScheduler:
-    def test_add_task(self):
+    @pytest.mark.asyncio
+    async def test_add_task(self):
         s = Scheduler()
 
         async def noop():
             pass
 
-        s.add("task1", noop, interval_seconds=60)
+        await s.add("task1", noop, interval_seconds=60)
         assert s.task_count == 1
 
-    def test_add_duplicate_raises(self):
+    @pytest.mark.asyncio
+    async def test_add_duplicate_raises(self):
         s = Scheduler()
 
         async def noop():
             pass
 
-        s.add("task1", noop, interval_seconds=60)
+        await s.add("task1", noop, interval_seconds=60)
         with pytest.raises(ValueError, match="already registered"):
-            s.add("task1", noop, interval_seconds=60)
+            await s.add("task1", noop, interval_seconds=60)
 
-    def test_remove_task(self):
+    @pytest.mark.asyncio
+    async def test_remove_task(self):
         s = Scheduler()
 
         async def noop():
             pass
 
-        s.add("task1", noop, interval_seconds=60)
-        assert s.remove("task1")
+        await s.add("task1", noop, interval_seconds=60)
+        assert await s.remove("task1")
         assert s.task_count == 0
 
-    def test_remove_nonexistent(self):
+    @pytest.mark.asyncio
+    async def test_remove_nonexistent(self):
         s = Scheduler()
-        assert not s.remove("nope")
+        assert not await s.remove("nope")
 
-    def test_get_stats_empty(self):
+    @pytest.mark.asyncio
+    async def test_get_stats_empty(self):
         s = Scheduler()
-        assert s.get_stats() == {}
+        stats = await s.get_stats()
+        assert stats == {}
 
-    def test_get_stats_with_tasks(self):
+    @pytest.mark.asyncio
+    async def test_get_stats_with_tasks(self):
         s = Scheduler()
 
         async def noop():
             pass
 
-        s.add("t1", noop, interval_seconds=30)
-        stats = s.get_stats()
+        await s.add("t1", noop, interval_seconds=30)
+        stats = await s.get_stats()
         assert "t1" in stats
         assert stats["t1"]["interval_seconds"] == 30
         assert stats["t1"]["run_count"] == 0
+        assert stats["t1"]["priority"] == "low"
 
     @pytest.mark.asyncio
     async def test_execute_increments_count(self):
@@ -63,7 +71,7 @@ class TestScheduler:
         async def inc():
             counter["n"] += 1
 
-        s.add("inc", inc, interval_seconds=999)
+        await s.add("inc", inc, interval_seconds=999)
         task = s._tasks["inc"]
         await s._execute(task)
 
@@ -78,12 +86,27 @@ class TestScheduler:
         async def fail():
             raise RuntimeError("boom")
 
-        s.add("fail", fail, interval_seconds=999)
+        await s.add("fail", fail, interval_seconds=999)
         task = s._tasks["fail"]
         await s._execute(task)
 
         assert task.error_count == 1
         assert task.run_count == 0
+
+    @pytest.mark.asyncio
+    async def test_priority_ordering(self):
+        """Test that HIGH priority tasks are sorted before LOW."""
+        s = Scheduler()
+
+        async def noop():
+            pass
+
+        await s.add("low_task", noop, interval_seconds=60, priority=TaskPriority.LOW)
+        await s.add("high_task", noop, interval_seconds=30, priority=TaskPriority.HIGH)
+
+        stats = await s.get_stats()
+        assert stats["high_task"]["priority"] == TaskPriority.HIGH.value
+        assert stats["low_task"]["priority"] == TaskPriority.LOW.value
 
 
 class TestScheduledTask:
@@ -96,3 +119,4 @@ class TestScheduledTask:
         assert t.error_count == 0
         assert t.enabled
         assert not t.run_immediately
+        assert t.priority == TaskPriority.LOW

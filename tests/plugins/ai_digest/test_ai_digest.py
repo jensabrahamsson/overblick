@@ -113,7 +113,7 @@ class TestTick:
         tz = ZoneInfo("Europe/Stockholm")
         plugin._last_digest_date = datetime.now(tz).strftime("%Y-%m-%d")
         await plugin.tick()
-        ai_digest_context.llm_pipeline.chat.assert_not_called()
+        ai_digest_context.llm_pipeline._chat_with_overrides.assert_not_called()
 
 
 class TestDigestTime:
@@ -439,7 +439,7 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_handles_blocked_ranking(self, ai_digest_context):
         """Plugin handles blocked ranking response gracefully."""
-        ai_digest_context.llm_pipeline.chat = AsyncMock(
+        ai_digest_context.llm_pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 blocked=True,
                 block_reason="Test block",
@@ -459,7 +459,7 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_handles_blocked_generation(self, ai_digest_context):
         """Plugin handles blocked digest generation gracefully."""
-        ai_digest_context.llm_pipeline.chat = AsyncMock(
+        ai_digest_context.llm_pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 blocked=True,
                 block_reason="Output safety",
@@ -481,7 +481,9 @@ class TestSecurity:
             if not result.content or not result.content.strip(): ...
         Without this guard, _parse_selection() would raise AttributeError on None.
         """
-        ai_digest_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content=""))
+        ai_digest_context.llm_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(content="")
+        )
         plugin = AiDigestPlugin(ai_digest_context)
         await plugin.setup()
 
@@ -497,7 +499,9 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_handles_none_ranking_response(self, ai_digest_context):
         """Plugin falls back to first N articles when LLM returns None content."""
-        ai_digest_context.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content=None))
+        ai_digest_context.llm_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(content=None)
+        )
         plugin = AiDigestPlugin(ai_digest_context)
         await plugin.setup()
 
@@ -512,6 +516,13 @@ class TestSecurity:
     @pytest.mark.asyncio
     async def test_wraps_external_content(self, ai_digest_context):
         """Article content is wrapped in boundary markers before LLM call."""
+        # Mock _chat_with_overrides to return a valid ranking result
+        ai_digest_context.llm_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(
+                content="[0]",
+                blocked=False,
+            )
+        )
         plugin = AiDigestPlugin(ai_digest_context)
         await plugin.setup()
 
@@ -526,7 +537,7 @@ class TestSecurity:
         await plugin._rank_articles(articles)
 
         # Verify the LLM was called with wrapped content
-        call_args = ai_digest_context.llm_pipeline.chat.call_args
+        call_args = ai_digest_context.llm_pipeline._chat_with_overrides.call_args
         user_msg = call_args[1]["messages"][1]["content"]
         assert "<<<EXTERNAL_" in user_msg
 

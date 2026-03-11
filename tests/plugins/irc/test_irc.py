@@ -2,6 +2,7 @@
 
 import json
 import time
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -583,12 +584,14 @@ class TestIRCPluginPrompts:
         # Mock the LLM pipeline to capture the messages
         from overblick.core.llm.pipeline import PipelineResult
 
-        mock_ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Test reply"))
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(content="Test reply")
+        )
 
         with patch("overblick.identities.build_system_prompt", return_value="Base prompt"):
             await irc_plugin._generate_turn("anomal")
 
-        call_args = mock_ctx.llm_pipeline.chat.call_args
+        call_args = mock_ctx.llm_pipeline._chat_with_overrides.call_args
         messages = call_args.kwargs.get("messages", call_args.args[0] if call_args.args else [])
         system = messages[0]["content"]
 
@@ -624,12 +627,14 @@ class TestIRCPluginPrompts:
         )
         irc_plugin._current_conversation = conv
 
-        mock_ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Reply"))
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(content="Reply")
+        )
 
         with patch("overblick.identities.build_system_prompt", return_value="Base prompt"):
             await irc_plugin._generate_turn("anomal")
 
-        call_args = mock_ctx.llm_pipeline.chat.call_args
+        call_args = mock_ctx.llm_pipeline._chat_with_overrides.call_args
         messages = call_args.kwargs.get("messages", call_args.args[0] if call_args.args else [])
         continuation = messages[-1]["content"]
 
@@ -673,12 +678,14 @@ class TestIRCPluginPrompts:
         )
         irc_plugin._current_conversation = conv
 
-        mock_ctx.llm_pipeline.chat = AsyncMock(return_value=PipelineResult(content="Reply"))
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(content="Reply")
+        )
 
         with patch("overblick.identities.build_system_prompt", return_value="Base prompt"):
             await irc_plugin._generate_turn("anomal")
 
-        call_args = mock_ctx.llm_pipeline.chat.call_args
+        call_args = mock_ctx.llm_pipeline._chat_with_overrides.call_args
         messages = call_args.kwargs.get("messages", call_args.args[0] if call_args.args else [])
         # system + 20 history turns + 1 continuation = 22 messages
         # (excluding system, we should have 21 non-system messages)
@@ -704,3 +711,83 @@ class TestIRCPluginSystemCheck:
             mock_cap.side_effect = ImportError("not available")
             result = await irc_plugin._is_system_idle()
         assert result is True
+
+
+class TestIRCPluginDailyLimit:
+    """Test the daily conversation limit (3 per day)."""
+
+    @pytest.mark.asyncio
+    async def test_daily_limit_reached(self, irc_plugin, mock_ctx):
+        """Should stop starting new conversations after 3 in one day."""
+        irc_plugin._running = True
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._conversations_today = 3
+        irc_plugin._last_reset_date = datetime.now().date().isoformat()
+
+        with (
+            patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False),
+            patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=True),
+            patch.object(
+                irc_plugin, "_start_conversation", wraps=irc_plugin._start_conversation
+            ) as mock_start,
+        ):
+            await irc_plugin._conversation_tick()
+
+        # _start_conversation should be called but should return early
+        mock_start.assert_called_once()
+        assert irc_plugin._current_conversation is None
+
+    @pytest.mark.asyncio
+    async def test_daily_limit_resets_on_new_day(self, irc_plugin, mock_ctx):
+        """Should reset the counter when the date changes."""
+        irc_plugin._running = True
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+
+        # Set count to 3 on "yesterday"
+        irc_plugin._conversations_today = 3
+        irc_plugin._last_reset_date = "2000-01-01"
+
+        p1 = MagicMock()
+        p1.name = "p1"
+        p1.display_name = "p1"
+        p2 = MagicMock()
+        p2.name = "p2"
+        p2.display_name = "p2"
+        with (
+            patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False),
+            patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=True),
+            patch(
+                "overblick.plugins.irc.plugin.select_topic",
+                return_value={"id": "t1", "topic": "T1"},
+            ),
+            patch("overblick.plugins.irc.plugin.select_participants", return_value=[p1, p2]),
+        ):
+            await irc_plugin._conversation_tick()
+
+        # Should have reset and started a conversation
+        assert irc_plugin._conversations_today == 1
+        assert irc_plugin._last_reset_date == datetime.now().date().isoformat()
+        assert irc_plugin._current_conversation is not None
+
+    @pytest.mark.asyncio
+    async def test_daily_limit_persistence(self, irc_plugin, mock_ctx):
+        """Counter and date should be saved to topic_state.json."""
+        data_dir = mock_ctx.data_dir / "irc"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._data_dir = data_dir
+
+        irc_plugin._conversations_today = 2
+        irc_plugin._last_reset_date = "2026-03-08"
+        irc_plugin._save_topic_state()
+
+        # New plugin instance loading the same state
+        from overblick.plugins.irc.plugin import IRCPlugin
+
+        new_plugin = IRCPlugin(mock_ctx)
+        new_plugin._data_dir = data_dir
+        new_plugin._load_topic_state()
+
+        assert new_plugin._conversations_today == 2
+        assert new_plugin._last_reset_date == "2026-03-08"

@@ -75,7 +75,9 @@ class TestDreamCapabilityTick:
     async def test_tick_generates_and_persists(self):
         """Mock LLM + mock DB — verify save_dream called after tick."""
         pipeline = AsyncMock()
-        pipeline.chat.return_value = _mock_pipeline_result(_valid_dream_json())
+        pipeline._chat_with_overrides = AsyncMock(
+            return_value=_mock_pipeline_result(_valid_dream_json())
+        )
 
         db = AsyncMock()
         db.get_recent_dreams.return_value = []
@@ -112,7 +114,7 @@ class TestDreamCapabilityTick:
             mock_dt.now.return_value = mock_now
             await cap.tick()
 
-        pipeline.chat.assert_not_awaited()
+        pipeline._chat_with_overrides.assert_not_awaited()
         db.save_dream.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -130,7 +132,7 @@ class TestDreamCapabilityTick:
             mock_dt.now.return_value = mock_now
             await cap.tick()
 
-        pipeline.chat.assert_not_awaited()
+        pipeline._chat_with_overrides.assert_not_awaited()
         db.save_dream.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -148,14 +150,14 @@ class TestDreamCapabilityTick:
             mock_dt.now.return_value = mock_now
             await cap.tick()
 
-        pipeline.chat.assert_not_awaited()
+        pipeline._chat_with_overrides.assert_not_awaited()
         db.save_dream.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_tick_skips_same_day(self):
         """Only one dream per day."""
         pipeline = AsyncMock()
-        pipeline.chat.return_value = _mock_pipeline_result(_valid_dream_json())
+        pipeline._chat_with_overrides.return_value = _mock_pipeline_result(_valid_dream_json())
         db = AsyncMock()
         db.get_recent_dreams.return_value = []
         db.save_dream.return_value = 1
@@ -171,14 +173,14 @@ class TestDreamCapabilityTick:
             await cap.tick()  # First tick — generates dream
             await cap.tick()  # Second tick — should skip
 
-        assert pipeline.chat.await_count == 1
+        assert pipeline._chat_with_overrides.await_count == 1
         assert db.save_dream.await_count == 1
 
     @pytest.mark.asyncio
     async def test_tick_no_db_still_works(self):
         """Dream generated but not persisted when DB is None."""
         pipeline = AsyncMock()
-        pipeline.chat.return_value = _mock_pipeline_result(_valid_dream_json())
+        pipeline._chat_with_overrides.return_value = _mock_pipeline_result(_valid_dream_json())
 
         ctx = _make_ctx(llm_pipeline=pipeline, engagement_db=None)
         cap = DreamCapability(ctx)
@@ -189,14 +191,14 @@ class TestDreamCapabilityTick:
             mock_dt.now.return_value = mock_now
             await cap.tick()
 
-        pipeline.chat.assert_awaited_once()
+        pipeline._chat_with_overrides.assert_awaited_once()
         assert len(cap.inner.recent_dreams) == 1
 
     @pytest.mark.asyncio
     async def test_tick_llm_unavailable_fallback(self):
         """Fallback dream still persisted when LLM fails."""
         pipeline = AsyncMock()
-        pipeline.chat.side_effect = Exception("LLM down")
+        pipeline._chat_with_overrides.side_effect = Exception("LLM down")
 
         db = AsyncMock()
         db.get_recent_dreams.return_value = []
@@ -370,7 +372,7 @@ class TestDreamCapabilitySetup:
     async def test_generate_dream_method(self):
         """The public generate_dream() method works."""
         pipeline = AsyncMock()
-        pipeline.chat.return_value = _mock_pipeline_result(_valid_dream_json())
+        pipeline._chat_with_overrides.return_value = _mock_pipeline_result(_valid_dream_json())
 
         ctx = _make_ctx(llm_pipeline=pipeline)
         cap = DreamCapability(ctx)
