@@ -2,11 +2,12 @@
 Tests for the provisioner — config/secret/directory creation.
 """
 
-import yaml
-import pytest
 from pathlib import Path
 
+import pytest
+import yaml
 from cryptography.fernet import Fernet
+
 from overblick.setup.provisioner import provision
 
 

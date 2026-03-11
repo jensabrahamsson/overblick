@@ -2,15 +2,16 @@
 Tests for PersonalityConsultantCapability — cross-personality LLM consultation.
 """
 
-import pytest
 from pathlib import Path
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from overblick.core.capability import CapabilityContext
-from overblick.core.llm.pipeline import PipelineResult
+import pytest
+
 from overblick.capabilities.consulting.personality_consultant import (
     PersonalityConsultantCapability,
 )
+from overblick.core.capability import CapabilityContext
+from overblick.core.llm.pipeline import PipelineResult
 
 
 def make_ctx(**overrides) -> CapabilityContext:

@@ -14,7 +14,7 @@ import logging
 
 import pytest
 
-from overblick.identities import build_system_prompt, load_personality, list_personalities
+from overblick.identities import build_system_prompt, list_personalities, load_personality
 from tests.personalities.conftest import MODEL_SLUG
 from tests.personalities.helpers import (
     apply_scenario_result,

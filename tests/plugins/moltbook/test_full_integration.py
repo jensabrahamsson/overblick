@@ -71,7 +71,7 @@ class MockChallengeHandler:
         self.solve_called = True
         return self._solve_result
 
-    def set_session(self, session) -> None:  # noqa: ANN001
+    def set_session(self, session) -> None:
         pass
 
 

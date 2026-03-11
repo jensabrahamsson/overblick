@@ -76,6 +76,7 @@ class TestSetRestrictivePermissions:
         f.write_text("secret")
         with patch("overblick.shared.platform.IS_WINDOWS", True):
             import importlib
+
             import overblick.shared.platform as plat
 
             # Call the real function with IS_WINDOWS mocked

@@ -261,4 +261,4 @@ def _format_patterns(patterns: dict[str, str]) -> str:
     """Format a dict of language→pattern into a readable string."""
     if not patterns:
         return "default"
-    return ", ".join(f"{lang}: \"{pat}\"" for lang, pat in patterns.items())
+    return ", ".join(f'{lang}: "{pat}"' for lang, pat in patterns.items())

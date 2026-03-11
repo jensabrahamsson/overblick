@@ -1,10 +1,11 @@
 """Tests for moltbook_username field in Identity model."""
 
-import pytest
-import yaml
 from pathlib import Path
 
-from overblick.identities import load_identity, Identity, _build_identity
+import pytest
+import yaml
+
+from overblick.identities import Identity, _build_identity, load_identity
 
 
 class TestMoltbookUsername:

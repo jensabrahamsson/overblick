@@ -7,8 +7,8 @@ import pytest
 from overblick.core.event_bus import EventBus
 from overblick.core.plugin_base import PluginContext
 from overblick.identities import (
-    Personality,
     LLMSettings,
+    Personality,
     QuietHoursSettings,
     ScheduleSettings,
     SecuritySettings,

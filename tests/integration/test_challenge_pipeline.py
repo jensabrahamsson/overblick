@@ -5,8 +5,9 @@ Tests the flow: API response → ResponseRouter → ChallengeHandler → Solver.
 Uses real code with mocked HTTP/LLM dependencies.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from overblick.core.llm.response_router import ResponseRouter, ResponseVerdict, RouterResult
 

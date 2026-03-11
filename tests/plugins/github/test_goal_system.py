@@ -4,8 +4,9 @@ Tests for GoalTracker — persistent goal management.
 Now uses core agentic GoalTracker with GitHub-specific default goals.
 """
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from overblick.core.agentic.goal_tracker import GoalTracker
 from overblick.core.agentic.models import AgentGoal, GoalStatus

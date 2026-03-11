@@ -5,18 +5,19 @@ Tests the full OBSERVE -> THINK -> DECIDE -> ACT -> LEARN cycle
 and edge cases using mocked services and realistic identities.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
+import pytest
+
+from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.plugins.moltbook.client import MoltbookError, RateLimitError
-from overblick.plugins.moltbook.models import Post, Comment
-from overblick.plugins.moltbook.plugin import MoltbookPlugin
 from overblick.plugins.moltbook.decision_engine import EngagementDecision
 from overblick.plugins.moltbook.feed_processor import FeedProcessor
-from overblick.core.llm.pipeline import PipelineResult, PipelineStage
+from overblick.plugins.moltbook.models import Comment, Post
+from overblick.plugins.moltbook.plugin import MoltbookPlugin
 
-from .conftest import make_post, _FallbackPrompts
+from .conftest import _FallbackPrompts, make_post
 
 # ---------------------------------------------------------------------------
 # 1. Full engagement cycle — Anomal

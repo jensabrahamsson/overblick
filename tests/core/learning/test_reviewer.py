@@ -1,7 +1,8 @@
 """Unit tests for EthosReviewer."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from overblick.core.learning.models import LearningStatus
 from overblick.core.learning.reviewer import EthosReviewer

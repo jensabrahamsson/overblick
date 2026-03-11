@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from overblick.gateway.config import GatewayConfig, get_config, reset_config, _load_yaml_config
+from overblick.gateway.config import GatewayConfig, _load_yaml_config, get_config, reset_config
 
 
 class TestGatewayConfig:

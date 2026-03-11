@@ -1,7 +1,8 @@
 """Tests for response generator."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from overblick.plugins.moltbook.response_gen import ResponseGenerator
 

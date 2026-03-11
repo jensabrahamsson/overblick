@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+_SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 @router.get("/agent/{name}", response_class=HTMLResponse)

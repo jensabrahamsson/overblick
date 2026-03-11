@@ -4,14 +4,15 @@ Tests for MoltbookClient API methods.
 Covers both new and existing API surface using mocked _request().
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from overblick.plugins.moltbook.client import (
+    AuthenticationError,
     MoltbookClient,
     MoltbookError,
     RateLimitError,
-    AuthenticationError,
     SuspensionError,
 )
 from overblick.plugins.moltbook.models import (

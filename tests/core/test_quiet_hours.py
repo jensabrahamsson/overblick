@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
+
 from overblick.core.quiet_hours import QuietHoursChecker
 from overblick.identities import QuietHoursSettings
 

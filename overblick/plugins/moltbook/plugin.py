@@ -18,9 +18,8 @@ import asyncio
 import json
 import logging
 import random
-from datetime import UTC, date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityRegistry
 from overblick.core.plugin_base import PluginBase, PluginContext

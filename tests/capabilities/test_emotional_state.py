@@ -2,8 +2,9 @@
 Tests for EmotionalState — personality-driven mood tracking.
 """
 
-import pytest
 import time
+
+import pytest
 
 from overblick.capabilities.psychology.emotional_state import EmotionalState, Mood
 

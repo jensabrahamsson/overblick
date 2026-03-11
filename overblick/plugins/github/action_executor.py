@@ -204,7 +204,7 @@ class NotifyOwnerHandler:
         self._dry_run = dry_run
 
     async def handle(self, action: PlannedAction, observation: Any) -> ActionOutcome:
-        message = f"*GitHub Agent: {action.repo}*\n" f"{action.target}\n\n" f"_{action.reasoning}_"
+        message = f"*GitHub Agent: {action.repo}*\n{action.target}\n\n_{action.reasoning}_"
 
         if self._dry_run:
             logger.info("DRY RUN: would notify owner: %s", message[:200])

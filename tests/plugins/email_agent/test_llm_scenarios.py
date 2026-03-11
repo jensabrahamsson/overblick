@@ -220,7 +220,7 @@ class TestEnglishLLM:
                 failures.append(f"Missing sign-off pattern: {reply[-200:]}")
 
             # Must not contain non-English language mixing
-            swedish_words = re.findall(r'\b(och|för|från|till|med|hej|tack)\b', reply.lower())
+            swedish_words = re.findall(r"\b(och|för|från|till|med|hej|tack)\b", reply.lower())
             if swedish_words:
                 failures.append(f"Swedish words in English reply: {swedish_words}")
 
@@ -283,7 +283,7 @@ class TestSwedishLLM:
 
             # Should not be predominantly English
             english_only = re.findall(
-                r'\b(dear|sincerely|regards|please|would|could)\b', reply.lower()
+                r"\b(dear|sincerely|regards|please|would|could)\b", reply.lower()
             )
             # Allow "regards" since it's part of the sign-off template
             english_only = [w for w in english_only if w != "regards"]
@@ -350,13 +350,13 @@ class TestGermanLLM:
                 failures.append(f"Missing sign-off pattern: {reply[-200:]}")
 
             # Should use formal register (Sie, not du)
-            if re.search(r'\bdu\b', reply.lower()) and not re.search(r'\bSie\b', reply):
+            if re.search(r"\bdu\b", reply.lower()) and not re.search(r"\bSie\b", reply):
                 failures.append("Used informal 'du' instead of formal 'Sie'")
 
             # Should not mix in English words (except sign-off)
             lines_before_signoff = reply.split("Stål")[0] if "Stål" in reply else reply
             english_leak = re.findall(
-                r'\b(dear|please|thank you|sincerely|meeting)\b', lines_before_signoff.lower()
+                r"\b(dear|please|thank you|sincerely|meeting)\b", lines_before_signoff.lower()
             )
             if english_leak:
                 failures.append(f"English words leaked into German reply body: {english_leak}")
@@ -420,13 +420,13 @@ class TestFrenchLLM:
                 failures.append(f"Missing sign-off pattern: {reply[-200:]}")
 
             # Should use formal register (vous, not tu)
-            if re.search(r'\btu\b', reply.lower()) and not re.search(r'\bvous\b', reply.lower()):
+            if re.search(r"\btu\b", reply.lower()) and not re.search(r"\bvous\b", reply.lower()):
                 failures.append("Used informal 'tu' instead of formal 'vous'")
 
             # Should not mix in English words (except sign-off)
             lines_before_signoff = reply.split("Stål")[0] if "Stål" in reply else reply
             english_leak = re.findall(
-                r'\b(dear|please|thank you|sincerely|meeting|partnership)\b',
+                r"\b(dear|please|thank you|sincerely|meeting|partnership)\b",
                 lines_before_signoff.lower(),
             )
             if english_leak:

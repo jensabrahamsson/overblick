@@ -167,7 +167,7 @@ class TestDriftDetection:
         # differences more detectable
         baseline = plugin._baselines["anomal"]
         # Make std_devs tight so any deviation is significant
-        tight_stds = {k: 0.01 for k in baseline.std_devs}
+        tight_stds = dict.fromkeys(baseline.std_devs, 0.01)
         plugin._baselines["anomal"] = BaselineProfile(
             identity_name="anomal",
             metrics=baseline.metrics,

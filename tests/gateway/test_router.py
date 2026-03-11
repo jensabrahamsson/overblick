@@ -9,8 +9,9 @@ Verifies all routing rules:
 5. Default fallback
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from overblick.gateway.router import RequestRouter
 

@@ -1,7 +1,9 @@
 """Tests for reply queue manager."""
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+
 from overblick.plugins.moltbook.reply_queue import ReplyQueueManager
 
 

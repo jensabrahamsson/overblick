@@ -4,14 +4,14 @@ import pytest
 from pydantic import ValidationError
 
 from overblick.gateway.models import (
-    Priority,
     ChatMessage,
     ChatRequest,
     ChatResponse,
     ChatResponseChoice,
     ChatResponseUsage,
-    QueuedRequest,
     GatewayStats,
+    Priority,
+    QueuedRequest,
 )
 
 

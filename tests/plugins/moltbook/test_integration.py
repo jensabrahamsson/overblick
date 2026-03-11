@@ -8,27 +8,27 @@ Verifies end-to-end flows:
 """
 
 import json
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from pathlib import Path
 
+from overblick.dashboard.services.system import SystemService
 from overblick.plugins.moltbook.client import (
+    AuthenticationError,
     MoltbookClient,
     MoltbookError,
     SuspensionError,
-    AuthenticationError,
 )
 from overblick.plugins.moltbook.models import (
     Agent,
-    Post,
     Comment,
-    Submolt,
     Conversation,
     DMRequest,
     Message,
+    Post,
+    Submolt,
 )
-from overblick.dashboard.services.system import SystemService
 
 # ── Status Lifecycle Integration ──────────────────────────────────────────
 

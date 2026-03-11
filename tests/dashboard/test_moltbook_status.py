@@ -3,6 +3,7 @@
 import json
 
 import pytest
+
 from overblick.dashboard.auth import SESSION_COOKIE
 from overblick.dashboard.services.system import SystemService
 

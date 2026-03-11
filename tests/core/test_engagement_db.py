@@ -26,7 +26,7 @@ class TestEngagementDB:
         # Verify the engagement was recorded (no exception = success)
         stats = (
             await engagement_db.get_engagement_stats()
-            if hasattr(engagement_db, 'get_engagement_stats')
+            if hasattr(engagement_db, "get_engagement_stats")
             else None
         )
         # At minimum, method should complete without error

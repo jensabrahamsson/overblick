@@ -6,13 +6,17 @@ sender reputation, cross-identity consultation, and enhanced feedback.
 import email.utils
 import json
 import time
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from overblick.capabilities.consulting.personality_consultant import (
+    PersonalityConsultantCapability,
+)
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.email_agent.classifier import EmailClassifier
-from overblick.plugins.email_agent.database import EmailAgentDB, MIGRATIONS
+from overblick.plugins.email_agent.database import MIGRATIONS, EmailAgentDB
 from overblick.plugins.email_agent.models import (
     AgentGoal,
     AgentLearning,
@@ -22,11 +26,7 @@ from overblick.plugins.email_agent.models import (
     EmailRecord,
     SenderProfile,
 )
-from overblick.capabilities.consulting.personality_consultant import (
-    PersonalityConsultantCapability,
-)
 from overblick.plugins.email_agent.plugin import EmailAgentPlugin
-from overblick.plugins.email_agent.reputation import ReputationManager
 from overblick.plugins.email_agent.prompts import (
     boss_consultation_prompt,
     classification_prompt,
@@ -35,6 +35,7 @@ from overblick.plugins.email_agent.prompts import (
     reply_prompt,
     reply_prompt_with_research,
 )
+from overblick.plugins.email_agent.reputation import ReputationManager
 from overblick.supervisor.ipc import IPCMessage
 
 
@@ -1985,10 +1986,9 @@ class TestGmailHeaderExtraction:
     @pytest.mark.asyncio
     async def test_fetch_extracts_list_unsubscribe(self):
         """fetch_unread() extracts List-Unsubscribe header."""
-        from unittest.mock import patch
-        from overblick.capabilities.communication.gmail import GmailCapability
-
         from email.mime.text import MIMEText
+
+        from overblick.capabilities.communication.gmail import GmailCapability
 
         # Build email with List-Unsubscribe header
         email_msg = MIMEText("Newsletter content", "plain", "utf-8")
@@ -2027,13 +2027,11 @@ class TestGmailHeaderExtraction:
     @pytest.mark.asyncio
     async def test_fetch_no_signal_headers(self):
         """fetch_unread() returns empty headers when none present."""
-        from unittest.mock import patch
         from overblick.capabilities.communication.gmail import GmailCapability
-
         from tests.capabilities.test_gmail_capability import (
+            _build_raw_email,
             _make_ctx,
             _mock_imap,
-            _build_raw_email,
         )
 
         ctx = _make_ctx()
@@ -2127,16 +2125,16 @@ class TestMaxEmailAgeFilter:
         """Email within max_hours returns True."""
         from datetime import datetime, timezone
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         date_str = email.utils.format_datetime(now)
         msg = {"headers": {"Date": date_str}}
         assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
 
     def test_is_recent_email_beyond_limit(self):
         """Email older than max_hours returns False."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
-        old = datetime.now(timezone.utc) - timedelta(hours=5)
+        old = datetime.now(UTC) - timedelta(hours=5)
         date_str = email.utils.format_datetime(old)
         msg = {"headers": {"Date": date_str}}
         assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is False
@@ -2158,10 +2156,10 @@ class TestMaxEmailAgeFilter:
 
     def test_is_recent_email_naive_datetime(self):
         """Date header without timezone is treated as UTC."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
         # Create a naive datetime string (no timezone info)
-        recent = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent = datetime.now(UTC) - timedelta(hours=1)
         date_str = recent.strftime("%a, %d %b %Y %H:%M:%S")
         msg = {"headers": {"Date": date_str}}
         assert EmailAgentPlugin._is_recent_email(msg, max_hours=3) is True
@@ -2194,14 +2192,14 @@ class TestMaxEmailAgeFilter:
         mock_gmail_capability,
     ):
         """_fetch_unread skips emails older than max_email_age_hours."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
         stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 3
         plugin = EmailAgentPlugin(stal_plugin_context)
         await plugin.setup()
 
-        old_date = datetime.now(timezone.utc) - timedelta(hours=5)
-        recent_date = datetime.now(timezone.utc) - timedelta(hours=1)
+        old_date = datetime.now(UTC) - timedelta(hours=5)
+        recent_date = datetime.now(UTC) - timedelta(hours=1)
 
         # Create mock messages
         old_msg = MagicMock()
@@ -2282,9 +2280,9 @@ class TestMaxEmailAgeFilter:
 
     def test_future_date_treated_as_recent(self):
         """Email with future Date header is treated as recent (not blocked)."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
-        future = datetime.now(timezone.utc) + timedelta(hours=48)
+        future = datetime.now(UTC) + timedelta(hours=48)
         date_str = email.utils.format_datetime(future)
         msg = {"headers": {"Date": date_str}}
         # Future date → age_hours is negative → negative <= 3 → True
@@ -2297,9 +2295,9 @@ class TestMaxEmailAgeFilter:
         mock_gmail_capability,
     ):
         """_fetch_unread() injects msg.timestamp as Date header for age filtering."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
-        recent_date = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent_date = datetime.now(UTC) - timedelta(hours=1)
         date_str = email.utils.format_datetime(recent_date)
 
         stal_plugin_context.identity.raw_config["email_agent"]["max_email_age_hours"] = 5

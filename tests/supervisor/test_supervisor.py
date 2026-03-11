@@ -6,12 +6,13 @@ import asyncio
 import json
 import shutil
 import tempfile
-import pytest
 from pathlib import Path
 
-from overblick.supervisor.supervisor import Supervisor, SupervisorState
+import pytest
+
+from overblick.supervisor.ipc import IPCClient, IPCMessage, IPCServer
 from overblick.supervisor.process import AgentProcess, ProcessState
-from overblick.supervisor.ipc import IPCServer, IPCClient, IPCMessage
+from overblick.supervisor.supervisor import Supervisor, SupervisorState
 
 
 @pytest.fixture
@@ -548,7 +549,7 @@ class TestSupervisorIdentityPlugins:
 
         try:
             # Mock load_identity to return an identity with specific plugins
-            from unittest.mock import patch, MagicMock
+            from unittest.mock import MagicMock, patch
 
             mock_identity = MagicMock()
             mock_identity.plugins = ("moltbook", "ai_digest", "telegram")

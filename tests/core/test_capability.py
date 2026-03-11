@@ -1,8 +1,9 @@
 """Tests for capability base class."""
 
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.core.plugin_base import PluginContext

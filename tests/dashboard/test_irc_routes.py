@@ -1,11 +1,12 @@
 """Tests for the IRC dashboard routes."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from overblick.dashboard.auth import SESSION_COOKIE
 from overblick.dashboard.services.irc import IRCService
-from overblick.plugins.irc.models import IRCConversation, IRCTurn, ConversationState
+from overblick.plugins.irc.models import ConversationState, IRCConversation, IRCTurn
 
 
 def _make_conversations():

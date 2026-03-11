@@ -1,7 +1,9 @@
 """Tests for dashboard main page, partials, and agent actions."""
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
+
 from overblick.dashboard.auth import SESSION_COOKIE
 
 

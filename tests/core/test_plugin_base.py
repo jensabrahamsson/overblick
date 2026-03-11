@@ -1,7 +1,9 @@
 """Tests for plugin base and context."""
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from overblick.core.plugin_base import PluginBase, PluginContext
 
 

@@ -1,11 +1,12 @@
 """Tests for SafeLLMPipeline."""
 
-import pytest
 from dataclasses import dataclass
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
-from overblick.core.llm.pipeline import SafeLLMPipeline, PipelineResult, PipelineStage
+import pytest
+
+from overblick.core.llm.pipeline import PipelineResult, PipelineStage, SafeLLMPipeline
 from overblick.core.security.preflight import PreflightResult, ThreatLevel, ThreatType
 
 
@@ -43,7 +44,7 @@ def mock_output_safety():
     class MockResult:
         text: str
         blocked: bool
-        reason: Optional[str] = None
+        reason: str | None = None
         replaced: bool = False
 
     safety = MagicMock()
@@ -195,7 +196,7 @@ class TestSafeLLMPipeline:
         class ReplacedResult:
             text: str = "Hello there, friend!"
             blocked: bool = False
-            reason: Optional[str] = None
+            reason: str | None = None
             replaced: bool = True
 
         mock_output_safety.sanitize = MagicMock(return_value=ReplacedResult())

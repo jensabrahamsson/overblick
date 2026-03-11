@@ -2,7 +2,7 @@
 Tests for the GitHub decision engine — event scoring and action determination.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 import pytest
 
@@ -199,7 +199,7 @@ class TestDecisionEngine:
         engine = self._make_engine()
         # mention(50) + label(30) + keyword(20) + priority(15) = 115
         # Use a recent timestamp to avoid old_issue penalty
-        recent = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        recent = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         event = GitHubEvent(
             event_id="test/1",
             event_type=EventType.ISSUE_OPENED,

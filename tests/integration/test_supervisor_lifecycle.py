@@ -15,9 +15,9 @@ import pytest
 import pytest_asyncio
 
 from overblick.supervisor.ipc import (
-    IPCServer,
     IPCClient,
     IPCMessage,
+    IPCServer,
     generate_ipc_token,
 )
 

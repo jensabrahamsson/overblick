@@ -1,8 +1,10 @@
 """Tests for plugin capability checker."""
 
 import os
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from overblick.core.plugin_capability_checker import PluginCapabilityChecker
 from overblick.core.security.settings import reset_strict_capabilities
 

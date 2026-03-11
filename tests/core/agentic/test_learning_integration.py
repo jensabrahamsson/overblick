@@ -1,11 +1,12 @@
 """Tests for LearningStore integration with the agentic loop and reflection."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from overblick.core.agentic.loop import AgentLoop
 from overblick.core.agentic.models import ActionOutcome, AgentLearning, PlannedAction
 from overblick.core.agentic.reflection import ReflectionPipeline
-from overblick.core.agentic.loop import AgentLoop
 from overblick.core.learning.models import LearningStatus
 from overblick.core.learning.store import LearningStore
 

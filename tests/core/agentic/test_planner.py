@@ -3,9 +3,9 @@ Tests for ActionPlanner — LLM-driven plan generation.
 """
 
 import json
+from unittest.mock import AsyncMock
 
 import pytest
-from unittest.mock import AsyncMock
 
 from overblick.core.agentic.planner import ActionPlanner
 from overblick.core.agentic.protocols import PlanningPromptConfig
@@ -60,11 +60,11 @@ class TestActionPlanner:
         planner = ActionPlanner(llm_pipeline=None)
 
         raw = (
-            '```json\n'
+            "```json\n"
             '{"reasoning": "test", "actions": ['
             '{"action_type": "skip", "target": "", "target_number": 0, '
             '"repo": "", "priority": 50, "reasoning": "nothing to do"}'
-            ']}\n```'
+            "]}\n```"
         )
 
         plan = planner._parse_plan(raw, max_actions=5)

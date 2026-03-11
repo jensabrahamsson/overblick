@@ -1,15 +1,16 @@
 """Tests for therapy system and TherapyCapability prompt context."""
 
-import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from overblick.capabilities.psychology.therapy import TherapyCapability
 from overblick.plugins.moltbook.therapy_system import (
     CherryTherapySystem,
     TherapySession,
     TherapySystem,
 )
-from overblick.capabilities.psychology.therapy import TherapyCapability
 
 
 class TestTherapySystem:

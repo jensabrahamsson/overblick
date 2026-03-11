@@ -7,8 +7,9 @@ Tests cover:
 - Integration with TelegramNotifier.fetch_updates()
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from overblick.plugins.github.owner_commands import (
     OwnerCommand,

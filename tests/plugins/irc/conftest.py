@@ -1,8 +1,9 @@
 """Test fixtures for the IRC plugin."""
 
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.core.plugin_base import PluginContext

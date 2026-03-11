@@ -2,12 +2,13 @@
 Tests for AnalyzerCapability — engagement analysis wrapper.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-from overblick.core.capability import CapabilityContext
+import pytest
+
 from overblick.capabilities.engagement.analyzer import AnalyzerCapability
+from overblick.core.capability import CapabilityContext
 
 
 def make_ctx(**overrides) -> CapabilityContext:

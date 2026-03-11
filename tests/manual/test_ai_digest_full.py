@@ -9,14 +9,16 @@ import pytest
 
 pytestmark = pytest.mark.llm
 
+from unittest.mock import MagicMock
+
+import yaml
+
 from overblick.core.event_bus import EventBus
+from overblick.core.llm.ollama_client import OllamaClient
+from overblick.core.llm.pipeline import SafeLLMPipeline
 from overblick.core.plugin_base import PluginContext
 from overblick.core.security.secrets_manager import SecretsManager
 from overblick.plugins.ai_digest.plugin import AiDigestPlugin
-from overblick.core.llm.ollama_client import OllamaClient
-from overblick.core.llm.pipeline import SafeLLMPipeline
-from unittest.mock import MagicMock
-import yaml
 
 
 async def test_full_digest():
@@ -36,7 +38,7 @@ async def test_full_digest():
         personality_data = yaml.safe_load(f)
 
     # Create a minimal identity object with raw_config
-    from overblick.identities import Personality, LLMSettings
+    from overblick.identities import LLMSettings, Personality
 
     identity = Personality(
         name="anomal",
@@ -130,7 +132,7 @@ async def test_full_digest():
         print(f"  {i}. {article.title[:60]}...")
 
     # Generate digest with LLM
-    print(f"\n[5/6] Generating digest in Anomal's voice (this may take a while)...")
+    print("\n[5/6] Generating digest in Anomal's voice (this may take a while)...")
     print("⏳ LLM is writing with deep reasoning...")
     start = time.time()
     digest = await ai_digest._generate_digest(ranked)
@@ -160,7 +162,7 @@ async def test_full_digest():
     print("\nCheck your configured recipient for the AI digest email.")
     print("\nDigest contains:")
     print(f"  - {len(ranked)} ranked articles")
-    print(f"  - Generated in Anomal's voice (with reasoning)")
+    print("  - Generated in Anomal's voice (with reasoning)")
     print(f"  - {len(digest)} characters")
 
 

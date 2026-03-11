@@ -1,6 +1,7 @@
 """Tests for agent detail routes."""
 
 import pytest
+
 from overblick.dashboard.auth import SESSION_COOKIE
 
 

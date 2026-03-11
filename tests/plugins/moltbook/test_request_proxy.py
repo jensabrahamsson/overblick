@@ -7,8 +7,8 @@ import time
 import pytest
 
 from overblick.plugins.moltbook.request_proxy import (
-    RequestCache,
     MoltbookRequestProxy,
+    RequestCache,
 )
 
 

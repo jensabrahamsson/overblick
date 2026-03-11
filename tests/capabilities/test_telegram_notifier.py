@@ -34,7 +34,7 @@ def _make_ctx(bot_token="test-token", chat_id="12345", owner_id=None):
         secrets["telegram_owner_id"] = owner_id
 
     def get_secret(key):
-        if key in secrets and secrets[key]:
+        if secrets.get(key):
             return secrets[key]
         raise KeyError(f"Secret not found: {key}")
 

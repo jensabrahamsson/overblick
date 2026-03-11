@@ -148,6 +148,7 @@ class TestKontrastRoute:
     async def test_kontrast_page_with_pieces(self, client, session_cookie):
         """Kontrast page renders pieces when data exists."""
         import time
+
         import overblick.dashboard.routes.kontrast as kontrast_mod
 
         pieces = [
@@ -220,6 +221,7 @@ class TestSkuggspelRoute:
     async def test_skuggspel_page_with_posts(self, client, session_cookie):
         """Skuggspel page renders posts when data exists."""
         import time
+
         import overblick.dashboard.routes.skuggspel as skuggspel_mod
 
         posts = [
@@ -283,6 +285,7 @@ class TestSpegelRoute:
     async def test_spegel_page_with_pairs(self, client, session_cookie):
         """Spegel page renders pairs when data exists."""
         import time
+
         import overblick.dashboard.routes.spegel as spegel_mod
 
         pairs = [
@@ -351,6 +354,7 @@ class TestStageRoute:
     async def test_stage_page_with_results(self, client, session_cookie):
         """Stage page renders results when data exists."""
         import time
+
         import overblick.dashboard.routes.stage as stage_mod
 
         results = [

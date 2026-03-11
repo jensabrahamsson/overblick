@@ -1,11 +1,12 @@
 """Tests for dream system (via moltbook backward-compat shim)."""
 
 import pytest
+
 from overblick.plugins.moltbook.dream_system import (
-    DreamSystem,
-    DreamType,
-    DreamTone,
     Dream,
+    DreamSystem,
+    DreamTone,
+    DreamType,
 )
 
 

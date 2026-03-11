@@ -45,5 +45,5 @@ def create_backend(
 
     else:
         raise ValueError(
-            f"Unknown database backend: {config.backend!r}. " f"Supported: 'sqlite', 'postgresql'"
+            f"Unknown database backend: {config.backend!r}. Supported: 'sqlite', 'postgresql'"
         )

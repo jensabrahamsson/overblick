@@ -95,7 +95,7 @@ class TestSafeSenderName:
     def test_no_filesystem_dangerous_chars(self):
         """Result never contains characters dangerous for filesystems."""
         result = ReputationManager._safe_sender_name('Test "Quoted" <user/path@domain.com>')
-        for ch in ('/', '"', "'", '\\', '<', '>'):
+        for ch in ("/", '"', "'", "\\", "<", ">"):
             assert ch not in result
 
     def test_max_length(self):

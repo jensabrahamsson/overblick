@@ -26,9 +26,13 @@ async def compass_page(request: Request):
     import asyncio
 
     try:
-        baselines, alerts, drift_history, drift_threshold, identity_status = (
-            await asyncio.to_thread(_load_compass_data, request)
-        )
+        (
+            baselines,
+            alerts,
+            drift_history,
+            drift_threshold,
+            identity_status,
+        ) = await asyncio.to_thread(_load_compass_data, request)
         data_errors = []
     except Exception as e:
         logger.error("Failed to load compass data: %s", e, exc_info=True)

@@ -92,9 +92,9 @@ class TestSystemPromptGeneration:
             banned = p.get_banned_words()
             if banned:
                 prompt = build_system_prompt(p)
-                assert (
-                    "NEVER use" in prompt
-                ), f"{name}: has banned words but prompt missing NEVER use"
+                assert "NEVER use" in prompt, (
+                    f"{name}: has banned words but prompt missing NEVER use"
+                )
 
 
 class TestIdentityConfiguration:

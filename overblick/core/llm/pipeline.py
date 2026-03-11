@@ -25,11 +25,10 @@ from overblick.core.security.settings import safe_mode
 logger = logging.getLogger(__name__)
 
 
-
 @dataclass
 class CircuitBreakerState:
     """Circuit breaker state machine for LLM backend health monitoring."""
-    
+
     failure_threshold: int = 5
     success_threshold: int = 2
     timeout_seconds: float = 30.0
@@ -42,14 +41,14 @@ class CircuitBreakerState:
 
 class CircuitBreaker:
     """Circuit breaker for LLM backend health monitoring."""
-    
+
     def __init__(self, failure_threshold=5, success_threshold=2, timeout_seconds=30.0):
         self._state = CircuitBreakerState(
             failure_threshold=failure_threshold,
             success_threshold=success_threshold,
             timeout_seconds=timeout_seconds,
         )
-    
+
     @property
     def state(self) -> str:
         if self._state.state == "open":
@@ -57,23 +56,23 @@ class CircuitBreaker:
                 self._state.state = "half_open"
                 logger.info("Circuit breaker transitioning to HALF_OPEN")
         return self._state.state
-    
+
     @property
     def failure_count(self) -> int:
         return self._state.failure_count
-    
-    @property  
+
+    @property
     def is_closed(self) -> bool:
         return self._state.state == "closed"
-    
+
     @property
     def is_open(self) -> bool:
         return self._state.state == "open"
-    
+
     @property
     def is_half_open(self) -> bool:
         return self._state.state == "half_open"
-    
+
     def allow_request(self) -> bool:
         _ = self.state
         if self._state.state == "closed":
@@ -83,7 +82,7 @@ class CircuitBreaker:
             return False
         else:
             return True
-    
+
     def on_success(self) -> None:
         if self._state.state == "half_open":
             self._state.success_count += 1
@@ -95,22 +94,26 @@ class CircuitBreaker:
         else:
             if self._state.failure_count > 0:
                 self._state.failure_count = max(0, self._state.failure_count - 1)
-    
+
     def on_failure(self) -> None:
         self._state.failure_count += 1
         self._state.last_failure_time = time.time()
-        
+
         if self._state.state == "half_open":
             self._state.state = "open"
-            logger.warning("Circuit breaker OPEN - half-open test failed (failures: %d)", self._state.failure_count)
+            logger.warning(
+                "Circuit breaker OPEN - half-open test failed (failures: %d)",
+                self._state.failure_count,
+            )
         elif self._state.state == "closed":
             if self._state.failure_count >= self._state.failure_threshold:
                 self._state.state = "open"
                 self._state.last_state_change = time.time()
-                logger.warning("Circuit breaker OPEN - failure threshold reached (threshold: %d, current: %d)", 
-                              self._state.failure_threshold, self._state.failure_count)
-
-
+                logger.warning(
+                    "Circuit breaker OPEN - failure threshold reached (threshold: %d, current: %d)",
+                    self._state.failure_threshold,
+                    self._state.failure_count,
+                )
 
 
 class PipelineStage(Enum):
@@ -200,8 +203,8 @@ class SafeLLMPipeline:
 
         # Track missing components (warn once)
         self._warned: set[str] = set()
-        
-        # Circuit breaker for backend resilience  
+
+        # Circuit breaker for backend resilience
         if circuit_breaker_enabled:
             self._circuit_breaker = CircuitBreaker(
                 failure_threshold=5,
@@ -333,7 +336,7 @@ class SafeLLMPipeline:
 
         # Stage 4: LLM call with circuit breaker protection
         t0 = time.monotonic()
-        
+
         # Check circuit breaker before making the call
         if self._circuit_breaker and not self._circuit_breaker.allow_request():
             stage_timings["llm_call"] = (time.monotonic() - t0) * 1000
@@ -346,7 +349,7 @@ class SafeLLMPipeline:
             )
             self._audit_error(result, audit_action, audit_details, "Circuit breaker OPEN")
             return result
-        
+
         try:
             raw_response = await self._llm.chat(
                 messages=messages,
@@ -356,11 +359,11 @@ class SafeLLMPipeline:
                 priority=priority,
                 complexity=complexity,
             )
-            
+
             # Record success on circuit breaker
             if self._circuit_breaker:
                 self._circuit_breaker.on_success()
-                
+
         except Exception as e:
             # Record failure on circuit breaker
             if self._circuit_breaker:

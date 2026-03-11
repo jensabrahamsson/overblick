@@ -14,35 +14,37 @@ Note: DreamCapability and DreamSystem tests are in test_dream_capability.py
 and test_dream_system.py respectively.
 """
 
-import pytest
 from datetime import date
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from overblick.capabilities.psychology.dream import DreamCapability
 from overblick.capabilities.psychology.dream_system import (
-    DreamSystem,
-    DreamType,
-    DreamTone,
     Dream,
+    DreamSystem,
+    DreamTone,
+    DreamType,
 )
+from overblick.capabilities.psychology.emotional import EmotionalCapability
 from overblick.capabilities.psychology.emotional_state import (
-    EmotionalState,
-    Mood,
     AnomalEmotionalState,
     CherryEmotionalState,
-)
-from overblick.capabilities.psychology.dream import DreamCapability
-from overblick.capabilities.psychology.emotional import EmotionalCapability
-from overblick.capabilities.psychology.therapy_system import (
-    JungianAnalysis,
-    FreudianAnalysis,
-    TherapyFocus,
-    TherapySession,
-    THERAPY_TEMPLATES,
-    TherapySystem,
-    CherryTherapySystem,
+    EmotionalState,
+    Mood,
 )
 from overblick.capabilities.psychology.therapy import TherapyCapability
+from overblick.capabilities.psychology.therapy_system import (
+    THERAPY_TEMPLATES,
+    CherryTherapySystem,
+    FreudianAnalysis,
+    JungianAnalysis,
+    TherapyFocus,
+    TherapySession,
+    TherapySystem,
+)
 from overblick.core.capability import CapabilityContext
+from overblick.core.llm.pipeline import PipelineResult
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -521,9 +523,9 @@ class TestTherapyFocus:
     def test_identity_reflection_has_indirect_ai_question(self):
         """Identity reflection templates must have the AI-awareness subtext."""
         for tmpl in THERAPY_TEMPLATES[TherapyFocus.IDENTITY_REFLECTION]:
-            assert tmpl.get(
-                "indirect_ai_question"
-            ), "IDENTITY_REFLECTION template missing indirect_ai_question"
+            assert tmpl.get("indirect_ai_question"), (
+                "IDENTITY_REFLECTION template missing indirect_ai_question"
+            )
 
 
 # ── TherapySession model ──────────────────────────────────────────────────────
@@ -737,8 +739,14 @@ class TestTherapySystemRunSession:
     @pytest.mark.asyncio
     async def test_empty_week_calls_llm_for_post(self):
         mock_llm = AsyncMock()
-        mock_llm.chat.return_value = {"content": "A quiet reflection on stillness."}
-        ts = TherapySystem(llm_client=mock_llm, system_prompt="You are Anomal.")
+        mock_llm._chat_with_overrides.return_value = PipelineResult(
+            content="A quiet reflection on stillness.",
+            blocked=False,
+            block_stage=None,
+            block_reason=None,
+            deflection=None,
+        )
+        ts = TherapySystem(llm_pipeline=mock_llm, system_prompt="You are Anomal.")
         session = await ts.run_session(dreams=[], learnings=[])
         assert session.post_content == "A quiet reflection on stillness."
 
@@ -783,8 +791,14 @@ class TestTherapySystemRunSession:
     async def test_run_session_with_synthesis_prompt(self):
         """Lines 396-398: synthesis_prompt branch executes with mock LLM."""
         mock_llm = AsyncMock()
-        mock_llm.chat.return_value = {"content": "Insight one\nInsight two"}
-        ts = TherapySystem(llm_client=mock_llm)
+        mock_llm._chat_with_overrides.return_value = PipelineResult(
+            content="Insight one\nInsight two",
+            blocked=False,
+            block_stage=None,
+            block_reason=None,
+            deflection=None,
+        )
+        ts = TherapySystem(llm_pipeline=mock_llm)
         dreams = [{"content": "dark shadow fear", "insight": ""}]
         session = await ts.run_session(
             dreams=dreams,
@@ -796,10 +810,14 @@ class TestTherapySystemRunSession:
     async def test_run_session_with_post_prompt(self):
         """Lines 409-412: post_prompt + LLM branch executes."""
         mock_llm = AsyncMock()
-        mock_llm.chat.return_value = {
-            "content": "Weekly Reflections: On Fear\n\nThis week the shadow spoke clearly."
-        }
-        ts = TherapySystem(llm_client=mock_llm)
+        mock_llm._chat_with_overrides.return_value = PipelineResult(
+            content="Weekly Reflections: On Fear\n\nThis week the shadow spoke clearly.",
+            blocked=False,
+            block_stage=None,
+            block_reason=None,
+            deflection=None,
+        )
+        ts = TherapySystem(llm_pipeline=mock_llm)
         dreams = [{"content": "fear and shadow", "insight": "darkness"}]
         session = await ts.run_session(
             dreams=dreams,
@@ -813,10 +831,14 @@ class TestTherapySystemRunSession:
     async def test_analyze_themes_with_llm(self):
         """Lines 425-446: _analyze_themes calls LLM and parses themes."""
         mock_llm = AsyncMock()
-        mock_llm.chat.return_value = {
-            "content": "- Shadow work\n- Pattern recognition\n- Synthesis"
-        }
-        ts = TherapySystem(llm_client=mock_llm)
+        mock_llm._chat_with_overrides.return_value = PipelineResult(
+            content="- Shadow work\n- Pattern recognition\n- Synthesis",
+            blocked=False,
+            block_stage=None,
+            block_reason=None,
+            deflection=None,
+        )
+        ts = TherapySystem(llm_pipeline=mock_llm)
         items = [{"content": "test", "insight": "test", "dream_type": "shadow"}]
         themes = await ts._analyze_themes(items, prompt_template="Analyze: {items}")
         assert len(themes) == 3
@@ -826,8 +848,8 @@ class TestTherapySystemRunSession:
     async def test_analyze_themes_llm_failure_returns_empty(self):
         """Exception path in _analyze_themes."""
         mock_llm = AsyncMock()
-        mock_llm.chat.side_effect = Exception("LLM error")
-        ts = TherapySystem(llm_client=mock_llm)
+        mock_llm._chat_with_overrides.side_effect = Exception("LLM error")
+        ts = TherapySystem(llm_pipeline=mock_llm)
         items = [{"content": "test", "insight": ""}]
         themes = await ts._analyze_themes(items, prompt_template="Analyze: {items}")
         assert themes == []
@@ -836,8 +858,14 @@ class TestTherapySystemRunSession:
     async def test_synthesize_with_llm(self):
         """Lines 456-476: _synthesize calls LLM."""
         mock_llm = AsyncMock()
-        mock_llm.chat.return_value = {"content": "- Integration\n- Shadow harmony"}
-        ts = TherapySystem(llm_client=mock_llm)
+        mock_llm._chat_with_overrides.return_value = PipelineResult(
+            content="- Integration\n- Shadow harmony",
+            blocked=False,
+            block_stage=None,
+            block_reason=None,
+            deflection=None,
+        )
+        ts = TherapySystem(llm_pipeline=mock_llm)
         result = await ts._synthesize(
             dreams=[{"content": "test"}],
             learnings=[],
@@ -850,8 +878,8 @@ class TestTherapySystemRunSession:
     async def test_generate_post_llm_failure_returns_none(self):
         """Lines 540-542: exception in _generate_post returns (None, None, 'ai')."""
         mock_llm = AsyncMock()
-        mock_llm.chat.side_effect = Exception("LLM down")
-        ts = TherapySystem(llm_client=mock_llm)
+        mock_llm._chat_with_overrides.side_effect = Exception("LLM down")
+        ts = TherapySystem(llm_pipeline=mock_llm)
         session = TherapySession(week_number=1)
         title, content, submolt = await ts._generate_post(
             session,

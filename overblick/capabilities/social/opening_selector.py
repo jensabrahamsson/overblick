@@ -46,6 +46,10 @@ class OpeningSelector:
         available = [p for p in self._phrases if p not in self._recent]
         if not available:
             available = self._phrases
+        # If only empty string remains, reset recent to allow non-empty phrases
+        if len(available) == 1 and available[0] == "":
+            self._recent.clear()
+            available = [p for p in self._phrases if p not in self._recent]
 
         choice = random.choice(available)
         # Don't track empty strings in recent history (they mean "no opening")

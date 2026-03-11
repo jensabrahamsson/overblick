@@ -249,8 +249,9 @@ class TestSecretsKeyringFailure:
 
     def test_keyring_error_with_file_fallback_succeeds(self, tmp_path):
         """If keyring throws but .master_key file exists, use the file key."""
-        from cryptography.fernet import Fernet
         from unittest.mock import patch
+
+        from cryptography.fernet import Fernet
 
         secrets_dir = tmp_path / "secrets"
         secrets_dir.mkdir()

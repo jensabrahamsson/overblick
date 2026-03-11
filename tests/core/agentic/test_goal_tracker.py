@@ -2,8 +2,9 @@
 Tests for GoalTracker — persistent goal management.
 """
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from overblick.core.agentic.goal_tracker import GoalTracker
 from overblick.core.agentic.models import AgentGoal, GoalStatus

@@ -5,9 +5,9 @@ Now uses core agentic planner with GitHub-specific valid_actions.
 """
 
 import json
+from unittest.mock import AsyncMock
 
 import pytest
-from unittest.mock import AsyncMock
 
 from overblick.core.agentic.planner import ActionPlanner
 from overblick.core.llm.pipeline import PipelineResult

@@ -1,8 +1,9 @@
 """Tests for DM deduplication in MoltbookPlugin."""
 
-import pytest
 from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from overblick.plugins.moltbook.plugin import MoltbookPlugin
 

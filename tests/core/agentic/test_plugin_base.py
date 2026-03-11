@@ -2,9 +2,10 @@
 Tests for AgenticPluginBase — integration tests.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from overblick.core.agentic.models import (
     ActionOutcome,

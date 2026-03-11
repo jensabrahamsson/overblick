@@ -329,7 +329,7 @@ class GitHubAgentPlugin(AgenticPluginBase):
                 "- When unsure, NOTIFY the owner rather than acting\n"
                 "- Owner commands (from Telegram) always take highest priority"
             ),
-            output_format_hint=f'Valid action_type values: {action_types}',
+            output_format_hint=f"Valid action_type values: {action_types}",
             learning_categories="dependabot|issues|ci|general",
         )
 

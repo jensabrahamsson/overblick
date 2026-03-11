@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from overblick.dashboard.auth import SESSION_COOKIE
 
 

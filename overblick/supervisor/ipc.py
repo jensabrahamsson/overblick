@@ -513,7 +513,7 @@ class IPCServer:
             if not self._validate_auth(msg):
                 self._rejected_count += 1
                 logger.warning(
-                    "IPC auth rejected from sender '%s' (type: %s) — " "total rejections: %d",
+                    "IPC auth rejected from sender '%s' (type: %s) — total rejections: %d",
                     msg.sender,
                     msg.msg_type,
                     self._rejected_count,
@@ -529,7 +529,7 @@ class IPCServer:
                     try:
                         writer.write((response.to_json() + "\n").encode())
                         await writer.drain()
-                    except (ConnectionError, asyncio.TimeoutError):
+                    except (TimeoutError, ConnectionError):
                         logger.debug("IPC client disconnected before response could be sent")
             else:
                 logger.warning("No handler for message type: %s", msg.msg_type)
@@ -538,7 +538,7 @@ class IPCServer:
             logger.warning("IPC message exceeds buffer limit, rejecting")
         except asyncio.IncompleteReadError:
             logger.debug("IPC client disconnected before sending complete message")
-        except (ConnectionError, asyncio.TimeoutError):
+        except (TimeoutError, ConnectionError):
             logger.debug("IPC connection lost during processing")
         except json.JSONDecodeError as e:
             logger.warning("Invalid IPC message: %s", e)
@@ -548,7 +548,7 @@ class IPCServer:
             try:
                 writer.close()
                 await writer.wait_closed()
-            except (ConnectionError, asyncio.TimeoutError, OSError):
+            except (TimeoutError, ConnectionError, OSError):
                 # Ignore errors during final cleanup of a broken pipe
                 pass
             except Exception as e:

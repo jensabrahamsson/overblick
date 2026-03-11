@@ -2,8 +2,9 @@
 Tests for the GitHub response generator.
 """
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.github.code_context import CodeContextBuilder

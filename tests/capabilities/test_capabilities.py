@@ -5,21 +5,22 @@ Verifies that capabilities correctly wrap underlying modules,
 provide prompt context, and integrate with the CapabilityRegistry.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-from overblick.core.capability import CapabilityBase, CapabilityContext, CapabilityRegistry
+import pytest
+
 from overblick.capabilities import (
-    CAPABILITY_REGISTRY,
     CAPABILITY_BUNDLES,
-    resolve_capabilities,
+    CAPABILITY_REGISTRY,
     DreamCapability,
-    TherapyCapability,
     EmotionalCapability,
     KnowledgeCapability,
     OpeningCapability,
+    TherapyCapability,
+    resolve_capabilities,
 )
+from overblick.core.capability import CapabilityBase, CapabilityContext, CapabilityRegistry
 
 # ---------------------------------------------------------------------------
 # Helpers

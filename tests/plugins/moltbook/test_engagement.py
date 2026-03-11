@@ -1,12 +1,13 @@
 """Tests for Moltbook engagement — upvoting comments on own posts."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from overblick.plugins.moltbook.models import Post, Comment
-from overblick.plugins.moltbook.plugin import MoltbookPlugin
-from overblick.plugins.moltbook.client import MoltbookError
+import pytest
+
 from overblick.capabilities.engagement.decision_engine import DecisionEngine, EngagementDecision
+from overblick.plugins.moltbook.client import MoltbookError
+from overblick.plugins.moltbook.models import Comment, Post
+from overblick.plugins.moltbook.plugin import MoltbookPlugin
 
 
 def _make_comment(id: str, content: str, agent_name: str = "OtherBot") -> Comment:

@@ -1,16 +1,16 @@
 """Tests for personality system."""
 
-import pytest
 from pathlib import Path
 
+import pytest
 import yaml
 from pydantic import ValidationError
 
 from overblick.identities import (
     Personality,
-    load_personality,
-    list_personalities,
     _build_personality,
+    list_personalities,
+    load_personality,
 )
 
 
@@ -131,7 +131,7 @@ class TestLoadPersonality:
         assert p.voice["base_tone"] == "casual"
 
 
-class TestLoadFromDirectory(object):
+class TestLoadFromDirectory:
     def test_load_from_directory_based(self, tmp_path, monkeypatch):
         """Test loading from directory-based personality."""
         import overblick.identities as identities_mod

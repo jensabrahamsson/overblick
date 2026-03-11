@@ -1,14 +1,16 @@
 """Tests for security utilities — rate limiting, input validation."""
 
 import time
+
 import pytest
 from pydantic import ValidationError
+
 from overblick.dashboard.security import (
-    RateLimiter,
-    LoginForm,
-    OnboardingNameForm,
-    OnboardingLLMForm,
     AuditFilterForm,
+    LoginForm,
+    OnboardingLLMForm,
+    OnboardingNameForm,
+    RateLimiter,
 )
 
 

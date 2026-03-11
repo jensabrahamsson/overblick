@@ -876,7 +876,7 @@ def register_routes(app: FastAPI) -> None:
                 resp.raise_for_status()
                 bot_data = resp.json()
                 bot_name = html.escape(bot_data.get("result", {}).get("username", "unknown"))
-                msg = f'Connected as @{bot_name}'
+                msg = f"Connected as @{bot_name}"
                 if chat_id:
                     # Try sending a test message
                     send_resp = await client.post(

@@ -20,8 +20,8 @@ import pytest
 from overblick.supervisor.routing import (
     AgentCapabilities,
     MessageRouter,
-    RouteStatus,
     RoutedMessage,
+    RouteStatus,
 )
 
 # ---------------------------------------------------------------------------

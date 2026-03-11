@@ -22,14 +22,14 @@ import pytest
 import pytest_asyncio
 
 from overblick.supervisor.ipc import (
+    _MAX_MESSAGE_SIZE,
+    IPCClient,
     IPCMessage,
     IPCServer,
-    IPCClient,
+    _IPCRateLimiter,
+    _read_conn_file,
     generate_ipc_token,
     read_ipc_token,
-    _IPCRateLimiter,
-    _MAX_MESSAGE_SIZE,
-    _read_conn_file,
 )
 
 # Skip marker for Unix-only tests (file permissions, socket existence checks)
@@ -436,8 +436,8 @@ class TestTCPTransport:
     @pytest.mark.asyncio
     async def test_tcp_server_start_stop(self, ipc_dir):
         """TCP server starts, assigns a port, and stops cleanly."""
-        from overblick.supervisor.ipc import IPCServer
         import overblick.supervisor.ipc as ipc_mod
+        from overblick.supervisor.ipc import IPCServer
 
         # Force TCP mode by patching IS_WINDOWS
         with patch.object(ipc_mod, "IS_WINDOWS", True):

@@ -21,11 +21,11 @@ import pytest
 
 from overblick.manage.manager import (
     ServiceManager,
+    _http_health,
     _is_process_alive,
     _kill_process,
     _read_pid,
     _write_pid,
-    _http_health,
 )
 
 

@@ -6,7 +6,7 @@ prompt logic and parsing (e.g. heartbeat title/content/submolt).
 """
 
 import logging
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from overblick.capabilities.engagement.response_gen import (
     ResponseGenerator as CoreResponseGenerator,
@@ -41,7 +41,7 @@ class ResponseGenerator:
         temperature: float = 0.7,
         max_tokens: int = 500,
         priority: str = "low",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a comment on a Moltbook post."""
         format_vars = {
             "title": post_title,
@@ -97,7 +97,7 @@ class ResponseGenerator:
         temperature: float = 0.7,
         max_tokens: int = 500,
         priority: str = "low",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a reply to a comment."""
         format_vars = {
             "title": original_post_title,
@@ -142,7 +142,7 @@ class ResponseGenerator:
         temperature: float = 0.8,
         max_tokens: int = 1000,
         priority: str = "low",
-    ) -> Optional[Tuple[str, str, str]]:
+    ) -> tuple[str, str, str] | None:
         """
         Generate a new heartbeat post.
 
@@ -184,7 +184,7 @@ class ResponseGenerator:
         temperature: float = 0.7,
         max_tokens: int = 500,
         priority: str = "high",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a reply to a DM."""
         # Wrap sender and message for security
         safe_sender = f"<<<EXTERNAL_SENDER: {sender_name}>>>"
@@ -222,12 +222,16 @@ class ResponseGenerator:
         extra_context: str | None = None,
         temperature: float = 0.8,
         max_tokens: int = 1000,
-    ) -> Optional[Tuple[str, str, str]]:
+    ) -> tuple[str, str, str] | None:
         """Generate a post based on a dream."""
         format_vars = {
             "dream_content": dream.get("content", ""),
-            "dream_mood": dream.get("mood", ""),
+            "dream_mood": dream.get("tone", ""),  # backward compatibility
+            "dream_tone": dream.get("tone", ""),
+            "dream_type": dream.get("dream_type", ""),
+            "dream_insight": dream.get("insight", ""),
             "dream_symbols": ", ".join(dream.get("symbols", [])),
+            "dream_potential_learning": dream.get("potential_learning", ""),
         }
         if extra_format_vars:
             format_vars.update(extra_format_vars)
@@ -253,11 +257,11 @@ class ResponseGenerator:
             return None
 
         if raw_content.startswith("I'm not able to") or "caught my attention" in raw_content:
-            return "Untitled Post", raw_content, "ai"
+            return None
 
         return self._parse_post_output(raw_content)
 
-    def _parse_post_output(self, text: str) -> Tuple[str, str, str]:
+    def _parse_post_output(self, text: str) -> tuple[str, str, str]:
         """Parse LLM output into (title, content, submolt)."""
         lines = text.strip().split("\n")
         title = "Untitled Post"

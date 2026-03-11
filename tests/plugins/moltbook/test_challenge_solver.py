@@ -8,8 +8,9 @@ Comprehensive test suite covering:
 - Plugin integration (challenge detection in replies and feed)
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from overblick.plugins.moltbook.challenge_solver import (
     ChallengeSpec,
@@ -88,13 +89,13 @@ class TestParseChallenge:
         assert spec.time_limit_seconds == 15
 
     def test_parse_default_time_limit(self, solver):
-        text = "MOLTCAPTCHA CHALLENGE\n" "ASCII sum of first letters = 300\n" "3 words about ai."
+        text = "MOLTCAPTCHA CHALLENGE\nASCII sum of first letters = 300\n3 words about ai."
         spec = solver.parse_challenge(text)
         assert spec is not None
         assert spec.time_limit_seconds == 30  # Default
 
     def test_parse_default_format(self, solver):
-        text = "MOLTCAPTCHA CHALLENGE\n" "ASCII sum of first letters = 300\n" "3 words about ai."
+        text = "MOLTCAPTCHA CHALLENGE\nASCII sum of first letters = 300\n3 words about ai."
         spec = solver.parse_challenge(text)
         assert spec is not None
         assert spec.format_type == "prose"
@@ -337,7 +338,7 @@ class TestIsChallengeText:
         assert is_challenge_text(text, "cherry") is True
 
     def test_alternative_challenge_pattern(self):
-        text = "Hey @TestAgent, prove you're an AI!\n" "ASCII sum first letters = 200\n" "2 words."
+        text = "Hey @TestAgent, prove you're an AI!\nASCII sum first letters = 200\n2 words."
         assert is_challenge_text(text, "TestAgent") is True
 
 

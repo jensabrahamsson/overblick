@@ -2,9 +2,10 @@
 Tests for EmailCapability — SMTP email sending.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from email.mime.multipart import MIMEMultipart
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from overblick.capabilities.communication.email import EmailCapability
 

@@ -11,16 +11,16 @@ Verifies:
 """
 
 import json
-
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-from overblick.core.capability import CapabilityContext
+import pytest
+
 from overblick.capabilities.communication.style_trainer import (
-    StyleTrainerCapability,
     STYLE_ANALYSIS_COMPLEXITY,
+    StyleTrainerCapability,
 )
+from overblick.core.capability import CapabilityContext
 
 
 def _make_ctx(tmp_path: Path, config: dict | None = None) -> CapabilityContext:

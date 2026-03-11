@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 
+from overblick.gateway.backend_registry import BackendConfig, BackendRegistry
 from overblick.gateway.config import GatewayConfig
-from overblick.gateway.backend_registry import BackendRegistry, BackendConfig
 
 
 @pytest.fixture

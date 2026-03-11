@@ -57,4 +57,4 @@ class SystemClockCapability(CapabilityBase):
     def get_prompt_context(self) -> str:
         """Inject current time into LLM prompts."""
         now = self.now()
-        return f"Current time: {now.strftime('%A, %B %d, %Y at %H:%M')} " f"({now.tzname()})"
+        return f"Current time: {now.strftime('%A, %B %d, %Y at %H:%M')} ({now.tzname()})"

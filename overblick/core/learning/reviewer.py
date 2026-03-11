@@ -42,7 +42,7 @@ class EthosReviewer:
         self._llm_pipeline = llm_pipeline
         self._ethos_text = ethos_text
 
-    async def review(self, category: str, content: str) -> Tuple[LearningStatus, str]:
+    async def review(self, category: str, content: str) -> tuple[LearningStatus, str]:
         """Review a learning candidate against identity ethos."""
         if not self._llm_pipeline:
             logger.warning("No LLM pipeline available for ethos review")

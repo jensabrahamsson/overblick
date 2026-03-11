@@ -1,7 +1,9 @@
 """Tests for knowledge loader."""
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from overblick.plugins.moltbook.knowledge_loader import KnowledgeLoader
 
 

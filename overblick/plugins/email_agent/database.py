@@ -235,7 +235,7 @@ class EmailAgentDB:
     async def get_sender_history(self, sender: str, limit: int = 10) -> list[EmailRecord]:
         """Get classification history for a specific sender."""
         rows = await self._db.fetch_all(
-            "SELECT * FROM email_records WHERE email_from = ? " "ORDER BY created_at DESC LIMIT ?",
+            "SELECT * FROM email_records WHERE email_from = ? ORDER BY created_at DESC LIMIT ?",
             (sender, limit),
         )
         return [

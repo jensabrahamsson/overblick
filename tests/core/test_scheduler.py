@@ -1,8 +1,10 @@
 """Tests for scheduler."""
 
 import asyncio
+
 import pytest
-from overblick.core.scheduler import Scheduler, ScheduledTask, TaskPriority
+
+from overblick.core.scheduler import ScheduledTask, Scheduler, TaskPriority
 
 
 class TestScheduler:

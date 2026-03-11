@@ -51,8 +51,7 @@ class BossRequestCapability:
             )
         else:
             logger.warning(
-                "BossRequestCapability: no IPC client for identity %s "
-                "— research requests disabled",
+                "BossRequestCapability: no IPC client for identity %s — research requests disabled",
                 self.ctx.identity_name,
             )
 

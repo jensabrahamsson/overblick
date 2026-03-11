@@ -58,39 +58,24 @@ class SummarizerCapability(CapabilityBase):
             return ""
 
         pipeline = self.ctx.llm_pipeline
-        # Only use raw client when RAW_LLM is explicitly enabled and no pipeline exists
-        llm_client = self.ctx.llm_client if (not pipeline and raw_llm()) else None
+        if not pipeline:
+            logger.warning("SummarizerCapability: no LLM pipeline available")
+            return None
 
         safe_text = wrap_external_content(text[:3000], "summarize_input")
         prompt = _SUMMARIZE_PROMPT.format(text=safe_text, max_length=max_length)
 
-        if pipeline:
-            try:
-                result = await pipeline._chat_with_overrides(
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=self._temperature,
-                    max_tokens=self._max_tokens,
-                    audit_action="summarize",
-                )
-                if result.blocked:
-                    logger.warning("Summarization blocked: %s", result.block_reason)
-                    return None
-                return result.content.strip() if result.content else None
-            except Exception as e:
-                logger.error("Summarization pipeline error: %s", e, exc_info=True)
+        try:
+            result = await pipeline._chat_with_overrides(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self._temperature,
+                max_tokens=self._max_tokens,
+                audit_action="summarize",
+            )
+            if result.blocked:
+                logger.warning("Summarization blocked: %s", result.block_reason)
                 return None
-
-        if llm_client:
-            try:
-                result = await llm_client.chat(
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=self._temperature,
-                    max_tokens=self._max_tokens,
-                )
-                if result and result.get("content"):
-                    return result["content"].strip()
-            except Exception as e:
-                logger.error("Summarization LLM error: %s", e, exc_info=True)
-
-        logger.warning("SummarizerCapability: no LLM available")
-        return None
+            return result.content.strip() if result.content else None
+        except Exception as e:
+            logger.error("Summarization pipeline error: %s", e, exc_info=True)
+            return None

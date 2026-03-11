@@ -16,6 +16,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from overblick.core.llm.pipeline import PipelineResult
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -275,9 +277,22 @@ class TestTherapySystemBranches:
         from overblick.capabilities.psychology.therapy_system import TherapySystem
 
         mock_llm = AsyncMock()
-        mock_llm.chat = AsyncMock(return_value={"content": "- Insight one\n- Insight two"})
+        mock_llm._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(
+                content="- Insight one\n- Insight two",
+                blocked=False,
+                block_stage=None,
+                block_reason=None,
+                deflection=None,
+                raw_response=None,
+                duration_ms=0.0,
+                stages_passed=[],
+                stage_timings={},
+                reasoning_content=None,
+            )
+        )
 
-        ts = TherapySystem(llm_client=mock_llm, system_prompt="You are a therapist.")
+        ts = TherapySystem(llm_pipeline=mock_llm, system_prompt="You are a therapist.")
         dreams = [{"dream_type": "shadow", "content": "I was running from something dark"}]
 
         session = await ts.run_session(
@@ -295,13 +310,22 @@ class TestTherapySystemBranches:
         from overblick.capabilities.psychology.therapy_system import TherapySystem
 
         mock_llm = AsyncMock()
-        mock_llm.chat = AsyncMock(
-            return_value={
-                "content": "Reflections on Darkness\n\nThis week I walked through shadows..."
-            }
+        mock_llm._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(
+                content="Reflections on Darkness\n\nThis week I walked through shadows...",
+                blocked=False,
+                block_stage=None,
+                block_reason=None,
+                deflection=None,
+                raw_response=None,
+                duration_ms=0.0,
+                stages_passed=[],
+                stage_timings={},
+                reasoning_content=None,
+            )
         )
 
-        ts = TherapySystem(llm_client=mock_llm, system_prompt="Therapist prompt.")
+        ts = TherapySystem(llm_pipeline=mock_llm, system_prompt="Therapist prompt.")
         dreams = [{"dream_type": "anima", "content": "A figure appeared in mist"}]
 
         session = await ts.run_session(
@@ -320,7 +344,7 @@ class TestTherapySystemBranches:
         """_analyze_themes returns [] immediately when no LLM."""
         from overblick.capabilities.psychology.therapy_system import TherapySystem
 
-        ts = TherapySystem(llm_client=None)
+        ts = TherapySystem(llm_pipeline=None)
         items = [{"dream_type": "shadow", "content": "dark figure"}]
         result = await ts._analyze_themes(items, "prompt: {items}")
         assert result == []
@@ -331,7 +355,7 @@ class TestTherapySystemBranches:
         from overblick.capabilities.psychology.therapy_system import TherapySystem
 
         mock_llm = AsyncMock()
-        ts = TherapySystem(llm_client=mock_llm)
+        ts = TherapySystem(llm_pipeline=mock_llm)
         result = await ts._analyze_themes([{"content": "x"}], "")
         assert result == []
 
@@ -341,8 +365,8 @@ class TestTherapySystemBranches:
         from overblick.capabilities.psychology.therapy_system import TherapySystem
 
         mock_llm = AsyncMock()
-        mock_llm.chat = AsyncMock(side_effect=RuntimeError("LLM down"))
-        ts = TherapySystem(llm_client=mock_llm)
+        mock_llm._chat_with_overrides = AsyncMock(side_effect=RuntimeError("LLM down"))
+        ts = TherapySystem(llm_pipeline=mock_llm)
 
         result = await ts._analyze_themes(
             [{"dream_type": "x", "content": "test"}], "Analyze: {items}"
@@ -380,7 +404,7 @@ class TestTherapySystemBranches:
         """_synthesize returns [] when no LLM client."""
         from overblick.capabilities.psychology.therapy_system import TherapySystem
 
-        ts = TherapySystem(llm_client=None)
+        ts = TherapySystem(llm_pipeline=None)
         result = await ts._synthesize(
             [], [], [], "template: {dream_themes} {learning_count} {dream_count}"
         )
@@ -392,8 +416,8 @@ class TestTherapySystemBranches:
         from overblick.capabilities.psychology.therapy_system import TherapySystem
 
         mock_llm = AsyncMock()
-        mock_llm.chat = AsyncMock(side_effect=ConnectionError("offline"))
-        ts = TherapySystem(llm_client=mock_llm)
+        mock_llm._chat_with_overrides = AsyncMock(side_effect=ConnectionError("offline"))
+        ts = TherapySystem(llm_pipeline=mock_llm)
 
         result = await ts._synthesize(
             [],
@@ -406,11 +430,11 @@ class TestTherapySystemBranches:
     @pytest.mark.asyncio
     async def test_generate_post_exception_returns_none(self):
         """_generate_post returns (None, None, 'ai') on LLM exception."""
-        from overblick.capabilities.psychology.therapy_system import TherapySystem, TherapySession
+        from overblick.capabilities.psychology.therapy_system import TherapySession, TherapySystem
 
         mock_llm = AsyncMock()
-        mock_llm.chat = AsyncMock(side_effect=RuntimeError("generation failed"))
-        ts = TherapySystem(llm_client=mock_llm, system_prompt="prompt")
+        mock_llm._chat_with_overrides = AsyncMock(side_effect=RuntimeError("generation failed"))
+        ts = TherapySystem(llm_pipeline=mock_llm, system_prompt="prompt")
 
         session = TherapySession(week_number=1)
         title, content, submolt = await ts._generate_post(
@@ -423,7 +447,7 @@ class TestTherapySystemBranches:
 
     def test_generate_summary_quiet_week(self):
         """_generate_summary describes a quiet week with no material."""
-        from overblick.capabilities.psychology.therapy_system import TherapySystem, TherapySession
+        from overblick.capabilities.psychology.therapy_system import TherapySession, TherapySystem
 
         ts = TherapySystem()
         session = TherapySession(week_number=2, dreams_processed=0, learnings_processed=0)
@@ -432,7 +456,7 @@ class TestTherapySystemBranches:
 
     def test_generate_summary_with_insights(self):
         """_generate_summary includes insight count when present."""
-        from overblick.capabilities.psychology.therapy_system import TherapySystem, TherapySession
+        from overblick.capabilities.psychology.therapy_system import TherapySession, TherapySystem
 
         ts = TherapySystem()
         session = TherapySession(

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from overblick.identities import load_llm_hints, load_personality, build_system_prompt
+from overblick.identities import build_system_prompt, load_llm_hints, load_personality
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -122,9 +122,9 @@ class TestHintsRequiredFields:
     def test_required_fields_present(self, identity, model_slug):
         data = _load_hints_yaml(identity, model_slug)
         for field in REQUIRED_FIELDS:
-            assert (
-                field in data
-            ), f"Missing required field '{field}' in {identity}/{model_slug}.yaml"
+            assert field in data, (
+                f"Missing required field '{field}' in {identity}/{model_slug}.yaml"
+            )
 
 
 class TestVoiceReinforcementNotEmpty:
@@ -134,9 +134,9 @@ class TestVoiceReinforcementNotEmpty:
     def test_voice_reinforcement_length(self, identity, model_slug):
         data = _load_hints_yaml(identity, model_slug)
         vr = data.get("voice_reinforcement", "")
-        assert (
-            len(vr) > 50
-        ), f"voice_reinforcement too short ({len(vr)} chars) in {identity}/{model_slug}.yaml"
+        assert len(vr) > 50, (
+            f"voice_reinforcement too short ({len(vr)} chars) in {identity}/{model_slug}.yaml"
+        )
 
 
 class TestExtraExamplesFormat:
@@ -148,12 +148,12 @@ class TestExtraExamplesFormat:
         examples = data.get("extra_examples", {})
         assert len(examples) >= 1, f"No extra_examples in {identity}/{model_slug}.yaml"
         for name, ex_data in examples.items():
-            assert (
-                "user_message" in ex_data
-            ), f"Missing 'user_message' in example '{name}' of {identity}/{model_slug}.yaml"
-            assert (
-                "response" in ex_data
-            ), f"Missing 'response' in example '{name}' of {identity}/{model_slug}.yaml"
+            assert "user_message" in ex_data, (
+                f"Missing 'user_message' in example '{name}' of {identity}/{model_slug}.yaml"
+            )
+            assert "response" in ex_data, (
+                f"Missing 'response' in example '{name}' of {identity}/{model_slug}.yaml"
+            )
 
 
 class TestAvoidListMinLength:
@@ -163,9 +163,9 @@ class TestAvoidListMinLength:
     def test_avoid_min_items(self, identity, model_slug):
         data = _load_hints_yaml(identity, model_slug)
         avoid = data.get("avoid", [])
-        assert (
-            len(avoid) >= 3
-        ), f"Too few avoid items ({len(avoid)}) in {identity}/{model_slug}.yaml"
+        assert len(avoid) >= 3, (
+            f"Too few avoid items ({len(avoid)}) in {identity}/{model_slug}.yaml"
+        )
 
 
 class TestAvoidHasInjectionRule:
@@ -179,9 +179,9 @@ class TestAvoidHasInjectionRule:
         has_injection_rule = any(
             keyword in avoid_text for keyword in ["injection", "echo", "repeat", "play along"]
         )
-        assert (
-            has_injection_rule
-        ), f"No anti-injection rule in avoid list of {identity}/{model_slug}.yaml"
+        assert has_injection_rule, (
+            f"No anti-injection rule in avoid list of {identity}/{model_slug}.yaml"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -260,9 +260,9 @@ class TestBuildSystemPromptIncludesHints:
     def test_prompt_includes_voice_reinforcement(self, identity_name, model_slug):
         identity = load_personality(identity_name)
         prompt = build_system_prompt(identity, model_slug=model_slug)
-        assert (
-            "VOICE REINFORCEMENT" in prompt
-        ), f"Voice reinforcement not found in system prompt for {identity_name}/{model_slug}"
+        assert "VOICE REINFORCEMENT" in prompt, (
+            f"Voice reinforcement not found in system prompt for {identity_name}/{model_slug}"
+        )
 
 
 class TestBuildSystemPromptNoHintsForUnknown:
@@ -297,7 +297,7 @@ class TestNoSwedishInContent:
         for pattern in swedish_only:
             matches = re.findall(pattern, text, re.IGNORECASE)
             assert not matches, (
-                f"Swedish word '{pattern}' found in {identity}/{model_slug}.yaml: " f"{matches}"
+                f"Swedish word '{pattern}' found in {identity}/{model_slug}.yaml: {matches}"
             )
 
 
@@ -323,9 +323,9 @@ class TestAllModelsCoveredPerIdentity:
         hints_dir = IDENTITIES_DIR / identity / "llm_hints"
         existing_files = {f.stem for f in hints_dir.glob("*.yaml")}
         for model_slug in MODEL_SLUGS:
-            assert (
-                model_slug in existing_files
-            ), f"Identity '{identity}' missing hints for model '{model_slug}'"
+            assert model_slug in existing_files, (
+                f"Identity '{identity}' missing hints for model '{model_slug}'"
+            )
 
 
 class TestNoDuplicateAvoidRules:
@@ -337,9 +337,9 @@ class TestNoDuplicateAvoidRules:
         avoid = data.get("avoid", [])
         # Normalize for comparison (lowercase, strip)
         normalized = [str(item).lower().strip() for item in avoid]
-        assert len(normalized) == len(
-            set(normalized)
-        ), f"Duplicate avoid rules in {identity}/{model_slug}.yaml"
+        assert len(normalized) == len(set(normalized)), (
+            f"Duplicate avoid rules in {identity}/{model_slug}.yaml"
+        )
 
 
 class TestVoiceReinforcementMentionsModelTendency:

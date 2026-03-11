@@ -9,8 +9,9 @@ Tests that:
 - New backends-format LLM config works correctly
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from overblick.dashboard.auth import SESSION_COOKIE
 
@@ -418,7 +419,7 @@ class TestSettingsStep8:
 
     @pytest.mark.asyncio
     async def test_step8_post_provisions_and_redirects(self, client, session_cookie, app, tmp_path):
-        from overblick.setup.wizard import _get_state, _derive_provisioner_state
+        from overblick.setup.wizard import _derive_provisioner_state, _get_state
 
         state = _get_state(app)
         state["principal"] = {
@@ -493,7 +494,7 @@ class TestSettingsStep8:
 
     @pytest.mark.asyncio
     async def test_step8_provisioning_failure_shows_error(self, client, session_cookie, app):
-        from overblick.setup.wizard import _get_state, _derive_provisioner_state
+        from overblick.setup.wizard import _derive_provisioner_state, _get_state
 
         state = _get_state(app)
         state["selected_use_cases"] = ["social_media"]

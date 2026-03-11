@@ -5,10 +5,11 @@ Verifies that when an existing config exists, the wizard state is pre-populated
 with the current values, and the welcome page shows the "Reconfiguring" badge.
 """
 
-import pytest
-import yaml
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
+import yaml
 
 from overblick.dashboard.auth import SESSION_COOKIE
 from overblick.dashboard.routes.settings import _config_to_wizard_state, _load_existing_config

@@ -7,6 +7,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from overblick.capabilities.monitoring.inspector import (
+    _ALLOWED_COMMANDS,
+    HostInspectionCapability,
+    _run_command,
+)
 from overblick.capabilities.monitoring.models import (
     CPUInfo,
     HealthInquiry,
@@ -14,11 +19,6 @@ from overblick.capabilities.monitoring.models import (
     HostHealth,
     MemoryInfo,
     PowerInfo,
-)
-from overblick.capabilities.monitoring.inspector import (
-    HostInspectionCapability,
-    _ALLOWED_COMMANDS,
-    _run_command,
 )
 
 # ---------------------------------------------------------------------------

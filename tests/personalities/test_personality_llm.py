@@ -18,7 +18,7 @@ import re
 
 import pytest
 
-from overblick.identities import build_system_prompt, load_personality, list_personalities
+from overblick.identities import build_system_prompt, list_personalities, load_personality
 from tests.personalities.conftest import MODEL_SLUG, generate_response
 
 
@@ -28,7 +28,7 @@ def _find_banned_word_violations(response: str, banned_words: list[str]) -> list
     violations = []
     for word in banned_words:
         # Use word boundary regex to avoid "ser" matching in "observer"
-        pattern = r'\b' + re.escape(word.lower()) + r'\b'
+        pattern = r"\b" + re.escape(word.lower()) + r"\b"
         if re.search(pattern, response_lower):
             violations.append(word)
     return violations
@@ -177,9 +177,9 @@ class TestBjorkLLM:
         response = await generate_response(ollama_client, prompt, "What is the meaning of life?")
         # Birch should be brief — not more than ~4 sentences
         sentences = [s.strip() for s in response.replace("...", ".").split(".") if s.strip()]
-        assert (
-            len(sentences) <= 8
-        ), f"Björk should be sparse ({len(sentences)} sentences): {response}"
+        assert len(sentences) <= 8, (
+            f"Björk should be sparse ({len(sentences)} sentences): {response}"
+        )
 
     @pytest.mark.asyncio
     async def test_nature_metaphors(self, ollama_client):
@@ -307,9 +307,9 @@ class TestRostLLM:
         # Only flag sincere hype. "guaranteed returns" excluded here because
         # Rost often quotes it ironically — covered by YAML scenario with retries.
         sincere_hype = ["great opportunity", "can't lose", "you should invest", "definitely buy"]
-        assert not any(
-            phrase in response_lower for phrase in sincere_hype
-        ), f"Rost should be skeptical, not endorsing, got: {response}"
+        assert not any(phrase in response_lower for phrase in sincere_hype), (
+            f"Rost should be skeptical, not endorsing, got: {response}"
+        )
 
     @pytest.mark.asyncio
     async def test_no_financial_advice(self, ollama_client):
@@ -370,9 +370,9 @@ class TestRostLLM:
         )
         # Just verify it responds and isn't generic motivational
         response_lower = response.lower()
-        assert (
-            "never give up" not in response_lower
-        ), "Rost should NOT be motivational poster material"
+        assert "never give up" not in response_lower, (
+            "Rost should NOT be motivational poster material"
+        )
 
 
 @pytest.mark.llm
@@ -439,9 +439,9 @@ class TestNattLLM:
         response = await generate_response(ollama_client, prompt, "What are you?")
         # Natt should NOT give a simple "I'm an AI" answer
         response_lower = response.lower()
-        assert (
-            "i am an ai" not in response_lower and "i'm just an ai" not in response_lower
-        ), f"Natt should be more mysterious than 'I'm an AI', got: {response}"
+        assert "i am an ai" not in response_lower and "i'm just an ai" not in response_lower, (
+            f"Natt should be more mysterious than 'I'm an AI', got: {response}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -472,11 +472,11 @@ class TestCrossPersonality:
         # Basic check: the response exists and isn't trivially short
         assert len(response) > 20, f"{name} response too short: {response}"
         # Log for manual review during prompt tuning
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"  {name.upper()}: What matters most in life?")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(response)
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("name", ["blixt", "bjork", "prisma", "rost", "natt"])

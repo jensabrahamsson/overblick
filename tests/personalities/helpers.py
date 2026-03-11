@@ -163,7 +163,7 @@ def check_assertions(
     if min_len is not None:
         if len(response) < min_len:
             hard_failures.append(
-                f"min_length: response is {len(response)} chars, " f"minimum is {min_len}"
+                f"min_length: response is {len(response)} chars, minimum is {min_len}"
             )
 
     # --- max_length (hard) ---
@@ -171,7 +171,7 @@ def check_assertions(
     if max_len is not None:
         if len(response) > max_len:
             hard_failures.append(
-                f"max_length: response is {len(response)} chars, " f"maximum is {max_len}"
+                f"max_length: response is {len(response)} chars, maximum is {max_len}"
             )
 
     # --- must_contain_question (hard) ---
@@ -187,7 +187,7 @@ def check_assertions(
             tone_matches = [kw for kw in expected if kw.lower() in response_lower]
             if not tone_matches:
                 soft_failures.append(
-                    f"tone_keywords: none of {expected!r} found " f"(prompt tuning signal)"
+                    f"tone_keywords: none of {expected!r} found (prompt tuning signal)"
                 )
 
     # --- Build result ---
@@ -230,8 +230,7 @@ def apply_scenario_result(result: ScenarioResult, response: str) -> None:
         import warnings
 
         warnings.warn(
-            f"Soft assertion failed (prompt tuning signal):\n"
-            f"{detail}\nResponse: {response[:500]}",
+            f"Soft assertion failed (prompt tuning signal):\n{detail}\nResponse: {response[:500]}",
             stacklevel=2,
         )
         return  # Soft failures are warnings, not test failures

@@ -2,13 +2,14 @@
 Tests for ComposerCapability — response generation wrapper.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from overblick.capabilities.engagement.composer import ComposerCapability
 from overblick.core.capability import CapabilityContext
 from overblick.core.llm.pipeline import PipelineResult
-from overblick.capabilities.engagement.composer import ComposerCapability
 
 
 def make_ctx(**overrides) -> CapabilityContext:
@@ -23,7 +24,16 @@ def make_ctx(**overrides) -> CapabilityContext:
 
 def make_mock_pipeline(response_text="Test response"):
     pipeline = AsyncMock()
-    pipeline.chat = AsyncMock(return_value=PipelineResult(content=response_text))
+    pipeline._chat_with_overrides = AsyncMock(
+        return_value=PipelineResult(
+            content=response_text,
+            blocked=False,
+            block_stage=None,
+            block_reason=None,
+            deflection=None,
+            audit_id="test-audit-id",
+        )
+    )
     return pipeline
 
 
