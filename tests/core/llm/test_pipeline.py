@@ -145,7 +145,7 @@ class TestSafeLLMPipeline:
             llm_client=mock_llm,
             preflight_checker=mock_preflight,
         )
-        result = await pipeline.chat(
+        result = await pipeline._chat_with_overrides(
             messages=[{"role": "user", "content": "anything"}],
             skip_preflight=True,
         )
@@ -215,7 +215,7 @@ class TestSafeLLMPipeline:
             llm_client=mock_llm,
             output_safety=mock_output_safety,
         )
-        result = await pipeline.chat(
+        result = await pipeline._chat_with_overrides(
             messages=[{"role": "user", "content": "Hello"}],
             skip_output_safety=True,
         )

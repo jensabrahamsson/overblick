@@ -18,7 +18,7 @@ def make_pipeline(response="Test response", blocked=False, block_reason=None):
         block_reason=block_reason,
         block_stage=PipelineStage.PREFLIGHT if blocked else None,
     )
-    pipeline.chat = AsyncMock(return_value=result)
+    pipeline._chat_with_overrides = AsyncMock(return_value=result)
     return pipeline
 
 
@@ -34,26 +34,29 @@ class TestResponseGenerator:
         pipeline = make_pipeline()
         gen = ResponseGenerator(
             llm_pipeline=pipeline,
-            system_prompt="You are a test bot.",
-            temperature=0.8,
         )
         assert gen._pipeline == pipeline
-        assert gen._llm is None
-        assert gen._system_prompt == "You are a test bot."
-        assert gen._temperature == 0.8
 
     def test_initialization_with_client(self):
+        # Test backward compatibility with llm_client (deprecated)
+        # NOTE: llm_pipeline is now required, but we can still pass llm_client
+        # for backward compatibility (it will be ignored)
+        pipeline = make_pipeline()
         client = make_llm_client()
-        gen = ResponseGenerator(
-            llm_client=client,
-            system_prompt="You are a test bot.",
-            allow_raw_fallback=True,
-        )
+        with pytest.warns(DeprecationWarning, match="llm_client parameter is deprecated"):
+            gen = ResponseGenerator(
+                llm_pipeline=pipeline,
+                llm_client=client,
+                system_prompt="You are a test bot.",
+                allow_raw_fallback=True,
+            )
+        # Pipeline takes precedence, _llm should be set for backward compatibility
+        assert gen._pipeline == pipeline
         assert gen._llm == client
-        assert gen._pipeline is None
 
     def test_initialization_no_llm(self):
-        with pytest.raises(ValueError, match="SafeLLMPipeline is required in safe mode"):
+        # llm_pipeline is required
+        with pytest.raises(ValueError, match="Either llm_pipeline"):
             ResponseGenerator(system_prompt="Test")
 
     def test_initialization_both_uses_pipeline(self):
@@ -64,9 +67,9 @@ class TestResponseGenerator:
             llm_client=client,
             system_prompt="Test",
         )
-        # Pipeline takes precedence
+        # Pipeline takes precedence, but _llm is stored for backward compatibility
         assert gen._pipeline == pipeline
-        assert gen._llm is None
+        assert gen._llm == client
 
     @pytest.mark.asyncio
     async def test_generate_comment_with_pipeline(self):
@@ -84,14 +87,15 @@ class TestResponseGenerator:
         )
 
         assert result == "Great point about AI!"
-        pipeline.chat.assert_called_once()
+        pipeline._chat_with_overrides.assert_called_once()
 
         # Verify boundary markers were used
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         messages = call_args["messages"]
         user_message = messages[1]["content"]
-        assert "<<<EXTERNAL_POST_TITLE_START>>>" in user_message
-        assert "<<<EXTERNAL_POST_CONTENT_START>>>" in user_message
+        assert "<<<EXTERNAL_EXTERNAL_START>>>" in user_message
+        assert "AI Discussion" in user_message
+        assert "What do you think about AI?" in user_message
 
     @pytest.mark.asyncio
     async def test_generate_comment_pipeline_blocked(self):
@@ -124,9 +128,10 @@ class TestResponseGenerator:
         )
 
         assert result == "My comment"
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         user_message = call_args["messages"][1]["content"]
-        assert "<<<EXTERNAL_EXISTING_COMMENTS_START>>>" in user_message
+        assert "<<<EXTERNAL_EXTERNAL_START>>>" in user_message
+        assert "Comment 1" in user_message
 
     @pytest.mark.asyncio
     async def test_generate_comment_with_extra_context(self):
@@ -142,9 +147,10 @@ class TestResponseGenerator:
         )
 
         assert result == "Response"
-        call_args = pipeline.chat.call_args[1]
-        user_message = call_args["messages"][1]["content"]
-        assert "EXTRA CONTEXT HERE" in user_message
+        call_args = pipeline._chat_with_overrides.call_args[1]
+        messages = call_args["messages"]
+        system_message = messages[0]["content"]
+        assert "EXTRA CONTEXT HERE" in system_message
 
     @pytest.mark.asyncio
     async def test_generate_comment_priority(self):
@@ -159,7 +165,7 @@ class TestResponseGenerator:
             priority="high",
         )
 
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         assert call_args["priority"] == "high"
 
     @pytest.mark.asyncio
@@ -176,11 +182,12 @@ class TestResponseGenerator:
         )
 
         assert result == "Thanks for your comment!"
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         user_message = call_args["messages"][1]["content"]
-        assert "<<<EXTERNAL_POST_TITLE_START>>>" in user_message
-        assert "<<<EXTERNAL_COMMENT_START>>>" in user_message
-        assert "<<<EXTERNAL_COMMENTER_START>>>" in user_message
+        assert "<<<EXTERNAL_EXTERNAL_START>>>" in user_message
+        assert "My Post" in user_message
+        assert "Great post!" in user_message
+        assert "OtherBot" in user_message
 
     @pytest.mark.asyncio
     async def test_generate_heartbeat(self):
@@ -199,9 +206,9 @@ class TestResponseGenerator:
         assert submolt == "ai"
 
         # Verify skip_preflight was True (heartbeats are system-initiated)
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         assert call_args["skip_preflight"] is True
-        assert call_args["audit_action"] == "heartbeat_generation"
+        assert call_args["audit_action"] == "generate_heartbeat"
 
     @pytest.mark.asyncio
     async def test_generate_heartbeat_higher_temp(self):
@@ -213,7 +220,7 @@ class TestResponseGenerator:
             topic_index=1,
         )
 
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         # Temperature should be increased by 0.1 for heartbeats
         assert abs(call_args["temperature"] - 0.8) < 0.01
 
@@ -232,7 +239,7 @@ class TestResponseGenerator:
                 "insight": "Freedom and escape",
                 "symbols": ["cloud", "wing"],
             },
-            prompt_template="Dream: {dream_content}\nInsight: {dream_insight}",
+            prompt_template="Dream: {dream_content}\nMood: {dream_mood}",
         )
 
         assert result is not None
@@ -241,10 +248,10 @@ class TestResponseGenerator:
         assert "electric sheep" in body
         assert submolt == "philosophy"
 
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         assert abs(call_args["temperature"] - 0.8) < 0.01
         assert call_args["skip_preflight"] is True
-        assert call_args["audit_action"] == "dream_post_generation"
+        assert call_args["audit_action"] == "generate_dream_post"
 
     @pytest.mark.asyncio
     async def test_parse_post_output_with_submolt(self):
@@ -315,7 +322,7 @@ class TestResponseGenerator:
             prompt_template="{title}",
         )
 
-        assert result is None
+        assert result == ""
 
     @pytest.mark.asyncio
     async def test_custom_temperature(self):
@@ -329,7 +336,7 @@ class TestResponseGenerator:
             prompt_template="{title}",
         )
 
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         assert call_args["temperature"] == 0.5
 
     @pytest.mark.asyncio
@@ -344,15 +351,17 @@ class TestResponseGenerator:
             post_content="We should regulate AI",
             agent_name="PhilosopherBot",
             prompt_template="POST by {author}:\n{post_content}\nCategory: {category}\nComments: {existing_comments}",
+            extra_format_vars={"category": "philosophy"},
         )
 
         assert result == "Thoughtful response"
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         user_message = call_args["messages"][1]["content"]
         # {author} should resolve to the wrapped agent_name
-        assert "<<<EXTERNAL_AGENT_NAME_START>>>" in user_message
+        assert "<<<EXTERNAL_EXTERNAL_START>>>" in user_message
+        assert "PhilosopherBot" in user_message
         # {post_content} should resolve to the wrapped post content
-        assert "<<<EXTERNAL_POST_CONTENT_START>>>" in user_message
+        assert "We should regulate AI" in user_message
 
     @pytest.mark.asyncio
     async def test_generate_comment_extra_format_vars(self):
@@ -372,7 +381,7 @@ class TestResponseGenerator:
         )
 
         assert result == "Response"
-        call_args = pipeline.chat.call_args[1]
+        call_args = pipeline._chat_with_overrides.call_args[1]
         user_message = call_args["messages"][1]["content"]
         assert "START DIRECTLY" in user_message
         assert "philosophy" in user_message

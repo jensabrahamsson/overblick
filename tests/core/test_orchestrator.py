@@ -23,7 +23,7 @@ class TestOrchestratorInit:
 
     def test_default_plugins(self, tmp_path):
         orch = Orchestrator("anomal", base_dir=tmp_path)
-        assert orch._plugin_names == ["moltbook"]
+        assert orch._plugin_names == []
 
     def test_custom_plugins(self, tmp_path):
         orch = Orchestrator("anomal", base_dir=tmp_path, plugins=["moltbook", "gmail"])

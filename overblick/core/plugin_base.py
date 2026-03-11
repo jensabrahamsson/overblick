@@ -119,28 +119,63 @@ class PluginContext(BaseModel):
     @property
     def llm_client(self) -> Optional["LLMClient"]:
         """
-        Raw LLM client access — disabled in safe mode.
+        Raw LLM client access — blocked by default, configurable via OVERBLICK_RAW_LLM.
 
-        In safe mode (RAW_LLM=False), accessing this property raises
-        RuntimeError. Use ctx.llm_pipeline for secure LLM calls.
+        CRITICAL SECURITY: This property should NEVER be accessible to plugins
+        in production. Accessing this bypasses the SafeLLMPipeline security controls.
 
-        Set OVERBLICK_RAW_LLM=1 to allow raw access (not recommended).
+        Use ctx.llm_pipeline for all secure LLM calls.
+
+        Returns:
+            Raw LLM client if OVERBLICK_RAW_LLM=1, otherwise raises RuntimeError.
         """
+        from overblick.core.security.settings import raw_llm
+
         if not raw_llm():
-            raise RuntimeError(
-                "Raw LLM client access is disabled in safe mode. "
-                "Use ctx.llm_pipeline for secure LLM calls. "
-                "Set OVERBLICK_RAW_LLM=1 to allow raw access (not recommended)."
+            # Log critical security event with stack trace to identify who's calling this
+            logger.critical(
+                "CRITICAL SECURITY VIOLATION: Raw LLM client accessed by identity '%s'. "
+                "This bypasses the SafeLLMPipeline and should never happen in production. "
+                "Set OVERBLICK_RAW_LLM=1 for debugging only. "
+                "Stack trace:\n%s",
+                self.identity_name,
+                "\n".join(__import__("traceback").format_stack()),
             )
+
+            raise RuntimeError(
+                "Raw LLM client access is FORBIDDEN. "
+                "This bypasses all security controls (preflight, output safety, rate limiting). "
+                "Use ctx.llm_pipeline for secure LLM calls instead. "
+                "Set OVERBLICK_RAW_LLM=1 for temporary debugging (not recommended for production)."
+            )
+
+        # Raw LLM access explicitly enabled for debugging
         logger.warning(
-            "Raw LLM client accessed by identity '%s' (security bypass). "
-            "Use ctx.llm_pipeline for secure LLM calls.",
+            "Raw LLM client accessed by identity '%s' (OVERBLICK_RAW_LLM=1). "
+            "This bypasses security controls and should only be used for debugging.",
             self.identity_name,
         )
         return self._llm_client
 
     @llm_client.setter
     def llm_client(self, value: Optional["LLMClient"]) -> None:
+        """
+        Private setter - should never be called directly.
+
+        The orchestrator sets this internally during initialization.
+        Plugins must NEVER access or modify _llm_client directly.
+        """
+        # Only allow setting from trusted code paths (orchestrator)
+        import inspect
+
+        frame = inspect.currentframe()
+        if frame and frame.f_back:
+            caller_module = frame.f_back.f_globals.get("__name__", "")
+            if not caller_module.startswith("overblick.core"):
+                logger.critical(
+                    "CRITICAL SECURITY: Attempted to set _llm_client from untrusted module '%s'",
+                    caller_module,
+                )
         self._llm_client = value
 
     def load_identity(self, name: str) -> Any:

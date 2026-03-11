@@ -17,6 +17,7 @@ import pytest
 
 from overblick.capabilities.engagement.response_gen import ResponseGenerator
 from overblick.capabilities.psychology.dream_system import Dream, DreamTone, DreamType
+from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.moltbook.models import Post
 
 # ---------------------------------------------------------------------------
@@ -75,20 +76,19 @@ class TestGenerateDreamPost:
     async def test_formats_all_dream_fields(self):
         """All dream fields are passed to the prompt template."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(
-            return_value=MagicMock(
+        mock_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(
                 blocked=False,
                 content="SUBMOLT: philosophy\nTITLE: Morning Fragments: Mirrors\n\nThe dream content...",
             )
         )
 
-        gen = ResponseGenerator(llm_pipeline=mock_pipeline)
+        gen = ResponseGenerator(llm_pipeline=mock_pipeline, system_prompt="Test")
         dream = _make_dream()
         result = await gen.generate_dream_post(
             dream=dream.to_dict(),
             prompt_template=_MockPromptsWithDreamJournal.DREAM_JOURNAL_PROMPT,
             extra_format_vars={"submolt_instruction": "Pick a submolt."},
-            system_prompt="Test",
         )
 
         assert result is not None
@@ -97,7 +97,7 @@ class TestGenerateDreamPost:
         assert submolt == "philosophy"
 
         # Verify the prompt included dream data
-        call_args = mock_pipeline.chat.call_args
+        call_args = mock_pipeline._chat_with_overrides.call_args
         user_prompt = call_args.kwargs["messages"][1]["content"]
         assert "shadow_integration" in user_prompt
         assert "mirror" in user_prompt
@@ -108,8 +108,8 @@ class TestGenerateDreamPost:
     async def test_llm_failure_returns_none(self):
         """LLM returning None produces no result."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(
-            return_value=MagicMock(
+        mock_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(
                 blocked=False,
                 content=None,
             )
@@ -126,11 +126,11 @@ class TestGenerateDreamPost:
     async def test_blocked_returns_none(self):
         """Pipeline blocking the request returns None."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(
-            return_value=MagicMock(
+        mock_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(
                 blocked=True,
                 block_reason="test",
-                block_stage=MagicMock(value="output_safety"),
+                block_stage=None,
             )
         )
 

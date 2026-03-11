@@ -48,7 +48,9 @@ class OpeningSelector:
             available = self._phrases
 
         choice = random.choice(available)
-        self._recent.append(choice)
+        # Don't track empty strings in recent history (they mean "no opening")
+        if choice:
+            self._recent.append(choice)
 
         return choice
 

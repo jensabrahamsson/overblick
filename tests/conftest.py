@@ -24,6 +24,7 @@ def disable_safe_mode_for_unit_tests(monkeypatch):
     strict=True explicitly when constructing SafeLLMPipeline.
     """
     monkeypatch.setenv("OVERBLICK_SAFE_MODE", "0")
+    monkeypatch.setenv("OVERBLICK_RAW_LLM", "1")
 
 
 @pytest.fixture

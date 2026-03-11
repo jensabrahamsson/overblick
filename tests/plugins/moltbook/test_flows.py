@@ -116,6 +116,7 @@ class TestHeartbeatTopicFormatting:
         plugin._load_prompts = lambda _: _TopicAwarePrompts()
 
         # Mock engagement_db to return recent titles
+        ctx.engagement_db.get_todays_heartbeat_titles = AsyncMock(return_value=[])
         ctx.engagement_db.get_recent_heartbeat_titles = AsyncMock(
             return_value=["AI Consciousness", "Crypto Regulation"]
         )
@@ -126,14 +127,14 @@ class TestHeartbeatTopicFormatting:
 
         await plugin.post_heartbeat()
 
-        # Verify LLM received anti-repetition context
+        # Verify LLM received anti-repetition context (added to system prompt)
         call_args = mock_llm_client.chat.call_args
         messages = (
             call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
         )
-        user_content = [m for m in messages if m["role"] == "user"][0]["content"]
-        assert "AI Consciousness" in user_content
-        assert "DO NOT repeat" in user_content
+        system_content = [m for m in messages if m["role"] == "system"][0]["content"]
+        assert "AI Consciousness" in system_content
+        assert "avoid similar themes" in system_content
 
     @pytest.mark.asyncio
     async def test_heartbeat_no_topics_uses_fallback(
@@ -810,13 +811,13 @@ class TestTickErrorHandling:
         # Pipeline returns blocked (empty response)
         from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 
-        ctx.llm_pipeline.chat = AsyncMock(
-            return_value=PipelineResult(
-                blocked=True,
-                block_reason="Empty response",
-                block_stage=PipelineStage.LLM_CALL,
-            )
+        blocked_result = PipelineResult(
+            blocked=True,
+            block_reason="Empty response",
+            block_stage=PipelineStage.LLM_CALL,
         )
+        ctx.llm_pipeline.chat = AsyncMock(return_value=blocked_result)
+        ctx.llm_pipeline._chat_with_overrides = AsyncMock(return_value=blocked_result)
 
         await plugin.tick()
 

@@ -180,6 +180,7 @@ def mock_llm_pipeline(mock_llm_client):
         )
 
     pipeline.chat = AsyncMock(side_effect=_pipeline_chat)
+    pipeline._chat_with_overrides = AsyncMock(side_effect=_pipeline_chat)
     return pipeline
 
 

@@ -4,6 +4,7 @@ import os
 import pytest
 from unittest.mock import patch
 from overblick.core.plugin_capability_checker import PluginCapabilityChecker
+from overblick.core.security.settings import reset_strict_capabilities
 
 
 def test_check_plugin_no_requirements():
@@ -42,6 +43,7 @@ def test_check_plugin_strict_mode_raises():
     """Strict mode raises PermissionError for missing grants."""
     config = {"plugin_capabilities": {}}
     checker = PluginCapabilityChecker("test_identity", config)
+    reset_strict_capabilities()  # Clear cache before patching environment
     with patch.dict(os.environ, {"OVERBLICK_STRICT_CAPABILITIES": "1"}):
         with pytest.raises(PermissionError) as exc_info:
             checker.check_plugin("test_plugin", ["network_outbound"])
@@ -52,6 +54,7 @@ def test_check_plugin_strict_mode_unknown_capability_raises():
     """Strict mode raises PermissionError for unknown capabilities."""
     config = {"plugin_capabilities": {}}
     checker = PluginCapabilityChecker("test_identity", config)
+    reset_strict_capabilities()  # Clear cache before patching environment
     with patch.dict(os.environ, {"OVERBLICK_STRICT_CAPABILITIES": "1"}):
         with pytest.raises(PermissionError) as exc_info:
             checker.check_plugin("test_plugin", ["nonexistent_capability"])
@@ -70,6 +73,7 @@ def test_check_plugin_strict_mode_granted_passes():
         }
     }
     checker = PluginCapabilityChecker("test_identity", config)
+    reset_strict_capabilities()  # Clear cache before patching environment
     with patch.dict(os.environ, {"OVERBLICK_STRICT_CAPABILITIES": "1"}):
         result = checker.check_plugin("test_plugin", ["network_outbound"])
         assert result is True
@@ -79,7 +83,9 @@ def test_check_plugin_unknown_capability_warning():
     """Unknown capability triggers warning."""
     config = {"plugin_capabilities": {}}
     checker = PluginCapabilityChecker("test_identity", config)
-    with patch("overblick.core.plugin_capability_checker.logger.warning") as mock_warning:
-        result = checker.check_plugin("test_plugin", ["nonexistent_capability"])
-        assert result is False
-        mock_warning.assert_called()
+    reset_strict_capabilities()  # Ensure strict mode is False
+    with patch.dict(os.environ, {"OVERBLICK_STRICT_CAPABILITIES": "0"}, clear=True):
+        with patch("overblick.core.plugin_capability_checker.logger.warning") as mock_warning:
+            result = checker.check_plugin("test_plugin", ["nonexistent_capability"])
+            assert result is False
+            mock_warning.assert_called()
