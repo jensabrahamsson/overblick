@@ -172,6 +172,7 @@ def _create_templates() -> Jinja2Templates:
     env.globals["github_enabled"] = lambda: False
     env.globals["dev_enabled"] = lambda: False
     env.globals["log_agent_enabled"] = lambda: False
+    env.globals["polymarket_enabled"] = lambda: False
     env.globals["settings_enabled"] = lambda: True
     # Auth placeholder — overridden in lifespan once config is available
     env.globals["auth_enabled"] = lambda: False
@@ -179,6 +180,7 @@ def _create_templates() -> Jinja2Templates:
     # Security alerts
     from overblick.core.security.settings import safe_mode
     from overblick.shared.platform import IS_WINDOWS
+
     env.globals["is_windows"] = lambda: IS_WINDOWS
     env.globals["safe_mode_enabled"] = safe_mode
 
@@ -227,6 +229,7 @@ async def lifespan(app: FastAPI):
     from .routes.kontrast import has_data as _kontrast_has_data
     from .routes.log_agent import has_data as _log_agent_has_data
     from .routes.moltbook import has_data as _moltbook_has_data
+    from .routes.polymarket_dash import has_data as _polymarket_has_data
     from .routes.skuggspel import has_data as _skuggspel_has_data
     from .routes.spegel import has_data as _spegel_has_data
     from .routes.stage import has_data as _stage_has_data
@@ -245,6 +248,7 @@ async def lifespan(app: FastAPI):
     app.state.templates.env.globals["github_enabled"] = _github_has_data
     app.state.templates.env.globals["dev_enabled"] = _dev_has_data
     app.state.templates.env.globals["log_agent_enabled"] = _log_agent_has_data
+    app.state.templates.env.globals["polymarket_enabled"] = _polymarket_has_data
     app.state.templates.env.globals["settings_enabled"] = lambda: True
     app.state.templates.env.globals["auth_enabled"] = lambda: config.auth_enabled
 

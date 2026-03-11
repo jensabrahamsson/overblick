@@ -25,7 +25,7 @@ from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.plugin_capability_checker import PluginCapabilityChecker
 from overblick.core.plugin_registry import PluginRegistry
 from overblick.core.quiet_hours import QuietHoursChecker
-from overblick.core.scheduler import Scheduler
+from overblick.core.scheduler import Scheduler, TaskPriority
 from overblick.core.security.audit_log import AuditLog
 from overblick.core.security.output_safety import OutputSafety
 from overblick.core.security.preflight import PreflightChecker
@@ -216,7 +216,7 @@ class Orchestrator:
                 engagement_db=self._engagement_db,
                 learning_store=self._learning_store,
             )
-            ctx._secrets_getter = lambda key, _id=self._identity_name: (self._secrets.get(_id, key))
+            ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
 
             try:
                 plugin = self._registry.load(plugin_name, ctx)
@@ -297,11 +297,12 @@ class Orchestrator:
                         duration_ms=tick_ms,
                     )
 
-                self._scheduler.add(
+                await self._scheduler.add(
                     f"tick_{plugin.name}",
                     _guarded_tick,
                     interval_seconds=interval,
                     run_immediately=True,
+                    priority=TaskPriority.LOW,
                 )
 
                 # Schedule heartbeat if plugin supports it (e.g. MoltbookPlugin)
@@ -313,11 +314,12 @@ class Orchestrator:
                             return
                         await p.post_heartbeat()
 
-                    self._scheduler.add(
+                    await self._scheduler.add(
                         f"heartbeat_{plugin.name}",
                         _guarded_heartbeat,
                         interval_seconds=heartbeat_interval,
                         run_immediately=False,
+                        priority=TaskPriority.HIGH,
                     )
                     logger.info(
                         "Heartbeat scheduled for '%s' every %dh",
@@ -510,9 +512,7 @@ class Orchestrator:
             identity=self._identity,
         )
         # Attach secrets getter (capabilities like 'email' need it)
-        temp_ctx._secrets_getter = lambda key, _id=self._identity_name: (
-            self._secrets.get(_id, key)
-        )
+        temp_ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
 
         resolved = registry.resolve(cap_names)
         for name in resolved:

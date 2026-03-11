@@ -151,7 +151,7 @@ class TestActionPlanner:
     async def test_plan_with_llm(self):
         """Full plan generation with mocked LLM."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(
+        mock_pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content=json.dumps(
                     {
@@ -179,7 +179,7 @@ class TestActionPlanner:
 
         assert len(plan.actions) == 1
         assert plan.reasoning == "All good"
-        mock_pipeline.chat.assert_called_once()
+        mock_pipeline._chat_with_overrides.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_plan_no_llm(self):
@@ -192,7 +192,7 @@ class TestActionPlanner:
     async def test_plan_llm_blocked(self):
         """Plan returns empty when LLM result is blocked."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(
+        mock_pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content=None,
                 blocked=True,

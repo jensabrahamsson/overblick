@@ -19,7 +19,7 @@ class TestReflectionPipeline:
     async def test_reflect_stores_learnings(self, mock_agentic_db):
         """Reflection extracts and stores learnings from LLM response."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(
+        mock_pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content=json.dumps(
                     {
@@ -75,7 +75,7 @@ class TestReflectionPipeline:
         )
 
         await reflection.reflect(tick_number=1, planning_reasoning="test", outcomes=[])
-        mock_pipeline.chat.assert_not_called()
+        mock_pipeline._chat_with_overrides.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_reflect_skips_no_llm(self, mock_agentic_db):
@@ -100,7 +100,7 @@ class TestReflectionPipeline:
     async def test_reflect_handles_llm_error(self, mock_agentic_db):
         """Reflection gracefully handles LLM errors."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(side_effect=RuntimeError("LLM down"))
+        mock_pipeline._chat_with_overrides = AsyncMock(side_effect=RuntimeError("LLM down"))
 
         reflection = ReflectionPipeline(
             db=mock_agentic_db,
@@ -123,7 +123,7 @@ class TestReflectionPipeline:
     async def test_reflect_skips_empty_insight(self, mock_agentic_db):
         """Learnings with empty insight are not stored."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(
+        mock_pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content=json.dumps(
                     {
@@ -156,7 +156,7 @@ class TestReflectionPipeline:
     async def test_reflect_handles_invalid_json(self, mock_agentic_db):
         """Reflection handles unparseable LLM responses."""
         mock_pipeline = AsyncMock()
-        mock_pipeline.chat = AsyncMock(
+        mock_pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(
                 content="This is not JSON at all",
             )

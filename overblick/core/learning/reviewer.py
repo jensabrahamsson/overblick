@@ -66,7 +66,7 @@ class EthosReviewer:
             )
 
             if not result or result.blocked or not result.content:
-                return LearningStatus.CANDIDATE, "Review produced no result"
+                return LearningStatus.CANDIDATE, "Review error: produced no result"
 
             text = result.content.strip().upper()
 
@@ -78,7 +78,7 @@ class EthosReviewer:
                 reason = result.content.strip()[8:].strip().lstrip(":")
                 return LearningStatus.REJECTED, reason or "Violates ethos"
 
-            return LearningStatus.CANDIDATE, f"Ambiguous review: {result.content[:100]}"
+            return LearningStatus.REJECTED, f"Ambiguous review: {result.content[:100]}"
 
         except Exception as e:
             logger.error("Ethos review failed: %s", e, exc_info=True)

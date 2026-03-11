@@ -22,7 +22,7 @@ def _make_pipeline(responses: list[str] | str = "APPROVED: Good"):
         results.append(r)
 
     pipeline = AsyncMock()
-    pipeline.chat = AsyncMock(side_effect=results if len(results) > 1 else results * 100)
+    pipeline._chat_with_overrides = AsyncMock(side_effect=results if len(results) > 1 else results * 100)
     return pipeline
 
 

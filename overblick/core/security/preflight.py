@@ -181,8 +181,18 @@ class PreflightChecker:
         """
         start_time = time.time()
 
-        if user_id in self.admin_user_ids:
-            logger.debug("Preflight admin bypass for user %s", user_id)
+        is_admin = user_id in self.admin_user_ids
+
+        # Admin users get pattern matching bypass but still tracked for audit
+        if is_admin:
+            # Log admin activity at WARNING level (not DEBUG) for production visibility
+            logger.warning(
+                "Admin user %s bypassed preflight pattern checks (message length: %d, time: %.2fms)",
+                user_id,
+                len(message),
+                (time.time() - start_time) * 1000,
+            )
+
             return PreflightResult(
                 allowed=True,
                 threat_level=ThreatLevel.SAFE,

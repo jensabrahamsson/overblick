@@ -83,7 +83,9 @@ class TestGenerateDreamViaLLM:
     async def test_generate_dream_via_llm(self):
         """Mock LLM returns valid JSON — verify Dream fields."""
         pipeline = AsyncMock()
-        pipeline.chat.return_value = _mock_pipeline_result(_valid_dream_json())
+        pipeline._chat_with_overrides = AsyncMock(
+            return_value=_mock_pipeline_result(_valid_dream_json())
+        )
 
         ds = DreamSystem(dream_guidance=_cherry_guidance(), dream_weights=_cherry_weights())
         dream = await ds.generate_morning_dream(
@@ -97,13 +99,13 @@ class TestGenerateDreamViaLLM:
         assert "glass" in dream.symbols
         assert dream.insight == "being seen is terrifying and beautiful"
         assert dream.potential_learning == "vulnerability is strength"
-        pipeline.chat.assert_awaited_once()
+        pipeline._chat_with_overrides.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_generate_dream_llm_failure_fallback(self):
         """LLM raises exception — verify fallback dream produced."""
         pipeline = AsyncMock()
-        pipeline.chat.side_effect = Exception("LLM timeout")
+        pipeline._chat_with_overrides = AsyncMock(side_effect=Exception("LLM timeout"))
 
         ds = DreamSystem(dream_guidance=_cherry_guidance(), dream_weights=_cherry_weights())
         dream = await ds.generate_morning_dream(
@@ -120,7 +122,9 @@ class TestGenerateDreamViaLLM:
     async def test_generate_dream_llm_blocked(self):
         """Pipeline blocks the request — verify fallback."""
         pipeline = AsyncMock()
-        pipeline.chat.return_value = _mock_pipeline_result("", blocked=True)
+        pipeline._chat_with_overrides = AsyncMock(
+            return_value=_mock_pipeline_result("", blocked=True)
+        )
 
         ds = DreamSystem(dream_guidance=_cherry_guidance(), dream_weights=_cherry_weights())
         dream = await ds.generate_morning_dream(

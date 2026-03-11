@@ -33,7 +33,7 @@ class TestReflectionWithLearningStore:
         store._reviewer.review = AsyncMock(return_value=(LearningStatus.APPROVED, "Good"))
 
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
+        pipeline._chat_with_overrides = AsyncMock(
             return_value=_make_llm_result(
                 '{"learnings": [{"category": "pattern", "insight": "Tests should be fast", "confidence": 0.8}]}'
             )
@@ -60,7 +60,7 @@ class TestReflectionWithLearningStore:
     async def test_backward_compat_without_store(self, mock_agentic_db):
         """Without learning_store, falls back to AgenticDB."""
         pipeline = AsyncMock()
-        pipeline.chat = AsyncMock(
+        pipeline._chat_with_overrides = AsyncMock(
             return_value=_make_llm_result(
                 '{"learnings": [{"category": "general", "insight": "Legacy path works", "confidence": 0.5}]}'
             )

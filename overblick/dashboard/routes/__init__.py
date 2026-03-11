@@ -22,6 +22,7 @@ def register_routes(app: FastAPI) -> None:
     from .github_dash import router as github_dash_router
     from .identities import router as identities_router
     from .irc import router as irc_router
+    from .polymarket_dash import router as polymarket_dash_router
     from .kontrast import router as kontrast_router
     from .llm import router as llm_router
     from .log_agent import router as log_agent_router
@@ -56,6 +57,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(telegram_router)
     app.include_router(digest_router)
     app.include_router(github_dash_router)
+    app.include_router(polymarket_dash_router)
     app.include_router(dev_router)
     app.include_router(log_agent_router)
     app.include_router(psychology_router)

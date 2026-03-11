@@ -9,11 +9,24 @@ Security properties:
 - Master key protected by OS keyring
 - Each identity has its own secrets file
 - No environment variable fallback for secrets (intentional)
+- Key rotation support for security updates
+
+Usage:
+    sm = SecretsManager(secrets_dir=Path("config/secrets"))
+
+    # Get/set secrets (uses current active key)
+    sm.get("anomal", "api_key")
+    sm.set("anomal", "api_key", "sk_xxx")
+
+    # Rotate encryption key (e.g., after security incident)
+    sm.rotate_key()  # Creates new key and re-encrypts all secrets
+
+    # List keys for an identity
+    sm.list_keys("anomal")
 """
 
-import base64
 import logging
-import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -27,22 +40,88 @@ _KEYRING_SERVICE = "overblick-secrets"
 
 class SecretsManager:
     """
-    Encrypted secrets manager.
+    Encrypted secrets manager with key rotation support.
+
+    Supports multiple encryption keys for graceful key rotation.
+    Old encrypted data can still be decrypted with previous keys,
+    while new secrets are always encrypted with the most recent key.
 
     Usage:
         sm = SecretsManager(secrets_dir=Path("config/secrets"))
-        sm.get("anomal", "api_key")  # Returns decrypted value
-        sm.set("anomal", "api_key", "sk_xxx")  # Encrypts and saves
+
+        # Get/set secrets (uses current active key)
+        sm.get("anomal", "api_key")
+        sm.set("anomal", "api_key", "sk_xxx")
+
+        # Rotate encryption key (e.g., after security incident)
+        sm.rotate_key()  # Creates new key and re-encrypts all secrets
+
+        # List keys for an identity
+        sm.list_keys("anomal")
     """
 
     def __init__(self, secrets_dir: Path):
         self._secrets_dir = secrets_dir
         self._secrets_dir.mkdir(parents=True, exist_ok=True)
-        self._fernet = None
+
+        # Key rotation support
+        self._keys: dict[str, "Fernet"] = {}  # key_id -> Fernet instance
+        self._active_key_id: str | None = None
+
+        # Load existing keys if any
+        self._load_keys()
+
+        # Initialize with current fernet or create new one
+        self._fernet: Optional["Fernet"] = None
         self._cache: dict[str, dict[str, str]] = {}
 
+    def _load_keys(self) -> None:
+        """Load all known encryption keys from the keys directory.
+
+        This enables decryption of old secrets encrypted with previous keys.
+        New secrets are always encrypted with the most recent key.
+        """
+        try:
+            from cryptography.fernet import Fernet
+
+            keys_dir = self._secrets_dir / "keys"
+            if not keys_dir.exists():
+                return  # No keys directory yet
+
+            # Load all key files in sorted order (oldest first)
+            for key_file in sorted(keys_dir.glob("key_*.txt")):
+                try:
+                    key_id = key_file.stem  # e.g., "key_2026_03"
+
+                    with open(key_file, "rb") as f:
+                        raw_key = f.read().strip()
+
+                    fernet = Fernet(raw_key)
+                    self._keys[key_id] = fernet
+
+                except Exception as e:
+                    logger.warning(f"Failed to load key from {key_file}: {e}")
+
+            if self._keys:
+                # Most recent key is the last one loaded
+                self._active_key_id = list(self._keys.keys())[-1]
+                logger.info(
+                    "Loaded %d encryption keys (active: %s)",
+                    len(self._keys),
+                    self._active_key_id,
+                )
+            else:
+                logger.debug("No existing encryption keys found")
+
+        except ImportError:
+            logger.warning("cryptography library not available - key rotation disabled")
+
     def _get_fernet(self):
-        """Lazy-initialize Fernet with master key from keyring."""
+        """Lazy-initialize Fernet with master key from keyring.
+
+        For new secrets, always use the active key (most recent during rotation).
+        For decryption attempts on old data, try all keys in reverse order.
+        """
         if self._fernet is not None:
             return self._fernet
 
@@ -121,6 +200,141 @@ class SecretsManager:
             logger.info("Master key stored in file (keyring unavailable)")
 
         return new_key
+
+    def decrypt_with_all_keys(self, encrypted_data: str) -> Optional[bytes]:
+        """Try to decrypt data with all known keys (for rotation support).
+
+        Args:
+            encrypted_data: Base64-encoded encrypted secret
+
+        Returns:
+            Decrypted bytes if successful, None if no key works
+        """
+        try:
+            from cryptography.fernet import Fernet, InvalidToken
+
+            # Try all keys in reverse order (newest first for efficiency)
+            for key_id in reversed(list(self._keys.keys())):
+                try:
+                    fernet = self._keys[key_id]
+                    return fernet.decrypt(encrypted_data.encode())
+                except InvalidToken:
+                    continue  # This key doesn't work, try next
+
+        except Exception as e:
+            logger.warning(f"Error during multi-key decryption: {e}")
+
+        return None
+
+    def rotate_key(self) -> str:
+        """Create a new encryption key and re-encrypt all secrets.
+
+        This method implements secure key rotation by:
+        1. Generating a new Fernet key
+        2. Saving it to the keys directory with timestamp-based ID
+        3. Attempting to decrypt all existing secrets with old keys
+        4. Re-encrypting them with the new key
+        5. Updating the active key reference
+
+        Use this method when:
+        - Suspected security breach (rotate immediately)
+        - Scheduled maintenance (quarterly recommended)
+        - Personnel changes (key holders leaving organization)
+
+        Returns:
+            New key ID (e.g., "key_2026_03_09")
+
+        Raises:
+            RuntimeError: If no secrets exist to rotate or decryption fails
+        """
+        try:
+            from cryptography.fernet import Fernet
+
+            # Generate new key
+            new_key = Fernet.generate_key()
+            timestamp = datetime.now(timezone.utc).strftime("%Y_%m_%d")
+            new_key_id = f"key_{timestamp}"
+
+            logger.info("Starting key rotation: %s", new_key_id)
+
+            # Create keys directory and save new key
+            keys_dir = self._secrets_dir / "keys"
+            keys_dir.mkdir(exist_ok=True)
+
+            key_file = keys_dir / f"{new_key_id}.txt"
+            with open(key_file, "wb") as f:
+                f.write(new_key)
+
+            # Set restrictive permissions on new key file
+            from overblick.shared.platform import set_restrictive_permissions
+
+            set_restrictive_permissions(key_file)
+
+            # Create Fernet instance for new key
+            new_fernet = Fernet(new_key)
+
+            # Re-encrypt all existing secrets
+            rotated_count = 0
+            failed_secrets = []
+
+            for identity_file in self._secrets_dir.glob("*.yaml"):
+                if identity_file.name == "current_key.txt":
+                    continue
+
+                try:
+                    encrypted_data = identity_file.read_bytes()
+
+                    # Try decrypting with old keys first
+                    decrypted = self.decrypt_with_all_keys(encrypted_data.decode())
+
+                    if decrypted is not None:
+                        # Re-encrypt with new key
+                        new_encrypted = new_fernet.encrypt(decrypted)
+                        identity_file.write_bytes(new_encrypted)
+                        rotated_count += 1
+                        logger.debug("Rotated secrets for %s", identity_file.name)
+                    else:
+                        failed_secrets.append(identity_file.name)
+
+                except Exception as e:
+                    logger.error(
+                        "Failed to rotate secrets for %s: %s",
+                        identity_file.name,
+                        e,
+                        exc_info=True,
+                    )
+                    failed_secrets.append(identity_file.name)
+
+            if rotated_count == 0 and not failed_secrets:
+                # No existing secrets - just add the new key to our in-memory store
+                self._keys[new_key_id] = new_fernet
+
+            if failed_secrets:
+                logger.warning(
+                    "Key rotation completed with %d failures. Failed identities: %s",
+                    len(failed_secrets),
+                    ", ".join(failed_secrets),
+                )
+
+            # Update active key reference
+            self._keys[new_key_id] = new_fernet
+            self._active_key_id = new_key_id
+
+            # Save current key ID for status tracking
+            with open(self._secrets_dir / "current_key.txt", "w") as f:
+                f.write(new_key_id)
+
+            logger.info(
+                "Key rotation completed: %d secrets rotated, %d failures",
+                rotated_count,
+                len(failed_secrets),
+            )
+
+            return new_key_id
+
+        except Exception as e:
+            logger.error("Key rotation failed: %s", e, exc_info=True)
+            raise RuntimeError(f"Key rotation failed: {e}")
 
     def get(self, identity: str, key: str) -> str | None:
         """

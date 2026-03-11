@@ -62,7 +62,7 @@ class TestGenerateTurn:
         with patch("overblick.identities.build_system_prompt", return_value="Base prompt"):
             await irc_plugin._generate_turn("anomal")
 
-        call_kwargs = mock_ctx.llm_pipeline.chat.call_args.kwargs
+        call_kwargs = mock_ctx.llm_pipeline._chat_with_overrides.call_args.kwargs
         messages = call_kwargs["messages"]
         system_msg = messages[0]["content"]
 
@@ -90,7 +90,7 @@ class TestGenerateTurn:
         with patch("overblick.identities.build_system_prompt", return_value="Prompt"):
             await irc_plugin._generate_turn("anomal")
 
-        call_kwargs = mock_ctx.llm_pipeline.chat.call_args.kwargs
+        call_kwargs = mock_ctx.llm_pipeline._chat_with_overrides.call_args.kwargs
         messages = call_kwargs["messages"]
 
         # system + 2 history turns + 1 continuation prompt = 4 messages
@@ -105,7 +105,7 @@ class TestGenerateTurn:
     async def test_generate_turn_blocked_returns_none(self, irc_plugin, mock_ctx):
         """When pipeline blocks the response, return None."""
         self._setup_plugin(irc_plugin, mock_ctx)
-        mock_ctx.llm_pipeline.chat = AsyncMock(
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(blocked=True, block_reason="Safety filter")
         )
 
@@ -134,7 +134,7 @@ class TestGenerateTurn:
 
         assert result is None
         # chat() should not have been called
-        mock_ctx.llm_pipeline.chat.assert_not_called()
+        mock_ctx.llm_pipeline._chat_with_overrides.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -246,7 +246,7 @@ class TestRunTurns:
     async def test_run_turns_stops_on_generate_failure(self, irc_plugin, mock_ctx):
         """When _generate_turn returns None, the loop should stop."""
         self._setup_plugin(irc_plugin, mock_ctx)
-        mock_ctx.llm_pipeline.chat = AsyncMock(
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(
             return_value=PipelineResult(blocked=True, block_reason="Blocked")
         )
 
