@@ -256,7 +256,7 @@ class TestAuthMiddleware:
         # POST with matching CSRF token in both cookie and form field
         resp = await client.post(
             "/login",
-            data={"password": config.password, "csrf_token": login_csrf_cookie},
+            data={"password": "testpass123", "csrf_token": login_csrf_cookie},
             cookies={SESSION_COOKIE: cookie_value, LOGIN_CSRF_COOKIE: login_csrf_cookie},
             headers={"X-CSRF-Token": csrf_token},
             follow_redirects=False,
@@ -334,7 +334,7 @@ class TestAuthMiddleware:
         # POST with double-submit cookie CSRF (no X-CSRF-Token header needed)
         resp = await client.post(
             "/login",
-            data={"password": config.password, "csrf_token": login_csrf},
+            data={"password": "testpass123", "csrf_token": login_csrf},
             cookies={SESSION_COOKIE: cookie_value, LOGIN_CSRF_COOKIE: login_csrf},
             follow_redirects=False,
         )
@@ -457,7 +457,7 @@ class TestLoginRoute:
 
     @pytest.mark.asyncio
     async def test_login_success(self, client, config):
-        resp = await self._post_login(client, config.password)
+        resp = await self._post_login(client, "testpass123")
         assert resp.status_code == 302
         assert resp.headers.get("location") == "/"
         assert SESSION_COOKIE in resp.cookies

@@ -59,6 +59,93 @@ def set_restrictive_dir_permissions(path: Path) -> None:
     os.chmod(str(path), 0o700)
 
 
+def verify_restrictive_permissions(
+    path: Path, require_owner_only: bool = True, is_directory: bool = False
+) -> bool:
+    """Verify that a file or directory has restrictive permissions.
+
+    On Unix: checks that permissions are owner-only.
+    On Windows: always returns True (relies on NTFS ACLs).
+
+    Args:
+        path: Path to check
+        require_owner_only: If True, requires exactly 0o600 (files) or
+            0o700 (directories). If False, allows group/other read but not write.
+        is_directory: If True, checks directory permissions (0o700).
+            If False, checks file permissions (0o600).
+
+    Returns:
+        True if permissions are acceptable, False otherwise.
+    """
+    if IS_WINDOWS:
+        return True  # Windows relies on NTFS ACLs
+
+    if not path.exists():
+        return True  # Non-existent path passes by default
+
+    try:
+        stat = os.stat(str(path))
+        mode = stat.st_mode & 0o777
+
+        if is_directory:
+            if require_owner_only:
+                # Must be exactly 0o700 (owner read+write+execute)
+                return mode == 0o700
+            else:
+                # Allow owner read+write+execute, group/other read+execute but not write
+                # Deny if group or others have write permission
+                return (mode & 0o022) == 0
+        else:
+            if require_owner_only:
+                # Must be exactly 0o600 (owner read+write)
+                return mode == 0o600
+            else:
+                # Allow owner read+write, group/other read (0o644) but not write
+                # Deny if group or others have write permission
+                return (mode & 0o022) == 0
+    except OSError:
+        return False  # Cannot stat path
+
+
+def enforce_restrictive_permissions(
+    path: Path, require_owner_only: bool = True, is_directory: bool = False
+) -> None:
+    """Verify file or directory permissions and warn or raise if too permissive.
+
+    Logs a WARNING if permissions are too permissive. In strict mode,
+    raises PermissionError.
+
+    Args:
+        path: Path to check
+        require_owner_only: If True, requires 0o600 (files) or 0o700 (directories).
+        is_directory: If True, checks directory permissions.
+
+    Raises:
+        PermissionError: If permissions are too permissive and
+            OVERBLICK_STRICT_PERMISSIONS=1 is set.
+    """
+    if not path.exists():
+        return
+
+    if not verify_restrictive_permissions(path, require_owner_only, is_directory):
+        mode = os.stat(str(path)).st_mode & 0o777
+        expected_mode = 0o700 if is_directory else 0o600
+        if require_owner_only:
+            expected_desc = oct(expected_mode)
+        else:
+            expected_desc = f"no group/other write (max {oct(expected_mode)})"
+
+        warning_msg = (
+            f"{'Directory' if is_directory else 'File'} {path} has overly permissive "
+            f"permissions: {oct(mode)}. Expected {expected_desc}."
+        )
+
+        if os.environ.get("OVERBLICK_STRICT_PERMISSIONS") == "1":
+            raise PermissionError(warning_msg)
+
+        logger.warning(warning_msg)
+
+
 def register_shutdown_signals(
     shutdown_event: asyncio.Event,
     loop: asyncio.AbstractEventLoop | None = None,
@@ -82,7 +169,7 @@ def register_shutdown_signals(
         signal.signal(signal.SIGINT, _handler)
         # SIGBREAK is the Windows-specific graceful shutdown signal
         if hasattr(signal, "SIGBREAK"):
-            signal.signal(signal.SIGBREAK, _handler)
+            signal.signal(signal.SIGBREAK, _handler)  # type: ignore[attr-defined]
     else:
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, shutdown_event.set)
