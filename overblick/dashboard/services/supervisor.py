@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Supervisor service — read-only agent status via IPC.
 
@@ -7,6 +9,7 @@ Falls back gracefully if supervisor is not running.
 """
 
 import logging
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -16,9 +19,18 @@ logger = logging.getLogger(__name__)
 class SupervisorService:
     """Read-only access to supervisor agent status via IPC."""
 
+    # Cache status for 5 seconds to reduce IPC load
+    _CACHE_TTL = 5.0
+
     def __init__(self, socket_dir: Path | None = None):
         self._socket_dir = socket_dir
         self._resolved_socket_dir: Path | None = None
+        self._status_cache: dict[str, Any] | None = None
+        self._status_cache_time: float = 0.0
+
+    def _invalidate_cache(self) -> None:
+        """Invalidate status cache (call after agent start/stop)."""
+        self._status_cache = None
 
     def _resolve_socket_dir(self) -> Path:
         """Resolve the IPC socket directory."""
@@ -81,12 +93,22 @@ class SupervisorService:
         Returns:
             Status dict with agent info, or None if supervisor unavailable.
         """
+        # Check cache first
+        now = time.monotonic()
+        if self._status_cache is not None and (now - self._status_cache_time) < self._CACHE_TTL:
+            return self._status_cache
+
         client = self._get_client()
         if not client:
             return None
 
         try:
-            return await client.request_status(sender="dashboard")
+            status = await client.request_status(sender="dashboard")
+            # Cache successful result
+            if status is not None:
+                self._status_cache = status
+                self._status_cache_time = now
+            return status
         except Exception as e:
             logger.debug("Supervisor not reachable: %s", e)
             return None
@@ -133,11 +155,15 @@ class SupervisorService:
                 sender="dashboard",
             )
             response = await client.send(msg, timeout=10.0)
+            # Invalidate cache since agent state may have changed
+            self._invalidate_cache()
             if response and response.msg_type == "agent_action_response":
                 return response.payload
             return {"success": False, "error": "No response from supervisor"}
         except Exception as e:
             logger.debug("Failed to start agent '%s': %s", identity, e)
+            # Still invalidate cache in case partial change occurred
+            self._invalidate_cache()
             return {"success": False, "error": str(e)}
 
     async def stop_agent(self, identity: str) -> dict[str, Any]:
@@ -159,11 +185,15 @@ class SupervisorService:
                 sender="dashboard",
             )
             response = await client.send(msg, timeout=10.0)
+            # Invalidate cache since agent state may have changed
+            self._invalidate_cache()
             if response and response.msg_type == "agent_action_response":
                 return response.payload
             return {"success": False, "error": "No response from supervisor"}
         except Exception as e:
             logger.debug("Failed to stop agent '%s': %s", identity, e)
+            # Still invalidate cache in case partial change occurred
+            self._invalidate_cache()
             return {"success": False, "error": str(e)}
 
     async def close(self) -> None:

@@ -24,9 +24,14 @@ def _reset_config():
 @pytest.fixture
 def config(tmp_path):
     """Test dashboard config."""
+    import bcrypt
+
+    # Generate bcrypt hash for test password "testpass123"
+    password_hash = bcrypt.hashpw(b"testpass123", bcrypt.gensalt()).decode("utf-8")
+
     return DashboardConfig(
         port=8080,
-        password="testpass123",
+        password_hash=password_hash,
         secret_key="test-secret-key-for-testing-only-0123456789abcdef",
         session_hours=1,
         base_dir=str(tmp_path),
@@ -38,7 +43,7 @@ def config_no_password(tmp_path):
     """Config with no password (auto-login)."""
     return DashboardConfig(
         port=8080,
-        password="",
+        password_hash="",
         secret_key="test-secret-key-for-testing-only-0123456789abcdef",
         session_hours=1,
         base_dir=str(tmp_path),

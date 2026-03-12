@@ -18,13 +18,13 @@ class TestDashboardConfig:
 
     def test_from_env(self, monkeypatch):
         monkeypatch.setenv("OVERBLICK_DASH_PORT", "9090")
-        monkeypatch.setenv("OVERBLICK_DASH_PASSWORD", "secret123")
         monkeypatch.setenv("OVERBLICK_DASH_SESSION_HOURS", "24")
 
         config = DashboardConfig.from_env()
         assert config.port == 9090
-        assert config.password == "secret123"
         assert config.session_hours == 24
+        # OVERBLICK_DASH_PASSWORD env var is ignored (legacy plaintext removed)
+        # Password must be set via password_hash in YAML config
 
     def test_from_env_generates_secret_key(self):
         config = DashboardConfig.from_env()

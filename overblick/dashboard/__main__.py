@@ -32,7 +32,7 @@ def main() -> None:
     # Security: warn about non-localhost binding
     if args.host not in ("127.0.0.1", "localhost", "::1"):
         print(f"WARNING: Binding to {args.host} — dashboard will be accessible on the network.")
-        print("Ensure password auth is configured (OVERBLICK_DASH_PASSWORD).")
+        print("Ensure bcrypt password hash is configured in config/overblick.yaml.")
 
     level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
@@ -47,7 +47,6 @@ def main() -> None:
 
     if args.test:
         config.test_mode = True
-        config.password = ""
         config.password_hash = ""
         config.secret_key = "test-mode-deterministic-key-do-not-use-in-production"
         print("TEST MODE ACTIVE")

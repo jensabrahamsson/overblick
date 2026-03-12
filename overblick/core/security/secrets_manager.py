@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Secrets manager — Fernet-encrypted secrets with keyring master key.
 
@@ -28,9 +30,12 @@ Usage:
 import logging
 from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import yaml
+
+if TYPE_CHECKING:
+    from cryptography.fernet import Fernet
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +169,10 @@ class SecretsManager:
         # Fallback: key file in secrets directory
         key_file = self._secrets_dir / ".master_key"
         if key_file.exists():
+            # Verify file permissions are restrictive before reading
+            from overblick.shared.platform import enforce_restrictive_permissions
+
+            enforce_restrictive_permissions(key_file, require_owner_only=True)
             return key_file.read_bytes().strip()
 
         # If keyring threw an exception AND no file backup exists, do not
@@ -192,11 +201,22 @@ class SecretsManager:
             keyring.set_password(_KEYRING_SERVICE, "master_key", new_key.decode())
             logger.info("Master key stored in system keyring")
         except Exception:
-            # Fallback to file
-            from overblick.shared.platform import set_restrictive_permissions
+            # Fallback to file - create with atomic write and restrictive permissions
+            from overblick.shared.platform import enforce_restrictive_permissions
 
-            key_file.write_bytes(new_key)
-            set_restrictive_permissions(key_file)
+            # Atomic write with 0o600 permissions using os.open
+            import os
+
+            fd = os.open(str(key_file), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                with os.fdopen(fd, "wb") as f:
+                    f.write(new_key)
+            except Exception:
+                os.close(fd)
+                raise
+
+            # Verify permissions were set correctly
+            enforce_restrictive_permissions(key_file, require_owner_only=True)
             logger.info("Master key stored in file (keyring unavailable)")
 
         return new_key
@@ -364,7 +384,7 @@ class SecretsManager:
             self._cache.setdefault(identity, {})[key] = decrypted
             return decrypted
         except Exception as e:
-            logger.error(f"Failed to decrypt secret '{key}' for '{identity}': {e}", exc_info=True)
+            logger.warning(f"Failed to decrypt secret '{key}' for '{identity}': {e}", exc_info=True)
             return None
 
     def set(self, identity: str, key: str, value: str) -> None:

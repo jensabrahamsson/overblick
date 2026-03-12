@@ -1,9 +1,7 @@
 """
 Authentication routes — login and logout.
 
-Supports two password modes:
-- Legacy plaintext (OVERBLICK_DASH_PASSWORD env var) — hmac comparison
-- bcrypt hash (dashboard.password_hash in YAML) — bcrypt.checkpw()
+Supports bcrypt password hash (dashboard.password_hash in YAML).
 """
 
 import hmac
@@ -15,33 +13,46 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from ..auth import LOGIN_CSRF_COOKIE, SESSION_COOKIE, SessionManager, get_session
 from ..security import RateLimiter
 
+
+def _should_use_secure_cookie(request: Request) -> bool:
+    """Determine if cookies should be marked Secure.
+
+    Returns True if:
+    - Request scheme is https, OR
+    - X-Forwarded-Proto header is https (reverse proxy), OR
+    - Network access mode is enabled (assumes HTTPS should be used).
+    """
+    config = request.app.state.config
+    if request.url.scheme == "https":
+        return True
+    if request.headers.get("X-Forwarded-Proto") == "https":
+        return True
+    # Network access mode typically requires HTTPS for security
+    if config.network_access:
+        return True
+    return False
+
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
 def _verify_password(password: str, config) -> bool:
-    """Verify password against configured hash or plaintext.
+    """Verify password against bcrypt hash."""
+    if not config.password_hash:
+        return False
 
-    Checks bcrypt hash first (preferred), then falls back to
-    plaintext comparison for backward compatibility.
-    """
-    if config.password_hash:
-        try:
-            import bcrypt
+    try:
+        import bcrypt
 
-            return bcrypt.checkpw(
-                password.encode("utf-8"),
-                config.password_hash.encode("utf-8"),
-            )
-        except Exception:
-            logger.warning("bcrypt verification failed, denying access")
-            return False
-
-    if config.password:
-        return hmac.compare_digest(password, config.password)
-
-    return False
+        return bcrypt.checkpw(
+            password.encode("utf-8"),
+            config.password_hash.encode("utf-8"),
+        )
+    except Exception:
+        logger.warning("bcrypt verification failed, denying access")
+        return False
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -55,12 +66,14 @@ async def login_page(request: Request):
         session_mgr: SessionManager = request.app.state.session_manager
         cookie_value, _csrf_token = session_mgr.create_session()
         response = RedirectResponse("/", status_code=302)
+        secure = _should_use_secure_cookie(request)
         response.set_cookie(
             SESSION_COOKIE,
             cookie_value,
             httponly=True,
+            secure=secure,
             samesite="strict",
-            max_age=config.session_hours * 3600,
+            max_age=config.effective_session_hours * 3600,
         )
         logger.info("Auto-login: no password configured, creating session")
         return response
@@ -79,10 +92,12 @@ async def login_page(request: Request):
             "csrf_token": login_csrf,
         },
     )
+    secure = _should_use_secure_cookie(request)
     response.set_cookie(
         LOGIN_CSRF_COOKIE,
         login_csrf,
         httponly=True,
+        secure=secure,
         samesite="lax",
         max_age=600,  # 10 minutes
     )
@@ -108,10 +123,12 @@ async def login_submit(request: Request):
             },
             status_code=status_code,
         )
+        secure = _should_use_secure_cookie(request)
         resp.set_cookie(
             LOGIN_CSRF_COOKIE,
             fresh_csrf,
             httponly=True,
+            secure=secure,
             samesite="lax",
             max_age=600,
         )
@@ -146,12 +163,14 @@ async def login_submit(request: Request):
     cookie_value, _session_csrf = session_mgr.create_session()
 
     response = RedirectResponse("/", status_code=302)
+    secure = _should_use_secure_cookie(request)
     response.set_cookie(
         SESSION_COOKIE,
         cookie_value,
         httponly=True,
+        secure=secure,
         samesite="strict",
-        max_age=config.session_hours * 3600,
+        max_age=config.effective_session_hours * 3600,
     )
     response.delete_cookie(LOGIN_CSRF_COOKIE)
 

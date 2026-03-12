@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 
 from overblick.shared.platform import (
     IS_WINDOWS,
+    enforce_restrictive_permissions,
     set_restrictive_dir_permissions,
     set_restrictive_permissions,
 )
@@ -336,6 +337,9 @@ class IPCServer:
         """
         self._socket_dir.mkdir(parents=True, exist_ok=True)
         set_restrictive_dir_permissions(self._socket_dir)
+        enforce_restrictive_permissions(
+            self._socket_dir, require_owner_only=True, is_directory=True
+        )
 
         # Cleanup stale .conn file from previous runs
         if self._conn_path.exists():
@@ -364,6 +368,9 @@ class IPCServer:
 
         # Restrict socket permissions (owner only)
         set_restrictive_permissions(self._socket_path)
+        enforce_restrictive_permissions(
+            self._socket_path, require_owner_only=True, is_directory=False
+        )
 
         logger.info("IPC server listening on %s", self._socket_path)
 

@@ -5,7 +5,6 @@ Priority: environment variable > YAML config > default value.
 
 Settings can be overridden via OVERBLICK_DASH_ prefix:
     OVERBLICK_DASH_PORT=9090
-    OVERBLICK_DASH_PASSWORD=mysecret
     OVERBLICK_DASH_SESSION_HOURS=24
 
 Or via config/overblick.yaml:
@@ -66,7 +65,6 @@ class DashboardConfig(BaseModel):
     network_access: bool = False
 
     # Authentication
-    password: str = ""  # plaintext (env-var compat, legacy)
     password_hash: str = ""  # bcrypt hash (from YAML / wizard)
     secret_key: str = ""
     session_hours: int = 8
@@ -88,8 +86,8 @@ class DashboardConfig(BaseModel):
 
     @property
     def auth_enabled(self) -> bool:
-        """Whether authentication is required (password or hash configured)."""
-        return bool(self.password or self.password_hash)
+        """Whether authentication is required (bcrypt hash configured)."""
+        return bool(self.password_hash)
 
     @property
     def bind_host(self) -> str:
@@ -101,6 +99,28 @@ class DashboardConfig(BaseModel):
             )
             return "127.0.0.1"
         return "0.0.0.0" if self.network_access else "127.0.0.1"
+
+    @property
+    def effective_session_hours(self) -> int:
+        """Effective session timeout based on network access mode.
+
+        Security recommendation: 8 hours for localhost, 1 hour for network access.
+        If user configured a shorter timeout, respect it.
+        """
+        if self.network_access:
+            # Network access mode: max 1 hour for security
+            effective = min(self.session_hours, 1)
+            if self.session_hours > 1:
+                logger.warning(
+                    "Network access mode enabled: reducing session timeout from %d to %d hours "
+                    "for security (recommended: 1 hour max for network access)",
+                    self.session_hours,
+                    effective,
+                )
+            return effective
+        else:
+            # Localhost mode: default 8 hours, respect user configuration
+            return self.session_hours
 
     @classmethod
     def from_env(cls) -> "DashboardConfig":
@@ -119,7 +139,6 @@ class DashboardConfig(BaseModel):
         return cls(
             port=_env_int("PORT", 8080),
             network_access=network_access,
-            password=_env("PASSWORD", ""),
             password_hash=password_hash,
             secret_key=secret_key,
             session_hours=_env_int("SESSION_HOURS", session_hours_yaml),

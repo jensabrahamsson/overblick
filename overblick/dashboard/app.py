@@ -79,6 +79,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "font-src 'self'; "
             "connect-src 'self'"
         )
+        # HSTS header for HTTPS requests (network access mode)
+        config = getattr(request.app.state, "config", None)
+        if config and config.network_access:
+            # Check if request is over HTTPS (direct or via proxy)
+            scheme = request.url.scheme
+            if scheme == "https" or request.headers.get("X-Forwarded-Proto") == "https":
+                response.headers["Strict-Transport-Security"] = (
+                    "max-age=31536000; includeSubDomains"
+                )
         return response
 
 
@@ -203,10 +212,17 @@ async def lifespan(app: FastAPI):
         config.port,
     )
 
+    # Security warning for network access without HTTPS
+    if config.network_access:
+        logger.warning(
+            "Network access mode enabled. Ensure HTTPS is used in production. "
+            "Cookies will be marked Secure and HSTS header will be sent for HTTPS requests."
+        )
+
     # Initialize services on app state
     app.state.session_manager = SessionManager(
         secret_key=config.secret_key,
-        max_age_hours=config.session_hours,
+        max_age_hours=config.effective_session_hours,
     )
     app.state.rate_limiter = RateLimiter()
     app.state.templates = _create_templates()
