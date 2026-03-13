@@ -201,6 +201,8 @@ def read_ipc_token(name: str = "supervisor", socket_dir: Path | None = None) -> 
 class IPCMessage(BaseModel):
     """A message in the IPC protocol."""
 
+    # Protocol version for backward compatibility
+    protocol_version: str = "1.0"
     msg_type: str
     payload: dict[str, Any] = Field(default_factory=dict)
     sender: str = ""
@@ -211,6 +213,7 @@ class IPCMessage(BaseModel):
     def to_json(self) -> str:
         return json.dumps(
             {
+                "protocol_version": self.protocol_version,
                 "type": self.msg_type,
                 "payload": self.payload,
                 "sender": self.sender,
@@ -223,7 +226,10 @@ class IPCMessage(BaseModel):
     @classmethod
     def from_json(cls, data: str) -> "IPCMessage":
         d = json.loads(data)
+        # Handle backward compatibility: older messages won't have protocol_version
+        protocol_version = d.get("protocol_version", "1.0")
         return cls(
+            protocol_version=protocol_version,
             msg_type=d["type"],
             payload=d.get("payload", {}),
             sender=d.get("sender", ""),

@@ -18,11 +18,12 @@ from .models import (
     ChatResponseChoice,
     ChatResponseUsage,
 )
+from overblick.core.exceptions import LLMError, LLMConnectionError, LLMTimeoutError
 
 logger = logging.getLogger(__name__)
 
 
-class DeepseekError(Exception):
+class DeepseekError(LLMError):
     """Base exception for Deepseek client errors."""
 
 

@@ -140,7 +140,7 @@ class TestPluginRegistryLoad:
             "overblick.plugins.this_does_not_exist",
             "FakeClass",
         )
-        with pytest.raises(ImportError, match="Failed to load plugin 'bad_module'"):
+        with pytest.raises(ImportError, match="Failed to load plugin class 'bad_module'"):
             registry.load("bad_module", plugin_ctx)
 
     def test_load_bad_class_name_raises_import_error(
@@ -153,7 +153,7 @@ class TestPluginRegistryLoad:
         registry.register("bad_class", "fake_module_no_class", "DoesNotExist")
 
         with patch("importlib.import_module", return_value=fake_module):
-            with pytest.raises(ImportError, match="Failed to load plugin 'bad_class'"):
+            with pytest.raises(ImportError, match="Failed to load plugin class 'bad_class'"):
                 registry.load("bad_class", plugin_ctx)
 
     def test_load_non_plugin_class_raises_type_error(
@@ -166,7 +166,7 @@ class TestPluginRegistryLoad:
         registry.register("not_plugin", "fake_module_bad_class", "NotAPlugin")
 
         with patch("importlib.import_module", return_value=fake_module):
-            with pytest.raises(TypeError, match="must inherit from PluginBase"):
+            with pytest.raises(TypeError, match="not a subclass of PluginBase"):
                 registry.load("not_plugin", plugin_ctx)
 
     def test_load_multiple_plugins(self, registry, plugin_ctx, _cleanup_known_plugins):
@@ -402,7 +402,7 @@ class TestPluginRegistrySecurity:
         registry.register("evil", "evil_module", "EvilClass")
 
         with patch("importlib.import_module", return_value=fake_module):
-            with pytest.raises(TypeError, match="must inherit from PluginBase"):
+            with pytest.raises(TypeError, match="not a subclass of PluginBase"):
                 registry.load("evil", plugin_ctx)
 
     def test_known_plugins_is_static_whitelist(self):

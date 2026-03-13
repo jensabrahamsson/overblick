@@ -220,6 +220,33 @@ class EngagementDB:
             (post_id,),
         )
 
+    async def are_posts_seen(self, post_ids: list[str]) -> dict[str, bool]:
+        """
+        Batch check which posts have been seen.
+
+        Returns a dict mapping post_id -> bool (True if seen).
+        """
+        if not post_ids:
+            return {}
+        # SQLite limit 999 parameters; chunk if needed
+        chunk_size = 900
+        result = {}
+        for i in range(0, len(post_ids), chunk_size):
+            chunk = post_ids[i : i + chunk_size]
+            ph = self._db.ph
+            placeholders = ", ".join(ph(j) for j in range(1, len(chunk) + 1))
+            rows = await self._db.fetch_all(
+                f"SELECT post_id FROM seen_posts WHERE post_id IN ({placeholders})",
+                chunk,
+            )
+            for row in rows:
+                result[row["post_id"]] = True
+        # Mark unseen posts as False
+        for pid in post_ids:
+            if pid not in result:
+                result[pid] = False
+        return result
+
     # ------------------------------------------------------------------
     # Engagement tracking
     # ------------------------------------------------------------------

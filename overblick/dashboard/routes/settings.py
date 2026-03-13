@@ -178,19 +178,6 @@ def _load_existing_config(base_dir: Path) -> dict[str, Any]:
         return {}
 
 
-def _check_secret_exists(base_dir: Path, identity: str, key: str) -> bool:
-    """Check if a secret key exists for an identity (without reading its value)."""
-    secrets_file = base_dir / "config" / "secrets" / f"{identity}.yaml"
-    if not secrets_file.exists():
-        return False
-    try:
-        with open(secrets_file) as f:
-            data = yaml.safe_load(f) or {}
-        return key in data
-    except Exception:
-        return False
-
-
 def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -> dict[str, Any]:
     """Map overblick.yaml keys to wizard state dict format for pre-population."""
     state_update: dict[str, Any] = {}
@@ -215,8 +202,14 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
 
     # Check which secrets exist across ALL identities and read non-sensitive values
     if base_dir:
-        secrets_dir = base_dir / "config" / "secrets"
-        if secrets_dir.exists():
+        try:
+            from overblick.dashboard.services.secrets import SecretsService
+
+            secrets_service = SecretsService(base_dir)
+        except Exception:
+            secrets_service = None
+
+        if secrets_service:
             sensitive_keys = (
                 "gmail_app_password",
                 "telegram_bot_token",
@@ -230,31 +223,23 @@ def _config_to_wizard_state(cfg: dict[str, Any], base_dir: Path | None = None) -
                 "principal_name",
                 "principal_email",
             )
-            try:
-                from overblick.core.security.secrets_manager import SecretsManager
 
-                sm = SecretsManager(secrets_dir)
-            except Exception:
-                sm = None
-
-            for sf in secrets_dir.iterdir():
-                if sf.suffix == ".yaml" and not sf.stem.startswith("."):
-                    identity = sf.stem
-                    for key in sensitive_keys:
-                        if f"_has_{key}" not in state_update and _check_secret_exists(
-                            base_dir, identity, key
-                        ):
-                            state_update[f"_has_{key}"] = True
-                    # Decrypt non-sensitive values for pre-fill
-                    if sm:
-                        for key in readable_keys:
-                            if key not in state_update and _check_secret_exists(
-                                base_dir, identity, key
-                            ):
-                                try:
-                                    state_update[key] = sm.get(identity, key) or ""
-                                except Exception:
-                                    pass
+            identities = secrets_service.list_identities_with_secrets()
+            for identity in identities:
+                for key in sensitive_keys:
+                    if f"_has_{key}" not in state_update and secrets_service.has_secret(
+                        identity, key
+                    ):
+                        state_update[f"_has_{key}"] = True
+                # Decrypt non-sensitive values for pre-fill
+                for key in readable_keys:
+                    if key not in state_update and secrets_service.has_secret(identity, key):
+                        try:
+                            value = secrets_service.get_readable_secret(identity, key)
+                            if value is not None:
+                                state_update[key] = value
+                        except Exception:
+                            pass
 
     # Detect active plugins from identity YAML files
     active_plugins: set[str] = set()

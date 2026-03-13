@@ -24,6 +24,7 @@ async def init_services(app: FastAPI, config: DashboardConfig) -> None:
     from .personality import PersonalityService
     from .supervisor import SupervisorService
     from .system import SystemService
+    from .secrets import SecretsService
 
     # Determine base_dir (project root, not package root)
     if config.base_dir:
@@ -42,6 +43,7 @@ async def init_services(app: FastAPI, config: DashboardConfig) -> None:
     app.state.system_service = SystemService(base_dir)
     app.state.irc_service = IRCService(base_dir)
     app.state.onboarding_service = OnboardingService(base_dir)
+    app.state.secrets_service = SecretsService(base_dir)
 
     logger.info("Dashboard services initialized (base_dir=%s, socket_dir=%s)", base_dir, socket_dir)
 
