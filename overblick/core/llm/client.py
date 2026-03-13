@@ -13,7 +13,10 @@ Reasoning policy:
 
 import re
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from typing import Optional
+
+from overblick.core.exceptions import SecurityError
 
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
@@ -21,10 +24,58 @@ _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 class LLMClient(ABC):
     """Abstract LLM client interface."""
 
+    # Security: direct instantiation is restricted to core framework
+    _ALLOW_DIRECT_INSTANTIATION = False
+
     @staticmethod
     def strip_think_tokens(text: str) -> str:
         """Strip Qwen3 <think>...</think> reasoning blocks from output."""
         return _THINK_RE.sub("", text).strip()
+
+    @classmethod
+    def _check_instantiation_allowed(cls) -> None:
+        """Raise SecurityError if direct instantiation is not allowed.
+
+        This prevents plugins from bypassing the SafeLLMPipeline by creating
+        their own LLM client instances.
+        """
+        import os
+
+        # Allow tests to bypass this check via environment variable
+        if os.getenv("OVERBLICK_ALLOW_DIRECT_LLM") == "1":
+            return
+
+        if not cls._ALLOW_DIRECT_INSTANTIATION:
+            raise SecurityError(
+                "Direct LLM client instantiation is FORBIDDEN. "
+                "Plugins must use PluginContext.llm_pipeline for secure LLM calls. "
+                "Only the core framework may instantiate LLM clients."
+            )
+
+    @classmethod
+    def _allow_instantiation(cls) -> None:
+        """Allow direct instantiation (core framework use only)."""
+        cls._ALLOW_DIRECT_INSTANTIATION = True
+
+    @classmethod
+    def _disallow_instantiation(cls) -> None:
+        """Disallow direct instantiation (default state)."""
+        cls._ALLOW_DIRECT_INSTANTIATION = False
+
+    @classmethod
+    @contextmanager
+    def _instantiation_allowed(cls):
+        """Context manager for allowing instantiation (core framework use only).
+
+        Example:
+            with GatewayClient._instantiation_allowed():
+                client = GatewayClient(...)
+        """
+        cls._allow_instantiation()
+        try:
+            yield
+        finally:
+            cls._disallow_instantiation()
 
     @abstractmethod
     async def chat(

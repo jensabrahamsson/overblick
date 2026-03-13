@@ -17,6 +17,9 @@ MAX_INPUT_LENGTH = 10_000
 # Control characters to strip (except newline, tab, carriage return)
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
+# Zero-width Unicode characters that can be used to bypass boundary markers
+_ZERO_WIDTH_RE = re.compile(r"[\u200b-\u200d\uFEFF\u2060\u180e]")
+
 
 def sanitize(text: str, max_length: int = MAX_INPUT_LENGTH) -> str:
     """
@@ -44,6 +47,9 @@ def sanitize(text: str, max_length: int = MAX_INPUT_LENGTH) -> str:
     # Strip control characters (keep \n, \t, \r)
     result = _CONTROL_CHAR_RE.sub("", result)
 
+    # Strip zero-width Unicode characters that can be used to bypass boundary markers
+    result = _ZERO_WIDTH_RE.sub("", result)
+
     # Normalize unicode (NFC — canonical composition)
     result = unicodedata.normalize("NFC", result)
 
@@ -53,6 +59,23 @@ def sanitize(text: str, max_length: int = MAX_INPUT_LENGTH) -> str:
         logger.debug(f"Input truncated from {len(text)} to {max_length} chars")
 
     return result
+
+
+def normalize_homoglyphs(text: str) -> str:
+    """
+    Normalize homoglyphs and fullwidth characters to their ASCII equivalents.
+
+    Uses NFKC normalization which converts compatibility characters (e.g., fullwidth
+    angle brackets) to their standard ASCII forms, mitigating homoglyph attacks
+    against boundary markers.
+
+    Args:
+        text: Input string
+
+    Returns:
+        Normalized string
+    """
+    return unicodedata.normalize("NFKC", text)
 
 
 def wrap_external_content(content: str, source: str = "external") -> str:
@@ -73,6 +96,8 @@ def wrap_external_content(content: str, source: str = "external") -> str:
     """
     # Sanitize the content first
     safe = sanitize(content)
+    # Normalize homoglyphs (e.g., fullwidth angle brackets) to ASCII
+    safe = normalize_homoglyphs(safe)
 
     # Iteratively strip boundary marker fragments to prevent nesting attacks.
     # A single pass fails if attacker nests: <<<EXTER<<<EXTERNAL_NAL_... → <<<EXTERNAL_...

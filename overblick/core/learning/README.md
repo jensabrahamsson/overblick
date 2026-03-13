@@ -203,6 +203,77 @@ The `capabilities/knowledge/` bundle still exists but the `safe_learning` capabi
 
 The `knowledge_loader` capability (loading static YAML knowledge files) remains unchanged and active.
 
+## Migration Guide for Plugin Developers
+
+If you have existing plugins that use the deprecated `safe_learning` capability, migrate to the new platform learning system as follows:
+
+### 1. Replace capability lookup with `ctx.learning_store`
+
+**Before:**
+```python
+learning_module = ctx.capabilities.get("safe_learning")
+if learning_module:
+    learning_module.propose_learning(content="...", category="general")
+```
+
+**After:**
+```python
+if ctx.learning_store:
+    await ctx.learning_store.propose(
+        content="...",
+        category="general",
+        source="your_plugin",
+        source_context="Brief context about where this learning came from",
+    )
+```
+
+### 2. Replace knowledge retrieval
+
+**Before:**
+```python
+knowledge = learning_module.get_approved_knowledge()
+```
+
+**After:**
+```python
+if ctx.learning_store:
+    learnings = await ctx.learning_store.get_relevant(context=current_context, limit=10)
+    # learnings is a list of Learning objects with .content, .category, etc.
+```
+
+### 3. Update prompt context injection
+
+**Before:**
+```python
+context = learning_module.get_prompt_context(max_items=5)
+```
+
+**After:**
+```python
+if ctx.learning_store:
+    learnings = await ctx.learning_store.get_relevant(context=prompt_context, limit=5)
+    context = "\n".join(f"- {l.content}" for l in learnings)
+```
+
+### 4. Handle missing learning store gracefully
+
+The `ctx.learning_store` is injected by the orchestrator. If the learning system is disabled or not configured, `ctx.learning_store` will be `None`. Always check for `None` before using it:
+
+```python
+if ctx.learning_store:
+    # Use learning store
+else:
+    # Fallback to alternative behavior or skip learning
+```
+
+### 5. New features available
+
+With the new system you can:
+- **Semantic retrieval**: `get_relevant()` uses embeddings to find learnings related to current context
+- **Immediate review**: Learnings are reviewed against identity ethos at propose time (no batch review)
+- **Persistence**: Learnings survive plugin restarts (SQLite storage)
+- **Recency fallback**: If embeddings are unavailable, most recent approved learnings are returned
+
 ## SQLite Schema
 
 ```sql

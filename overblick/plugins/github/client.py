@@ -11,11 +11,12 @@ import logging
 from typing import Any, Optional
 
 import aiohttp
+from overblick.core.exceptions import PluginError
 
 logger = logging.getLogger(__name__)
 
 
-class GitHubAPIError(Exception):
+class GitHubAPIError(PluginError):
     """Base exception for GitHub API errors."""
 
     pass

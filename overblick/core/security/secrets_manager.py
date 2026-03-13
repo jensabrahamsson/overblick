@@ -34,6 +34,8 @@ from typing import Optional, TYPE_CHECKING
 
 import yaml
 
+from overblick.core.exceptions import ConfigError, SecurityError
+
 if TYPE_CHECKING:
     from cryptography.fernet import Fernet
 
@@ -136,7 +138,7 @@ class SecretsManager:
             from overblick.core.security.settings import safe_mode
 
             if safe_mode():
-                raise RuntimeError(
+                raise ConfigError(
                     "cryptography library is missing. Secrets cannot be decrypted "
                     "in safe mode. Install with 'pip install cryptography'."
                 )
@@ -182,7 +184,7 @@ class SecretsManager:
         if keyring_failed:
             existing_secrets = list(self._secrets_dir.glob("*.yaml"))
             if existing_secrets:
-                raise RuntimeError(
+                raise SecurityError(
                     "Keyring is unavailable and no fallback key file exists. "
                     "Existing secrets may be encrypted with a keyring-stored key. "
                     "Restore keyring access or provide the .master_key file."
@@ -354,7 +356,7 @@ class SecretsManager:
 
         except Exception as e:
             logger.error("Key rotation failed: %s", e, exc_info=True)
-            raise RuntimeError(f"Key rotation failed: {e}")
+            raise SecurityError(f"Key rotation failed: {e}")
 
     def get(self, identity: str, key: str) -> str | None:
         """

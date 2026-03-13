@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SkipValidation
 
+from overblick.core.exceptions import SecurityError
 from overblick.core.security.settings import raw_llm
 
 if TYPE_CHECKING:
@@ -141,7 +142,7 @@ class PluginContext(BaseModel):
                 "\n".join(__import__("traceback").format_stack()),
             )
 
-            raise RuntimeError(
+            raise SecurityError(
                 "Raw LLM client access is FORBIDDEN. "
                 "This bypasses all security controls (preflight, output safety, rate limiting). "
                 "Use ctx.llm_pipeline for secure LLM calls instead. "
@@ -329,6 +330,78 @@ class PluginContext(BaseModel):
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
 
+# -------------------------------------------------------------------
+# Role‑specific PluginContext subclasses (ARCH‑2: narrow per role)
+# -------------------------------------------------------------------
+
+
+class AgenticPluginContext(PluginContext):
+    """
+    PluginContext for agentic plugins (github, dev_agent, log_agent).
+
+    Guarantees: llm_pipeline, event_bus, audit_log, learning_store, ipc_client
+    are non‑None (agentic loop infrastructure).
+    """
+
+    ROLE: ClassVar[str] = "agentic"
+
+
+class CommunicationPluginContext(PluginContext):
+    """
+    PluginContext for communication plugins (telegram, email_agent, irc).
+
+    Guarantees: llm_pipeline, event_bus, audit_log, ipc_client are non‑None
+    (message routing and notification).
+    """
+
+    ROLE: ClassVar[str] = "communication"
+
+
+class ContentPluginContext(PluginContext):
+    """
+    PluginContext for content‑generation plugins (moltbook, kontrast, skuggspel, spegel, ai_digest).
+
+    Guarantees: llm_pipeline, audit_log, engagement_db, learning_store are non‑None
+    (content creation and engagement tracking).
+    """
+
+    ROLE: ClassVar[str] = "content"
+
+
+class MonitoringPluginContext(PluginContext):
+    """
+    PluginContext for monitoring plugins (host_health, compass, stage).
+
+    Guarantees: llm_pipeline, audit_log, ipc_client are non‑None
+    (system inspection and status reporting).
+    """
+
+    ROLE: ClassVar[str] = "monitoring"
+
+
+# Default fallback (preserves existing behavior for unclassified plugins)
+class DefaultPluginContext(PluginContext):
+    """Default context for plugins without a specific role."""
+
+    ROLE: ClassVar[str] = "default"
+
+
+class PluginHealthReport(BaseModel):
+    """Standardized health report for plugins.
+
+    Plugins can implement a health check method that returns this structure
+    for monitoring and dashboard display.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: str = "unknown"  # "healthy", "degraded", "unhealthy", "unknown"
+    last_tick: str = ""  # ISO timestamp of last successful tick
+    error_count: int = 0  # Number of consecutive errors
+    uptime_seconds: int = 0  # Plugin uptime in seconds
+    details: dict[str, Any] = Field(default_factory=dict)  # Plugin-specific details
+
+
 class PluginBase(ABC):
     """
     Abstract base class for all Överblick plugins.
@@ -344,6 +417,11 @@ class PluginBase(ABC):
     # Plugins should declare minimal capabilities needed for operation.
     # Users must grant these capabilities in identity configuration.
     REQUIRED_CAPABILITIES: ClassVar[list[str]] = []
+
+    # Plugin dependencies — other plugin names this plugin depends on.
+    # Plugins will be loaded after their dependencies.
+    # Example: ["moltbook", "analyzer"]
+    DEPENDS_ON: ClassVar[list[str]] = []
 
     def __init__(self, ctx: PluginContext):
         self.ctx = ctx
@@ -379,6 +457,21 @@ class PluginBase(ABC):
         Called on graceful shutdown. Override if cleanup is needed.
         """
         pass
+
+    async def check_health(self) -> PluginHealthReport:
+        """
+        Return a health report for this plugin (optional).
+
+        Plugins can override this to provide detailed health status.
+        The default implementation returns a basic report with unknown status.
+        """
+        return PluginHealthReport(
+            status="unknown",
+            last_tick="",
+            error_count=0,
+            uptime_seconds=0,
+            details={},
+        )
 
     def __repr__(self) -> str:
         return f"<{self._name} identity={self.ctx.identity_name}>"

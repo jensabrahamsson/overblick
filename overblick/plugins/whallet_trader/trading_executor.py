@@ -22,11 +22,12 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from .models import OrderStatus, TradeAction, TradeExecution, TradeOrder
+from overblick.core.exceptions import PluginError
 
 logger = logging.getLogger(__name__)
 
 
-class TradingError(Exception):
+class TradingError(PluginError):
     """Base exception for trading errors."""
 
     pass

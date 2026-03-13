@@ -67,11 +67,36 @@ class LearningStore:
         self._db_path = Path(db_path)
         self._reviewer = EthosReviewer(llm_pipeline, ethos_text)  # type: ignore[arg-type]
         self._embed_fn = embed_fn
+        self._embedding_cache: dict[str, list[float]] = {}
 
     async def setup(self) -> None:
         """Run migrations and ensure the database is ready."""
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         await run_migrations(self._db_path)
+
+    async def _get_embedding(self, text: str) -> list[float] | None:
+        """
+        Get embedding for text, using cache if available.
+
+        Returns None if embed_fn is unavailable or fails.
+        """
+        if not self._embed_fn:
+            return None
+        if text in self._embedding_cache:
+            return self._embedding_cache[text]
+        try:
+            embedding = await self._embed_fn(text)
+            # Limit cache size (keep last 100)
+            if len(self._embedding_cache) >= 100:
+                # Remove oldest entry (FIFO). Use simple popitem(last=False) on ordered dict.
+                # Since Python 3.7 dict preserves insertion order.
+                next_key = next(iter(self._embedding_cache))
+                del self._embedding_cache[next_key]
+            self._embedding_cache[text] = embedding
+            return embedding
+        except Exception as e:
+            logger.warning("Embedding failed for text '%s...': %s", text[:50], e)
+            return None
 
     async def propose(
         self,
@@ -101,11 +126,10 @@ class LearningStore:
             learning.reviewed_at = datetime.now(UTC).isoformat()
 
         # Compute embedding for approved learnings
-        if status == LearningStatus.APPROVED and self._embed_fn:
-            try:
-                learning.embedding = await self._embed_fn(content)
-            except Exception as e:
-                logger.warning("Embedding failed (learning still approved): %s", e)
+        if status == LearningStatus.APPROVED:
+            embedding = await self._get_embedding(content)
+            if embedding is not None:
+                learning.embedding = embedding
 
         # Persist to database
         await self._insert(learning)
@@ -129,9 +153,9 @@ class LearningStore:
         If embeddings are available, uses cosine similarity search.
         Falls back to most recent approved learnings otherwise.
         """
-        if self._embed_fn:
+        context_embedding = await self._get_embedding(context)
+        if context_embedding is not None:
             try:
-                context_embedding = await self._embed_fn(context)
                 return await self._search_by_similarity(context_embedding, limit)
             except Exception as e:
                 logger.debug("Embedding search failed, falling back to recency: %s", e)

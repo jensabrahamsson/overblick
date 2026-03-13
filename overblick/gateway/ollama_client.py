@@ -11,11 +11,12 @@ import httpx
 
 from .config import GatewayConfig, get_config
 from .models import ChatMessage, ChatRequest, ChatResponse, ChatResponseChoice, ChatResponseUsage
+from overblick.core.exceptions import LLMError, LLMConnectionError, LLMTimeoutError
 
 logger = logging.getLogger(__name__)
 
 
-class OllamaError(Exception):
+class OllamaError(LLMError):
     """Base exception for Ollama client errors."""
 
     pass

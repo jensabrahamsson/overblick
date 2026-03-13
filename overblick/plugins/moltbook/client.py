@@ -31,11 +31,12 @@ from .models import (
 )
 from .rate_limiter import MoltbookRateLimiter
 from .request_proxy import MoltbookRequestProxy
+from overblick.core.exceptions import PluginError
 
 logger = logging.getLogger(__name__)
 
 
-class MoltbookError(Exception):
+class MoltbookError(PluginError):
     """Base exception for Moltbook API errors."""
 
     pass

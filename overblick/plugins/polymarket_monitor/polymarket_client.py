@@ -15,11 +15,12 @@ import aiohttp
 from pydantic import ValidationError
 
 from .models import MarketCategory, MarketStatus, PolymarketMarket
+from overblick.core.exceptions import PluginError
 
 logger = logging.getLogger(__name__)
 
 
-class PolymarketAPIError(Exception):
+class PolymarketAPIError(PluginError):
     """Base exception for Polymarket API errors."""
 
     pass

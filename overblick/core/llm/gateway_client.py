@@ -45,6 +45,9 @@ class GatewayClient(LLMClient):
         top_p: float = 0.9,
         timeout_seconds: int = 300,
     ):
+        # Security: prevent plugins from instantiating LLM clients directly
+        self._check_instantiation_allowed()
+
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.default_priority = default_priority
