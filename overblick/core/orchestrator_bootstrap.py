@@ -17,6 +17,7 @@ from overblick.core.orchestrator_services import OrchestratorServices
 from overblick.core.permissions import PermissionChecker
 from overblick.core.plugin_capability_checker import PluginCapabilityChecker
 from overblick.core.quiet_hours import QuietHoursChecker
+from overblick.core.resource_setup import ResourceSetup
 from overblick.core.security.audit_log import AuditLog
 from overblick.core.security.rate_limiter import RateLimiter
 from overblick.core.security.secrets_manager import SecretsManager
@@ -129,15 +130,14 @@ class OrchestratorBootstrap:
             raw_config=self._services.identity.raw_config,
         )
 
-        # 9. Create shared capabilities (orchestrator-level)
-        await self._setup_capabilities()
-
-        # 10. Initialize per-identity learning store
-        await self._setup_learning_store(paths.data_dir)
-
-        # 11. Create IPC client (if running under supervisor)
-        if self._services.ipc_client is None:
-            self._services.ipc_client = self._create_ipc_client()
+        # 9. Run resource setup pipeline
+        resource_setup = ResourceSetup(
+            services=self._services,
+            runtime_state=self._runtime_state,
+            paths=paths,
+            identity_name=self._identity_name,
+        )
+        await resource_setup.setup()
 
         logger.info("Manual bootstrap complete")
 
