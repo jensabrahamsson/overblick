@@ -26,7 +26,7 @@ class TestQueueManager:
         client = AsyncMock()
         client.health_check.return_value = True
         client.chat_completion.return_value = ChatResponse.from_message(
-            model="qwen3:8b",
+            model="qwen3.5:9b",
             content="Test response",
         )
         client.close.return_value = None
@@ -35,7 +35,7 @@ class TestQueueManager:
     @pytest.fixture
     def sample_request(self):
         return ChatRequest(
-            model="qwen3:8b",
+            model="qwen3.5:9b",
             messages=[ChatMessage(role="user", content="Hello")],
         )
 
@@ -57,7 +57,7 @@ class TestQueueManager:
         try:
             response = await qm.submit(sample_request, Priority.LOW)
 
-            assert response.model == "qwen3:8b"
+            assert response.model == "qwen3.5:9b"
             assert response.choices[0].message.content == "Test response"
             mock_client.chat_completion.assert_called_once()
         finally:
@@ -80,11 +80,11 @@ class TestQueueManager:
 
         try:
             low_req = ChatRequest(
-                model="qwen3:8b",
+                model="qwen3.5:9b",
                 messages=[ChatMessage(role="user", content="LOW")],
             )
             high_req = ChatRequest(
-                model="qwen3:8b",
+                model="qwen3.5:9b",
                 messages=[ChatMessage(role="user", content="HIGH")],
             )
 
@@ -106,7 +106,7 @@ class TestQueueManager:
 
         async def slow_completion(request):
             await asyncio.sleep(1.0)
-            return ChatResponse.from_message("qwen3:8b", "Response")
+            return ChatResponse.from_message("qwen3.5:9b", "Response")
 
         mock_client.chat_completion.side_effect = slow_completion
 

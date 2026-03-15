@@ -2,7 +2,7 @@
 LLM regression tests for Moltbook challenge deobfuscation.
 
 These tests validate that the deobfuscated challenge text is correctly
-understood by the REAL LLM (qwen3:8b via Gateway). They verify that:
+understood by the REAL LLM (qwen3.5:9b via Gateway). They verify that:
 1. The deobfuscation pipeline produces text the LLM can parse
 2. The LLM returns the correct numeric answer
 3. The arithmetic solver agrees with the LLM
@@ -42,7 +42,7 @@ async def gateway_client():
 
     client = GatewayClient(
         base_url="http://127.0.0.1:8200",
-        model="qwen3:8b",
+        model="qwen3.5:9b",
         default_priority="low",
         temperature=0.0,
         max_tokens=512,

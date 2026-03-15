@@ -22,7 +22,7 @@ from overblick.gateway.models import (
 from overblick.gateway.router import RequestRouter
 
 
-def _make_response(content: str = "Hello!", model: str = "qwen3:8b") -> ChatResponse:
+def _make_response(content: str = "Hello!", model: str = "qwen3.5:9b") -> ChatResponse:
     """Create a minimal ChatResponse."""
     return ChatResponse(
         id="test-123",
@@ -38,7 +38,7 @@ def multi_config():
     return GatewayConfig(
         ollama_host="127.0.0.1",
         ollama_port=11434,
-        default_model="qwen3:8b",
+        default_model="qwen3.5:9b",
         default_backend="local",
         request_timeout_seconds=10.0,
         backends={
@@ -47,7 +47,7 @@ def multi_config():
                 "type": "ollama",
                 "host": "127.0.0.1",
                 "port": 11434,
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
             },
             "deepseek": {
                 "enabled": True,

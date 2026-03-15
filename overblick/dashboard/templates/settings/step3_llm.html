@@ -75,9 +75,9 @@
                         <div>
                             <label class="form-label">Model</label>
                             <input type="text" class="form-input" name="local_model"
-                                   value="{{ local.get('model', 'qwen3:8b') }}" list="local-model-suggestions">
+                                   value="{{ local.get('model', 'qwen3.5:9b') }}" list="local-model-suggestions">
                             <datalist id="local-model-suggestions">
-                                <option value="qwen3:8b">
+                                <option value="qwen3.5:9b">
                                 <option value="qwen3:14b">
                                 <option value="llama3:8b">
                                 <option value="mistral:7b">
@@ -128,7 +128,7 @@
                         <div>
                             <label class="form-label">Model</label>
                             <input type="text" class="form-input" name="cloud_model"
-                                   value="{{ cloud.get('model', 'qwen3:8b') }}">
+                                   value="{{ cloud.get('model', 'qwen3.5:9b') }}">
                         </div>
                     </div>
                     <div class="settings-test-row">

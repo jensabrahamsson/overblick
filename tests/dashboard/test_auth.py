@@ -746,7 +746,7 @@ class TestOnboardingLLMForm:
 
     def test_valid_defaults(self):
         form = OnboardingLLMForm()
-        assert form.model == "qwen3:8b"
+        assert form.model == "qwen3.5:9b"
         assert form.temperature == 0.7
         assert form.max_tokens == 2000
         assert form.provider == "ollama"

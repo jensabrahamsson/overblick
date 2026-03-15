@@ -165,7 +165,7 @@ cross_domain_parallels:            # Same as parallel_examples
 
 operational:                       # Operational config (merged from old identity.yaml)
   llm:
-    model: "qwen3:8b"             # Default model name (can be overridden per-backend)
+    model: "qwen3.5:9b"             # Default model name (can be overridden per-backend)
     temperature: 0.7              # LLM temperature (0.0 - 2.0)
     max_tokens: 2000              # Max response tokens
     timeout_seconds: 180          # LLM call timeout

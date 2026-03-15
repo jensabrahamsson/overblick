@@ -11,14 +11,14 @@ overblick/identities/
 ├── anomal/
 │   ├── personality.yaml        # Core identity definition
 │   └── llm_hints/
-│       ├── qwen3_8b.yaml       # Qwen3:8B specific tuning
+│       ├── qwen3_5_9b.yaml       # Qwen3.5:9B specific tuning
 │       ├── phi4.yaml           # Phi4 specific tuning
 │       ├── mistral.yaml        # Mistral specific tuning
 │       ├── llama3_8b.yaml      # Llama3:8B specific tuning
 │       └── deepseek_r1.yaml    # Deepseek-R1 specific tuning
 ├── bjork/
 │   └── llm_hints/
-│       ├── qwen3_8b.yaml
+│       ├── qwen3_5_9b.yaml
 │       └── ...
 └── ...
 ```
@@ -56,13 +56,20 @@ Create new hints when:
 
 The slug determines which hints file is loaded. It is derived from the Ollama model name:
 
-```
-model name    → replace ":" with "_" → replace "-" with "_" → take first 2 segments → join with "_"
-```
+1. Split by ':' into model_name and optional size suffix.
+2. Replace '.' and '-' with '_' in model_name.
+3. If size suffix exists and model_name does NOT contain a dash (original dash), append '_' + size.
+4. Return the resulting slug.
+
+Examples:
+- 'qwen3.5:9b' → model_name='qwen3.5', size='9b' → model_name='qwen3_5' → slug='qwen3_5_9b'
+- 'deepseek-r1:8b' → model_name='deepseek-r1', size='8b' → model_name='deepseek_r1' → slug='deepseek_r1' (dash → drop size)
+- 'llama3:8b' → model_name='llama3', size='8b' → slug='llama3_8b'
+- 'phi4' → model_name='phi4', size='' → slug='phi4'
 
 | Ollama Model     | Slug          | Filename          |
 |------------------|---------------|-------------------|
-| `qwen3:8b`       | `qwen3_8b`    | `qwen3_8b.yaml`   |
+| `qwen3.5:9b`       | `qwen3_5_9b`    | `qwen3_5_9b.yaml`   |
 | `phi4`           | `phi4`        | `phi4.yaml`        |
 | `mistral`        | `mistral`     | `mistral.yaml`     |
 | `llama3:8b`      | `llama3_8b`   | `llama3_8b.yaml`   |
@@ -74,8 +81,21 @@ model name    → replace ":" with "_" → replace "-" with "_" → take first 2
 ### 1. Determine the Model Slug
 
 ```python
-model = "your-model:tag"
-slug = "_".join(model.replace(":", "_").replace("-", "_").split("_")[0:2])
+def model_to_slug(model: str) -> str:
+    if ':' in model:
+        model_name, size = model.split(':', 1)
+    else:
+        model_name, size = model, ''
+    model_name = model_name.replace('.', '_').replace('-', '_')
+    # Drop size suffix for models with dash (e.g., deepseek-r1)
+    if '-' in model:  # original dash before replacement
+        return model_name
+    elif size:
+        return f"{model_name}_{size}"
+    else:
+        return model_name
+
+slug = model_to_slug("your-model:tag")
 print(slug)  # e.g., "gemma2_9b"
 ```
 
@@ -198,7 +218,7 @@ Run the test suite to verify all hints files:
 
 | Model | Slug | Identities Covered |
 |-------|------|--------------------|
-| Qwen3:8B | `qwen3_8b` | All 9 (anomal, bjork, blixt, cherry, natt, prisma, rost, smed, stal) |
+| Qwen3.5:9B | `qwen3_5_9b` | All 9 (anomal, bjork, blixt, cherry, natt, prisma, rost, smed, stal) |
 | Phi4 | `phi4` | All 9 |
 | Mistral | `mistral` | All 9 |
 | Llama3:8B | `llama3_8b` | All 9 |

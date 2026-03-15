@@ -9,43 +9,43 @@ import asyncio
 import importlib
 import json
 import logging
-import sys
-from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityRegistry
-from overblick.core.database import DatabaseConfig
 from overblick.core.database.sqlite_backend import SQLiteBackend
 from overblick.core.db.engagement_db import EngagementDB
 from overblick.core.event_bus import EventBus
 from overblick.core.exceptions import ConfigError
-from overblick.core.llm.pipeline import SafeLLMPipeline
-from overblick.core.llm.client import LLMClient
-from overblick.supervisor.ipc import IPCClient
 from overblick.core.learning.store import LearningStore
+from overblick.core.llm.client import LLMClient
+from overblick.core.llm.pipeline import SafeLLMPipeline
+from overblick.core.orchestrator_bootstrap import OrchestratorBootstrap
+from overblick.core.orchestrator_runtime import OrchestratorRuntime
+from overblick.core.orchestrator_shutdown import OrchestratorShutdown
+from overblick.core.orchestrator_types import OrchestratorState
 from overblick.core.permissions import PermissionChecker
 from overblick.core.plugin_base import (
-    PluginBase,
-    PluginContext,
     AgenticPluginContext,
     CommunicationPluginContext,
     ContentPluginContext,
-    MonitoringPluginContext,
     DefaultPluginContext,
+    MonitoringPluginContext,
+    PluginBase,
+    PluginContext,
 )
 from overblick.core.plugin_capability_checker import PluginCapabilityChecker
 from overblick.core.plugin_registry import PluginRegistry
 from overblick.core.quiet_hours import QuietHoursChecker
-from overblick.core.scheduler import Scheduler, TaskPriority
+from overblick.core.scheduler import Scheduler
 from overblick.core.security.audit_log import AuditLog
 from overblick.core.security.output_safety import OutputSafety
+from overblick.core.security.policy_gate import PolicyGate
 from overblick.core.security.preflight import PreflightChecker
 from overblick.core.security.rate_limiter import RateLimiter
 from overblick.core.security.secrets_manager import SecretsManager
-from overblick.identities import Identity, load_identity
-
-from typing import TYPE_CHECKING, Any, Optional, Dict, List, Set
+from overblick.identities import Identity
+from overblick.supervisor.ipc import IPCClient
 
 if TYPE_CHECKING:
     from overblick.core.component_factory import ComponentFactory
@@ -53,14 +53,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class OrchestratorState(Enum):
-    """Orchestrator lifecycle states."""
-
-    INIT = "init"
-    SETUP = "setup"
-    RUNNING = "running"
-    STOPPING = "stopping"
-    STOPPED = "stopped"
+# Use the imported OrchestratorState from orchestrator_types
+# class OrchestratorState(Enum):
+#     """Orchestrator lifecycle states."""
+#
+#     INIT = "init"
+#     SETUP = "setup"
+#     RUNNING = "running"
+#     STOPPING = "stopping"
+#     STOPPED = "stopped"
 
 
 class Orchestrator:
@@ -73,7 +74,7 @@ class Orchestrator:
     """
 
     # Plugin name → context class mapping (ARCH‑2: narrow per role)
-    _PLUGIN_ROLES: dict[str, type[PluginContext]] = {
+    _PLUGIN_ROLES: ClassVar[dict[str, type[PluginContext]]] = {
         # Agentic plugins
         "github": AgenticPluginContext,
         "dev_agent": AgenticPluginContext,
@@ -114,10 +115,9 @@ class Orchestrator:
 
         # Framework components (initialized in setup)
         self._identity: Identity | None = None
-        self._event_bus = EventBus()
-        self._scheduler = Scheduler()
-        self._registry = PluginRegistry()
-        self._register_local_plugins()
+        self._event_bus: EventBus = EventBus()
+        self._scheduler: Scheduler = Scheduler()
+        self._registry: PluginRegistry = PluginRegistry()
         self._audit_log: AuditLog | None = None
         self._secrets: SecretsManager | None = None
         self._quiet_hours: QuietHoursChecker | None = None
@@ -126,8 +126,12 @@ class Orchestrator:
         self._preflight: PreflightChecker | None = None
         self._output_safety: OutputSafety | None = None
         self._rate_limiter: RateLimiter | None = None
+        self._permissions: PermissionChecker | None = None
+        self._capability_checker: PluginCapabilityChecker | None = None
+        self._policy_gate: PolicyGate | None = None
         self._plugins: list[PluginBase] = []
         self._capabilities: dict[str, CapabilityBase] = {}
+        self._capabilities_setup = False
         self._ipc_client: IPCClient | None = None
         self._engagement_db_backend: SQLiteBackend | None = None
         self._engagement_db: EngagementDB | None = None
@@ -135,6 +139,14 @@ class Orchestrator:
         self._control_file: Path | None = None
         self._control_cache: dict[str, str] = {}
         self._control_cache_ts: float = 0.0
+
+        # New modular components
+        self._bootstrap: OrchestratorBootstrap | None = None
+        self._runtime: OrchestratorRuntime | None = None
+        self._shutdown: OrchestratorShutdown | None = None
+
+        # Register local plugins after registry is created
+        self._register_local_plugins()
 
     @property
     def state(self) -> OrchestratorState:
@@ -147,61 +159,13 @@ class Orchestrator:
     async def _create_components_via_factory(self) -> dict[str, Any]:
         """Create all components using the factory (if available)."""
         if not self._factory:
-            # Fall back to manual creation
             return {}
 
-        # Create components using factory
-        identity = await self._factory.load_identity()
-        paths = self._factory.get_paths()
-
-        secrets = self._factory.create_secrets_manager()
-        audit_log = self._factory.create_audit_log()
-        engagement_db = await self._factory.create_engagement_db(identity)
-        quiet_hours = self._factory.create_quiet_hours_checker(identity)
-        llm_client = await self._factory.create_llm_client(identity)
-        preflight = self._factory.create_preflight_checker(identity, llm_client)
-        output_safety = self._factory.create_output_safety(identity)
-        rate_limiter = self._factory.create_rate_limiter(identity)
-
-        # Create pipeline with dependencies
-        llm_pipeline = self._factory.create_safe_llm_pipeline(
-            llm_client=llm_client,
-            audit_log=audit_log,
-            preflight_checker=preflight,
-            output_safety=output_safety,
-            rate_limiter=rate_limiter,
-            identity=identity,
+        return await self._factory.create_all(
+            identity_name=self._identity_name,
+            base_dir=self._base_dir,
+            plugin_names=self._plugin_names,
         )
-
-        # Create other components
-        permissions = self._factory.create_permission_checker(identity)
-        capability_checker = self._factory.create_plugin_capability_checker(identity)
-        ipc_client = self._factory.create_ipc_client()
-
-        # Framework core components
-        event_bus = self._factory.create_event_bus()
-        scheduler = self._factory.create_scheduler()
-        registry = self._factory.create_plugin_registry()
-
-        return {
-            "identity": identity,
-            "paths": paths,
-            "secrets": secrets,
-            "audit_log": audit_log,
-            "engagement_db": engagement_db,
-            "quiet_hours": quiet_hours,
-            "llm_client": llm_client,
-            "preflight": preflight,
-            "output_safety": output_safety,
-            "rate_limiter": rate_limiter,
-            "llm_pipeline": llm_pipeline,
-            "permissions": permissions,
-            "capability_checker": capability_checker,
-            "ipc_client": ipc_client,
-            "event_bus": event_bus,
-            "scheduler": scheduler,
-            "registry": registry,
-        }
 
     def _create_plugin_context(
         self,
@@ -236,16 +200,14 @@ class Orchestrator:
             preflight_checker=self._preflight,
             output_safety=self._output_safety,
             permissions=permissions,
-            capabilities=self._capabilities,
-            ipc_client=self._ipc_client,
-            engagement_db=self._engagement_db,
-            learning_store=self._learning_store,
+            policy_gate=self._policy_gate,
         )
-        # Set raw LLM client via property (security‑checked)
-        ctx.llm_client = self._llm_client
-        secrets = self._secrets
-        assert secrets is not None
-        ctx._secrets_getter = lambda key, _id=self._identity_name: secrets.get(_id, key)
+        # Set secrets getter (required for ctx.get_secret)
+        ctx._secrets_getter = lambda key: self._secrets.get(self._identity_name, key)  # type: ignore[union-attr]
+        # Set raw LLM client (access controlled via property)
+        ctx._llm_client = self._llm_client
+        # Ensure bundles are populated
+        ctx._ensure_bundles()
         return ctx
 
     async def setup(self) -> None:
@@ -278,7 +240,10 @@ class Orchestrator:
             self._rate_limiter = factory_components["rate_limiter"]
             self._llm_pipeline = factory_components["llm_pipeline"]
             permissions = factory_components["permissions"]
+            self._permissions = permissions
             capability_checker = factory_components["capability_checker"]
+            self._capability_checker = capability_checker
+            self._policy_gate = factory_components["policy_gate"]
             self._ipc_client = factory_components["ipc_client"]  # type: ignore
             self._event_bus = factory_components["event_bus"]
             self._scheduler = factory_components["scheduler"]
@@ -288,17 +253,22 @@ class Orchestrator:
             log_dir = paths["log_dir"]
             secrets_dir = paths["secrets_dir"]
         else:
-            # 1. Load identity
-            self._identity = load_identity(self._identity_name)
-            logger.info(f"Identity loaded: {self._identity.display_name} v{self._identity.version}")
-
-            # 2. Setup paths
+            # Use the new bootstrap module
+            self._bootstrap = OrchestratorBootstrap(self)
+            await self._bootstrap.setup()
+            # After bootstrap, the orchestrator's components are set up.
+            assert self._identity is not None, "Identity must be loaded by bootstrap"
+            # Retrieve paths and other variables from orchestrator's state.
             data_dir = self._base_dir / "data" / self._identity_name
             log_dir = self._base_dir / "logs" / self._identity_name
             secrets_dir = self._base_dir / "config" / "secrets"
-
-            data_dir.mkdir(parents=True, exist_ok=True)
-            log_dir.mkdir(parents=True, exist_ok=True)
+            permissions = PermissionChecker.from_identity(self._identity)
+            self._permissions = permissions
+            capability_checker = PluginCapabilityChecker(
+                identity_name=self._identity_name,
+                raw_config=self._identity.raw_config,
+            )
+            self._capability_checker = capability_checker
 
         assert data_dir is not None and log_dir is not None and secrets_dir is not None, (
             "Paths must be defined"
@@ -308,73 +278,21 @@ class Orchestrator:
         self._control_file = data_dir / "plugin_control.json"
 
         if not use_factory:
-            # 3. Initialize security
-            assert data_dir is not None
-            assert secrets_dir is not None
-            self._secrets = SecretsManager(secrets_dir)
-            self._audit_log = AuditLog(data_dir / "audit.db", self._identity_name)
-            self._audit_log.log("orchestrator_setup", category="lifecycle")
-
-            # 3b. Initialize engagement database (lazy — only if moltbook is active)
-            plugin_names = list(self._identity.plugins) if self._identity.plugins else []
-            if "moltbook" in plugin_names:
-                eng_db_config = DatabaseConfig(
-                    sqlite_path=str(data_dir / "engagement.db"),
-                )
-                self._engagement_db_backend = SQLiteBackend(
-                    eng_db_config, identity=self._identity_name
-                )
-                await self._engagement_db_backend.connect()
-                self._engagement_db = EngagementDB(
-                    self._engagement_db_backend, identity=self._identity_name
-                )
-                await self._engagement_db.setup()
-                logger.info("EngagementDB initialized for %s", self._identity_name)
-            else:
-                logger.debug(
-                    "EngagementDB skipped — no moltbook plugin for %s", self._identity_name
-                )
-
-            # 4. Initialize quiet hours
-            self._quiet_hours = QuietHoursChecker(self._identity.quiet_hours)
-
-            # 5. Initialize LLM client
-            self._llm_client = await self._create_llm_client()  # type: ignore
-
-            # 6. Initialize security subsystems
-            self._preflight = self._create_preflight()
-            self._output_safety = self._create_output_safety()
-            self._rate_limiter = RateLimiter(
-                max_tokens=self._identity.security.rate_limiter_max_tokens,
-                refill_rate=self._identity.security.rate_limiter_refill_rate,
-            )
-
-            # 7. Create safe LLM pipeline
-            self._llm_pipeline = SafeLLMPipeline(
-                llm_client=self._llm_client,
-                audit_log=self._audit_log,
-                preflight_checker=self._preflight,
-                output_safety=self._output_safety,
-                rate_limiter=self._rate_limiter,
-                identity_name=self._identity_name,
-                strict=True,  # Main agent pipeline uses full security
-            )
-            logger.info("SafeLLMPipeline initialized with full security chain")
-
-            # 8. Create permissions and capability checker for plugin loading
-            permissions = PermissionChecker.from_identity(self._identity)
-            capability_checker = PluginCapabilityChecker(
-                identity_name=self._identity_name,
-                raw_config=self._identity.raw_config,
-            )
+            # Bootstrap already handled everything else, but we need to ensure
+            # permissions and capability_checker are set (they are already set above).
+            pass
 
         # Ensure required variables are set
         assert data_dir is not None and log_dir is not None, "Paths must be defined"
         assert permissions is not None, "Permissions must be defined"
         assert capability_checker is not None, "Capability checker must be defined"
 
+        # Create centralized policy gate
+        self._policy_gate = self._create_policy_gate()
+
         # 9. Create shared capabilities (orchestrator-level)
-        await self._setup_capabilities()
+        if use_factory:
+            await self._setup_capabilities()
 
         # 10. Initialize per-identity learning store
         await self._setup_learning_store(data_dir)
@@ -402,6 +320,7 @@ class Orchestrator:
             logger.warning(f"Failed to resolve plugin dependencies: {e}")
             # Continue with original order (best effort)
 
+        assert self._audit_log is not None, "Audit log must be initialized before loading plugins"
         for plugin_name in plugin_names:
             ctx = self._create_plugin_context(
                 plugin_name=plugin_name,
@@ -453,144 +372,19 @@ class Orchestrator:
             raise
         self._state = OrchestratorState.RUNNING
 
-        # Register signal handlers — cross-platform (Unix signals / Windows signal.signal)
-        from overblick.shared.platform import register_shutdown_signals
-
-        register_shutdown_signals(self._shutdown_event)
-
-        self._audit_log.log("orchestrator_started", category="lifecycle")
-        self._audit_log.start_background_cleanup()
-
-        if self._engagement_db:
-            self._engagement_db.start_background_cleanup()
-
-        logger.info(f"Överblick orchestrator running as '{self._identity.display_name}'")
-        print(f"\n  [ Överblick ] {self._identity.display_name} is awake.\n")
-
-        try:
-            # Register plugin ticks in scheduler (guarded by control file)
-            for plugin in self._plugins:
-                interval = self._identity.schedule.feed_poll_minutes * 60
-
-                async def _guarded_tick(p=plugin):
-                    import time as _time
-
-                    logger.debug("Guarded tick starting for '%s'", p.name)
-                    if await self._is_plugin_stopped(p.name):
-                        logger.debug("Agent '%s' stopped via control file, skipping tick", p.name)
-                        return
-                    tick_start = _time.monotonic()
-                    await p.tick()
-                    tick_ms = (_time.monotonic() - tick_start) * 1000
-                    logger.debug("Guarded tick completed for '%s' (%.1fms)", p.name, tick_ms)
-                    await self._event_bus.emit(
-                        "plugin_tick",
-                        plugin=p.name,
-                        identity=self._identity_name,
-                        duration_ms=tick_ms,
-                    )
-
-                await self._scheduler.add(
-                    f"tick_{plugin.name}",
-                    _guarded_tick,
-                    interval_seconds=interval,
-                    run_immediately=True,
-                    priority=TaskPriority.LOW,
-                )
-
-                # Schedule heartbeat if plugin supports it (e.g. MoltbookPlugin)
-                if callable(getattr(plugin, "post_heartbeat", None)):
-                    heartbeat_interval = self._identity.schedule.heartbeat_hours * 3600
-
-                    async def _guarded_heartbeat(p=plugin):
-                        if await self._is_plugin_stopped(p.name):
-                            return
-                        await p.post_heartbeat()
-
-                    await self._scheduler.add(
-                        f"heartbeat_{plugin.name}",
-                        _guarded_heartbeat,
-                        interval_seconds=heartbeat_interval,
-                        run_immediately=False,
-                        priority=TaskPriority.HIGH,
-                    )
-                    logger.info(
-                        "Heartbeat scheduled for '%s' every %dh",
-                        plugin.name,
-                        self._identity.schedule.heartbeat_hours,
-                    )
-
-            # Run scheduler and shutdown event concurrently — first to complete wins
-            scheduler_task = asyncio.create_task(self._scheduler.start())
-            shutdown_task = asyncio.create_task(self._shutdown_event.wait())
-
-            _done, pending = await asyncio.wait(
-                {scheduler_task, shutdown_task},
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-
-        except asyncio.CancelledError:
-            logger.info("Orchestrator cancelled")
-        except Exception as e:
-            logger.error(f"Orchestrator error: {e}", exc_info=True)
-        finally:
-            await self.stop()
+        # Delegate to runtime module
+        self._runtime = OrchestratorRuntime(self)
+        await self._runtime.run()
 
     async def stop(self) -> None:
         """Gracefully stop everything."""
         if self._state == OrchestratorState.STOPPING:
             return  # Prevent double-stop
 
-        self._state = OrchestratorState.STOPPING
-        logger.info("Orchestrator stopping...")
-
-        # Stop scheduler
-        await self._scheduler.stop()
-
-        # Stop background cleanups
-        if self._audit_log:
-            self._audit_log.stop_background_cleanup()
-        if self._engagement_db:
-            self._engagement_db.stop_background_cleanup()
-
-        # Teardown plugins (reverse order)
-        for plugin in reversed(self._plugins):
-            try:
-                await plugin.teardown()
-                logger.info(f"Plugin '{plugin.name}' torn down")
-            except Exception as e:
-                logger.error(f"Error tearing down '{plugin.name}': {e}", exc_info=True)
-
-        # Close LLM client
-        if self._llm_client and hasattr(self._llm_client, "close"):
-            try:
-                await self._llm_client.close()
-            except Exception as e:
-                logger.error(f"Error closing LLM client: {e}", exc_info=True)
-
-        # Close engagement DB backend
-        if self._engagement_db_backend:
-            try:
-                await self._engagement_db_backend.close()
-            except Exception as e:
-                logger.error("Error closing engagement DB backend: %s", e, exc_info=True)
-
-        # Final audit log
-        if self._audit_log:
-            self._audit_log.log("orchestrator_stopped", category="lifecycle")
-            self._audit_log.close()
-
-        # Cleanup event bus
-        self._event_bus.clear()
-
-        self._state = OrchestratorState.STOPPED
-        logger.info("Orchestrator stopped cleanly")
+        # Delegate to shutdown module
+        if self._shutdown is None:
+            self._shutdown = OrchestratorShutdown(self)
+        await self._shutdown.shutdown()
 
     async def _is_plugin_stopped(self, plugin_name: str) -> bool:
         """Check if a plugin is stopped via the dashboard control file (cached for 10s)."""
@@ -620,6 +414,10 @@ class Orchestrator:
     async def _setup_learning_store(self, data_dir: Path) -> None:
         """Initialize the per-identity LearningStore with ethos gating."""
         from overblick.core.learning import LearningStore
+
+        assert self._identity is not None, (
+            "Identity must be loaded before setting up learning store"
+        )
 
         # Extract ethos text from identity
         ethos = self._identity.raw_config.get("ethos", [])
@@ -652,15 +450,20 @@ class Orchestrator:
     def _get_embed_fn(self):
         """Create an embedding function from the LLM client if it supports embeddings."""
         if self._llm_client and hasattr(self._llm_client, "embed"):
+            # self._llm_client is not None at this point
+            llm_client = self._llm_client
 
             async def _embed(text: str) -> list[float]:
-                return await self._llm_client.embed(text)
+                return await llm_client.embed(text)  # type: ignore[attr-defined]
 
             return _embed
         return None
 
     async def _setup_capabilities(self) -> None:
         """Create shared capabilities at the orchestrator level."""
+        if self._capabilities_setup:
+            return
+        assert self._identity is not None, "Identity must be loaded before setting up capabilities"
         # Determine which capabilities to create
         cap_names = list(self._identity.capability_names) if self._identity.capability_names else []
 
@@ -676,12 +479,14 @@ class Orchestrator:
 
         if not cap_names:
             logger.debug("No capabilities configured for %s", self._identity_name)
+            self._capabilities_setup = True
             return
 
         try:
             registry = CapabilityRegistry.default()
         except Exception as e:
             logger.warning("Could not load capability registry: %s", e)
+            self._capabilities_setup = True
             return
 
         # Build per-capability configs from identity (centralized)
@@ -697,7 +502,6 @@ class Orchestrator:
             identity_name=self._identity_name,
             data_dir=data_dir,
             log_dir=self._base_dir / "logs" / self._identity_name,
-            llm_client=self._llm_client,
             event_bus=self._event_bus,
             audit_log=self._audit_log,
             quiet_hours_checker=self._quiet_hours,
@@ -705,7 +509,11 @@ class Orchestrator:
             identity=self._identity,
         )
         # Attach secrets getter (capabilities like 'email' need it)
-        temp_ctx._secrets_getter = lambda key, _id=self._identity_name: self._secrets.get(_id, key)
+        assert self._secrets is not None, (
+            "Secrets manager must be initialized before setting up capabilities"
+        )
+        secrets = self._secrets
+        temp_ctx._secrets_getter = lambda key, _id=self._identity_name: secrets.get(_id, key)
 
         resolved = registry.resolve(cap_names)
         for name in resolved:
@@ -718,6 +526,7 @@ class Orchestrator:
                 except Exception as e:
                     logger.warning("Capability '%s' setup failed: %s", name, e)
 
+        self._capabilities_setup = True
         logger.info("Orchestrator created %d shared capabilities", len(self._capabilities))
 
     async def _create_llm_client(self) -> LLMClient:
@@ -727,6 +536,8 @@ class Orchestrator:
         based on its own configuration. Agents only need to know the gateway URL.
         """
         from overblick.core.llm.gateway_client import GatewayClient
+
+        assert self._identity is not None, "Identity must be loaded before creating LLM client"
 
         llm_cfg = self._identity.llm
         gateway_url = llm_cfg.gateway_url or "http://127.0.0.1:8200"
@@ -758,6 +569,12 @@ class Orchestrator:
 
     def _create_preflight(self) -> PreflightChecker | None:
         """Create preflight checker from identity security config."""
+        assert self._identity is not None, (
+            "Identity must be loaded before creating preflight checker"
+        )
+        assert self._llm_client is not None, (
+            "LLM client must be initialized before creating preflight checker"
+        )
         if not self._identity.security.enable_preflight:
             logger.info("Preflight checker disabled by identity config")
             return None
@@ -911,6 +728,7 @@ class Orchestrator:
 
     def _create_output_safety(self) -> OutputSafety | None:
         """Create output safety filter from identity config."""
+        assert self._identity is not None, "Identity must be loaded before creating output safety"
         if not self._identity.security.enable_output_safety:
             logger.info("Output safety disabled by identity config")
             return None
@@ -934,7 +752,23 @@ class Orchestrator:
             deflections=deflection_list if deflection_list else None,
         )
 
-    def _resolve_plugin_dependencies(self, plugin_names: List[str]) -> List[str]:
+    def _create_policy_gate(self) -> PolicyGate:
+        """Create centralized policy gate for security enforcement."""
+        assert self._identity is not None, "Identity must be loaded before creating policy gate"
+        assert self._permissions is not None, "Permissions must be initialized"
+        assert self._capability_checker is not None, "Capability checker must be initialized"
+        # Note: llm_pipeline, preflight, output_safety, rate_limiter may be None
+        return PolicyGate(
+            identity_name=self._identity_name,
+            permission_checker=self._permissions,
+            capability_checker=self._capability_checker,
+            llm_pipeline=self._llm_pipeline,
+            preflight_checker=self._preflight,
+            output_safety=self._output_safety,
+            rate_limiter=self._rate_limiter,
+        )
+
+    def _resolve_plugin_dependencies(self, plugin_names: list[str]) -> list[str]:
         """
         Topologically sort plugin names based on DEPENDS_ON declarations.
 
@@ -950,7 +784,7 @@ class Orchestrator:
         from collections import deque
 
         # Build adjacency list: dependency -> dependents
-        graph: Dict[str, Set[str]] = {name: set() for name in plugin_names}
+        graph: dict[str, set[str]] = {name: set() for name in plugin_names}
         # Track dependencies that are not in plugin_names (external or optional)
         external_deps = []
 
@@ -972,7 +806,7 @@ class Orchestrator:
 
         # Kahn's algorithm
         # Compute indegree (number of incoming edges)
-        indegree: Dict[str, int] = {name: 0 for name in plugin_names}
+        indegree: dict[str, int] = dict.fromkeys(plugin_names, 0)
         for name in plugin_names:
             for dependent in graph[name]:
                 indegree[dependent] += 1

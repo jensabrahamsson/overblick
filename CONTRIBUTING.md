@@ -18,7 +18,7 @@ pip install -e ".[dev]"
 # All unit + scenario tests (fast — no LLM or browser required)
 python -m pytest tests/ -v -m "not llm and not e2e"
 
-# LLM personality tests (requires Ollama with qwen3:8b)
+# LLM personality tests (requires Ollama with qwen3.5:9b)
 python -m pytest tests/ -v -s -m llm --timeout=300
 
 # Dashboard tests only

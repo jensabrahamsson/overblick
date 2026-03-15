@@ -15,7 +15,7 @@ class TestAgentDetail:
         )
         assert resp.status_code == 200
         assert "Anomal" in resp.text
-        assert "qwen3:8b" in resp.text
+        assert "qwen3.5:9b" in resp.text
 
     @pytest.mark.asyncio
     async def test_agent_detail_not_found(self, client, session_cookie):

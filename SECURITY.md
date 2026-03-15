@@ -95,11 +95,18 @@
 - Rate limits, cooldowns, boss-agent approval requirements
 - `PermissionChecker.is_allowed("action")` runtime checks
 
+### Centralized Policy Gate
+- **PolicyGate** — unified security decision point for all plugin requests
+- Combines permission checks, capability verification, preflight, output safety, and rate limiting
+- Ensures consistent security enforcement across all plugin operations
+- Used by `SafeLLMPipeline` and available to plugins via `ctx.security.policy_gate`
+
 ### Plugin Isolation
 - Plugins only access framework via `PluginContext`
 - No direct filesystem/network access outside provided APIs
 - Per-identity data directory isolation
-- Capability system (planned) for fine-grained control
+- **Capability system (beta)** — fine-grained control via plugin capability bundles (RuntimeServices, SecurityServices, LLMServices, DataServices, IdentityServices, CommunicationServices)
+- Plugins declare `REQUIRED_CAPABILITIES`; users grant permissions in identity YAML under `plugin_capabilities:`
 
 ## What Överblick Does **NOT** Protect Against
 
@@ -145,6 +152,7 @@
 **Centralized security settings**: All security-related environment variables are defined in `overblick/core/security/settings.py`. This module provides consistent defaults, boolean parsing, and helper functions (`safe_mode()`, `raw_llm()`, `strict_capabilities()`). Plugins should import from this module rather than reading environment variables directly.
 
 - `SafeLLMPipeline(strict=True)` requires all security components
+- `PolicyGate` — centralized security gate used by `SafeLLMPipeline` and plugins for unified permission and capability checks
 - Missing preflight checker, output safety, or rate limiter raises `ConfigError`
 - **Opt-out**: Set environment variable `OVERBLICK_SAFE_MODE=0`
 - **Beta testers**: We recommend keeping strict mode enabled

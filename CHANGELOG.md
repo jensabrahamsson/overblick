@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security**: Skip flags (`skip_preflight`, `skip_output_safety`) now more dangerous
   - Documented as "internal use only" in SECURITY.md
   - Should never be exposed to untrusted input paths
+- **Orchestrator refactor**: Split monolithic orchestrator into modular components (`orchestrator_bootstrap`, `orchestrator_runtime`, `orchestrator_shutdown`, `orchestrator_types`) for better maintainability (public API unchanged)
+- **Centralized policy gate**: Added `PolicyGate` class for unified security policy enforcement across all plugins
+- **Capability bundles**: PluginContext now provides typed capability bundles (`RuntimeServices`, `SecurityServices`, `LLMServices`, `DataServices`, `IdentityServices`, `CommunicationServices`) for cleaner plugin development while maintaining full backward compatibility
 
 ### Fixed
 - **LSP type errors**: Multiple generator return type fixes in test fixtures

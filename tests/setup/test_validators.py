@@ -64,7 +64,7 @@ class TestBackendConfig:
         assert bc.backend_type == "ollama"
         assert bc.host == "127.0.0.1"
         assert bc.port == 11434
-        assert bc.model == "qwen3:8b"
+        assert bc.model == "qwen3.5:9b"
 
     def test_enabled_backend(self):
         bc = BackendConfig(enabled=True, backend_type="lmstudio", port=1234)
@@ -92,7 +92,7 @@ class TestLLMData:
 
     def test_local_ollama(self):
         data = LLMData(
-            local=BackendConfig(enabled=True, backend_type="ollama", model="qwen3:8b"),
+            local=BackendConfig(enabled=True, backend_type="ollama", model="qwen3.5:9b"),
         )
         assert data.local.enabled
         assert data.local.backend_type == "ollama"
@@ -169,7 +169,7 @@ class TestLLMData:
         """Test a fully configured multi-backend setup."""
         data = LLMData(
             gateway_url="http://127.0.0.1:8200",
-            local=BackendConfig(enabled=True, model="qwen3:8b"),
+            local=BackendConfig(enabled=True, model="qwen3.5:9b"),
             cloud=BackendConfig(enabled=True, host="gpu.lan", port=11434, model="qwen3:14b"),
             deepseek=DeepseekConfig(enabled=True, model="deepseek-chat"),
             openai=OpenAIConfig(enabled=False),

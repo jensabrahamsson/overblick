@@ -175,7 +175,7 @@ class TestBuildPluginConfigs:
                 "dev_workspace_dir": "/tmp/workspace",
                 "dev_dry_run": False,
                 "dev_tick_interval_minutes": 30,
-                "dev_opencode_model": "qwen3:8b",
+                "dev_opencode_model": "qwen3.5:9b",
                 "dev_log_watcher_enabled": True,
             },
         }
@@ -184,7 +184,7 @@ class TestBuildPluginConfigs:
         assert cfg["repo_url"] == "https://github.com/org/repo.git"
         assert cfg["workspace_dir"] == "/tmp/workspace"
         assert cfg["dry_run"] is False
-        assert cfg["opencode"]["model"] == "qwen3:8b"
+        assert cfg["opencode"]["model"] == "qwen3.5:9b"
         assert cfg["log_watcher"]["enabled"] is True
 
     def test_empty_input(self):
@@ -308,7 +308,7 @@ class TestProvisionerPluginsYaml:
                 "llm_provider": "ollama",
                 "ollama_host": "127.0.0.1",
                 "ollama_port": 11434,
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "default_temperature": 0.7,
                 "default_max_tokens": 2000,
             },
@@ -388,7 +388,7 @@ class TestProvisionerPluginsYaml:
                 "llm_provider": "ollama",
                 "ollama_host": "127.0.0.1",
                 "ollama_port": 11434,
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "default_temperature": 0.7,
                 "default_max_tokens": 2000,
             },

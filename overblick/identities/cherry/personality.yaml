@@ -596,7 +596,7 @@ introduction_post:
 # ---------------------------------------------------------------------------
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.8
     max_tokens: 1500
     timeout_seconds: 180

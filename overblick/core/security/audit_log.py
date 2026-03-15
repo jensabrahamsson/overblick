@@ -97,7 +97,6 @@ class AuditLog:
 
         Hash includes all entry fields plus the previous hash to create a chain.
         """
-        import hashlib
         import json
 
         # Create deterministic string representation

@@ -204,7 +204,9 @@ class MyPlugin(PluginBase):
 | `event_bus` | Pub/sub event system |
 | `scheduler` | Periodic task scheduling |
 | `permissions` | Permission checker (default-deny) |
+| `policy_gate` | Centralized security decision point (permissions, capabilities, preflight, output safety, rate limiting) |
 | `get_secret(key)` | Fernet-encrypted secrets access |
+| *Capability Bundles* | Logical groupings: `runtime`, `security`, `llm`, `data`, `identity_services`, `communication` |
 
 ## Supervisor (Boss Agent)
 
@@ -246,7 +248,7 @@ llm:
   provider: ollama      # or lmstudio, gateway, deepseek, openai
   host: 127.0.0.1
   port: 11434
-  model: qwen3:8b
+  model: qwen3.5:9b
   temperature: 0.7
   max_tokens: 2000
   complexity: high      # optional: "high" routes to cloud/deepseek, "low" stays local
@@ -263,7 +265,7 @@ llm:
       type: ollama
       host: 127.0.0.1
       port: 11434
-      model: qwen3:8b
+      model: qwen3.5:9b
     deepseek:
       enabled: true
       type: deepseek
@@ -320,7 +322,7 @@ enabled_modules: [dream_system, therapy_system]
 # Learning is now a platform service — see overblick/core/learning/
 
 llm:
-  model: "qwen3:8b"
+  model: "qwen3.5:9b"
   temperature: 0.7
   max_tokens: 2000
 
@@ -349,7 +351,7 @@ Both backends share the same migration system and API.
 # All unit + scenario tests (3500+)
 python -m pytest tests/ -v -m "not e2e"
 
-# LLM personality tests (requires Ollama + qwen3:8b)
+# LLM personality tests (requires Ollama + qwen3.5:9b)
 python -m pytest tests/ -v -m llm --timeout=300
 
 # Specific plugin

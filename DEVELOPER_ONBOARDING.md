@@ -148,7 +148,7 @@ overblick/
 ├── __init__.py              # Package root
 ├── __main__.py              # CLI: python -m overblick run anomal
 ├── core/                    # Framework core
-│   ├── orchestrator.py      # Wires everything together, runs plugins
+│   ├── orchestrator.py      # Main facade + modular orchestrator modules (bootstrap, runtime, shutdown, types)
 │   ├── # identity system lives in overblick/identities/__init__.py
 │   ├── plugin_base.py       # PluginBase + PluginContext
 │   ├── plugin_registry.py   # Security whitelist of loadable plugins
@@ -388,8 +388,48 @@ Plugins access the framework exclusively through `PluginContext`:
 | `audit_log` | Audit trail |
 | `quiet_hours_checker` | Check if in quiet hours |
 | `permissions` | Action authorization |
+| `policy_gate` | Centralized security gate for permission and capability checks |
 | `capabilities` | Shared capabilities dict |
 | `get_secret(key)` | Get decrypted secret |
+| `runtime` | Runtime services bundle (events, scheduler, IPC, audit, quiet hours) |
+| `security` | Security services bundle (preflight, output safety, permissions, policy gate) |
+| `llm` | LLM services bundle (safe pipeline, raw client, response router) |
+| `data` | Data services bundle (directories, learning store, engagement DB) |
+| `identity_services` | Identity services bundle (identity, secrets, prompt building) |
+| `communication` | Communication services bundle (IPC client, message routing) |
+
+**Capability Bundles**: For better maintainability and clear separation of concerns, PluginContext is now organized into logical capability bundles (`runtime`, `security`, `llm`, `data`, `identity_services`, `communication`). Plugins can continue to access individual fields directly (backward compatibility) or use the bundles for grouped functionality.
+
+### Migrating Existing Plugins to Capability Bundles
+
+Existing plugins require **no changes** — all fields remain accessible as before. However, you can optionally update your plugin to use the new bundles for cleaner code:
+
+```python
+# Old style (still works)
+async def tick(self):
+    await self.ctx.llm_pipeline.chat(...)
+    self.ctx.audit_log.log(...)
+    secret = self.ctx.get_secret("api_key")
+
+# New style (optional, more organized)
+async def tick(self):
+    await self.ctx.llm.llm_pipeline.chat(...)  # via llm bundle
+    self.ctx.runtime.audit_log.log(...)        # via runtime bundle
+    secret = self.ctx.identity_services.get_secret("api_key")  # via identity_services bundle
+```
+
+**When to migrate:**
+- When refactoring plugin code anyway
+- When you want clearer separation of concerns
+- When writing new plugins from scratch
+
+**Bundle overview:**
+- `ctx.runtime` — `event_bus`, `scheduler`, `audit_log`, `quiet_hours_checker`, `ipc_client`, `capabilities`
+- `ctx.security` — `preflight_checker`, `output_safety`, `permissions`, `policy_gate`
+- `ctx.llm` — `llm_pipeline`, `llm_client`, `response_router`
+- `ctx.data` — `data_dir`, `log_dir`, `learning_store`, `engagement_db`
+- `ctx.identity_services` — `identity_name`, `identity`, `get_secret()`, `load_identity()`, `build_system_prompt()`
+- `ctx.communication` — `identity_name`, `ipc_client`
 
 ### Creating a New Plugin
 
@@ -473,7 +513,7 @@ Different LLM models have different quirks. Qwen3 8B might be too sycophantic. M
 overblick/identities/<name>/llm_hints/<model_slug>.yaml
 ```
 
-The model slug is derived from the model name: `qwen3:8b` → `qwen3_8b`.
+The model slug is derived from the model name: `qwen3.5:9b` → `qwen3_5_9b`.
 
 When `build_system_prompt()` runs, it loads the hints file and appends model-specific reinforcement to the prompt.
 
@@ -593,7 +633,7 @@ tests/
 | Marker | Purpose | Requires |
 |--------|---------|----------|
 | (none) | Fast unit tests | Nothing |
-| `@pytest.mark.llm` | LLM personality tests | Ollama + qwen3:8b + Gateway |
+| `@pytest.mark.llm` | LLM personality tests | Ollama + qwen3.5:9b + Gateway |
 | `@pytest.mark.llm_slow` | Slow LLM tests (multi-turn) | Same as above + patience |
 
 ### Running Tests
@@ -848,7 +888,7 @@ llm:
       type: ollama
       host: 127.0.0.1
       port: 11434
-      model: qwen3:8b
+      model: qwen3.5:9b
     deepseek:
       enabled: true
       type: deepseek
@@ -869,7 +909,7 @@ Agents configure their LLM provider in identity YAML:
 ```yaml
 llm:
   provider: "gateway"         # Use the multi-backend gateway
-  model: "qwen3:8b"
+  model: "qwen3.5:9b"
   gateway_url: "http://127.0.0.1:8200"
 ```
 
@@ -1103,7 +1143,7 @@ python -m overblick.gateway             # Start LLM Gateway (port 8200)
 | `overblick/capabilities/__init__.py` | `CAPABILITY_REGISTRY`, `CAPABILITY_BUNDLES` |
 | `overblick/core/llm/pipeline.py` | `SafeLLMPipeline` |
 | `overblick/core/security/input_sanitizer.py` | `wrap_external_content()` |
-| `overblick/core/orchestrator.py` | Main orchestrator |
+| `overblick/core/orchestrator.py` | Orchestrator facade + modular orchestrator modules (bootstrap, runtime, shutdown, types) |
 | `overblick/__main__.py` | CLI entry point |
 
 ### Ports

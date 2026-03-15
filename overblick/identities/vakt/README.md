@@ -53,7 +53,7 @@ Vakt is the opposite of chatty. Extremely high conscientiousness (0.98), near-ze
 
 | Setting | Value | Notes |
 |---------|-------|-------|
-| LLM Model | qwen3:8b | Via Gateway |
+| LLM Model | qwen3.5:9b | Via Gateway |
 | Temperature | 0.2 | Very low — precision |
 | Heartbeat | 1 hour | |
 | Scan interval | 5 minutes | `tick_interval_minutes` |

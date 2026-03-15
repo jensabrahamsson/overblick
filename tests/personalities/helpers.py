@@ -7,7 +7,7 @@ for validating LLM responses against personality definitions.
 Scenarios are organized by LLM model:
 
     tests/personalities/scenarios/
-        qwen3_8b/           # Tuned for Qwen3:8b
+        qwen3_5_9b/           # Tuned for Qwen3:8b
             anomal.yaml
             blixt.yaml
             conversations/
@@ -15,7 +15,7 @@ Scenarios are organized by LLM model:
         mistral_7b/         # Tuned for Mistral 7B
             ...
 
-Set the model via OVERBLICK_TEST_MODEL env var (default: qwen3_8b).
+Set the model via OVERBLICK_TEST_MODEL env var (default: qwen3_5_9b).
 
 Assertion types:
     Hard (cause test failure):
@@ -50,13 +50,13 @@ def _model_slug() -> str:
     """
     Get the current LLM model slug for scenario lookup.
 
-    Reads OVERBLICK_TEST_MODEL env var, defaulting to 'qwen3_8b'.
+    Reads OVERBLICK_TEST_MODEL env var, defaulting to 'qwen3_5_9b'.
     The slug is used to select the scenario directory.
 
     Examples:
-        qwen3_8b, mistral_7b, llama3_8b, gpt4o
+        qwen3_5_9b, mistral_7b, llama3_8b, gpt4o
     """
-    return os.environ.get("OVERBLICK_TEST_MODEL", "qwen3_8b")
+    return os.environ.get("OVERBLICK_TEST_MODEL", "qwen3_5_9b")
 
 
 def _scenarios_dir() -> Path:

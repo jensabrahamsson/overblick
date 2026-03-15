@@ -134,7 +134,7 @@ Stål uses five capabilities:
 ```yaml
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.4        # Low — precision over creativity
     max_tokens: 1500
     timeout_seconds: 180
@@ -267,4 +267,4 @@ Stål never uses casual or slang language:
 **Built by:** @jensabrahamsson
 **Plugin:** [Email Agent](../../plugins/email_agent/README.md)
 **Framework:** Överblick Agent Framework
-**Model:** qwen3:8b (locally hosted via Ollama)
+**Model:** qwen3.5:9b (locally hosted via Ollama)

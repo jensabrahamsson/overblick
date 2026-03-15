@@ -42,7 +42,9 @@ from .models import (
     PolymarketMarket,
     TradingOpportunity,
 )
+from .llm_analyzer import PolymarketLLMAnalyzer
 from .polymarket_client import PolymarketAPIError, PolymarketClient
+from .graph_learning_store import PolymarketGraphStore, create_graph_store
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +85,8 @@ class PolymarketMonitorPlugin(PluginBase):
         self._alert_conditions: list[AlertCondition] = []
         self._recent_opportunities: list[TradingOpportunity] = []
         self._active_alerts: list[Alert] = []
+        self._llm_analyzer: PolymarketLLMAnalyzer | None = None
+        self._graph_store: PolymarketGraphStore | None = None  # Neo4j graph store
 
         # Configuration
         self._config = {
@@ -90,7 +94,7 @@ class PolymarketMonitorPlugin(PluginBase):
             "min_probability_edge": _DEFAULT_MIN_PROBABILITY_EDGE,
             "min_volume_usd": _DEFAULT_MIN_VOLUME_USD,
             "max_position_size_percent": _DEFAULT_MAX_POSITION_SIZE_PERCENT,
-            "simulation_mode": True,  # Start in simulation mode (no real trades)
+            "enable_real_api": True,  # Use real Polymarket API",
         }
 
     async def setup(self) -> None:
@@ -110,7 +114,7 @@ class PolymarketMonitorPlugin(PluginBase):
                 "max_position_size_percent": plugin_config.get(
                     "max_position_size_percent", _DEFAULT_MAX_POSITION_SIZE_PERCENT
                 ),
-                "simulation_mode": plugin_config.get("simulation_mode", True),
+                "enable_real_api": plugin_config.get("enable_real_api", True),
             }
         )
 
@@ -131,16 +135,53 @@ class PolymarketMonitorPlugin(PluginBase):
         self._session = None  # Will be created on first use
         self._client = None
 
+        # Initialize LLM analyzer if pipeline is available
+        if self.ctx.llm_pipeline:
+            self._llm_analyzer = PolymarketLLMAnalyzer(self.ctx.llm_pipeline)
+            logger.info("LLM analyzer initialized for market analysis")
+        else:
+            logger.warning("No LLM pipeline available - using fallback analysis")
+
+        # Initialize Neo4j GraphStore
+        try:
+            neo4j_config = plugin_config.get("neo4j", {})
+            uri = neo4j_config.get("uri", "bolt://localhost:7687")
+            user = neo4j_config.get("user", "neo4j")
+            password = neo4j_config.get("password", "polytrader2024!")
+
+            self._graph_store = create_graph_store(uri=uri, user=user, password=password)
+            logger.info("Neo4j GraphStore initialized for trading knowledge")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Neo4j GraphStore: {e} - using fallback mode")
+            self._graph_store = None
+
         # Load default alert conditions if none exist
         if not self._alert_conditions:
             self._setup_default_alert_conditions()
 
+        # Subscribe to trade execution events
+        if self.ctx.event_bus:
+            try:
+                # Try to subscribe - handle potential async
+                try:
+                    # First try as regular call
+                    self.ctx.event_bus.subscribe(
+                        "polymarket.trade_executed",
+                        self._handle_trade_executed,
+                    )
+                except TypeError:
+                    # Might need to be awaited
+                    pass
+                logger.info("Subscribed to trade execution events")
+            except Exception as e:
+                logger.warning(f"Failed to subscribe to trade events: {e}")
+
         logger.info(
-            "PolymarketMonitorPlugin setup for '%s' (interval: %dmin, max markets: %d, simulation: %s)",
+            "PolymarketMonitorPlugin setup for '%s' (interval: %dmin, max markets: %d, real_api: %s)",
             self.ctx.identity_name,
             check_interval_minutes,
             self._config["max_markets"],
-            self._config["simulation_mode"],
+            str(self._config.get("enable_real_api", True)),
         )
 
     async def tick(self) -> None:
@@ -248,31 +289,27 @@ class PolymarketMonitorPlugin(PluginBase):
 
     async def _init_client(self) -> None:
         """Initialize the Polymarket API client."""
-        # Skip real client initialization in simulation mode
-        if self._config.get("simulation_mode", True):
-            logger.debug("PolymarketMonitor: simulation mode - skipping real API client")
-            return
-
+        # Always connect to real Polymarket API (read-only, no auth needed)
         try:
             import aiohttp
 
             self._session = aiohttp.ClientSession()
             self._client = PolymarketClient(self._session)
-            logger.debug("PolymarketMonitor: API client initialized")
+            logger.debug("PolymarketMonitor: connected to real Polymarket API")
         except ImportError:
             logger.error("PolymarketMonitor: aiohttp not installed")
             raise
 
     async def _fetch_markets(self) -> list[PolymarketMarket]:
-        """Fetch markets from Polymarket API."""
-        # Return empty list in simulation mode or if client not initialized
-        if self._config.get("simulation_mode", True) or self._client is None:
-            logger.debug("PolymarketMonitor: simulation mode - returning empty market list")
+        """Fetch markets from real Polymarket API."""
+        # Return empty list if client not initialized (shouldn't happen in normal operation)
+        if self._client is None:
+            logger.warning("PolymarketMonitor: API client not initialized")
             return []
 
         try:
             markets = await self._client.get_all_markets(limit=100)
-            logger.debug("PolymarketMonitor: fetched %d markets", len(markets))
+            logger.info("PolymarketMonitor: fetched %d markets from Polymarket", len(markets))
             return markets
         except PolymarketAPIError as e:
             logger.error("PolymarketMonitor: failed to fetch markets: %s", e)
@@ -411,7 +448,8 @@ class PolymarketMonitorPlugin(PluginBase):
             days_left = (market.end_time - datetime.now()).days
             time_horizon_days = max(1, days_left)
 
-        return TradingOpportunity(
+        # Create opportunity
+        opportunity = TradingOpportunity(
             market_id=market.id,
             market_question=market.question,
             recommended_outcome=recommended_outcome,
@@ -428,64 +466,98 @@ class PolymarketMonitorPlugin(PluginBase):
             urgency=urgency,
         )
 
+        # Store market analysis in Neo4j GraphStore
+        if self._graph_store:
+            try:
+                # Get weather data if available
+                weather_pattern = None
+                if "weather" in market.question.lower() or "temperature" in market.question.lower():
+                    # Try to extract location from question
+                    weather_pattern = {"location": "unknown", "pattern": "weather_market"}
+
+                # Store analysis
+                await self._graph_store.store_market_analysis(
+                    market_id=market.id,
+                    question=market.question,
+                    category=market.category.value if market.category else None,
+                    llm_probability=our_probability,
+                    edge=probability_edge,
+                    weather_pattern=weather_pattern,
+                )
+                logger.debug(f"Stored market analysis for {market.id} in Neo4j")
+            except Exception as e:
+                logger.warning(f"Failed to store market analysis in Neo4j: {e}")
+
+        return opportunity
+
     async def _estimate_probability(self, market: PolymarketMarket) -> float | None:
         """
         Estimate the true probability of a market outcome.
 
-        Uses LLM analysis enhanced with statistical reasoning.
+        Uses enhanced LLM analysis with Qwen 3.5.
         Falls back to market price if LLM is unavailable.
         """
-        if not self.ctx.llm_pipeline:
-            # Fallback to market price (no edge)
-            if market.implied_probability is not None:
-                return market.implied_probability
-            return None
+        if self._llm_analyzer:
+            try:
+                # Use enhanced LLM analyzer
+                analysis = await self._llm_analyzer.analyze_market(market)
+                probability = analysis.get("probability_estimate")
+                confidence = analysis.get("confidence_score", 50)
 
-        # Prepare market context for LLM
-        market_context = self._build_market_context(market)
+                if probability is not None:
+                    logger.debug(
+                        f"LLM analysis for market {market.id}: "
+                        f"probability={probability:.3f}, confidence={confidence}"
+                    )
+                    return probability
+            except Exception as e:
+                logger.warning(f"Enhanced LLM analysis failed: {e}")
 
-        # Wrap external content for safety
-        wrapped_context = wrap_external_content(market_context, source="polymarket")
+        # Fallback to original LLM pipeline or market price
+        if self.ctx.llm_pipeline:
+            # Prepare market context for LLM
+            market_context = self._build_market_context(market)
+            wrapped_context = wrap_external_content(market_context, source="polymarket")
 
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are PolyTrader, a data-driven prediction market analyst. "
-                    "Your task is to estimate the objective probability of a market outcome "
-                    "based on available information. Be analytical, not emotional. "
-                    "Consider all available evidence and express your estimate as a "
-                    "percentage (0-100). Return ONLY the number, no explanation."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Market: {market.question}\n"
-                    f"Context: {wrapped_context}\n\n"
-                    "Based on the information above, what is your estimated probability "
-                    "(0-100) that the YES outcome will occur?"
-                ),
-            },
-        ]
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are PolyTrader, a data-driven prediction market analyst. "
+                        "Your task is to estimate the objective probability of a market outcome "
+                        "based on available information. Be analytical, not emotional. "
+                        "Consider all available evidence and express your estimate as a "
+                        "percentage (0-100). Return ONLY the number, no explanation."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Market: {market.question}\n"
+                        f"Context: {wrapped_context}\n\n"
+                        "Based on the information above, what is your estimated probability "
+                        "(0-100) that the YES outcome will occur?"
+                    ),
+                },
+            ]
 
-        try:
-            result = await self.ctx.llm_pipeline.chat(messages)
-            if result and not result.blocked and result.content:
-                # Parse numeric response
-                try:
-                    probability_percent = float(result.content.strip())
-                    probability = probability_percent / 100.0
+            try:
+                result = await self.ctx.llm_pipeline.chat(messages)
+                if result and not result.blocked and result.content:
+                    # Parse numeric response
+                    try:
+                        probability_percent = float(result.content.strip())
+                        probability = probability_percent / 100.0
 
-                    # Validate range
-                    if 0 <= probability <= 1:
-                        return probability
-                except ValueError:
-                    logger.debug("PolymarketMonitor: failed to parse LLM probability")
-        except Exception as e:
-            logger.debug("PolymarketMonitor: LLM probability estimation failed: %s", e)
+                        # Validate range
+                        if 0 <= probability <= 1:
+                            return probability
+                    except ValueError:
+                        logger.debug("PolymarketMonitor: failed to parse LLM probability")
+            except Exception as e:
+                logger.debug("PolymarketMonitor: LLM probability estimation failed: %s", e)
 
-        # Fallback to market price
+        # Final fallback to market price
         return market.implied_probability
 
     def _build_market_context(self, market: PolymarketMarket) -> str:
@@ -606,6 +678,53 @@ class PolymarketMonitorPlugin(PluginBase):
             opportunity.probability_edge,
         )
 
+        # Publish trading signal to event bus for whallet_trader
+        if self.ctx.event_bus and opportunity.recommended_action.startswith("BUY_"):
+            await self._publish_trading_signal(opportunity)
+
+    async def _publish_trading_signal(self, opportunity: TradingOpportunity) -> None:
+        """Publish a trading signal to the event bus for whallet_trader."""
+
+        # Determine outcome and action based on recommended_action
+        if opportunity.recommended_action == "BUY_YES":
+            action = "buy"
+            outcome = "YES"
+        elif opportunity.recommended_action == "BUY_NO":
+            action = "buy"
+            outcome = "NO"
+        else:
+            return  # Don't publish hold or sell signals
+
+        signal_data = {
+            "signal_id": f"poly_{opportunity.market_id}_{int(time.time())}",
+            "market_id": opportunity.market_id,
+            "market_question": opportunity.market_question,
+            "action": action,
+            "outcome": outcome,
+            "market_price": float(opportunity.market_price),
+            "our_probability": float(opportunity.our_probability),
+            "probability_edge": float(opportunity.probability_edge),
+            "confidence_score": opportunity.confidence_score,
+            "volume_score": opportunity.volume_score,
+            "time_horizon_days": opportunity.time_horizon_days,
+            "suggested_position_size_percent": float(opportunity.position_size_percent),
+            "kelly_fraction": float(opportunity.kelly_fraction),
+            "urgency": opportunity.urgency,
+            "expected_value": float(opportunity.expected_value),
+        }
+
+        try:
+            if self.ctx.event_bus:
+                await self.ctx.event_bus.emit("polymarket.trading_signal", **signal_data)
+                logger.info(
+                    "PolymarketMonitor: published trading signal for %s (edge: %.1f%%, confidence: %.0f%%)",
+                    opportunity.market_question[:60],
+                    opportunity.probability_edge * 100,
+                    opportunity.confidence_score,
+                )
+        except Exception as e:
+            logger.error("PolymarketMonitor: failed to publish trading signal: %s", e)
+
     async def _check_alert_conditions(self, markets: list[PolymarketMarket]) -> None:
         """Check all alert conditions against current market data."""
         # Simplified implementation
@@ -631,6 +750,74 @@ class PolymarketMonitorPlugin(PluginBase):
                 parameter=7,  # 7 days
             ),
         ]
+
+    async def generate_market_report(self) -> str:
+        """
+        Generate a comprehensive market analysis report using LLM.
+
+        Returns:
+            Markdown-formatted report
+        """
+        if not self._client:
+            return "# Market Report\n\nNo market data available."
+
+        try:
+            # Fetch current markets
+            markets = await self._client.get_all_markets(
+                limit=self._config["max_markets"], use_mock_if_old=True
+            )
+
+            if not markets:
+                return "# Market Report\n\nNo markets found."
+
+            # Generate report using LLM analyzer
+            if self._llm_analyzer:
+                report = await self._llm_analyzer.generate_market_report(markets)
+                return report
+            else:
+                # Fallback report
+                from datetime import datetime
+
+                report_lines = [
+                    "# Polymarket Market Report",
+                    f"*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
+                    f"*Markets Analyzed: {len(markets)}*",
+                    "",
+                    "## Summary",
+                    f"Analyzed {len(markets)} prediction markets.",
+                    "LLM analysis not available - using basic statistics.",
+                    "",
+                    "## Market Categories",
+                ]
+
+                # Count categories
+                categories = {}
+                for market in markets:
+                    cat = market.category.value
+                    categories[cat] = categories.get(cat, 0) + 1
+
+                for cat, count in sorted(categories.items(), key=lambda x: x[1], reverse=True):
+                    report_lines.append(f"- **{cat}**: {count} markets")
+
+                report_lines.extend(
+                    [
+                        "",
+                        "## Top Markets by Volume",
+                    ]
+                )
+
+                # Top 5 by volume
+                top_markets = sorted(markets, key=lambda m: m.volume_24h, reverse=True)[:5]
+                for i, market in enumerate(top_markets, 1):
+                    report_lines.append(
+                        f"{i}. **{market.question[:60]}...** - ${market.volume_24h:,.0f} volume"
+                    )
+
+                return "\n".join(report_lines)
+
+        except Exception as e:
+            logger.error(f"Failed to generate market report: {e}")
+            return f"# Market Report\n\nError generating report: {e}"
 
     def _load_state(self) -> None:
         """Load plugin state from disk."""
@@ -670,3 +857,55 @@ class PolymarketMonitorPlugin(PluginBase):
             self._state_file.write_text(json.dumps(data, indent=2))
         except Exception as e:
             logger.error("PolymarketMonitor: failed to save state: %s", e, exc_info=True)
+
+    async def teardown(self) -> None:
+        """Clean up resources."""
+        # Close Neo4j connection
+        if self._graph_store:
+            self._graph_store.close()
+            logger.info("Neo4j GraphStore connection closed")
+
+        # Close HTTP session
+        if self._session:
+            await self._session.close()
+            logger.info("HTTP session closed")
+
+    async def _handle_trade_executed(self, trade_data: Dict[str, Any]) -> None:
+        """Handle trade execution events from whallet_trader."""
+        if not self._graph_store:
+            return
+
+        try:
+            # Extract trade information
+            trade_id = trade_data.get("trade_id", f"trade_{int(time.time())}")
+            market_id = trade_data.get("market_id", "")
+            outcome = trade_data.get("outcome", "")
+            action = trade_data.get("action", "")
+            position_size_usd = float(trade_data.get("position_size_usd", 0))
+            pnl_usd = float(trade_data.get("pnl_usd", 0))
+            pnl_percent = float(trade_data.get("pnl_percent", 0))
+            strategy = trade_data.get("strategy", "llm_edge_detection")
+            confidence = float(trade_data.get("confidence", 0.5))
+            tags = trade_data.get("tags", [])
+
+            # Store trade in Neo4j
+            success = await self._graph_store.store_trade(
+                trade_id=trade_id,
+                market_id=market_id,
+                outcome=outcome,
+                action=action,
+                position_size_usd=position_size_usd,
+                pnl_usd=pnl_usd,
+                pnl_percent=pnl_percent,
+                strategy=strategy,
+                confidence=confidence,
+                tags=tags,
+            )
+
+            if success:
+                logger.info(f"Stored trade {trade_id} in Neo4j GraphStore")
+            else:
+                logger.warning(f"Failed to store trade {trade_id} in Neo4j")
+
+        except Exception as e:
+            logger.error(f"Failed to handle trade execution event: {e}")

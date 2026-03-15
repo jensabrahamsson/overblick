@@ -44,7 +44,7 @@ class TestAgentDetail:
         page.wait_for_load_state("networkidle")
 
         content = page.content()
-        assert "qwen3:8b" in content
+        assert "qwen3.5:9b" in content
         assert "0.7" in content
 
     def test_shows_identity_name(self, dashboard_server, page):

@@ -30,7 +30,7 @@ Usage:
 import logging
 from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import yaml
 
@@ -204,10 +204,10 @@ class SecretsManager:
             logger.info("Master key stored in system keyring")
         except Exception:
             # Fallback to file - create with atomic write and restrictive permissions
-            from overblick.shared.platform import enforce_restrictive_permissions
-
             # Atomic write with 0o600 permissions using os.open
             import os
+
+            from overblick.shared.platform import enforce_restrictive_permissions
 
             fd = os.open(str(key_file), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             try:

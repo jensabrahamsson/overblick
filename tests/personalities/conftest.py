@@ -8,7 +8,7 @@ for local Ollama inference. The gateway must be running:
 
 Tests are marked with @pytest.mark.llm and skipped if the gateway is not running.
 
-Set OVERBLICK_TEST_MODEL to select a model (default: qwen3_8b). This controls:
+Set OVERBLICK_TEST_MODEL to select a model (default: qwen3_5_9b). This controls:
 - Which scenario directory is used (tests/personalities/scenarios/<model>/)
 - Which LLM hints are loaded (overblick/identities/<name>/llm_hints/<model>.yaml)
 
@@ -27,7 +27,7 @@ from overblick.identities import build_system_prompt, list_personalities, load_p
 logger = logging.getLogger(__name__)
 
 # Model slug used for LLM-specific scenarios and prompt hints
-MODEL_SLUG = os.environ.get("OVERBLICK_TEST_MODEL", "qwen3_8b")
+MODEL_SLUG = os.environ.get("OVERBLICK_TEST_MODEL", "qwen3_5_9b")
 
 # Cache the health check result across tests (module-level flag)
 _gateway_available: bool | None = None
@@ -38,7 +38,7 @@ async def ollama_client():
     """
     Per-test LLM client via the Gateway.
 
-    Uses qwen3:8b through the LLM Gateway on port 8200.
+    Uses qwen3.5:9b through the LLM Gateway on port 8200.
     Skips all tests if the gateway is not running.
     Each test gets a fresh client to avoid event loop conflicts.
 
@@ -49,7 +49,7 @@ async def ollama_client():
 
     client = GatewayClient(
         base_url="http://127.0.0.1:8200",
-        model="qwen3:8b",
+        model="qwen3.5:9b",
         default_priority="low",
         temperature=0.5,
         max_tokens=500,

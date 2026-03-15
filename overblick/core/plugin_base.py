@@ -28,11 +28,94 @@ if TYPE_CHECKING:
     from overblick.core.scheduler import Scheduler
     from overblick.core.security.audit_log import AuditLog
     from overblick.core.security.output_safety import OutputSafety
+    from overblick.core.security.policy_gate import PolicyGate
     from overblick.core.security.preflight import PreflightChecker
     from overblick.identities import Identity
     from overblick.supervisor.ipc import IPCClient
 
 logger = logging.getLogger(__name__)
+
+
+# -------------------------------------------------------------------
+# PluginContext capability bundles
+# -------------------------------------------------------------------
+
+
+class RuntimeServices(BaseModel):
+    """Runtime services (scheduling, events, IPC, audit)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    event_bus: Annotated[Optional["EventBus"], SkipValidation] = None
+    scheduler: Annotated[Optional["Scheduler"], SkipValidation] = None
+    audit_log: Annotated[Optional["AuditLog"], SkipValidation] = None
+    quiet_hours_checker: Annotated[Optional["QuietHoursChecker"], SkipValidation] = None
+    ipc_client: Annotated[Optional["IPCClient"], SkipValidation] = None
+    capabilities: dict[str, Any] = Field(default_factory=dict)
+
+
+class SecurityServices(BaseModel):
+    """Security services (preflight, output safety, permissions, policy gate)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    preflight_checker: Annotated[Optional["PreflightChecker"], SkipValidation] = None
+    output_safety: Annotated[Optional["OutputSafety"], SkipValidation] = None
+    permissions: Annotated[Optional["PermissionChecker"], SkipValidation] = None
+    policy_gate: Annotated[Optional["PolicyGate"], SkipValidation] = None
+
+
+class LLMServices(BaseModel):
+    """LLM services (safe pipeline, raw client, response router)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    llm_pipeline: Annotated[Optional["SafeLLMPipeline"], SkipValidation] = None
+    llm_client: Annotated[Optional["LLMClient"], SkipValidation] = None
+    response_router: Annotated[Optional["ResponseRouter"], SkipValidation] = None
+
+
+class DataServices(BaseModel):
+    """Data services (directories, learning store, engagement DB)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    data_dir: Path
+    log_dir: Path
+    learning_store: Annotated[Optional["LearningStore"], SkipValidation] = None
+    engagement_db: Annotated[Optional["EngagementDB"], SkipValidation] = None
+
+
+class IdentityServices(BaseModel):
+    """Identity services (identity, secrets, prompt building)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    identity_name: str
+    identity: Annotated[Optional["Identity"], SkipValidation] = None
+    # Secrets getter is a private callable; exposed via get_secret method
+    _secrets_getter: Any = PrivateAttr(default=None)
+
+    def get_secret(self, key: str) -> str | None:
+        """Get a secret value by key."""
+        if self._secrets_getter:
+            return self._secrets_getter(key)
+        return None
+
+    def load_identity(self, name: str) -> Any:
+        """Load an identity by name via the framework identity system."""
+        from overblick.identities import load_identity
+
+        return load_identity(name)
+
+
+class CommunicationServices(BaseModel):
+    """Communication services (IPC client, message routing)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    identity_name: str
+    ipc_client: Annotated[Optional["IPCClient"], SkipValidation] = None
 
 
 class PluginContext(BaseModel):
@@ -78,6 +161,7 @@ class PluginContext(BaseModel):
     output_safety: Annotated[Optional["OutputSafety"], SkipValidation] = None
 
     permissions: Annotated[Optional["PermissionChecker"], SkipValidation] = None
+    policy_gate: Annotated[Optional["PolicyGate"], SkipValidation] = None
 
     ipc_client: Annotated[Optional["IPCClient"], SkipValidation] = None
 
@@ -86,6 +170,14 @@ class PluginContext(BaseModel):
 
     # Shared capabilities (populated by orchestrator)
     capabilities: dict[str, Any] = Field(default_factory=dict)
+
+    # Capability bundles (optional — populated by orchestrator)
+    runtime: Annotated[RuntimeServices | None, SkipValidation] = None
+    security: Annotated[SecurityServices | None, SkipValidation] = None
+    llm: Annotated[LLMServices | None, SkipValidation] = None
+    data: Annotated[DataServices | None, SkipValidation] = None
+    identity_services: Annotated[IdentityServices | None, SkipValidation] = None
+    communication: Annotated[CommunicationServices | None, SkipValidation] = None
 
     # Secrets accessor — Callable[[str], Optional[str]]
     _secrets_getter: Any = PrivateAttr(default=None)
@@ -329,6 +421,49 @@ class PluginContext(BaseModel):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
+    def _ensure_bundles(self) -> None:
+        """Create capability bundles from existing fields (idempotent)."""
+        if self.runtime is None:
+            self.runtime = RuntimeServices(
+                event_bus=self.event_bus,
+                scheduler=self.scheduler,
+                audit_log=self.audit_log,
+                quiet_hours_checker=self.quiet_hours_checker,
+                ipc_client=self.ipc_client,
+                capabilities=self.capabilities,
+            )
+        if self.security is None:
+            self.security = SecurityServices(
+                preflight_checker=self.preflight_checker,
+                output_safety=self.output_safety,
+                permissions=self.permissions,
+                policy_gate=self.policy_gate,
+            )
+        if self.llm is None:
+            self.llm = LLMServices(
+                llm_pipeline=self.llm_pipeline,
+                llm_client=self._llm_client,
+                response_router=None,
+            )
+        if self.data is None:
+            self.data = DataServices(
+                data_dir=self.data_dir,
+                log_dir=self.log_dir,
+                learning_store=self.learning_store,
+                engagement_db=self.engagement_db,
+            )
+        if self.identity_services is None:
+            self.identity_services = IdentityServices(
+                identity_name=self.identity_name,
+                identity=self.identity,
+            )
+            self.identity_services._secrets_getter = self._secrets_getter
+        if self.communication is None:
+            self.communication = CommunicationServices(
+                identity_name=self.identity_name,
+                ipc_client=self.ipc_client,
+            )
+
 
 # -------------------------------------------------------------------
 # Role‑specific PluginContext subclasses (ARCH‑2: narrow per role)
@@ -490,6 +625,7 @@ from overblick.core.quiet_hours import QuietHoursChecker  # noqa: E402
 from overblick.core.scheduler import Scheduler  # noqa: E402
 from overblick.core.security.audit_log import AuditLog  # noqa: E402
 from overblick.core.security.output_safety import OutputSafety  # noqa: E402
+from overblick.core.security.policy_gate import PolicyGate  # noqa: E402
 from overblick.core.security.preflight import PreflightChecker  # noqa: E402
 from overblick.identities import Identity  # noqa: E402
 from overblick.supervisor.ipc import IPCClient  # noqa: E402

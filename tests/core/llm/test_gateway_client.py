@@ -39,7 +39,7 @@ def _make_mock_session(
     if response_json is None:
         response_json = {
             "choices": [{"message": {"content": "Test response"}, "finish_reason": "stop"}],
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "usage": {"total_tokens": 42},
         }
 
@@ -61,7 +61,7 @@ def _make_mock_session(
         # Default GET response for health check
         health_response = AsyncMock()
         health_response.status = 200
-        health_response.json = AsyncMock(return_value={"status": "ok", "model": "qwen3:8b"})
+        health_response.json = AsyncMock(return_value={"status": "ok", "model": "qwen3.5:9b"})
         health_response.__aenter__ = AsyncMock(return_value=health_response)
         health_response.__aexit__ = AsyncMock(return_value=False)
         session.get = MagicMock(return_value=health_response)
@@ -75,7 +75,7 @@ def _make_client(session=None, **kwargs):
     """Create a GatewayClient with optional pre-injected session."""
     defaults = {
         "base_url": "http://127.0.0.1:8200",
-        "model": "qwen3:8b",
+        "model": "qwen3.5:9b",
         "default_priority": "low",
     }
     defaults.update(kwargs)
@@ -97,7 +97,7 @@ class TestGatewayClientInit:
         """Client initializes with sensible defaults."""
         client = GatewayClient()
         assert client.base_url == "http://127.0.0.1:8200"
-        assert client.model == "qwen3:8b"
+        assert client.model == "qwen3.5:9b"
         assert client.default_priority == "low"
         assert client.max_tokens == 2000
         assert client.temperature == 0.7
@@ -220,7 +220,7 @@ class TestGatewayClientChat:
         session = _make_mock_session(
             response_json={
                 "choices": [{"message": {"content": "Hello human!"}, "finish_reason": "stop"}],
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "usage": {"total_tokens": 42},
             }
         )
@@ -232,7 +232,7 @@ class TestGatewayClientChat:
 
         assert result is not None
         assert result["content"] == "Hello human!"
-        assert result["model"] == "qwen3:8b"
+        assert result["model"] == "qwen3.5:9b"
         assert result["tokens_used"] == 42
         assert result["finish_reason"] == "stop"
 
@@ -250,7 +250,7 @@ class TestGatewayClientChat:
 
         call_kwargs = session.post.call_args
         payload = call_kwargs[1]["json"]
-        assert payload["model"] == "qwen3:8b"
+        assert payload["model"] == "qwen3.5:9b"
         assert payload["temperature"] == 0.5
         assert payload["max_tokens"] == 1000
         assert payload["top_p"] == 0.85
@@ -278,7 +278,7 @@ class TestGatewayClientChat:
         session = _make_mock_session(
             response_json={
                 "choices": [],
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "usage": {},
             }
         )
@@ -295,7 +295,7 @@ class TestGatewayClientChat:
         session = _make_mock_session(
             response_json={
                 "choices": [{"message": {"content": "Response"}, "finish_reason": "stop"}],
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
             }
         )
         client = _make_client(session)
@@ -322,7 +322,7 @@ class TestGatewayClientChat:
         )
 
         assert result is not None
-        assert result["model"] == "qwen3:8b"
+        assert result["model"] == "qwen3.5:9b"
 
     async def test_chat_url_construction(self):
         """chat() constructs correct URL with base_url and priority."""

@@ -29,6 +29,7 @@ from overblick.core.quiet_hours import QuietHoursChecker
 from overblick.core.scheduler import Scheduler
 from overblick.core.security.audit_log import AuditLog
 from overblick.core.security.output_safety import OutputSafety
+from overblick.core.security.policy_gate import PolicyGate
 from overblick.core.security.preflight import PreflightChecker
 from overblick.core.security.rate_limiter import RateLimiter
 from overblick.core.security.secrets_manager import SecretsManager
@@ -220,6 +221,27 @@ class ComponentFactory:
             raw_config=identity.raw_config,
         )
 
+    def create_policy_gate(
+        self,
+        identity: Identity,
+        permission_checker: PermissionChecker,
+        capability_checker: PluginCapabilityChecker,
+        llm_pipeline: SafeLLMPipeline | None,
+        preflight_checker: PreflightChecker | None,
+        output_safety: OutputSafety | None,
+        rate_limiter: RateLimiter,
+    ) -> PolicyGate:
+        """Create centralized policy gate for security enforcement."""
+        return PolicyGate(
+            identity_name=self._identity_name,
+            permission_checker=permission_checker,
+            capability_checker=capability_checker,
+            llm_pipeline=llm_pipeline,
+            preflight_checker=preflight_checker,
+            output_safety=output_safety,
+            rate_limiter=rate_limiter,
+        )
+
     def create_ipc_client(self) -> Any | None:
         """
         Create an IPC client if a supervisor token file exists.
@@ -243,19 +265,35 @@ class ComponentFactory:
         search_dirs.append(Path(tempfile.gettempdir()) / "overblick")
 
         # Find first directory containing the supervisor token
-        for dir_path in search_dirs:
-            token_path = dir_path / token_name
-            if token_path.exists():
-                logger.info("Found supervisor token at %s", token_path)
-                from overblick.supervisor.ipc import IPCClient
+        socket_dir = None
+        token_path = None
+        for candidate in search_dirs:
+            tp = candidate / token_name
+            if tp.exists():
+                socket_dir = candidate
+                token_path = tp
+                logger.debug("Supervisor token found at %s", tp)
+                break
 
-                return IPCClient(
-                    token_path=token_path,
-                    identity=self._identity_name,
-                )
+        if not token_path:
+            logger.debug("No supervisor token found — running in standalone mode")
+            return None
 
-        logger.debug("No supervisor token found — running standalone")
-        return None
+        try:
+            from overblick.supervisor.ipc import IPCClient, read_ipc_token
+
+            auth_token = read_ipc_token(socket_dir=socket_dir)
+
+            client = IPCClient(
+                target="supervisor",
+                socket_dir=socket_dir,
+                auth_token=auth_token,
+            )
+            logger.info("IPC client created — supervisor communication enabled")
+            return client
+        except Exception as e:
+            logger.warning("Failed to create IPC client: %s", e)
+            return None
 
     # ---- Framework core components (stateless) ----
 
@@ -278,23 +316,123 @@ class ComponentFactory:
         """Create capability registry."""
         return CapabilityRegistry()
 
+    async def create_all(
+        self,
+        identity_name: str,
+        base_dir: Path,
+        plugin_names: list[str],
+    ) -> dict[str, Any]:
+        """
+        Create all components at once and return them as a dict.
+
+        This is the main entry point used by the orchestrator's factory path.
+        Components are created in the correct dependency order.
+        """
+        # Load identity first (needed for many other components)
+        identity = await self.load_identity()
+        paths = self.get_paths()
+
+        # Core security components
+        secrets = self.create_secrets_manager()
+        audit_log = self.create_audit_log()
+        engagement_db = await self.create_engagement_db(identity)
+        quiet_hours = self.create_quiet_hours_checker(identity)
+        llm_client = await self.create_llm_client(identity)
+        preflight = self.create_preflight_checker(identity, llm_client)
+        output_safety = self.create_output_safety(identity)
+        rate_limiter = self.create_rate_limiter(identity)
+
+        # Safe LLM pipeline
+        llm_pipeline = self.create_safe_llm_pipeline(
+            llm_client=llm_client,
+            audit_log=audit_log,
+            preflight_checker=preflight,
+            output_safety=output_safety,
+            rate_limiter=rate_limiter,
+            identity=identity,
+        )
+
+        # Plugin-related components
+        permissions = self.create_permission_checker(identity)
+        capability_checker = self.create_plugin_capability_checker(identity)
+        ipc_client = self.create_ipc_client()
+        policy_gate = self.create_policy_gate(
+            identity=identity,
+            permission_checker=permissions,
+            capability_checker=capability_checker,
+            llm_pipeline=llm_pipeline,
+            preflight_checker=preflight,
+            output_safety=output_safety,
+            rate_limiter=rate_limiter,
+        )
+
+        # Framework core (stateless)
+        event_bus = self.create_event_bus()
+        scheduler = self.create_scheduler()
+        registry = self.create_plugin_registry()
+
+        return {
+            "identity": identity,
+            "paths": paths,
+            "secrets": secrets,
+            "audit_log": audit_log,
+            "engagement_db": engagement_db,
+            "quiet_hours": quiet_hours,
+            "llm_client": llm_client,
+            "preflight": preflight,
+            "output_safety": output_safety,
+            "rate_limiter": rate_limiter,
+            "llm_pipeline": llm_pipeline,
+            "permissions": permissions,
+            "capability_checker": capability_checker,
+            "policy_gate": policy_gate,
+            "ipc_client": ipc_client,
+            "event_bus": event_bus,
+            "scheduler": scheduler,
+            "registry": registry,
+        }
+
     # ---- Private helpers ----
 
     def _register_local_plugins(self, registry: PluginRegistry) -> None:
         """Register plugins from the _local directory (gitignored)."""
+        import importlib
+
+        from overblick.core.plugin_base import PluginBase
+
         local_dir = self._base_dir / "overblick" / "plugins" / "_local"
         if not local_dir.exists():
             return
 
-        for plugin_dir in local_dir.iterdir():
-            if not plugin_dir.is_dir():
+        for candidate in sorted(local_dir.iterdir()):
+            plugin_file = candidate / "plugin.py"
+            if not candidate.is_dir() or not plugin_file.exists():
                 continue
 
-            plugin_name = plugin_dir.name
-            module_path = f"overblick.plugins._local.{plugin_name}.plugin"
-
+            module_path = f"overblick.plugins._local.{candidate.name}.plugin"
             try:
-                registry.register_local(plugin_name, module_path)
-                logger.debug("Registered local plugin: %s", plugin_name)
+                mod = importlib.import_module(module_path)
             except Exception as e:
-                logger.warning("Failed to register local plugin %s: %s", plugin_name, e)
+                logger.warning("Failed to import local plugin '%s': %s", candidate.name, e)
+                continue
+
+            # Find the PluginBase subclass in the module
+            cls_name = None
+            for attr_name in dir(mod):
+                attr = getattr(mod, attr_name)
+                if (
+                    isinstance(attr, type)
+                    and issubclass(attr, PluginBase)
+                    and attr is not PluginBase
+                ):
+                    cls_name = attr_name
+                    break
+
+            if cls_name:
+                registry.register(candidate.name, module_path, cls_name)
+                logger.info(
+                    "Local plugin registered: %s -> %s.%s",
+                    candidate.name,
+                    module_path,
+                    cls_name,
+                )

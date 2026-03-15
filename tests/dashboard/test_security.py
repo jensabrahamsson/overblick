@@ -76,8 +76,8 @@ class TestInputValidation:
             OnboardingNameForm(name="123agent")
 
     def test_onboarding_llm_valid(self):
-        form = OnboardingLLMForm(model="qwen3:8b", temperature=0.7, max_tokens=2000)
-        assert form.model == "qwen3:8b"
+        form = OnboardingLLMForm(model="qwen3.5:9b", temperature=0.7, max_tokens=2000)
+        assert form.model == "qwen3.5:9b"
 
     def test_onboarding_llm_temperature_bounds(self):
         with pytest.raises(ValidationError):

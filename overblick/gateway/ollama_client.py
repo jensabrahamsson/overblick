@@ -109,7 +109,7 @@ class OllamaClient:
             client = await self._get_client()
 
             payload = {
-                "model": request.model,
+                "model": self.config.default_model,
                 "messages": [{"role": m.role, "content": m.content} for m in request.messages],
                 "max_tokens": request.max_tokens,
                 "temperature": request.temperature,

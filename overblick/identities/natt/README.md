@@ -49,7 +49,7 @@ The most interesting things happen at boundaries. Between sleep and waking. Betw
 ```yaml
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.75
     max_tokens: 2000
 
