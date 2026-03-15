@@ -21,15 +21,15 @@ class TestFastAPIApp:
         registry.default_backend = "local"
         registry.health_check_all = AsyncMock(return_value={"local": True})
         registry.get_client = MagicMock()
-        registry.get_model = MagicMock(return_value="qwen3:8b")
+        registry.get_model = MagicMock(return_value="qwen3.5:9b")
         registry.get_backend_info = MagicMock(
             return_value={
-                "local": {"type": "ollama", "model": "qwen3:8b"},
+                "local": {"type": "ollama", "model": "qwen3.5:9b"},
             }
         )
         mock_client = AsyncMock()
         mock_client.health_check = AsyncMock(return_value=True)
-        mock_client.list_models = AsyncMock(return_value=["qwen3:8b"])
+        mock_client.list_models = AsyncMock(return_value=["qwen3.5:9b"])
         registry.get_client.return_value = mock_client
         return registry
 
@@ -40,10 +40,10 @@ class TestFastAPIApp:
         qm.queue_size = 0
         qm.client = AsyncMock()
         qm.client.health_check = AsyncMock(return_value=True)
-        qm.client.list_models = AsyncMock(return_value=["qwen3:8b"])
+        qm.client.list_models = AsyncMock(return_value=["qwen3.5:9b"])
         qm.submit = AsyncMock(
             return_value=ChatResponse.from_message(
-                model="qwen3:8b",
+                model="qwen3.5:9b",
                 content="Test response",
             )
         )
@@ -88,7 +88,7 @@ class TestFastAPIApp:
         assert data["gateway"] == "running"
         assert data["backends"]["local"]["status"] == "connected"
         assert data["backends"]["local"]["type"] == "ollama"
-        assert data["backends"]["local"]["model"] == "qwen3:8b"
+        assert data["backends"]["local"]["model"] == "qwen3.5:9b"
         assert data["backends"]["local"]["default"] is True
 
     def test_health_check_degraded(self, client, mock_queue_manager, mock_backend_registry):
@@ -114,11 +114,11 @@ class TestFastAPIApp:
 
         assert response.status_code == 200
         data = response.json()
-        assert "qwen3:8b" in data["models"]
+        assert "qwen3.5:9b" in data["models"]
 
     def test_chat_completion(self, client, mock_queue_manager):
         payload = {
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "messages": [{"role": "user", "content": "Hello!"}],
         }
 
@@ -126,13 +126,13 @@ class TestFastAPIApp:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["model"] == "qwen3:8b"
+        assert data["model"] == "qwen3.5:9b"
         assert len(data["choices"]) == 1
         assert data["choices"][0]["message"]["content"] == "Test response"
 
     def test_chat_completion_high_priority(self, client, mock_queue_manager):
         payload = {
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "messages": [{"role": "user", "content": "Urgent!"}],
         }
 
@@ -146,7 +146,7 @@ class TestFastAPIApp:
         mock_queue_manager.submit = AsyncMock(side_effect=OllamaConnectionError("Cannot connect"))
 
         payload = {
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "messages": [{"role": "user", "content": "Hello!"}],
         }
 
@@ -158,7 +158,7 @@ class TestFastAPIApp:
         mock_queue_manager.submit = AsyncMock(side_effect=TimeoutError())
 
         payload = {
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "messages": [{"role": "user", "content": "Hello!"}],
         }
 
@@ -167,7 +167,7 @@ class TestFastAPIApp:
         assert response.status_code == 504
 
     def test_chat_completion_invalid_request(self, client):
-        payload = {"model": "qwen3:8b"}
+        payload = {"model": "qwen3.5:9b"}
 
         response = client.post("/v1/chat/completions", json=payload)
 
@@ -175,7 +175,7 @@ class TestFastAPIApp:
 
     def test_chat_completion_default_priority(self, client, mock_queue_manager):
         payload = {
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "messages": [{"role": "user", "content": "Hello!"}],
         }
 
@@ -188,7 +188,7 @@ class TestFastAPIApp:
     def test_chat_completion_with_complexity(self, client, mock_queue_manager):
         """Complexity parameter is accepted and processed."""
         payload = {
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "messages": [{"role": "user", "content": "Complex task"}],
         }
 
@@ -202,7 +202,7 @@ class TestFastAPIApp:
     def test_chat_completion_without_complexity(self, client, mock_queue_manager):
         """Requests without complexity still work (backward compat)."""
         payload = {
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "messages": [{"role": "user", "content": "Simple task"}],
         }
 
@@ -216,7 +216,7 @@ class TestFastAPIApp:
     def test_chat_completion_with_ultra_complexity(self, client, mock_queue_manager):
         """Ultra complexity parameter is accepted and processed."""
         payload = {
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "messages": [{"role": "user", "content": "Precision task"}],
         }
 
@@ -238,15 +238,15 @@ class TestOriginMiddleware:
         registry.default_backend = "local"
         registry.health_check_all = AsyncMock(return_value={"local": True})
         registry.get_client = MagicMock()
-        registry.get_model = MagicMock(return_value="qwen3:8b")
+        registry.get_model = MagicMock(return_value="qwen3.5:9b")
         registry.get_backend_info = MagicMock(
             return_value={
-                "local": {"type": "ollama", "model": "qwen3:8b"},
+                "local": {"type": "ollama", "model": "qwen3.5:9b"},
             }
         )
         mock_client = AsyncMock()
         mock_client.health_check = AsyncMock(return_value=True)
-        mock_client.list_models = AsyncMock(return_value=["qwen3:8b"])
+        mock_client.list_models = AsyncMock(return_value=["qwen3.5:9b"])
         registry.get_client.return_value = mock_client
         return registry
 
@@ -301,7 +301,7 @@ class TestOriginMiddleware:
     def test_external_origin_rejected_on_post(self, client):
         """POST requests with external origin are also rejected."""
         payload = {
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "messages": [{"role": "user", "content": "Hello!"}],
         }
         response = client.post(

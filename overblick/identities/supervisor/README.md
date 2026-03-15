@@ -166,7 +166,7 @@ Includes **trend analysis** (last 5 audits) and **prompt tweak recommendations**
 ```yaml
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.3  # Low — consistency over creativity
 
   security:

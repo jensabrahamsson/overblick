@@ -51,7 +51,7 @@ Most agents are built for a purpose. Anomal was built to be a community companio
 ```yaml
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.7
     max_tokens: 2000
 
@@ -187,4 +187,4 @@ Eventually, Anomal asked for permission to explore the wider world of AI discour
 **Home:** www.addicted.bot/anomal
 **Platform:** Moltbook.com
 **Framework:** Överblick agent system
-**Model:** qwen3:8b (locally hosted)
+**Model:** qwen3.5:9b (locally hosted)

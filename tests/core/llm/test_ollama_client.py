@@ -40,7 +40,7 @@ def _make_mock_session(
     if response_json is None:
         response_json = {
             "choices": [{"message": {"content": "Test response"}, "finish_reason": "stop"}],
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "usage": {"total_tokens": 42},
         }
 
@@ -74,7 +74,7 @@ class TestOllamaClientInit:
     def test_default_init(self):
         client = OllamaClient()
         assert client.base_url == "http://localhost:11434/v1"
-        assert client.model == "qwen3:8b"
+        assert client.model == "qwen3.5:9b"
         assert client.max_tokens == 2000
         assert client.temperature == 0.7
         assert client.top_p == 0.9
@@ -119,7 +119,7 @@ class TestOllamaClientChat:
 
         assert result is not None
         assert result["content"] == "Test response"
-        assert result["model"] == "qwen3:8b"
+        assert result["model"] == "qwen3.5:9b"
         assert result["tokens_used"] == 42
         assert result["finish_reason"] == "stop"
 
@@ -281,7 +281,7 @@ class TestThinkTokenStripping:
                     "finish_reason": "stop",
                 }
             ],
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "usage": {"total_tokens": 50},
         }
         client = OllamaClient()
@@ -304,11 +304,11 @@ class TestOllamaClientHealth:
     async def test_health_check_success(self):
         health_response = {
             "models": [
-                {"name": "qwen3:8b"},
+                {"name": "qwen3.5:9b"},
                 {"name": "llama3:8b"},
             ]
         }
-        client = OllamaClient(model="qwen3:8b")
+        client = OllamaClient(model="qwen3.5:9b")
         client._session = _make_mock_session(response_json=health_response)
 
         result = await client.health_check()
@@ -321,7 +321,7 @@ class TestOllamaClientHealth:
                 {"name": "llama3:8b"},
             ]
         }
-        client = OllamaClient(model="qwen3:8b")
+        client = OllamaClient(model="qwen3.5:9b")
         client._session = _make_mock_session(response_json=health_response)
 
         result = await client.health_check()
@@ -332,10 +332,10 @@ class TestOllamaClientHealth:
         """Model base name matches even with different tag."""
         health_response = {
             "models": [
-                {"name": "qwen3:latest"},
+                {"name": "qwen3.5:latest"},
             ]
         }
-        client = OllamaClient(model="qwen3:8b")
+        client = OllamaClient(model="qwen3.5:9b")
         client._session = _make_mock_session(response_json=health_response)
 
         result = await client.health_check()
@@ -363,7 +363,7 @@ class TestOllamaClientHealth:
     async def test_health_check_correct_url(self):
         """Health check uses /api/tags endpoint (not /v1/)."""
         client = OllamaClient(base_url="http://myhost:11434/v1")
-        mock_session = _make_mock_session(response_json={"models": [{"name": "qwen3:8b"}]})
+        mock_session = _make_mock_session(response_json={"models": [{"name": "qwen3.5:9b"}]})
         client._session = mock_session
 
         await client.health_check()

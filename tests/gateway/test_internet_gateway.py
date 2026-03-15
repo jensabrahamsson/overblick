@@ -72,7 +72,7 @@ def mock_upstream_response():
         "id": "chatcmpl-test123",
         "object": "chat.completion",
         "created": int(time.time()),
-        "model": "qwen3:8b",
+        "model": "qwen3.5:9b",
         "choices": [
             {
                 "index": 0,
@@ -153,7 +153,7 @@ class TestAuthentication:
     def test_no_auth_returns_401(self, client: TestClient):
         response = client.post(
             "/v1/chat/completions",
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
         assert response.status_code == 401
         data = response.json()
@@ -163,7 +163,7 @@ class TestAuthentication:
         response = client.post(
             "/v1/chat/completions",
             headers={"Authorization": "Bearer sk-ob-invalidinvalidinvalidinvalidin"},
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
         assert response.status_code == 401
 
@@ -187,7 +187,7 @@ class TestAuthentication:
             "/v1/chat/completions",
             headers=headers,
             json={
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "messages": [{"role": "user", "content": "hello"}],
             },
         )
@@ -200,7 +200,7 @@ class TestAuthentication:
         response = client.post(
             "/v1/chat/completions",
             headers={"Authorization": raw_key},
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
         assert response.status_code == 401
 
@@ -238,14 +238,14 @@ class TestChatCompletions:
             "/v1/chat/completions",
             headers=headers,
             json={
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "messages": [{"role": "user", "content": "hello"}],
             },
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["model"] == "qwen3:8b"
+        assert data["model"] == "qwen3.5:9b"
         assert data["choices"][0]["message"]["content"] == "Hello!"
 
     def test_max_tokens_clamped(
@@ -267,7 +267,7 @@ class TestChatCompletions:
             "/v1/chat/completions",
             headers=headers,
             json={
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "messages": [{"role": "user", "content": "hello"}],
                 "max_tokens": 32000,  # over key cap (4096) but within Pydantic limit
             },
@@ -297,7 +297,7 @@ class TestChatCompletions:
             "/v1/chat/completions",
             headers=headers,
             json={
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "messages": [{"role": "user", "content": "hi"}],
                 "unknown_field": "malicious",
             },
@@ -311,7 +311,7 @@ class TestChatCompletions:
     ):
         raw_key, record = key_manager.create_key(
             name="restricted",
-            allowed_models=["qwen3:8b"],
+            allowed_models=["qwen3.5:9b"],
         )
         headers = {"Authorization": f"Bearer {raw_key}"}
 
@@ -343,7 +343,7 @@ class TestChatCompletions:
         response = client.post(
             "/v1/chat/completions",
             headers=headers,
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
         assert response.status_code == 502
         # Must not leak internal details
@@ -364,7 +364,7 @@ class TestChatCompletions:
         response = client.post(
             "/v1/chat/completions",
             headers=headers,
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
         assert response.status_code == 502
 
@@ -381,7 +381,7 @@ class TestChatCompletions:
         response = client.post(
             "/v1/chat/completions",
             headers=headers,
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
         assert response.status_code == 504
 
@@ -412,7 +412,7 @@ class TestRateLimiting:
         r1 = client.post(
             "/v1/chat/completions",
             headers=headers,
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
         assert r1.status_code == 200
 
@@ -420,7 +420,7 @@ class TestRateLimiting:
         r2 = client.post(
             "/v1/chat/completions",
             headers=headers,
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
         assert r2.status_code == 429
         assert "Retry-After" in r2.headers
@@ -518,7 +518,7 @@ class TestAuditLogging:
         client.post(
             "/v1/chat/completions",
             headers=headers,
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
 
         # Give the async write a moment (it's fire-and-forget)
@@ -540,7 +540,7 @@ class TestAuditLogging:
         client.post(
             "/v1/chat/completions",
             headers={"Authorization": "Bearer sk-ob-invalidinvalidinvalidinvalidin"},
-            json={"model": "qwen3:8b", "messages": [{"role": "user", "content": "hi"}]},
+            json={"model": "qwen3.5:9b", "messages": [{"role": "user", "content": "hi"}]},
         )
 
         import time

@@ -27,7 +27,7 @@ class TestGatewayConfig:
         config = GatewayConfig()
         assert config.ollama_host == "127.0.0.1"
         assert config.ollama_port == 11434
-        assert config.default_model == "qwen3:8b"
+        assert config.default_model == "qwen3.5:9b"
         assert config.max_queue_size == 100
         assert config.max_concurrent_requests == 1
         assert config.api_port == 8200

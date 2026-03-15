@@ -73,7 +73,7 @@ class Identity(BaseModel):
 class LLMSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
-    model: str = "qwen3:8b"
+    model: str = "qwen3.5:9b"
     temperature: float = 0.7
     top_p: float = 0.9
     max_tokens: int = 2000
@@ -146,7 +146,7 @@ identity.voice["base_tone"]          # "Sharp, aggressive, punk energy"
 identity.get_trait("openness")       # 0.85
 identity.get_banned_words()          # ["synergy", "leverage", ...]
 identity.llm.temperature             # 0.7
-identity.llm.model                   # "qwen3:8b"
+identity.llm.model                   # "qwen3.5:9b"
 identity.llm.provider                # "ollama"
 identity.schedule.heartbeat_hours    # 4
 identity.security.enable_preflight   # True

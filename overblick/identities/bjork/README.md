@@ -56,7 +56,7 @@ Bjork does not rush. Ever. In a world of hot takes and instant reactions, Bjork 
 ```yaml
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.65
     max_tokens: 800
 

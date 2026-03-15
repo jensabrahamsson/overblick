@@ -147,7 +147,7 @@ class TestOnboardingStep2:
             "/onboard",
             data={
                 "step": "2",
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": "0.7",
                 "max_tokens": "2000",
                 "provider": "ollama",
@@ -167,7 +167,7 @@ class TestOnboardingStep2:
             "/onboard",
             data={
                 "step": "2",
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": "not_a_number",
                 "max_tokens": "2000",
                 "provider": "ollama",
@@ -344,7 +344,7 @@ class TestOnboardingWizardState:
             "/onboard",
             data={
                 "step": "2",
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": "0.7",
                 "max_tokens": "2000",
                 "provider": "ollama",
@@ -439,7 +439,7 @@ class TestOnboardingChat:
             "/onboard",
             data={
                 "step": "2",
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": "0.7",
                 "max_tokens": "2000",
                 "provider": "ollama",
@@ -487,7 +487,7 @@ class TestOnboardingChat:
             "/onboard",
             data={
                 "step": "2",
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": "0.7",
                 "max_tokens": "2000",
                 "provider": "ollama",

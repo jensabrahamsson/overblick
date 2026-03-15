@@ -71,11 +71,11 @@ class TestSetupLoadsPlugins:
 
         with (
             patch.object(orch, "_registry") as mock_registry,
-            patch("overblick.core.orchestrator.load_identity", return_value=identity),
-            patch("overblick.core.orchestrator.SecretsManager"),
-            patch("overblick.core.orchestrator.AuditLog") as mock_audit_cls,
-            patch("overblick.core.orchestrator.SQLiteBackend") as mock_db_cls,
-            patch("overblick.core.orchestrator.EngagementDB") as mock_eng_cls,
+            patch("overblick.core.orchestrator_bootstrap.load_identity", return_value=identity),
+            patch("overblick.core.orchestrator_bootstrap.SecretsManager"),
+            patch("overblick.core.orchestrator_bootstrap.AuditLog") as mock_audit_cls,
+            patch("overblick.core.orchestrator_bootstrap.SQLiteBackend") as mock_db_cls,
+            patch("overblick.core.orchestrator_bootstrap.EngagementDB") as mock_eng_cls,
             patch.object(orch, "_create_llm_client", new_callable=AsyncMock),
             patch.object(orch, "_setup_capabilities", new_callable=AsyncMock),
             patch.object(orch, "_create_ipc_client", return_value=None),
@@ -115,11 +115,11 @@ class TestSetupInitializesCapabilities:
 
         with (
             patch.object(orch, "_registry") as mock_registry,
-            patch("overblick.core.orchestrator.load_identity", return_value=identity),
-            patch("overblick.core.orchestrator.SecretsManager"),
-            patch("overblick.core.orchestrator.AuditLog") as mock_audit_cls,
-            patch("overblick.core.orchestrator.SQLiteBackend") as mock_db_cls,
-            patch("overblick.core.orchestrator.EngagementDB") as mock_eng_cls,
+            patch("overblick.core.orchestrator_bootstrap.load_identity", return_value=identity),
+            patch("overblick.core.orchestrator_bootstrap.SecretsManager"),
+            patch("overblick.core.orchestrator_bootstrap.AuditLog") as mock_audit_cls,
+            patch("overblick.core.orchestrator_bootstrap.SQLiteBackend") as mock_db_cls,
+            patch("overblick.core.orchestrator_bootstrap.EngagementDB") as mock_eng_cls,
             patch.object(orch, "_create_llm_client", new_callable=AsyncMock),
             patch.object(orch, "_setup_capabilities", new_callable=AsyncMock) as mock_cap,
             patch.object(orch, "_create_ipc_client", return_value=None),
@@ -192,11 +192,11 @@ class TestPluginExceptionLogged:
 
         with (
             patch.object(orch, "_registry") as mock_registry,
-            patch("overblick.core.orchestrator.load_identity", return_value=identity),
-            patch("overblick.core.orchestrator.SecretsManager"),
-            patch("overblick.core.orchestrator.AuditLog") as mock_audit_cls,
-            patch("overblick.core.orchestrator.SQLiteBackend") as mock_db_cls,
-            patch("overblick.core.orchestrator.EngagementDB") as mock_eng_cls,
+            patch("overblick.core.orchestrator_bootstrap.load_identity", return_value=identity),
+            patch("overblick.core.orchestrator_bootstrap.SecretsManager"),
+            patch("overblick.core.orchestrator_bootstrap.AuditLog") as mock_audit_cls,
+            patch("overblick.core.orchestrator_bootstrap.SQLiteBackend") as mock_db_cls,
+            patch("overblick.core.orchestrator_bootstrap.EngagementDB") as mock_eng_cls,
             patch.object(orch, "_create_llm_client", new_callable=AsyncMock),
             patch.object(orch, "_setup_capabilities", new_callable=AsyncMock),
             patch.object(orch, "_create_ipc_client", return_value=None),
@@ -239,6 +239,7 @@ class TestPluginExceptionLogged:
                 for c in mock_audit.log.call_args_list
                 if len(c.args) > 0 and c.args[0] == "plugin_load_failed"
             ]
+            print(f"DEBUG: filtered fail_calls: {fail_calls}")
             assert len(fail_calls) == 1
             # The working plugin should still be loaded
             assert len(orch._plugins) == 1

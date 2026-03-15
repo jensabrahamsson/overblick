@@ -1,5 +1,5 @@
 ################################################################################
-# Stål — LLM Scenario Tests (qwen3:8b)
+# Stål — LLM Scenario Tests (qwen3.5:9b)
 #
 # Tests email analysis, urgency classification, professional tone, delegation,
 # and multilingual competence.

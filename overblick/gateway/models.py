@@ -53,7 +53,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     """Request for chat completion, compatible with OpenAI format."""
 
-    model: str = Field(default="qwen3:8b", description="Model name to use")
+    model: str = Field(default="qwen3.5:9b", description="Model name to use")
     messages: list[ChatMessage] = Field(..., description="Conversation messages")
     max_tokens: int = Field(default=2000, ge=1, le=8192, description="Max tokens to generate")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
@@ -62,7 +62,7 @@ class ChatRequest(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "messages": [
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": "Hello!"},

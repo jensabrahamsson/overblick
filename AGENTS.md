@@ -63,7 +63,7 @@ python -m overblick chat blixt --temperature 0.9
 # Run tests (fast — excludes LLM and E2E browser tests)
 python -m pytest tests/ -v -m "not llm and not e2e"
 
-# Run LLM personality tests (requires Gateway + Ollama + qwen3:8b)
+# Run LLM personality tests (requires Gateway + Ollama + qwen3.5:9b)
 python -m pytest tests/ -v -s -m llm
 
 # Run slow LLM tests (multi-turn, forum posts)

@@ -227,7 +227,7 @@ parallel_examples:
 # Can also be placed in a separate identity.yaml in the same directory.
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.7
     max_tokens: 2000
     timeout_seconds: 180

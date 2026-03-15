@@ -20,7 +20,7 @@ def test_config() -> GatewayConfig:
     return GatewayConfig(
         ollama_host="127.0.0.1",
         ollama_port=11434,
-        default_model="qwen3:8b",
+        default_model="qwen3.5:9b",
         max_queue_size=10,
         request_timeout_seconds=30.0,
         max_concurrent_requests=1,
@@ -33,7 +33,7 @@ def test_config() -> GatewayConfig:
 def sample_request() -> ChatRequest:
     """Create a sample chat request."""
     return ChatRequest(
-        model="qwen3:8b",
+        model="qwen3.5:9b",
         messages=[
             ChatMessage(role="system", content="You are a helpful assistant."),
             ChatMessage(role="user", content="Hello!"),
@@ -47,7 +47,7 @@ def sample_request() -> ChatRequest:
 def sample_response() -> ChatResponse:
     """Create a sample chat response."""
     return ChatResponse.from_message(
-        model="qwen3:8b",
+        model="qwen3.5:9b",
         content="Hello! How can I help you today?",
         usage={"prompt_tokens": 15, "completion_tokens": 10, "total_tokens": 25},
     )
@@ -58,7 +58,7 @@ def mock_ollama_client(sample_response: ChatResponse) -> AsyncMock:
     """Create a mock Ollama client."""
     client = AsyncMock(spec=OllamaClient)
     client.health_check.return_value = True
-    client.list_models.return_value = ["qwen3:8b"]
+    client.list_models.return_value = ["qwen3.5:9b"]
     client.chat_completion.return_value = sample_response
     client.close.return_value = None
     return client

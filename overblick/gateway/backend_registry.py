@@ -181,7 +181,7 @@ class BackendRegistry:
         bcfg = self._backend_configs.get(name)
         if bcfg:
             return bcfg.model
-        return "qwen3:8b"
+        return "qwen3.5:9b"
 
     @property
     def default_backend(self) -> str:

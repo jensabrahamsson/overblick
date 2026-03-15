@@ -109,7 +109,7 @@ Client for the LLM Gateway service using **aiohttp**. Adds gateway-specific feat
 ```python
 client = GatewayClient(
     base_url="http://127.0.0.1:8200",
-    model="qwen3:8b",
+    model="qwen3.5:9b",
     default_priority="low",
     top_p=0.9,
 )

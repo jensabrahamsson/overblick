@@ -167,7 +167,7 @@ async def onboard_submit(request: Request):
     elif step_name == "llm":
         try:
             data = OnboardingLLMForm(
-                model=form.get("model", "qwen3:8b"),
+                model=form.get("model", "qwen3.5:9b"),
                 temperature=float(form.get("temperature", "0.7")),
                 max_tokens=int(form.get("max_tokens", "2000")),
                 provider=form.get("provider", "ollama"),

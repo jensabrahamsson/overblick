@@ -56,11 +56,11 @@
                 <span class="review-value">
                     {% if local.get('enabled') %}
                     <span class="badge badge-green">Local</span>
-                    <span class="mono" class="review-model-name">{{ local.get('model', 'qwen3:8b') }}</span>
+                    <span class="mono" class="review-model-name">{{ local.get('model', 'qwen3.5:9b') }}</span>
                     {% endif %}
                     {% if cloud_cfg.get('enabled') %}
                     <span class="badge badge-green" class="review-badge-ml">Cloud</span>
-                    <span class="mono" class="review-model-name">{{ cloud_cfg.get('model', 'qwen3:8b') }}</span>
+                    <span class="mono" class="review-model-name">{{ cloud_cfg.get('model', 'qwen3.5:9b') }}</span>
                     {% endif %}
                     {% if deepseek.get('enabled') %}
                     <span class="badge badge-green" class="review-badge-ml">Deepseek</span>

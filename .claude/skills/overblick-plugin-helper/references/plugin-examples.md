@@ -219,7 +219,7 @@ def telegram_identity():
         display_name="Test",
         description="Test identity for Telegram plugin",
         engagement_threshold=35,
-        llm=LLMSettings(model="qwen3:8b", temperature=0.7, max_tokens=500),
+        llm=LLMSettings(model="qwen3.5:9b", temperature=0.7, max_tokens=500),
         quiet_hours=QuietHoursSettings(enabled=True, start_hour=21, end_hour=7),
         schedule=ScheduleSettings(heartbeat_hours=4, feed_poll_minutes=5),
         security=SecuritySettings(enable_preflight=True, enable_output_safety=True),
