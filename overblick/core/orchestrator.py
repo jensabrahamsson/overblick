@@ -39,6 +39,7 @@ from overblick.core.plugin_base import (
     PluginContext,
 )
 from overblick.core.plugin_capability_checker import PluginCapabilityChecker
+from overblick.core.plugin_loader import PluginLoader
 from overblick.core.plugin_registry import PluginRegistry
 from overblick.core.quiet_hours import QuietHoursChecker
 from overblick.core.scheduler import Scheduler
@@ -154,6 +155,7 @@ class Orchestrator:
         """
         assert self._services.secrets is not None, "Secrets manager must be initialized"
         assert self._services.audit_log is not None, "Audit log must be initialized"
+        assert self._services.identity is not None, "Identity must be loaded"
 
         context_class = self._PLUGIN_ROLES.get(plugin_name, DefaultPluginContext)
 
@@ -168,17 +170,17 @@ class Orchestrator:
             quiet_hours_checker=self._services.quiet_hours,
             llm_pipeline=self._services.llm_pipeline,
             identity=self._services.identity,
-            preflight=self._services.preflight,
-            output_safety=self._services.output_safety,
-            rate_limiter=self._services.rate_limiter,
-            permissions=self._services.permissions,
-            policy_gate=self._services.policy_gate,
-            ipc_client=self._services.ipc_client,
-            engagement_db=self._services.engagement_db,
-            learning_store=self._services.learning_store,
+            preflight=self._services.preflight,  # type: ignore
+            output_safety=self._services.output_safety,  # type: ignore
+            rate_limiter=self._services.rate_limiter,  # type: ignore
+            permissions=self._services.permissions,  # type: ignore
+            policy_gate=self._services.policy_gate,  # type: ignore
+            ipc_client=self._services.ipc_client,  # type: ignore
+            engagement_db=self._services.engagement_db,  # type: ignore
+            learning_store=self._services.learning_store,  # type: ignore
             get_secret=self._services.secrets.get_secret
-            if self._services.secrets
-            else lambda x: None,
+            if self._services.secrets is not None
+            else lambda x: None,  # type: ignore
         )
         return ctx
 
@@ -187,17 +189,23 @@ class Orchestrator:
         try:
             # Try to load local plugins via component factory first
             if self._factory:
-                self._factory.register_local_plugins(self._services.registry)
+                try:
+                    self._factory.register_local_plugins(self._services.registry)  # type: ignore
+                except AttributeError:
+                    pass  # fallback to manual registration
                 return
-
-            # Fallback: manual registration
-            from overblick.plugins._local import register_local_plugins
-
-            register_local_plugins(self._services.registry)
-        except ImportError:
-            logger.debug("No local plugins found or registered.")
         except Exception as e:
             logger.warning("Failed to register local plugins: %s", e)
+
+            # Fallback: manual registration
+            try:
+                from overblick.plugins._local import register_local_plugins
+
+                register_local_plugins(self._services.registry)
+            except ImportError:
+                logger.debug("No local plugins found or registered.")
+            except Exception as e:
+                logger.warning("Failed to register local plugins: %s", e)
 
     async def setup(self) -> None:
         """Initialize orchestrator and all dependencies."""
@@ -220,65 +228,21 @@ class Orchestrator:
 
         self._runtime_state.control_file = self._paths.data_dir / "plugin_control.json"
 
-        # Load plugins
-        await self._load_plugins()
+        # Load plugins via PluginLoader
+        loader = PluginLoader(
+            identity_name=self._identity_name,
+            identity=self._services.identity,
+            services=self._services,
+            runtime_state=self._runtime_state,
+            paths=self._paths,
+        )
+        # Load plugins via PluginLoader
+        if self._services.identity is not None:
+            self._runtime_state.plugins = await loader.load_all(self._plugin_names)
+        else:
+            logger.warning("No identity loaded — skipping plugin loading")
 
         logger.info("Orchestrator setup completed")
-
-    async def _load_plugins(self) -> None:
-        """Load and initialize all requested plugins."""
-        if not self._plugin_names:
-            logger.warning("No plugins configured for %s", self._identity_name)
-            return
-
-        # Resolve requested plugins (identity + constructor)
-        plugin_names = self._resolve_requested_plugins()
-
-        # Validate plugin names against registry
-        for name in plugin_names:
-            if not self._services.registry.is_known(name):
-                raise ConfigError(f"Plugin '{name}' is not registered or not allowed")
-
-        # Build contexts and load plugins
-        for name in plugin_names:
-            try:
-                ctx = self._create_plugin_context(
-                    plugin_name=name,
-                    data_dir=self._paths.data_dir,
-                    log_dir=self._paths.log_dir,
-                    permissions=self._services.permissions,
-                    capability_checker=self._services.capability_checker,
-                )
-
-                plugin_cls = self._services.registry.load_plugin(name)
-                plugin = plugin_cls(ctx)
-
-                # Run setup
-                await plugin.setup()
-
-                # Store plugin
-                self._runtime_state.plugins.append(plugin)
-                logger.info("Loaded plugin: %s", name)
-
-            except Exception as e:
-                logger.error("Failed to load plugin '%s': %s", name, e)
-                self._services.audit_log.log(
-                    action="plugin_load_failed",
-                    details={"plugin": name, "error": str(e)},
-                )
-                raise
-
-    def _resolve_requested_plugins(self) -> list[str]:
-        """Resolve final list of plugins to load (constructor + identity config)."""
-        # Start with constructor-provided plugins
-        plugins = list(self._plugin_names)
-
-        # Add identity-configured plugins
-        if self._services.identity:
-            identity_plugins = self._services.identity.raw_config.get("plugins", [])
-            plugins.extend([p for p in identity_plugins if p not in plugins])
-
-        return plugins
 
     async def run(self) -> None:
         """Start the orchestrator's main loop."""
