@@ -1,10 +1,18 @@
 """Tests for quiet hours checker."""
 
+import sys
 from datetime import datetime
 from unittest.mock import patch
 
+import pytest
+
 from overblick.core.quiet_hours import QuietHoursChecker
 from overblick.identities import QuietHoursSettings
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="ZoneInfo('Europe/Stockholm') requires tzdata package on Windows",
+)
 
 
 class TestQuietHoursChecker:

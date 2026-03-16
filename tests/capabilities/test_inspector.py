@@ -13,6 +13,7 @@ Covers all uncovered lines:
 - _parse_size_to_gb: various units including Gi, Ti, no suffix, empty, "0"
 """
 
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -109,6 +110,7 @@ class TestRunCommand:
 # ── HostInspectionCapability tests ─────────────────────────────────────────
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.getloadavg not available on Windows")
 class TestInspectLinux:
     @pytest.mark.asyncio
     async def test_should_collect_health_on_linux(self):
@@ -171,6 +173,7 @@ class TestInspectLinux:
         assert any("uptime" in e for e in health.errors)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.getloadavg not available on Windows")
 class TestInspectDarwin:
     @pytest.mark.asyncio
     async def test_should_collect_health_on_darwin_with_power(self):
@@ -338,6 +341,7 @@ class TestCollectMemoryMacos:
 # ── CPU collection tests ──────────────────────────────────────────────────
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.getloadavg not available on Windows")
 class TestCollectCPU:
     @pytest.mark.asyncio
     async def test_should_handle_os_error_on_getloadavg(self):
