@@ -100,7 +100,6 @@ class Orchestrator:
         self._identity_name = identity_name
         self._base_dir = base_dir or Path(__file__).parent.parent.parent
         self._plugin_names = plugins or []
-        self._state = OrchestratorState.INIT
 
         # Dependency injection for testing
         self._factory = factory
@@ -127,6 +126,64 @@ class Orchestrator:
     @property
     def identity(self) -> Identity | None:
         return self._services.identity
+
+    # --- Backward-compatible attribute proxies ---
+
+    @property
+    def _identity(self) -> Identity | None:
+        return self._services.identity
+
+    @_identity.setter
+    def _identity(self, value: Identity | None) -> None:
+        self._services.identity = value
+
+    @property
+    def _plugins(self) -> list:
+        return self._runtime_state.plugins
+
+    @_plugins.setter
+    def _plugins(self, value: list) -> None:
+        self._runtime_state.plugins = value
+
+    @property
+    def _llm_client(self):
+        return self._services.llm_client
+
+    @_llm_client.setter
+    def _llm_client(self, value) -> None:
+        self._services.llm_client = value
+
+    @property
+    def _audit_log(self):
+        return self._services.audit_log
+
+    @_audit_log.setter
+    def _audit_log(self, value) -> None:
+        self._services.audit_log = value
+
+    @property
+    def _engagement_db_backend(self):
+        return self._services.engagement_db_backend
+
+    @_engagement_db_backend.setter
+    def _engagement_db_backend(self, value) -> None:
+        self._services.engagement_db_backend = value
+
+    @property
+    def _registry(self):
+        return self._services.registry
+
+    @_registry.setter
+    def _registry(self, value) -> None:
+        self._services.registry = value
+
+    @property
+    def _state(self) -> OrchestratorState:
+        return self._runtime_state.lifecycle_state
+
+    @_state.setter
+    def _state(self, value: OrchestratorState) -> None:
+        self._runtime_state.lifecycle_state = value
 
     async def _create_components_via_factory(self) -> dict[str, Any]:
         """Create all components using the factory (if available)."""
@@ -250,12 +307,18 @@ class Orchestrator:
             await self.setup()
             self._runtime_state.lifecycle_state = OrchestratorState.RUNNING
 
+            from overblick.core.plugin_run_controller import PluginRunController
+
+            run_controller = PluginRunController(
+                control_file=self._runtime_state.control_file,
+            )
+
             self._runtime = OrchestratorRuntime(
                 identity_name=self._identity_name,
                 services=self._services,
                 runtime_state=self._runtime_state,
                 on_stop_requested=lambda: self.stop(),
-                run_controller=None,  # Will be injected later
+                run_controller=run_controller,
             )
 
             await self._runtime.run()
@@ -286,29 +349,76 @@ class Orchestrator:
         self._runtime_state.lifecycle_state = OrchestratorState.STOPPED
         logger.info("Orchestrator stopped")
 
-    def _is_plugin_stopped(self, plugin_name: str) -> bool:
-        """Check if a plugin is stopped via control file."""
-        if not self._runtime_state.control_file or not self._runtime_state.control_file.exists():
-            return False
+    async def _create_llm_client(self) -> Any:
+        """Create LLM client — all agents route through the LLM Gateway."""
+        from overblick.core.llm.gateway_client import GatewayClient
 
-        # Use cache for performance
-        now = time.time()
-        if (
-            self._runtime_state.control_cache_ts > 0
-            and now - self._runtime_state.control_cache_ts < 2.0
-        ):
-            return self._runtime_state.control_cache.get(plugin_name, "false") == "true"
+        assert self._services.identity is not None, "Identity must be loaded before creating LLM client"
+
+        llm_cfg = self._services.identity.llm
+        gateway_url = llm_cfg.gateway_url or "http://127.0.0.1:8200"
+
+        with GatewayClient._instantiation_allowed():
+            client = GatewayClient(
+                base_url=gateway_url,
+                model=llm_cfg.model,
+                default_priority="low",
+                max_tokens=llm_cfg.max_tokens,
+                temperature=llm_cfg.temperature,
+                top_p=llm_cfg.top_p,
+                timeout_seconds=llm_cfg.timeout_seconds,
+            )
+
+        if await client.health_check():
+            logger.info("Connected to LLM Gateway at %s (model: %s)", gateway_url, llm_cfg.model)
+        else:
+            logger.warning(
+                "LLM Gateway not reachable at %s — agent may have limited functionality",
+                gateway_url,
+            )
+
+        return client
+
+    def _create_ipc_client(self) -> object | None:
+        """Create IPC client searching for supervisor token in standard locations."""
+        import os
+        import tempfile
+
+        token_name = "overblick-supervisor.token"
+        search_dirs: list[Path] = []
+
+        env_dir = os.environ.get("OVERBLICK_IPC_DIR")
+        if env_dir:
+            search_dirs.append(Path(env_dir))
+
+        search_dirs.append(self._base_dir / "data" / "ipc")
+        search_dirs.append(Path(tempfile.gettempdir()) / "overblick")
+
+        socket_dir = None
+        token_path = None
+        for candidate in search_dirs:
+            tp = candidate / token_name
+            if tp.exists():
+                socket_dir = candidate
+                token_path = tp
+                logger.debug("Supervisor token found at %s", tp)
+                break
+
+        if not token_path:
+            logger.debug("No supervisor token found — running in standalone mode")
+            return None
 
         try:
-            with open(self._runtime_state.control_file, "r") as f:
-                data = json.load(f)
-                value = data.get(plugin_name, "false")
-                self._runtime_state.control_cache[plugin_name] = value
-                self._runtime_state.control_cache_ts = now
-                return value == "true"
-        except (json.JSONDecodeError, FileNotFoundError, OSError):
-            return False
+            from overblick.supervisor.ipc import IPCClient, read_ipc_token
 
-
-# Import time here to avoid circular import at module level
-import time
+            auth_token = read_ipc_token(socket_dir=socket_dir)
+            client = IPCClient(
+                target="supervisor",
+                socket_dir=socket_dir,
+                auth_token=auth_token,
+            )
+            logger.info("IPC client created — supervisor communication enabled")
+            return client
+        except Exception as e:
+            logger.warning("Failed to create IPC client: %s", e)
+            return None

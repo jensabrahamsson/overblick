@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from overblick.core.capability import PermissionChecker
+from overblick.core.permissions import PermissionChecker
 from overblick.core.plugin_base import (
     AgenticPluginContext,
     CommunicationPluginContext,

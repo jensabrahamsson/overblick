@@ -113,11 +113,12 @@ class PluginLoader:
 
             except Exception as e:
                 logger.error("Failed to load plugin '%s': %s", name, e)
-                self._services.audit_log.log(
-                    action="plugin_load_failed",
-                    details={"plugin": name, "error": str(e)},
-                )
-                raise
+                if self._services.audit_log:
+                    self._services.audit_log.log(
+                        "plugin_load_failed",
+                        details={"plugin": name, "error": str(e)},
+                    )
+                # Continue loading remaining plugins (resilient)
 
         return plugins
 

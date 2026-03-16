@@ -130,6 +130,18 @@ class OrchestratorBootstrap:
             raw_config=self._services.identity.raw_config,
         )
 
+        # 8b. Create policy gate
+        from overblick.core.security.policy_gate import PolicyGate
+        self._services.policy_gate = PolicyGate(
+            identity_name=self._identity_name,
+            permission_checker=self._services.permissions,
+            capability_checker=self._services.capability_checker,
+            llm_pipeline=self._services.llm_pipeline,
+            preflight_checker=self._services.preflight,
+            output_safety=self._services.output_safety,
+            rate_limiter=self._services.rate_limiter,
+        )
+
         # 9. Run resource setup pipeline
         resource_setup = ResourceSetup(
             services=self._services,
@@ -147,28 +159,85 @@ class OrchestratorBootstrap:
             paths=paths,
         )
 
-    # --- Helper methods (copied from orchestrator.py) ---
+    # --- Helper methods ---
+
     async def _create_llm_client(self) -> Any:
-        # This is a stub — real implementation lives in orchestrator.py
-        # We keep it here for compatibility during transition
-        raise NotImplementedError("_create_llm_client must be implemented by Orchestrator")
+        """Create LLM client — routes through GatewayClient."""
+        from overblick.core.llm.gateway_client import GatewayClient
+
+        assert self._services.identity is not None, "Identity must be loaded before creating LLM client"
+        llm_cfg = self._services.identity.llm
+        gateway_url = llm_cfg.gateway_url or "http://127.0.0.1:8200"
+
+        with GatewayClient._instantiation_allowed():
+            client = GatewayClient(
+                base_url=gateway_url,
+                model=llm_cfg.model,
+                default_priority="low",
+                max_tokens=llm_cfg.max_tokens,
+                temperature=llm_cfg.temperature,
+                top_p=llm_cfg.top_p,
+                timeout_seconds=llm_cfg.timeout_seconds,
+            )
+
+        if await client.health_check():
+            logger.info("Connected to LLM Gateway at %s (model: %s)", gateway_url, llm_cfg.model)
+        else:
+            logger.warning(
+                "LLM Gateway not reachable at %s — agent may have limited functionality",
+                gateway_url,
+            )
+
+        return client
 
     def _create_preflight(self) -> Any:
-        # This is a stub — real implementation lives in orchestrator.py
-        raise NotImplementedError("_create_preflight must be implemented by Orchestrator")
+        """Create preflight checker from identity security config."""
+        from overblick.core.security.preflight import PreflightChecker
+
+        assert self._services.identity is not None, "Identity must be loaded before creating preflight checker"
+        assert self._services.llm_client is not None, "LLM client must be initialized before creating preflight checker"
+
+        if not self._services.identity.security.enable_preflight:
+            logger.info("Preflight checker disabled by identity config")
+            return None
+
+        admin_ids = set(self._services.identity.security.admin_user_ids)
+        deflections = (
+            self._services.identity.deflections
+            if isinstance(self._services.identity.deflections, dict)
+            else {}
+        )
+
+        return PreflightChecker(
+            llm_client=self._services.llm_client,
+            admin_user_ids=admin_ids,
+            deflections=deflections,
+        )
 
     def _create_output_safety(self) -> Any:
-        # This is a stub — real implementation lives in orchestrator.py
-        raise NotImplementedError("_create_output_safety must be implemented by Orchestrator")
+        """Create output safety filter from identity config."""
+        from overblick.core.security.output_safety import OutputSafety
 
-    def _create_ipc_client(self) -> Any:
-        # This is a stub — real implementation lives in orchestrator.py
-        raise NotImplementedError("_create_ipc_client must be implemented by Orchestrator")
+        assert self._services.identity is not None, "Identity must be loaded before creating output safety"
 
-    async def _setup_capabilities(self) -> None:
-        # This is a stub — real implementation lives in orchestrator.py
-        raise NotImplementedError("_setup_capabilities must be implemented by Orchestrator")
+        if not self._services.identity.security.enable_output_safety:
+            logger.info("Output safety disabled by identity config")
+            return None
 
-    async def _setup_learning_store(self, data_dir: Path) -> None:
-        # This is a stub — real implementation lives in orchestrator.py
-        raise NotImplementedError("_setup_learning_store must be implemented by Orchestrator")
+        personality = self._services.identity.personality
+        banned_slang: list[str] = []
+        slang_replacements: dict[str, str] = {}
+        if personality:
+            vocab = personality.get("vocabulary", {})
+            banned_slang = [rf"\b{w}\b" for w in vocab.get("banned_words", [])]
+            slang_replacements = vocab.get("slang_replacements", {})
+
+        deflections = self._services.identity.deflections
+        deflection_list = deflections if isinstance(deflections, list) else []
+
+        return OutputSafety(
+            identity_name=self._identity_name,
+            banned_slang_patterns=banned_slang,
+            slang_replacements=slang_replacements,
+            deflections=deflection_list if deflection_list else None,
+        )
