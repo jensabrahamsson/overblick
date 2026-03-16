@@ -2,12 +2,18 @@
 
 import asyncio
 import sqlite3
+import sys
 import tempfile
 import time
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="SQLite file locking differs on Windows",
+)
 
 from overblick.gateway.inet_audit import InetAuditLog
 

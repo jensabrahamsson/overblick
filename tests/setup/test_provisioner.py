@@ -83,7 +83,9 @@ class TestProvisioner:
         assert config["llm"]["backends"]["local"]["type"] == "ollama"
         assert config["llm"]["backends"]["local"]["model"] == "qwen3:8b"
         assert config["llm"]["default_backend"] == "local"
-        assert "config/overblick.yaml" in result["created_files"]
+        # Normalize path separators for cross-platform compatibility
+        created = [f.replace("\\", "/") for f in result["created_files"]]
+        assert "config/overblick.yaml" in created
 
     def test_creates_data_directories(self, tmp_path: Path, wizard_state: dict):
         provision(tmp_path, wizard_state)

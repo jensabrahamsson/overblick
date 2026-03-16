@@ -2,10 +2,16 @@
 Tests for the GitHubAgentPlugin — lifecycle, configuration, status.
 """
 
+import sys
 import time
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="SQLite file locking and ZoneInfo differ on Windows",
+)
 
 from overblick.plugins.github.plugin import GitHubAgentPlugin
 
