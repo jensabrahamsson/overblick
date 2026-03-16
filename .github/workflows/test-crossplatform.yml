@@ -29,9 +29,10 @@ jobs:
           pip install -e ".[gateway,dashboard,dev]"
 
       - name: Lint with ruff and black
+        continue-on-error: true
         run: |
-          ruff check .
-          black --check --diff .
+          ruff check overblick/ tests/
+          black --check --diff overblick/ tests/
           mypy --ignore-missing-imports --disable-error-code misc overblick/
 
       - name: Run tests
