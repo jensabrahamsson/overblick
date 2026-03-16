@@ -13,7 +13,6 @@ Covers all uncovered lines:
 - _parse_size_to_gb: various units including Gi, Ti, no suffix, empty, "0"
 """
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -26,9 +25,7 @@ from overblick.capabilities.monitoring.models import (
     CPUInfo,
     HostHealth,
     MemoryInfo,
-    PowerInfo,
 )
-
 
 # ── _run_command tests ─────────────────────────────────────────────────────
 

@@ -2,8 +2,6 @@
 
 from unittest.mock import patch
 
-import pytest
-
 from overblick.plugins.moltbook.arithmetic_solver import (
     _compute,
     _detect_operation,

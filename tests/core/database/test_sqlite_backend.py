@@ -1,7 +1,7 @@
 """Tests for sqlite_backend.py — cover close() error path and fetch_scalar None."""
 
 import sqlite3
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

@@ -1,7 +1,6 @@
 """Tests for the /polymarket dashboard route."""
 
 import json
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -392,7 +391,7 @@ class TestLoadPolymarketData:
 
     def test_load_with_both_states(self, tmp_path, monkeypatch):
         """Loading data with both monitor and trader states works correctly."""
-        from datetime import UTC, datetime, timedelta
+        from datetime import UTC, datetime
 
         from overblick.dashboard.routes.polymarket_dash import _load_polymarket_data
 

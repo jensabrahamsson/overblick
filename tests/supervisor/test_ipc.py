@@ -411,7 +411,7 @@ class TestReadIPCToken:
     def test_read_token_from_encrypted_file(self, tmp_path):
         """Token can be written encrypted and read back."""
         token = generate_ipc_token()
-        srv = IPCServer(name="read_test", socket_dir=tmp_path, auth_token=token)
+        IPCServer(name="read_test", socket_dir=tmp_path, auth_token=token)
         # The server writes encrypted token on start; simulate by calling
         # the internal write mechanism via start/stop
         # Instead, test read_ipc_token with a known token
@@ -529,7 +529,7 @@ class TestTCPTransport:
                     tcp_port=srv.tcp_port,  # Explicit for now (auto-read tested below)
                 )
                 # The token should be auto-loaded from .conn
-                response = await client.send(IPCMessage.status_request(sender="test"))
+                await client.send(IPCMessage.status_request(sender="test"))
                 # Without matching token, it may be rejected
                 # This test verifies the TCP transport itself works
             finally:
@@ -607,10 +607,9 @@ class TestObfuscation:
 
     def test_obfuscate_without_cryptography(self):
         """Obfuscation falls back to plaintext when cryptography missing."""
-        from overblick.supervisor.ipc import _obfuscate_token
 
         with patch.dict("sys.modules", {"cryptography": None, "cryptography.fernet": None}):
-            with patch("overblick.supervisor.ipc._obfuscate_token") as mock_obf:
+            with patch("overblick.supervisor.ipc._obfuscate_token"):
                 # Test the fallback path by simulating ImportError
                 pass
 
@@ -832,7 +831,7 @@ class TestIPCServerHandlerErrors:
 
         try:
             # Send invalid JSON directly
-            reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
+            _reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
             writer.write(b"not valid json\n")
             await writer.drain()
             writer.close()
@@ -883,7 +882,7 @@ class TestIPCServerHandlerErrors:
         await srv.start()
 
         try:
-            reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
+            _reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
             # Send partial data then close
             writer.write(b"partial data without newline")
             writer.close()
@@ -926,7 +925,7 @@ class TestIPCServerHandlerErrors:
 
         try:
             # Connect and send, then close before reading response
-            reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
+            _reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
             msg = IPCMessage.status_request(sender="test", auth_token=token)
             writer.write((msg.to_json() + "\n").encode())
             await writer.drain()
@@ -1192,7 +1191,7 @@ class TestIPCServerHandleConnectionEdgeCases:
         await srv.start()
 
         try:
-            reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
+            _reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
             # Send a huge message without newline to trigger LimitOverrunError
             # The server's limit is _MAX_MESSAGE_SIZE (1MB)
             # We can't easily trigger LimitOverrunError with real data since the
@@ -1221,7 +1220,7 @@ class TestIPCServerHandleConnectionEdgeCases:
         await srv.start()
 
         try:
-            reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
+            _reader, writer = await asyncio.open_unix_connection(str(srv.socket_path))
             # Close immediately without sending anything
             writer.close()
             await writer.wait_closed()

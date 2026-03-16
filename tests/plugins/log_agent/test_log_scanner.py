@@ -2,12 +2,9 @@
 Tests for the log scanner — file scanning, offset management, deduplication.
 """
 
-from pathlib import Path
 
-import pytest
 
 from overblick.plugins.log_agent.log_scanner import LogScanner
-from overblick.plugins.log_agent.models import LogEntry
 
 
 class TestScanFile:
@@ -17,7 +14,7 @@ class TestScanFile:
         """ERROR lines are detected in log files."""
         scanner = LogScanner(sample_log_dir, identities=["anomal"])
         log_file = sample_log_dir / "anomal" / "anomal.log"
-        entries, offset = scanner.scan_file(log_file, "anomal")
+        entries, _offset = scanner.scan_file(log_file, "anomal")
 
         error_entries = [e for e in entries if e.level == "ERROR"]
         assert len(error_entries) >= 1
@@ -27,7 +24,7 @@ class TestScanFile:
         """CRITICAL lines are detected."""
         scanner = LogScanner(sample_log_dir, identities=["anomal"])
         log_file = sample_log_dir / "anomal" / "anomal.log"
-        entries, offset = scanner.scan_file(log_file, "anomal")
+        entries, _offset = scanner.scan_file(log_file, "anomal")
 
         critical_entries = [e for e in entries if e.level == "CRITICAL"]
         assert len(critical_entries) == 1
@@ -66,7 +63,7 @@ class TestScanFile:
         scanner = LogScanner(sample_log_dir, identities=["anomal"])
         log_file = sample_log_dir / "anomal" / "anomal.log"
 
-        entries1, offset1 = scanner.scan_file(log_file, "anomal")
+        _entries1, offset1 = scanner.scan_file(log_file, "anomal")
         scanner.set_offset(str(log_file), offset1)
 
         entries2, offset2 = scanner.scan_file(log_file, "anomal")
@@ -85,7 +82,7 @@ class TestScanFile:
         # Simulate rotation: write smaller content
         log_file.write_text("2026-02-26 04:00:00,000 - core - ERROR - New error after rotation\n")
 
-        entries, new_offset = scanner.scan_file(log_file, "anomal")
+        entries, _new_offset = scanner.scan_file(log_file, "anomal")
         assert len(entries) == 1
         assert "rotation" in entries[0].message.lower()
 
@@ -93,7 +90,7 @@ class TestScanFile:
         """Nonexistent file returns empty list."""
         scanner = LogScanner(tmp_path, identities=["missing"])
         fake_file = tmp_path / "missing" / "missing.log"
-        entries, offset = scanner.scan_file(fake_file, "missing")
+        entries, _offset = scanner.scan_file(fake_file, "missing")
 
         assert entries == []
 
@@ -200,10 +197,10 @@ class TestScanFileEdgeCases:
 
         scanner = LogScanner(tmp_path, identities=["test"])
 
-        from unittest.mock import patch, mock_open
+        from unittest.mock import patch
 
         with patch("builtins.open", side_effect=OSError("Permission denied")):
-            entries, offset = scanner.scan_file(log_file, "test")
+            entries, _offset = scanner.scan_file(log_file, "test")
 
         assert entries == []
 

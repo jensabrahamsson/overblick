@@ -1,12 +1,11 @@
 """Tests for StagePlugin — behavioral scenario engine."""
 
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from overblick.core.llm.pipeline import PipelineResult, PipelineStage
+from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.stage.models import (
     Constraint,
     Scenario,

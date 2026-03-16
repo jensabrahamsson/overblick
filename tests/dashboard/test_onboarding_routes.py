@@ -6,10 +6,7 @@ import pytest
 
 from overblick.dashboard.auth import SESSION_COOKIE
 from overblick.dashboard.routes.onboarding import (
-    _get_session_key,
-    _get_wizard_state,
     _set_wizard_state,
-    _wizard_states,
 )
 
 
@@ -571,7 +568,6 @@ class TestOnboardingEdgeCases:
         raise an AttributeError, which propagates to the error handler via
         a patched version of the endpoint that wraps step processing in try/except.
         """
-        import overblick.dashboard.routes.onboarding as onb_mod
 
         cookie_value, csrf = session_cookie
 
@@ -585,12 +581,10 @@ class TestOnboardingEdgeCases:
 
         # The most reliable way: directly invoke the error path by creating
         # an async request that bypasses normal step processing.
-        from starlette.testclient import TestClient
 
         # Monkey-patch: make system_svc.get_available_plugins raise on first call
         # during step processing (line 183), then succeed on re-render (line 222)
         call_count = [0]
-        original_get_plugins = mock_system_service.get_available_plugins
 
         def _failing_then_ok():
             call_count[0] += 1

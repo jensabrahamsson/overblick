@@ -1,11 +1,11 @@
 """Tests for base.py — DatabaseConfig.from_dict edge cases and execute_many default."""
 
+from collections.abc import Sequence
+from typing import Any
+
 import pytest
 
 from overblick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
-from collections.abc import Sequence
-from typing import Any
-from unittest.mock import AsyncMock
 
 
 class TestDatabaseConfigFromDict:

@@ -4,22 +4,17 @@ Additional email_agent plugin tests to achieve 100% line coverage.
 Covers all uncovered lines identified by coverage analysis.
 """
 
-import json
-import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.email_agent.models import (
-    AgentLearning,
     EmailClassification,
     EmailIntent,
     EmailRecord,
 )
 from overblick.plugins.email_agent.plugin import EmailAgentPlugin
-from overblick.supervisor.ipc import IPCMessage
-
 
 # ---------------------------------------------------------------------------
 # Line 134: setup() without identity
@@ -51,7 +46,6 @@ class TestSetupStateLoadingFailure:
         """setup() closes DB when get_stats() raises."""
         plugin = EmailAgentPlugin(stal_plugin_context)
 
-        original_setup = plugin.setup
 
         with patch(
             "overblick.plugins.email_agent.database.EmailAgentDB.get_stats",
@@ -928,7 +922,7 @@ class TestParseFeedbackEdgeCases:
         await plugin.setup()
 
         raw = "No JSON here at all"
-        sentiment, learning, should_ack = plugin._parse_feedback_classification(raw)
+        sentiment, _learning, _should_ack = plugin._parse_feedback_classification(raw)
         assert sentiment == "neutral"
 
     @pytest.mark.asyncio
@@ -938,7 +932,7 @@ class TestParseFeedbackEdgeCases:
         await plugin.setup()
 
         raw = '{"sentiment": "happy", "learning": "test", "should_acknowledge": false}'
-        sentiment, learning, should_ack = plugin._parse_feedback_classification(raw)
+        sentiment, learning, _should_ack = plugin._parse_feedback_classification(raw)
         assert sentiment == "neutral"
         assert learning == "test"
 

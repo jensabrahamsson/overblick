@@ -18,63 +18,63 @@ from overblick.plugins.whallet_trader.risk_manager import RiskManager
 
 
 def _make_signal(**overrides):
-    defaults = dict(
-        market_id="m1",
-        market_question="Q?",
-        action=TradeAction.BUY_YES,
-        outcome="YES",
-        market_price=Decimal("0.50"),
-        our_probability=Decimal("0.60"),
-        probability_edge=Decimal("0.10"),
-        confidence_score=80.0,
-        volume_score=70.0,
-        time_horizon_days=14.0,
-        suggested_position_size_percent=Decimal("3.0"),
-        kelly_fraction=Decimal("0.15"),
-        urgency="medium",
-        risk_level=RiskLevel.MEDIUM,
-    )
+    defaults = {
+        "market_id": "m1",
+        "market_question": "Q?",
+        "action": TradeAction.BUY_YES,
+        "outcome": "YES",
+        "market_price": Decimal("0.50"),
+        "our_probability": Decimal("0.60"),
+        "probability_edge": Decimal("0.10"),
+        "confidence_score": 80.0,
+        "volume_score": 70.0,
+        "time_horizon_days": 14.0,
+        "suggested_position_size_percent": Decimal("3.0"),
+        "kelly_fraction": Decimal("0.15"),
+        "urgency": "medium",
+        "risk_level": RiskLevel.MEDIUM,
+    }
     defaults.update(overrides)
     return TradeSignal(**defaults)
 
 
 def _make_execution(**overrides):
-    defaults = dict(
-        order_id="ord_1",
-        signal_id="sig_1",
-        market_id="m1",
-        market_question="Q?",
-        outcome="YES",
-        action=TradeAction.BUY_YES,
-        quantity=Decimal("10"),
-        execution_price=Decimal("0.50"),
-        position_size_usd=Decimal("5"),
-        transaction_hash="0xabc",
-        block_number=100,
-        gas_used=200000,
-        gas_price_gwei=Decimal("30"),
-        expected_price=Decimal("0.50"),
-        slippage_percent=Decimal("0.01"),
-        simulation=False,
-    )
+    defaults = {
+        "order_id": "ord_1",
+        "signal_id": "sig_1",
+        "market_id": "m1",
+        "market_question": "Q?",
+        "outcome": "YES",
+        "action": TradeAction.BUY_YES,
+        "quantity": Decimal("10"),
+        "execution_price": Decimal("0.50"),
+        "position_size_usd": Decimal("5"),
+        "transaction_hash": "0xabc",
+        "block_number": 100,
+        "gas_used": 200000,
+        "gas_price_gwei": Decimal("30"),
+        "expected_price": Decimal("0.50"),
+        "slippage_percent": Decimal("0.01"),
+        "simulation": False,
+    }
     defaults.update(overrides)
     return TradeExecution(**defaults)
 
 
 def _make_position(**overrides):
-    defaults = dict(
-        market_id="m1",
-        market_question="Q?",
-        outcome="YES",
-        quantity=Decimal("100"),
-        average_price=Decimal("0.50"),
-        current_price=Decimal("0.55"),
-        invested_amount=Decimal("50"),
-        current_value=Decimal("55"),
-        unrealized_pnl=Decimal("5"),
-        unrealized_pnl_percent=Decimal("10"),
-        first_bought=datetime.now(),
-    )
+    defaults = {
+        "market_id": "m1",
+        "market_question": "Q?",
+        "outcome": "YES",
+        "quantity": Decimal("100"),
+        "average_price": Decimal("0.50"),
+        "current_price": Decimal("0.55"),
+        "invested_amount": Decimal("50"),
+        "current_value": Decimal("55"),
+        "unrealized_pnl": Decimal("5"),
+        "unrealized_pnl_percent": Decimal("10"),
+        "first_bought": datetime.now(),
+    }
     defaults.update(overrides)
     return PortfolioPosition(**defaults)
 

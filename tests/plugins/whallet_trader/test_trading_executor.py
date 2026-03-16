@@ -2,7 +2,7 @@
 
 import random
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,30 +12,28 @@ from overblick.plugins.whallet_trader.models import (
     RiskLevel,
     TradeAction,
     TradeOrder,
-    TradeSignal,
 )
 from overblick.plugins.whallet_trader.trading_executor import (
     InsufficientBalance,
     TradingError,
     TradingExecutor,
-    TransactionFailed,
 )
 
 
 def _make_order(**overrides):
-    defaults = dict(
-        signal_id="sig_1",
-        market_id="m1",
-        market_question="Will it rain?",
-        outcome="YES",
-        action=TradeAction.BUY_YES,
-        order_type=OrderType.MARKET,
-        quantity=Decimal("100"),
-        estimated_price=Decimal("0.50"),
-        position_size_usd=Decimal("50"),
-        risk_level=RiskLevel.MEDIUM,
-        status=OrderStatus.PENDING,
-    )
+    defaults = {
+        "signal_id": "sig_1",
+        "market_id": "m1",
+        "market_question": "Will it rain?",
+        "outcome": "YES",
+        "action": TradeAction.BUY_YES,
+        "order_type": OrderType.MARKET,
+        "quantity": Decimal("100"),
+        "estimated_price": Decimal("0.50"),
+        "position_size_usd": Decimal("50"),
+        "risk_level": RiskLevel.MEDIUM,
+        "status": OrderStatus.PENDING,
+    }
     defaults.update(overrides)
     return TradeOrder(**defaults)
 

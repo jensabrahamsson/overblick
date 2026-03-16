@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from overblick.core.agentic.planner import ActionPlanner
-from overblick.core.agentic.protocols import PlanningPromptConfig
 from overblick.core.llm.pipeline import PipelineResult
 
 

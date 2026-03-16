@@ -16,9 +16,6 @@ from overblick.plugins.dev_agent.action_handlers import (
     build_dev_agent_handlers,
 )
 from overblick.plugins.dev_agent.models import (
-    BugReport,
-    BugSource,
-    BugStatus,
     DevAgentObservation,
     FixAttempt,
     OpencodeResult,

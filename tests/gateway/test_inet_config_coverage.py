@@ -1,7 +1,6 @@
 """Additional tests for inet_config — cover lines 112, 150-153, 176-179."""
 
 import os
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
 

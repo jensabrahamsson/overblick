@@ -1,7 +1,5 @@
 """Tests for setup/app.py — cover lines 23-25, 40."""
 
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 

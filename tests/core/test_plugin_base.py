@@ -1,7 +1,6 @@
 """Tests for plugin base and context."""
 
 import os
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -52,7 +51,7 @@ class TestPluginContext:
     def test_dirs_created_automatically(self, tmp_path):
         data = tmp_path / "deep" / "data"
         logs = tmp_path / "deep" / "logs"
-        ctx = PluginContext(identity_name="test", data_dir=data, log_dir=logs)
+        PluginContext(identity_name="test", data_dir=data, log_dir=logs)
         assert data.exists()
         assert logs.exists()
 

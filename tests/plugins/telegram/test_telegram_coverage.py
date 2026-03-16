@@ -11,7 +11,6 @@ Covers:
 """
 
 import asyncio
-import time
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -19,11 +18,9 @@ import pytest
 
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.telegram.plugin import (
-    ConversationContext,
     TelegramPlugin,
 )
 from tests.plugins.telegram.conftest import make_update
-
 
 # ---------------------------------------------------------------------------
 # tick() coverage — lines 197-205

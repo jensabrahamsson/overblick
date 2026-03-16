@@ -12,7 +12,6 @@ Covers uncovered lines:
 
 from unittest.mock import AsyncMock, MagicMock
 
-import aiohttp
 import pytest
 
 from overblick.capabilities.communication.telegram_notifier import TelegramNotifier

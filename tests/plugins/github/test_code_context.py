@@ -2,6 +2,7 @@
 Tests for the code context builder — file tree caching and targeted file fetch.
 """
 
+from datetime import UTC
 from unittest.mock import AsyncMock
 
 import pytest
@@ -9,7 +10,6 @@ import pytest
 from overblick.core.database.base import DatabaseConfig
 from overblick.core.database.sqlite_backend import SQLiteBackend
 from overblick.core.llm.pipeline import PipelineResult
-from overblick.plugins.github.client import GitHubAPIClient
 from overblick.plugins.github.code_context import CodeContextBuilder
 from overblick.plugins.github.database import GitHubDB
 from overblick.plugins.github.models import CachedFile, CodeContext
@@ -273,8 +273,8 @@ class TestCodeContextBuilder:
         assert refreshed is True
 
         # Manually set a timezone-aware ISO timestamp so the age check works
-        from datetime import datetime, timezone
-        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        from datetime import datetime
+        now_iso = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         await code_context_db._db.execute(
             "UPDATE repo_tree_meta SET last_refreshed = ? WHERE repo = ?",
             (now_iso, "moltbook/api"),
@@ -347,7 +347,7 @@ class TestCodeContextBuilder:
 
     def test_should_return_empty_when_no_llm_pipeline(self):
         """select_files returns [] when no LLM pipeline is set."""
-        builder = CodeContextBuilder(
+        CodeContextBuilder(
             client=AsyncMock(),
             db=AsyncMock(),
             llm_pipeline=None,

@@ -2,8 +2,6 @@
 Coverage tests for reply_generator line 176: send_draft_notification with profile notes.
 """
 
-import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -67,7 +65,7 @@ class TestSendDraftWithNotes:
         result = await gen.send_draft_notification(email, notifier)
 
         assert result is not None
-        tg_id, body = result
+        tg_id, _body = result
         assert tg_id == 99
 
         # Verify that notes were included in the LLM prompt

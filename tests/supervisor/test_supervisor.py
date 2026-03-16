@@ -638,7 +638,7 @@ class TestSupervisorStartFailure:
     @pytest.mark.asyncio
     async def test_start_agent_already_running(self, short_tmp):
         """start_agent returns existing agent if already running."""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import MagicMock
 
         sup = Supervisor(identities=[], socket_dir=short_tmp)
         await sup.start()
@@ -657,7 +657,7 @@ class TestSupervisorStartFailure:
     @pytest.mark.asyncio
     async def test_start_agent_load_identity_fails(self, short_tmp):
         """start_agent handles load_identity failure gracefully."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import patch
 
         sup = Supervisor(identities=[], socket_dir=short_tmp)
         await sup.start()
@@ -668,7 +668,7 @@ class TestSupervisorStartFailure:
                 side_effect=ImportError("no module"),
             ):
                 # Agent start itself may fail (no real binary)
-                result = await sup.start_agent("test_agent")
+                await sup.start_agent("test_agent")
                 # Whether it succeeded or not, it shouldn't crash
         finally:
             await sup.stop()
@@ -676,14 +676,13 @@ class TestSupervisorStartFailure:
     @pytest.mark.asyncio
     async def test_start_agent_process_fails(self, short_tmp):
         """start_agent returns None when agent.start() fails."""
-        from unittest.mock import AsyncMock, MagicMock, patch
 
         sup = Supervisor(identities=[], socket_dir=short_tmp)
         await sup.start()
 
         try:
             # Agent fails to start
-            result = await sup.start_agent("nonexistent_agent")
+            await sup.start_agent("nonexistent_agent")
             # May return None if start fails
         finally:
             await sup.stop()
@@ -797,7 +796,7 @@ class TestSupervisorMonitor:
 
         mock_agent.monitor = AsyncMock(side_effect=set_crashed)
 
-        with patch("asyncio.create_task") as mock_create_task:
+        with patch("asyncio.create_task"):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 await sup._monitor_agent("test")
 
@@ -826,7 +825,7 @@ class TestSupervisorRun:
     @pytest.mark.asyncio
     async def test_run_waits_for_shutdown(self, short_tmp):
         """run() waits for shutdown event then stops."""
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import patch
 
         sup = Supervisor(identities=[], socket_dir=short_tmp)
         await sup.start()

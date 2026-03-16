@@ -953,7 +953,7 @@ class TestPriorityParsing:
         the endpoint function with a mock priority that has no .lower().
         """
         from overblick.gateway.app import chat_completion
-        from overblick.gateway.models import ChatRequest, ChatMessage
+        from overblick.gateway.models import ChatRequest
 
         qm = MagicMock()
         qm.submit = AsyncMock(
@@ -985,7 +985,7 @@ class TestLifespanCoverage:
         We run the lifespan context manager directly with mocked dependencies
         to ensure the healthy-backend logging path is covered.
         """
-        from overblick.gateway.app import lifespan, app as real_app
+        from overblick.gateway.app import lifespan
 
         mock_registry = MagicMock()
         mock_registry.health_check_all = AsyncMock(return_value={"local": True})
@@ -1039,6 +1039,7 @@ class TestRunServer:
 
     def test_should_call_uvicorn_run(self):
         import sys
+
         from overblick.gateway.config import GatewayConfig
 
         mock_uvicorn = MagicMock()
@@ -1063,6 +1064,7 @@ class TestRunServer:
 
     def test_should_use_provided_host_and_port(self):
         import sys
+
         from overblick.gateway.config import GatewayConfig
 
         mock_uvicorn = MagicMock()

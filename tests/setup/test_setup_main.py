@@ -1,11 +1,7 @@
 """Tests for setup/__main__.py — cover lines 26-28, 43-56, 67-114, 119-134, 138."""
 
 import socket
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from overblick.setup.__main__ import _create_sandbox, cli, find_free_port, main
 

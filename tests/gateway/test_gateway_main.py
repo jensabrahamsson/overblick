@@ -1,8 +1,6 @@
 """Tests for gateway __main__.py — cover lines 3-6."""
 
-from unittest.mock import patch
 
-import pytest
 
 
 class TestGatewayMain:

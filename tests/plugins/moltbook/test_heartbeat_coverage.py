@@ -9,8 +9,6 @@ Covers uncovered lines:
 import json
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from overblick.plugins.moltbook.heartbeat import HeartbeatManager
 
 

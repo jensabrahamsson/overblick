@@ -8,7 +8,6 @@ Tests that the SecretsManager correctly:
 - Handles missing secrets gracefully
 """
 
-from pathlib import Path
 
 import pytest
 import yaml

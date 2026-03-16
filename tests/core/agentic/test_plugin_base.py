@@ -2,15 +2,13 @@
 Tests for AgenticPluginBase — integration tests.
 """
 
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from overblick.core.agentic.models import (
     ActionOutcome,
     AgentGoal,
-    PlannedAction,
 )
 from overblick.core.agentic.plugin_base import AgenticPluginBase
 from overblick.core.agentic.protocols import ActionHandler, Observer, PlanningPromptConfig

@@ -4,7 +4,6 @@ Covers uncovered line 72: evaluate_reply returns not-initialized when no engine.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 

@@ -15,7 +15,7 @@ from overblick.gateway.inet_audit import InetAuditLog
 from overblick.gateway.inet_auth import APIKeyManager
 from overblick.gateway.inet_config import InternetGatewayConfig, reset_inet_config
 from overblick.gateway.inet_middleware import ViolationTracker
-from overblick.gateway.internet_gateway import _error_json, app
+from overblick.gateway.internet_gateway import app
 
 
 @pytest.fixture(autouse=True)
@@ -176,7 +176,7 @@ class TestAuthentication:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         # Mock upstream success
         mock_resp = MagicMock(spec=httpx.Response)
@@ -228,7 +228,7 @@ class TestChatCompletions:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -257,7 +257,7 @@ class TestChatCompletions:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -281,7 +281,7 @@ class TestChatCompletions:
         assert proxied_body["max_tokens"] <= 4096
 
     def test_invalid_body_returns_400(self, client: TestClient, key_manager: APIKeyManager):
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         response = client.post(
             "/v1/chat/completions",
@@ -292,7 +292,7 @@ class TestChatCompletions:
         assert response.json()["error"]["type"] == "invalid_request_error"
 
     def test_extra_fields_rejected(self, client: TestClient, key_manager: APIKeyManager):
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         response = client.post(
             "/v1/chat/completions",
@@ -310,7 +310,7 @@ class TestChatCompletions:
         client: TestClient,
         key_manager: APIKeyManager,
     ):
-        raw_key, record = key_manager.create_key(
+        raw_key, _record = key_manager.create_key(
             name="restricted",
             allowed_models=["qwen3:8b"],
         )
@@ -334,7 +334,7 @@ class TestChatCompletions:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 500
@@ -359,7 +359,7 @@ class TestChatCompletions:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
         gw._http_client.request.side_effect = httpx.ConnectError("Connection refused")  # type: ignore
 
         response = client.post(
@@ -376,7 +376,7 @@ class TestChatCompletions:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
         gw._http_client.request.side_effect = httpx.TimeoutException("Timed out")  # type: ignore
 
         response = client.post(
@@ -402,7 +402,7 @@ class TestRateLimiting:
         # Set very low rate limit (1 RPM)
         gw._per_key_limiter = RateLimiter(max_tokens=1.0, refill_rate=1 / 60.0)
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -533,7 +533,7 @@ class TestEmbeddingsEndpoint:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -556,7 +556,7 @@ class TestEmbeddingsEndpoint:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -587,7 +587,7 @@ class TestEmbeddingsEndpoint:
 
         gw._per_key_limiter = RateLimiter(max_tokens=1.0, refill_rate=1 / 60.0)
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -613,7 +613,7 @@ class TestEmbeddingsEndpoint:
         client: TestClient,
         key_manager: APIKeyManager,
     ):
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         response = client.post(
             "/v1/embeddings",
@@ -629,7 +629,7 @@ class TestEmbeddingsEndpoint:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
         gw._http_client.post = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))  # type: ignore
 
         response = client.post(
@@ -646,7 +646,7 @@ class TestEmbeddingsEndpoint:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 500
@@ -670,7 +670,7 @@ class TestModelsEndpoint:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -695,7 +695,7 @@ class TestModelsEndpoint:
         from overblick.core.security.rate_limiter import RateLimiter
 
         gw._per_key_limiter = RateLimiter(max_tokens=1.0, refill_rate=1 / 60.0)
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -715,7 +715,7 @@ class TestModelsEndpoint:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
         gw._http_client.get = AsyncMock(side_effect=httpx.ConnectError("refused"))  # type: ignore
 
         response = client.get("/v1/models", headers=headers)
@@ -728,7 +728,7 @@ class TestModelsEndpoint:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 500
@@ -887,7 +887,7 @@ class TestChatCompletionsAdvanced:
         """Upstream response without usage field should not crash."""
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -909,7 +909,7 @@ class TestChatCompletionsAdvanced:
         """If upstream response JSON parsing fails, still return response."""
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200
@@ -932,7 +932,7 @@ class TestChatCompletionsAdvanced:
         """Unexpected exception returns 500."""
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
         gw._http_client.request.side_effect = RuntimeError("unexpected!")  # type: ignore
 
         response = client.post(
@@ -954,7 +954,7 @@ class TestChatCompletionsAdvanced:
         import overblick.gateway.internet_gateway as gw
         from overblick.gateway.inet_config import InternetGatewayConfig
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         # Set config with internal API key
         saved_config = gw._config
@@ -1016,6 +1016,7 @@ class TestGenericExceptionHandler:
 
     def test_should_return_500_on_unhandled_exception(self):
         import asyncio
+
         import overblick.gateway.internet_gateway as gw
 
         async def run():
@@ -1034,6 +1035,7 @@ class TestLifespan:
 
     def test_should_initialize_and_teardown(self, tmp_path: Path):
         import asyncio
+
         import overblick.gateway.internet_gateway as gw
         from overblick.gateway.inet_config import InternetGatewayConfig
 
@@ -1067,6 +1069,7 @@ class TestLifespan:
 
     def test_should_add_ip_allowlist_middleware_when_configured(self, tmp_path: Path):
         import asyncio
+
         import overblick.gateway.internet_gateway as gw
         from overblick.gateway.inet_config import InternetGatewayConfig
 
@@ -1089,6 +1092,7 @@ class TestLifespan:
 
     def test_should_handle_shutdown_errors_gracefully(self, tmp_path: Path):
         import asyncio
+
         import overblick.gateway.internet_gateway as gw
         from overblick.gateway.inet_config import InternetGatewayConfig
 
@@ -1291,7 +1295,7 @@ class TestAuditLogging:
     ):
         import overblick.gateway.internet_gateway as gw
 
-        raw_key, headers = _create_key_and_header(key_manager)
+        _raw_key, headers = _create_key_and_header(key_manager)
 
         mock_resp = MagicMock(spec=httpx.Response)
         mock_resp.status_code = 200

@@ -11,7 +11,7 @@ Covers uncovered lines in DreamSystem:
 
 import json
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 

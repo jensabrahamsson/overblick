@@ -142,7 +142,7 @@ class TestExtractTopic:
         await plugin.setup()
 
         articles = [{"title": "Fallback Title", "summary": "Fallback summary"}]
-        topic, summary = await plugin._extract_topic(articles)
+        topic, _summary = await plugin._extract_topic(articles)
         assert topic == "Fallback Title"
 
     @pytest.mark.asyncio
@@ -155,7 +155,7 @@ class TestExtractTopic:
         await plugin.setup()
 
         articles = [{"title": "Fallback", "summary": "Sum"}]
-        topic, summary = await plugin._extract_topic(articles)
+        topic, _summary = await plugin._extract_topic(articles)
         assert topic == "Fallback"
 
 
@@ -326,7 +326,7 @@ class TestTickFullPipeline:
 
         import hashlib
 
-        topic_hash = hashlib.sha256("ai breakthrough".encode()).hexdigest()[:16]
+        topic_hash = hashlib.sha256(b"ai breakthrough").hexdigest()[:16]
         plugin._seen_topic_hashes.add(topic_hash)
 
         with (
@@ -521,7 +521,7 @@ class TestExtractTopicEdgeCases:
         await plugin.setup()
 
         articles = [{"title": "Fallback Title", "summary": "Summary"}]
-        topic, summary = await plugin._extract_topic(articles)
+        topic, _summary = await plugin._extract_topic(articles)
         assert topic == "Fallback Title"
 
     @pytest.mark.asyncio
@@ -536,7 +536,7 @@ class TestExtractTopicEdgeCases:
         await plugin.setup()
 
         articles = [{"title": "A", "summary": "S"}]
-        topic, summary = await plugin._extract_topic(articles)
+        topic, _summary = await plugin._extract_topic(articles)
         assert topic == "Fenced Topic"
 
     @pytest.mark.asyncio
@@ -549,7 +549,7 @@ class TestExtractTopicEdgeCases:
         await plugin.setup()
 
         articles = [{"title": "Fallback", "summary": "Sum"}]
-        topic, summary = await plugin._extract_topic(articles)
+        topic, _summary = await plugin._extract_topic(articles)
         assert topic == "Fallback"
 
     @pytest.mark.asyncio
@@ -562,7 +562,7 @@ class TestExtractTopicEdgeCases:
         await plugin.setup()
 
         articles = [{"title": "Fallback", "summary": "Sum"}]
-        topic, summary = await plugin._extract_topic(articles)
+        topic, _summary = await plugin._extract_topic(articles)
         assert topic == "Fallback"
 
 

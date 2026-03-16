@@ -2,9 +2,8 @@
 Tests for the GitHub API client.
 """
 
-import asyncio
 import base64
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest

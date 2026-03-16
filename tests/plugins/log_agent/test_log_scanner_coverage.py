@@ -5,12 +5,9 @@ Covers uncovered line:
 - 165: _MAX_ENTRIES_PER_SCAN cap hit, breaks out of loop
 """
 
-from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-from overblick.plugins.log_agent.log_scanner import LogScanner, _MAX_ENTRIES_PER_SCAN
+from overblick.plugins.log_agent.log_scanner import _MAX_ENTRIES_PER_SCAN, LogScanner
 
 
 class TestLogScannerMaxEntries:
@@ -79,7 +76,7 @@ class TestLogScannerMaxEntries:
             return f
 
         with patch("builtins.open", side_effect=patched_open):
-            entries, offset = scanner.scan_file(log_file, "anomal")
+            entries, _offset = scanner.scan_file(log_file, "anomal")
 
         # With our wrapper, entries should be capped at max + 1 (the final append)
         assert len(entries) <= _MAX_ENTRIES_PER_SCAN + 1

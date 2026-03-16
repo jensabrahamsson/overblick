@@ -11,10 +11,7 @@ Covers uncovered lines:
 - _load_state: no _state_file
 """
 
-import json
-import time
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -24,7 +21,6 @@ from overblick.plugins.host_health.plugin import (
     _FALLBACK_MOTIVATIONS,
     HostHealthPlugin,
 )
-from overblick.supervisor.ipc import IPCMessage
 
 
 class TestDetermineOutcome:

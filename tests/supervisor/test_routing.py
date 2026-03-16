@@ -15,8 +15,6 @@ Tests cover:
 import time
 from unittest.mock import MagicMock
 
-import pytest
-
 from overblick.supervisor.routing import (
     AgentCapabilities,
     MessageRouter,

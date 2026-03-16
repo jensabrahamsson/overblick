@@ -1,7 +1,6 @@
 """Tests for gateway config — cover lines 123-130, 151-154."""
 
 import os
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest

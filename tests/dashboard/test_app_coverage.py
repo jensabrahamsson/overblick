@@ -1,14 +1,11 @@
 """Tests for dashboard app.py — coverage gaps."""
 
 import time
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from starlette.testclient import TestClient
 
 from overblick.dashboard.app import (
-    SecurityHeadersMiddleware,
     _create_templates,
     _format_epoch,
     _format_irc_time,
@@ -163,7 +160,7 @@ class TestCreateApp:
     def test_should_create_app_with_default_config(self):
         with patch("overblick.dashboard.app.get_config") as mock_get:
             mock_get.return_value = DashboardConfig(secret_key="test")
-            app = create_app()
+            create_app()
             mock_get.assert_called_once()
 
     def test_should_mount_static_files_when_dir_exists(self, tmp_path):
@@ -192,6 +189,7 @@ class TestSecurityHeadersMiddleware:
     @pytest.mark.asyncio
     async def test_should_add_security_headers(self, tmp_path):
         from httpx import ASGITransport, AsyncClient
+
         from overblick.dashboard.auth import SESSION_COOKIE, SessionManager
 
         config = DashboardConfig(
@@ -254,6 +252,7 @@ class TestSecurityHeadersMiddleware:
     @pytest.mark.asyncio
     async def test_should_add_hsts_for_https_network_access(self, tmp_path):
         from httpx import ASGITransport, AsyncClient
+
         from overblick.dashboard.auth import SESSION_COOKIE, SessionManager
 
         config = DashboardConfig(
@@ -298,6 +297,7 @@ class TestSecurityHeadersMiddleware:
     async def test_should_return_html_500_without_templates(self, tmp_path):
         """When templates aren't available, fall back to plain HTMLResponse."""
         from httpx import ASGITransport, AsyncClient
+
         from overblick.dashboard.auth import SESSION_COOKIE, SessionManager
 
         config = DashboardConfig(
@@ -336,6 +336,7 @@ class TestHttpExceptionHandler:
     async def test_should_return_plain_html_when_no_templates(self, tmp_path):
         """Test the error handler fallback when templates are not available."""
         from httpx import ASGITransport, AsyncClient
+
         from overblick.dashboard.auth import SESSION_COOKIE, SessionManager
 
         config = DashboardConfig(

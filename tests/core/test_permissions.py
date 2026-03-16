@@ -1,9 +1,6 @@
 """Tests for permission system."""
 
-import time
 from unittest.mock import MagicMock
-
-import pytest
 
 from overblick.core.permissions import (
     PermissionAction,

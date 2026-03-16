@@ -6,7 +6,6 @@ Covers uncovered lines:
 - _parse: ValueError/KeyError exception path
 """
 
-import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

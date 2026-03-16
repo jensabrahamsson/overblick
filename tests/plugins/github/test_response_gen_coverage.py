@@ -6,11 +6,10 @@ Covers uncovered lines:
 - 179-180: _generate_general exception handling
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.github.code_context import CodeContextBuilder
 from overblick.plugins.github.models import (
     CodeContext,

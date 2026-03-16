@@ -1,12 +1,11 @@
 """Tests for dashboard services __init__.py (init_services and cleanup_services)."""
 
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from overblick.dashboard.config import DashboardConfig
-from overblick.dashboard.services import init_services, cleanup_services
+from overblick.dashboard.services import cleanup_services, init_services
 
 
 class TestInitServices:
@@ -105,7 +104,6 @@ class TestCleanupServices:
         app.state.supervisor_service = AsyncMock()
 
         # hasattr should return False for audit_service
-        original_hasattr = hasattr
 
         await cleanup_services(app)
         app.state.supervisor_service.close.assert_called_once()

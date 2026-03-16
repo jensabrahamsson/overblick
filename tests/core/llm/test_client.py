@@ -1,13 +1,12 @@
 """Tests for abstract LLM client interface."""
 
 import os
-import re
 from unittest.mock import patch
 
 import pytest
 
 from overblick.core.exceptions import SecurityError
-from overblick.core.llm.client import LLMClient, _THINK_RE
+from overblick.core.llm.client import _THINK_RE, LLMClient
 
 
 class ConcreteLLMClient(LLMClient):
@@ -134,5 +133,5 @@ class TestInstantiationSecurity:
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("OVERBLICK_ALLOW_DIRECT_LLM", None)
             ConcreteLLMClient._ALLOW_DIRECT_INSTANTIATION = False
-            with pytest.raises(SecurityError, match="PluginContext.llm_pipeline"):
+            with pytest.raises(SecurityError, match=r"PluginContext\.llm_pipeline"):
                 ConcreteLLMClient()

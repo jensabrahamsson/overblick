@@ -10,21 +10,21 @@ from overblick.plugins.whallet_trader.models import (
 
 
 def _make_signal(**overrides):
-    defaults = dict(
-        market_id="m1",
-        market_question="Q?",
-        action=TradeAction.BUY_YES,
-        outcome="YES",
-        market_price=Decimal("0.50"),
-        our_probability=Decimal("0.60"),
-        probability_edge=Decimal("0.10"),
-        confidence_score=80.0,
-        volume_score=70.0,
-        time_horizon_days=14.0,
-        suggested_position_size_percent=Decimal("3.0"),
-        kelly_fraction=Decimal("0.15"),
-        urgency="medium",
-    )
+    defaults = {
+        "market_id": "m1",
+        "market_question": "Q?",
+        "action": TradeAction.BUY_YES,
+        "outcome": "YES",
+        "market_price": Decimal("0.50"),
+        "our_probability": Decimal("0.60"),
+        "probability_edge": Decimal("0.10"),
+        "confidence_score": 80.0,
+        "volume_score": 70.0,
+        "time_horizon_days": 14.0,
+        "suggested_position_size_percent": Decimal("3.0"),
+        "kelly_fraction": Decimal("0.15"),
+        "urgency": "medium",
+    }
     defaults.update(overrides)
     return TradeSignal(**defaults)
 

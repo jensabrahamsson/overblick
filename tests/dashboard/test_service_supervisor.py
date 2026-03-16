@@ -1,7 +1,6 @@
 """Tests for dashboard supervisor service."""
 
 import time
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -59,7 +58,7 @@ class TestSupervisorServiceGetClient:
 
         with patch("overblick.supervisor.ipc.read_ipc_token", return_value="token"), \
              patch("overblick.shared.platform.IS_WINDOWS", False), \
-             patch("overblick.supervisor.ipc.IPCClient", return_value=mock_client) as mock_cls, \
+             patch("overblick.supervisor.ipc.IPCClient", return_value=mock_client), \
              patch("overblick.supervisor.ipc._read_conn_file", return_value=None):
             client = svc._get_client()
 
@@ -95,7 +94,7 @@ class TestSupervisorServiceGetClient:
              patch("overblick.shared.platform.IS_WINDOWS", False), \
              patch("overblick.supervisor.ipc._read_conn_file", return_value={"port": 8888}), \
              patch("overblick.supervisor.ipc.IPCClient", return_value=mock_client) as mock_cls:
-            client = svc._get_client()
+            svc._get_client()
 
         # Should use existing auth_token, not from conn file (since auth_token is non-empty)
         mock_cls.assert_called_once_with(
@@ -251,7 +250,7 @@ class TestSupervisorServiceStartAgent:
         mock_client.send.return_value = mock_response
 
         with patch.object(svc, "_get_client", return_value=mock_client), \
-             patch("overblick.supervisor.ipc.IPCMessage") as mock_msg_cls:
+             patch("overblick.supervisor.ipc.IPCMessage"):
             result = await svc.start_agent("anomal")
 
         assert result == {"success": True}
@@ -320,7 +319,7 @@ class TestSupervisorServiceStopAgent:
         mock_client.send.return_value = mock_response
 
         with patch.object(svc, "_get_client", return_value=mock_client), \
-             patch("overblick.supervisor.ipc.IPCMessage") as mock_msg_cls:
+             patch("overblick.supervisor.ipc.IPCMessage"):
             result = await svc.stop_agent("anomal")
 
         assert result == {"success": True}

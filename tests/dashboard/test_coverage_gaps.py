@@ -16,7 +16,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-
 # ---------------------------------------------------------------------------
 # auth.py — line 95: validate_login_csrf with matching tokens
 # ---------------------------------------------------------------------------

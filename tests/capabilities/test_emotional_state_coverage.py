@@ -4,16 +4,12 @@ Additional coverage tests for emotional_state module.
 Covers the uncovered Anomal and Cherry emotional state classes.
 """
 
-from datetime import datetime
-from unittest.mock import patch
 
-import pytest
 
 from overblick.capabilities.psychology.emotional_state import (
     AnomalEmotionalState,
     CherryEmotionalState,
 )
-
 
 # ── AnomalEmotionalState tests ─────────────────────────────────────────────
 

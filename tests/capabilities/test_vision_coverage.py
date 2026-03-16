@@ -4,9 +4,8 @@ Uncovered: 100 (session closed, recreate), 221-223 (unexpected exception in anal
 """
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
-import aiohttp
 import pytest
 
 from overblick.capabilities.vision.analyzer import VisionCapability

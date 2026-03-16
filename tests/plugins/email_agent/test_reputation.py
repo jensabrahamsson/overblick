@@ -334,7 +334,6 @@ class TestEdgeCases:
         profile = SenderProfile(email="test@example.com")
 
         # Make the profiles dir read-only to trigger write error
-        import os
 
         profiles_dir = tmp_path / "sender_profiles"
         profiles_dir.chmod(0o444)

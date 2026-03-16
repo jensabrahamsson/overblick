@@ -31,22 +31,22 @@ def _make_ctx(tmp_path):
 
 
 def _make_market(**overrides):
-    defaults = dict(
-        id="mkt_1",
-        slug="test-market",
-        question="Will it rain?",
-        description="A test market about weather",
-        category=MarketCategory.OTHER,
-        status=MarketStatus.OPEN,
-        created_time=datetime.now(),
-        end_time=datetime.now() + timedelta(days=14),
-        outcomes=[
+    defaults = {
+        "id": "mkt_1",
+        "slug": "test-market",
+        "question": "Will it rain?",
+        "description": "A test market about weather",
+        "category": MarketCategory.OTHER,
+        "status": MarketStatus.OPEN,
+        "created_time": datetime.now(),
+        "end_time": datetime.now() + timedelta(days=14),
+        "outcomes": [
             MarketOutcome(name="Yes", ticker="YES", price=0.60, volume_24h=5000.0, last_updated=datetime.now()),
             MarketOutcome(name="No", ticker="NO", price=0.40, volume_24h=3000.0, last_updated=datetime.now()),
         ],
-        volume_24h=8000.0,
-        liquidity=20000.0,
-    )
+        "volume_24h": 8000.0,
+        "liquidity": 20000.0,
+    }
     defaults.update(overrides)
     return PolymarketMarket(**defaults)
 
@@ -760,7 +760,7 @@ class TestConfidenceScore:
             ],
             end_time=None,
         )
-        score = plugin._calculate_confidence_score(market, 0.5)
+        plugin._calculate_confidence_score(market, 0.5)
         # wide spread -> lower score
 
     def test_should_handle_no_end_time(self, tmp_path):
@@ -811,7 +811,6 @@ class TestTriggerOpportunityAlert:
     async def test_should_trim_alerts(self, tmp_path):
         ctx = _make_ctx(tmp_path)
         plugin = PolymarketMonitorPlugin(ctx)
-        from overblick.plugins.polymarket_monitor.models import Alert, AlertCondition
 
         for _ in range(51):
             plugin._active_alerts.append(MagicMock())

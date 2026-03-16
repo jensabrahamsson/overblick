@@ -30,7 +30,7 @@ async def test_conversations_page_unauthenticated(client):
 @pytest.mark.asyncio
 async def test_conversations_page_empty(client, session_cookie, config):
     """Conversations page renders with no data."""
-    cookie_value, csrf_token = session_cookie
+    cookie_value, _csrf_token = session_cookie
 
     response = await client.get(
         "/conversations",
@@ -45,7 +45,7 @@ async def test_conversations_page_empty(client, session_cookie, config):
 @pytest.mark.asyncio
 async def test_conversations_page_with_data(client, session_cookie, config):
     """Conversations page renders conversation entries."""
-    cookie_value, csrf_token = session_cookie
+    cookie_value, _csrf_token = session_cookie
 
     # Create conversation data
     data_dir = Path(config.base_dir) / "data" / "natt" / "host_health"
@@ -85,7 +85,7 @@ async def test_conversations_page_with_data(client, session_cookie, config):
 @pytest.mark.asyncio
 async def test_conversations_filter_by_identity(client, session_cookie, config):
     """Identity filter limits results to specific agent."""
-    cookie_value, csrf_token = session_cookie
+    cookie_value, _csrf_token = session_cookie
 
     # Create data for two identities
     for ident in ("natt", "cherry"):
@@ -122,7 +122,7 @@ async def test_conversations_filter_by_identity(client, session_cookie, config):
 @pytest.mark.asyncio
 async def test_conversations_shows_multiple_entries(client, session_cookie, config):
     """Multiple conversations render in reverse chronological order."""
-    cookie_value, csrf_token = session_cookie
+    cookie_value, _csrf_token = session_cookie
 
     data_dir = Path(config.base_dir) / "data" / "natt" / "host_health"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -520,12 +520,12 @@ class TestLoadConversations:
 
     def test_should_skip_hidden_dirs(self, tmp_path):
         (tmp_path / ".hidden").mkdir()
-        convs, ids = _load_conversations(tmp_path)
+        convs, _ids = _load_conversations(tmp_path)
         assert convs == []
 
     def test_should_skip_non_dirs(self, tmp_path):
         (tmp_path / "somefile.txt").write_text("hello")
-        convs, ids = _load_conversations(tmp_path)
+        convs, _ids = _load_conversations(tmp_path)
         assert convs == []
 
     def test_should_handle_json_decode_error(self, tmp_path):
@@ -576,7 +576,7 @@ class TestLoadConversations:
                 }
             )
         )
-        convs, ids = _load_conversations(tmp_path)
+        convs, _ids = _load_conversations(tmp_path)
         assert len(convs) == 1
 
     def test_should_skip_non_ipc_conversations_in_generic(self, tmp_path):
@@ -589,14 +589,14 @@ class TestLoadConversations:
                 ]
             )
         )
-        convs, ids = _load_conversations(tmp_path)
+        convs, _ids = _load_conversations(tmp_path)
         assert len(convs) == 0
 
     def test_should_handle_generic_json_decode_error(self, tmp_path):
         plugin_dir = tmp_path / "natt" / "email_handler"
         plugin_dir.mkdir(parents=True)
         (plugin_dir / "conversations.json").write_text("bad json")
-        convs, ids = _load_conversations(tmp_path)
+        convs, _ids = _load_conversations(tmp_path)
         assert convs == []
 
     def test_should_filter_generic_by_identity(self, tmp_path):
@@ -616,7 +616,7 @@ class TestLoadConversations:
                     ]
                 )
             )
-        convs, ids = _load_conversations(tmp_path, identity_filter="natt")
+        convs, _ids = _load_conversations(tmp_path, identity_filter="natt")
         assert len(convs) == 1
         assert convs[0]["identity"] == "natt"
 
@@ -655,7 +655,7 @@ class TestLoadConversations:
                 ]
             )
         )
-        convs, ids = _load_conversations(tmp_path)
+        convs, _ids = _load_conversations(tmp_path)
         # Only the known-source conversation should be loaded
         assert len(convs) == 1
         assert convs[0]["motivation"] == "From known source"
@@ -713,7 +713,7 @@ class TestLoadAuditConversations:
                 "timestamp": time.time(),
             },
         ]
-        convs, ids = _load_audit_conversations(audit_svc)
+        convs, _ids = _load_audit_conversations(audit_svc)
         assert convs == []
 
     def test_should_skip_unmatched_requests(self):
@@ -728,7 +728,7 @@ class TestLoadAuditConversations:
                 "timestamp": now,
             },
         ]
-        convs, ids = _load_audit_conversations(audit_svc)
+        convs, _ids = _load_audit_conversations(audit_svc)
         assert convs == []
 
     def test_should_skip_request_outside_pair_window(self):
@@ -748,7 +748,7 @@ class TestLoadAuditConversations:
                 "timestamp": now,
             },
         ]
-        convs, ids = _load_audit_conversations(audit_svc)
+        convs, _ids = _load_audit_conversations(audit_svc)
         assert convs == []
 
     def test_should_filter_by_identity(self):
@@ -769,7 +769,7 @@ class TestLoadAuditConversations:
             },
         ]
         # Filter for a different identity
-        convs, ids = _load_audit_conversations(audit_svc, identity_filter="natt")
+        convs, _ids = _load_audit_conversations(audit_svc, identity_filter="natt")
         assert convs == []
 
     def test_should_handle_none_details(self):
@@ -782,7 +782,7 @@ class TestLoadAuditConversations:
                 "timestamp": time.time(),
             },
         ]
-        convs, ids = _load_audit_conversations(audit_svc)
+        convs, _ids = _load_audit_conversations(audit_svc)
         assert convs == []
 
     def test_should_skip_entries_without_action_in_pair_map(self):
@@ -796,7 +796,7 @@ class TestLoadAuditConversations:
                 "timestamp": now,
             },
         ]
-        convs, ids = _load_audit_conversations(audit_svc)
+        convs, _ids = _load_audit_conversations(audit_svc)
         assert convs == []
 
     def test_should_not_reuse_matched_responses(self):
@@ -823,7 +823,7 @@ class TestLoadAuditConversations:
                 "timestamp": now - 3,
             },
         ]
-        convs, ids = _load_audit_conversations(audit_svc)
+        convs, _ids = _load_audit_conversations(audit_svc)
         # Only one should match (the closest in time)
         assert len(convs) == 1
 
@@ -853,7 +853,7 @@ class TestLoadAuditConversations:
                 "timestamp": now - 3,
             },
         ]
-        convs, ids = _load_audit_conversations(audit_svc)
+        convs, _ids = _load_audit_conversations(audit_svc)
         assert len(convs) == 1
         assert "correct" in convs[0]["response"]
 
@@ -871,12 +871,11 @@ class TestLoadAuditConversations:
             },
             # No matching response
         ]
-        convs, ids = _load_audit_conversations(audit_svc)
+        convs, _ids = _load_audit_conversations(audit_svc)
         assert convs == []
 
     def test_should_skip_entries_with_empty_action_in_received(self):
         """Defensive check: entries with empty action field after filtering."""
-        from unittest.mock import patch as _patch
 
         now = time.time()
         audit_svc = MagicMock()
@@ -920,7 +919,7 @@ class TestLoadAuditConversations:
                     "timestamp": now - 3,
                 },
             ]
-            convs, ids = _load_audit_conversations(audit_svc)
+            convs, _ids = _load_audit_conversations(audit_svc)
             # Empty action should be skipped by the defensive check
             assert convs == []
         finally:

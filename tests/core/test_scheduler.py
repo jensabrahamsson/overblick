@@ -1,7 +1,7 @@
 """Tests for scheduler."""
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -257,7 +257,6 @@ class TestScheduler:
     async def test_run_loop_cancelled_error_breaks(self):
         """Lines 210-211: CancelledError breaks the loop cleanly."""
         s = Scheduler()
-        original_sleep = asyncio.sleep
 
         async def noop():
             pass

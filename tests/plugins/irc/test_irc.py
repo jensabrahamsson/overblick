@@ -1,7 +1,5 @@
 """Tests for the IRC plugin — conversation orchestration, topic management, models."""
 
-import json
-import time
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 

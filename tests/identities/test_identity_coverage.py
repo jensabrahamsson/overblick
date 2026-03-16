@@ -3,11 +3,8 @@
 Covers: 346, 396-405, 472-477, 514, 520, 862-863
 """
 
-import time
-from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 import yaml
 
 from overblick.identities import (
@@ -15,8 +12,8 @@ from overblick.identities import (
     _build_identity,
     _find_identity_dir,
     _identity_cache,
-    load_identity,
     list_identities,
+    load_identity,
 )
 
 

@@ -7,10 +7,10 @@ Covers uncovered lines:
 """
 
 from overblick.plugins.moltbook.deobfuscator import (
-    _edit_distance_one,
-    _strip_letter_doubling,
-    _reassemble_fragments,
     _correct_known_words,
+    _edit_distance_one,
+    _reassemble_fragments,
+    _strip_letter_doubling,
     deobfuscate_challenge,
 )
 

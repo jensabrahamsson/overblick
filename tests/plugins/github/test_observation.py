@@ -3,7 +3,7 @@ Tests for ObservationCollector — world state gathering.
 """
 
 from datetime import UTC
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -46,7 +46,7 @@ class TestAgeHours:
 
     def test_valid_timestamp(self):
         # Recent timestamp should give small age
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         recent = (datetime.now(UTC) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
         age = _age_hours(recent)
@@ -510,7 +510,7 @@ class TestFormatForPlanner:
         assert "draft" in text
 
     def test_should_show_dependabot_prs_section(self):
-        from overblick.plugins.github.models import PRSnapshot, VersionBumpType, CIStatus
+        from overblick.plugins.github.models import CIStatus, PRSnapshot, VersionBumpType
         observer = self._make_observer()
         pr = PRSnapshot(
             number=1, title="Bump X", author="dependabot[bot]",

@@ -429,7 +429,7 @@ class TestClientRequestMethod:
         ])
         with patch("asyncio.sleep", new_callable=AsyncMock):
             with patch.object(client._proxy, "handle_rate_limit_response") as mock_handle:
-                result = await client._request("GET", "/test")
+                await client._request("GET", "/test")
                 mock_handle.assert_called_once_with(5)
 
     @pytest.mark.asyncio

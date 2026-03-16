@@ -12,7 +12,7 @@ Covers:
 """
 
 import json
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -24,8 +24,6 @@ from overblick.capabilities.psychology.dream import (
 )
 from overblick.capabilities.psychology.dream_system import (
     Dream,
-    DreamSystem,
-    DreamTone,
     DreamType,
 )
 from overblick.core.capability import CapabilityContext
@@ -400,7 +398,6 @@ class TestDreamCapabilityTickEdgeCases:
     async def test_tick_zoneinfo_exception_fallback(self):
         """When ZoneInfo fails, datetime.now() fallback is used."""
         import builtins
-        import importlib
 
         pipeline = AsyncMock()
         pipeline._chat_with_overrides = AsyncMock(

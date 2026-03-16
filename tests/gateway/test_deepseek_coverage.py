@@ -1,10 +1,10 @@
 """Additional tests for deepseek_client — cover lines 113-115."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from overblick.gateway.deepseek_client import DeepseekClient, DeepseekError
+from overblick.gateway.deepseek_client import DeepseekClient
 
 
 class TestDeepseekCoverage:

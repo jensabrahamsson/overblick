@@ -88,11 +88,6 @@ class TestResearchHandlerInit:
             return_value=PipelineResult(content="The EUR/SEK rate is approximately 11.45.")
         )
 
-        ddg_response = {
-            "Abstract": "The exchange rate between EUR and SEK is 11.45",
-            "AbstractSource": "XE.com",
-            "RelatedTopics": [],
-        }
 
         patches = _patch_init(mock_personality, mock_pipeline)
 

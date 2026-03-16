@@ -8,10 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from overblick.core.orchestrator import Orchestrator, OrchestratorState
 from overblick.core.exceptions import ConfigError
-from overblick.identities import Identity, LLMSettings, SecuritySettings, ScheduleSettings
-
+from overblick.core.orchestrator import Orchestrator, OrchestratorState
+from overblick.identities import Identity, LLMSettings, ScheduleSettings, SecuritySettings
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -19,17 +18,17 @@ from overblick.identities import Identity, LLMSettings, SecuritySettings, Schedu
 
 def _make_identity(**overrides):
     """Create a minimal Identity with sane defaults for testing."""
-    defaults = dict(
-        name="test",
-        display_name="Test",
-        plugins=("fakeplugin",),
-        security=SecuritySettings(
+    defaults = {
+        "name": "test",
+        "display_name": "Test",
+        "plugins": ("fakeplugin",),
+        "security": SecuritySettings(
             enable_preflight=False,
             enable_output_safety=False,
         ),
-        schedule=ScheduleSettings(feed_poll_minutes=5, heartbeat_hours=4),
-        raw_config={},
-    )
+        "schedule": ScheduleSettings(feed_poll_minutes=5, heartbeat_hours=4),
+        "raw_config": {},
+    }
     defaults.update(overrides)
     return Identity(**defaults)
 
@@ -571,7 +570,7 @@ class TestOrchestratorRun:
     async def test_run_normal_shutdown(self, tmp_path):
         """Lines 448-543: full run loop with scheduler + shutdown."""
         orch = _make_orchestrator(tmp_path)
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(orch, tmp_path)
+        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(orch, tmp_path)
 
         async def _start_and_shutdown():
             orch._shutdown_event.set()
@@ -595,7 +594,7 @@ class TestOrchestratorRun:
         plugin.post_heartbeat = AsyncMock()
         plugin.teardown = AsyncMock()
 
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(
+        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
             orch, tmp_path, plugins=[plugin]
         )
 
@@ -619,7 +618,7 @@ class TestOrchestratorRun:
         eng_db.start_background_cleanup = MagicMock()
         eng_db.stop_background_cleanup = MagicMock()
 
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(
+        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
             orch, tmp_path, engagement_db=eng_db
         )
 
@@ -637,7 +636,7 @@ class TestOrchestratorRun:
     async def test_run_cancelled_error_in_wait(self, tmp_path):
         """Line 538-539: CancelledError raised during asyncio.wait."""
         orch = _make_orchestrator(tmp_path)
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(orch, tmp_path)
+        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(orch, tmp_path)
 
         # Make asyncio.wait itself raise CancelledError
         async def _start_never():
@@ -663,7 +662,7 @@ class TestOrchestratorRun:
     async def test_run_generic_exception(self, tmp_path):
         """Lines 540-541."""
         orch = _make_orchestrator(tmp_path)
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(orch, tmp_path)
+        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(orch, tmp_path)
 
         scheduler.add = AsyncMock(side_effect=RuntimeError("scheduler boom"))
 
@@ -676,7 +675,7 @@ class TestOrchestratorRun:
     async def test_run_pending_tasks_cancelled(self, tmp_path):
         """Lines 531-536: pending tasks are cancelled when one completes."""
         orch = _make_orchestrator(tmp_path)
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(orch, tmp_path)
+        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(orch, tmp_path)
 
         # scheduler.start completes after a short delay, shutdown_event never fires
         # This means scheduler_task finishes first, shutdown_task is pending and gets cancelled
@@ -1142,11 +1141,9 @@ class TestRegisterLocalPlugins:
             "__name__": "fake",
         })()
 
-        orch = _make_orchestrator(tmp_path)
+        _make_orchestrator(tmp_path)
 
         # Simulate the method logic with mocked filesystem
-        candidate_name = "mylocal"
-        module_path = f"overblick.plugins._local.{candidate_name}.plugin"
 
         # Find PluginBase subclass
         cls_name = None
@@ -1376,7 +1373,7 @@ class TestGuardedTick:
         async def _capture_add(name, callback, **kwargs):
             captured_callbacks.append((name, callback))
 
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(
+        mock_setup, scheduler, _audit, event_bus = _setup_run_orch(
             orch, tmp_path, plugins=[plugin]
         )
         scheduler.add = _capture_add
@@ -1419,7 +1416,7 @@ class TestGuardedTick:
         async def _capture_add(name, callback, **kwargs):
             captured_callbacks.append((name, callback))
 
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(
+        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
             orch, tmp_path, plugins=[plugin]
         )
         scheduler.add = _capture_add
@@ -1462,7 +1459,7 @@ class TestGuardedTick:
         async def _capture_add(name, callback, **kwargs):
             captured_callbacks.append((name, callback))
 
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(
+        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
             orch, tmp_path, plugins=[plugin]
         )
         scheduler.add = _capture_add
@@ -1503,7 +1500,7 @@ class TestGuardedTick:
         async def _capture_add(name, callback, **kwargs):
             captured_callbacks.append((name, callback))
 
-        mock_setup, scheduler, audit, event_bus = _setup_run_orch(
+        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
             orch, tmp_path, plugins=[plugin]
         )
         scheduler.add = _capture_add
@@ -1539,9 +1536,10 @@ class TestGuardedTick:
 class TestRegisterLocalPluginsExecution:
     def test_discovers_and_registers_plugin(self, tmp_path):
         """Lines 845-871: actual execution with mocked importlib."""
-        from overblick.core.plugin_base import PluginBase
-        import overblick.core.orchestrator as orch_mod
         import importlib as importlib_mod
+
+        import overblick.core.orchestrator as orch_mod
+        from overblick.core.plugin_base import PluginBase
 
         class TestLocalPlugin(PluginBase):
             name = "testlocal"
@@ -1585,8 +1583,9 @@ class TestRegisterLocalPluginsExecution:
 
     def test_import_error_skips_plugin(self, tmp_path):
         """Lines 853-855: import error skips."""
-        import overblick.core.orchestrator as orch_mod
         import importlib as importlib_mod
+
+        import overblick.core.orchestrator as orch_mod
 
         local_dir = Path(orch_mod.__file__).parent.parent / "plugins" / "_local"
 
@@ -1618,8 +1617,9 @@ class TestRegisterLocalPluginsExecution:
 
     def test_no_subclass_not_registered(self, tmp_path):
         """Lines 858-870: module with no PluginBase subclass."""
-        import overblick.core.orchestrator as orch_mod
         import importlib as importlib_mod
+
+        import overblick.core.orchestrator as orch_mod
 
         local_dir = Path(orch_mod.__file__).parent.parent / "plugins" / "_local"
 
@@ -1665,7 +1665,7 @@ class TestRegisterLocalPluginsExecution:
             test_file = local_dir / "_test_file.py"
             test_file.write_text("# not a plugin dir")
 
-            orch = Orchestrator("testident", base_dir=tmp_path)
+            Orchestrator("testident", base_dir=tmp_path)
             assert True
         finally:
             if (local_dir / "_test_file.py").exists():
