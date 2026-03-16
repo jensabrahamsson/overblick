@@ -157,6 +157,82 @@ class TestDeduplication:
         assert result.errors_found == 1  # Deduplicated to 1
 
 
+class TestScanFileEdgeCases:
+    """Edge cases for scan_file not covered by main tests."""
+
+    def test_last_entry_with_traceback(self, tmp_path):
+        """Last entry with traceback lines (no next log line to close it)."""
+        log_dir = tmp_path / "test"
+        log_dir.mkdir()
+        log_file = log_dir / "test.log"
+        log_file.write_text(
+            "2026-02-26 03:00:00,000 - module - ERROR - Final error\n"
+            "  Traceback (most recent call last):\n"
+            '    File "main.py", line 10\n'
+        )
+        scanner = LogScanner(tmp_path, identities=["test"])
+        entries, _ = scanner.scan_file(log_file, "test")
+        assert len(entries) == 1
+        assert entries[0].traceback
+        assert "Traceback" in entries[0].traceback
+
+    def test_max_entries_cap(self, tmp_path):
+        """Scan stops after _MAX_ENTRIES_PER_SCAN entries."""
+        log_dir = tmp_path / "test"
+        log_dir.mkdir()
+        log_file = log_dir / "test.log"
+        lines = []
+        for i in range(120):
+            lines.append(f"2026-02-26 03:00:{i:02d},000 - module - ERROR - Error {i}")
+        log_file.write_text("\n".join(lines) + "\n")
+
+        scanner = LogScanner(tmp_path, identities=["test"])
+        entries, _ = scanner.scan_file(log_file, "test")
+        # Capped at 100
+        assert len(entries) == 100
+
+    def test_os_error_reading_file(self, tmp_path):
+        """OSError during file read returns empty list."""
+        log_dir = tmp_path / "test"
+        log_dir.mkdir()
+        log_file = log_dir / "test.log"
+        log_file.write_text("2026-02-26 03:00:00,000 - module - ERROR - Test\n")
+
+        scanner = LogScanner(tmp_path, identities=["test"])
+
+        from unittest.mock import patch, mock_open
+
+        with patch("builtins.open", side_effect=OSError("Permission denied")):
+            entries, offset = scanner.scan_file(log_file, "test")
+
+        assert entries == []
+
+    def test_non_error_level_resets_current_entry(self, tmp_path):
+        """WARNING entries matching the pattern but not in levels are handled."""
+        log_dir = tmp_path / "test"
+        log_dir.mkdir()
+        log_file = log_dir / "test.log"
+        log_file.write_text(
+            "2026-02-26 03:00:00,000 - module - ERROR - First error\n"
+            "  Traceback (most recent call last):\n"
+            "2026-02-26 03:00:01,000 - module - WARNING - Just a warning\n"
+            "2026-02-26 03:00:02,000 - module - ERROR - Second error\n"
+        )
+        scanner = LogScanner(tmp_path, identities=["test"], levels=("ERROR",))
+        entries, _ = scanner.scan_file(log_file, "test")
+        assert len(entries) == 2
+
+
+class TestProperties:
+    def test_identities_property(self, sample_log_dir):
+        """identities property returns a copy of configured identities."""
+        scanner = LogScanner(sample_log_dir, identities=["anomal", "cherry"])
+        assert scanner.identities == ["anomal", "cherry"]
+        # Ensure it's a copy
+        scanner.identities.append("test")
+        assert scanner.identities == ["anomal", "cherry"]
+
+
 class TestOffsetManagement:
     """Tests for byte offset management."""
 

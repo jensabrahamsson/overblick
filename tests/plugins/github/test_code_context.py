@@ -258,3 +258,368 @@ class TestCodeContextBuilder:
         assert context.repo == "moltbook/api"
         assert context.question == "What does main do?"
         assert len(context.files) >= 1
+
+    @pytest.mark.asyncio
+    async def test_refresh_tree_skips_when_cache_fresh(self, code_context_db, mock_github_client):
+        """refresh_tree returns False when cache is still fresh."""
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            tree_refresh_minutes=9999,  # Very long refresh window
+        )
+
+        # First refresh populates cache
+        refreshed = await builder.refresh_tree("moltbook/api")
+        assert refreshed is True
+
+        # Manually set a timezone-aware ISO timestamp so the age check works
+        from datetime import datetime, timezone
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        await code_context_db._db.execute(
+            "UPDATE repo_tree_meta SET last_refreshed = ? WHERE repo = ?",
+            (now_iso, "moltbook/api"),
+        )
+
+        # Second refresh — cache is fresh, should skip
+        refreshed = await builder.refresh_tree("moltbook/api")
+        assert refreshed is False
+
+    @pytest.mark.asyncio
+    async def test_refresh_tree_returns_false_on_api_error(self, code_context_db):
+        """refresh_tree returns False when API call fails."""
+        client = AsyncMock()
+        client.get_file_tree = AsyncMock(side_effect=Exception("network error"))
+
+        builder = CodeContextBuilder(
+            client=client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+
+        refreshed = await builder.refresh_tree("moltbook/api")
+        assert refreshed is False
+
+    @pytest.mark.asyncio
+    async def test_refresh_tree_skips_directories(self, code_context_db):
+        """refresh_tree only processes blob items, skipping trees."""
+        client = AsyncMock()
+        client.get_file_tree = AsyncMock(return_value={
+            "sha": "new_sha",
+            "tree": [
+                {"path": "src", "type": "tree", "sha": "dir_sha", "size": 0},
+                {"path": "src/main.py", "type": "blob", "sha": "file_sha", "size": 100},
+            ],
+        })
+
+        builder = CodeContextBuilder(
+            client=client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+
+        await builder.refresh_tree("test/repo")
+        paths = await code_context_db.get_tree_paths("test/repo")
+        assert "src/main.py" in paths
+        assert "src" not in paths
+
+    @pytest.mark.asyncio
+    async def test_refresh_tree_skips_non_matching_files(self, code_context_db):
+        """refresh_tree skips files that don't match include patterns."""
+        client = AsyncMock()
+        client.get_file_tree = AsyncMock(return_value={
+            "sha": "new_sha",
+            "tree": [
+                {"path": "image.png", "type": "blob", "sha": "img_sha", "size": 100},
+                {"path": "src/main.py", "type": "blob", "sha": "py_sha", "size": 100},
+            ],
+        })
+
+        builder = CodeContextBuilder(
+            client=client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+
+        await builder.refresh_tree("test/repo")
+        paths = await code_context_db.get_tree_paths("test/repo")
+        assert "src/main.py" in paths
+        assert "image.png" not in paths
+
+    def test_should_return_empty_when_no_llm_pipeline(self):
+        """select_files returns [] when no LLM pipeline is set."""
+        builder = CodeContextBuilder(
+            client=AsyncMock(),
+            db=AsyncMock(),
+            llm_pipeline=None,
+        )
+        # Synchronous check — the actual test is async below
+
+    @pytest.mark.asyncio
+    async def test_select_files_returns_empty_without_llm(self):
+        """select_files returns [] without an LLM pipeline."""
+        builder = CodeContextBuilder(
+            client=AsyncMock(),
+            db=AsyncMock(),
+            llm_pipeline=None,
+        )
+        result = await builder.select_files("test/repo", "question?")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_select_files_returns_empty_without_tree(self, code_context_db):
+        """select_files returns [] when tree cache is empty."""
+        mock_pipeline = AsyncMock()
+        builder = CodeContextBuilder(
+            client=AsyncMock(),
+            db=code_context_db,
+            llm_pipeline=mock_pipeline,
+        )
+        result = await builder.select_files("empty/repo", "question?")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_select_files_returns_empty_when_llm_blocked(self, code_context_db, mock_github_client):
+        """select_files returns [] when LLM result is blocked."""
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="", blocked=True)
+        )
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            llm_pipeline=mock_pipeline,
+            tree_refresh_minutes=0,
+        )
+        await builder.refresh_tree("moltbook/api")
+        result = await builder.select_files("moltbook/api", "test")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_select_files_returns_empty_when_llm_returns_none(self, code_context_db, mock_github_client):
+        """select_files returns [] when LLM returns None."""
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(return_value=None)
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            llm_pipeline=mock_pipeline,
+            tree_refresh_minutes=0,
+        )
+        await builder.refresh_tree("moltbook/api")
+        result = await builder.select_files("moltbook/api", "test")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_select_files_returns_empty_on_exception(self, code_context_db, mock_github_client):
+        """select_files returns [] when LLM raises an exception."""
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(side_effect=Exception("LLM error"))
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            llm_pipeline=mock_pipeline,
+            tree_refresh_minutes=0,
+        )
+        await builder.refresh_tree("moltbook/api")
+        result = await builder.select_files("moltbook/api", "test")
+        assert result == []
+
+    def test_parse_file_list_wrapped_invalid_json(self):
+        """Parse wrapped JSON that contains invalid inner JSON."""
+        raw = 'Some text [not valid json] end'
+        result = CodeContextBuilder._parse_file_list(raw)
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_files_stops_at_context_limit(self, code_context_db, mock_github_client):
+        """fetch_files stops fetching when context size limit is reached."""
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            max_context_chars=10,  # Very small limit
+            tree_refresh_minutes=0,
+        )
+        await builder.refresh_tree("moltbook/api")
+
+        # Cache first file with content larger than limit
+        await code_context_db.cache_file("moltbook/api", "src/main.py", "sha1", "x" * 15)
+
+        files = await builder.fetch_files("moltbook/api", ["src/main.py", "src/utils.py"])
+        # First file should be fetched (from cache), second should be skipped due to limit
+        assert len(files) == 1
+
+    @pytest.mark.asyncio
+    async def test_fetch_files_handles_api_error(self, code_context_db):
+        """fetch_files skips files that fail to fetch."""
+        client = AsyncMock()
+        client.get_file_content = AsyncMock(side_effect=Exception("API error"))
+
+        builder = CodeContextBuilder(
+            client=client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+        # No sha in tree cache, so it will try API
+        files = await builder.fetch_files("test/repo", ["missing.py"])
+        assert len(files) == 0
+
+    @pytest.mark.asyncio
+    async def test_fetch_files_skips_oversized(self, code_context_db):
+        """fetch_files skips files larger than max_file_size."""
+        client = AsyncMock()
+        import base64
+        large_content = base64.b64encode(("x" * 100).encode()).decode()
+        client.get_file_content = AsyncMock(return_value={
+            "content": large_content,
+            "sha": "oversized_sha",
+        })
+
+        builder = CodeContextBuilder(
+            client=client,
+            db=code_context_db,
+            max_file_size=50,  # Very small limit
+            tree_refresh_minutes=0,
+        )
+        files = await builder.fetch_files("test/repo", ["big.py"])
+        assert len(files) == 0
+
+    @pytest.mark.asyncio
+    async def test_build_context_returns_empty_when_no_files_selected(self, code_context_db, mock_github_client):
+        """build_context returns empty CodeContext when no files are selected."""
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            llm_pipeline=None,  # No LLM -> no file selection
+            tree_refresh_minutes=0,
+        )
+        context = await builder.build_context("moltbook/api", "test?")
+        assert context.repo == "moltbook/api"
+        assert context.files == []
+
+    @pytest.mark.asyncio
+    async def test_build_repo_summary(self, code_context_db, mock_github_client):
+        """build_repo_summary generates and caches summary."""
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+        summary = await builder.build_repo_summary("moltbook/api")
+        assert "moltbook/api" in summary
+        assert "Total files" in summary
+
+    @pytest.mark.asyncio
+    async def test_build_repo_summary_returns_cached(self, code_context_db, mock_github_client):
+        """build_repo_summary returns cached summary on second call."""
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+        summary1 = await builder.build_repo_summary("moltbook/api")
+        summary2 = await builder.build_repo_summary("moltbook/api")
+        assert summary1 == summary2
+
+    @pytest.mark.asyncio
+    async def test_build_repo_summary_returns_empty_without_tree(self, code_context_db):
+        """build_repo_summary returns empty string when no tree exists."""
+        client = AsyncMock()
+        client.get_file_tree = AsyncMock(return_value={"sha": "", "tree": []})
+        builder = CodeContextBuilder(
+            client=client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+        summary = await builder.build_repo_summary("empty/repo")
+        assert summary == ""
+
+    @pytest.mark.asyncio
+    async def test_build_repo_summary_detects_languages_and_dirs(self, code_context_db):
+        """build_repo_summary detects primary language and directories."""
+        client = AsyncMock()
+        client.get_file_tree = AsyncMock(return_value={
+            "sha": "sum_sha",
+            "tree": [
+                {"path": "src/main.py", "type": "blob", "sha": "a", "size": 100},
+                {"path": "src/utils.py", "type": "blob", "sha": "b", "size": 100},
+                {"path": "tests/test_main.py", "type": "blob", "sha": "c", "size": 100},
+                {"path": "README.md", "type": "blob", "sha": "d", "size": 100},
+                {"path": "pyproject.toml", "type": "blob", "sha": "e", "size": 100},
+            ],
+        })
+        builder = CodeContextBuilder(
+            client=client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+        summary = await builder.build_repo_summary("lang/repo")
+        assert ".py" in summary
+        assert "src" in summary
+        assert "tests" in summary
+        assert "Key files" in summary
+        assert "README.md" in summary
+
+    @pytest.mark.asyncio
+    async def test_build_repo_summary_no_extensions(self, code_context_db):
+        """build_repo_summary handles files without extensions."""
+        client = AsyncMock()
+        client.get_file_tree = AsyncMock(return_value={
+            "sha": "no_ext_sha",
+            "tree": [
+                {"path": "Makefile", "type": "blob", "sha": "a", "size": 100},
+                {"path": "Dockerfile", "type": "blob", "sha": "b", "size": 100},
+            ],
+        })
+        builder = CodeContextBuilder(
+            client=client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+            include_patterns=["*"],  # Accept everything
+        )
+        summary = await builder.build_repo_summary("noext/repo")
+        assert "noext/repo" in summary
+        assert "Key files" in summary
+
+    @pytest.mark.asyncio
+    async def test_get_cached_summary(self, code_context_db, mock_github_client):
+        """get_cached_summary returns cached summary."""
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+        # Build first to populate cache
+        await builder.build_repo_summary("moltbook/api")
+
+        cached = await builder.get_cached_summary("moltbook/api")
+        assert "moltbook/api" in cached
+
+    @pytest.mark.asyncio
+    async def test_get_cached_summary_returns_empty_when_no_cache(self, code_context_db):
+        """get_cached_summary returns empty string when nothing cached."""
+        builder = CodeContextBuilder(
+            client=AsyncMock(),
+            db=code_context_db,
+        )
+        cached = await builder.get_cached_summary("nonexistent/repo")
+        assert cached == ""
+
+    @pytest.mark.asyncio
+    async def test_refresh_tree_handles_bad_timestamp(self, code_context_db, mock_github_client):
+        """refresh_tree handles invalid timestamps in meta gracefully."""
+        builder = CodeContextBuilder(
+            client=mock_github_client,
+            db=code_context_db,
+            tree_refresh_minutes=0,
+        )
+        # First refresh to populate meta
+        await builder.refresh_tree("moltbook/api")
+        # Manually corrupt the timestamp
+        await code_context_db._db.execute(
+            "UPDATE repo_tree_meta SET last_refreshed = 'bad-timestamp' WHERE repo = ?",
+            ("moltbook/api",),
+        )
+        # Should handle gracefully and proceed to refresh
+        refreshed = await builder.refresh_tree("moltbook/api")
+        # Will try to fetch and sha matches, so returns False (unchanged)
+        assert refreshed is False

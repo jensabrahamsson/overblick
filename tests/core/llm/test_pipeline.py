@@ -1,12 +1,19 @@
 """Tests for SafeLLMPipeline."""
 
+import time
 from dataclasses import dataclass
 from typing import Optional
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from overblick.core.llm.pipeline import PipelineResult, PipelineStage, SafeLLMPipeline
+from overblick.core.llm.pipeline import (
+    CircuitBreaker,
+    CircuitBreakerState,
+    PipelineResult,
+    PipelineStage,
+    SafeLLMPipeline,
+)
 from overblick.core.security.preflight import PreflightResult, ThreatLevel, ThreatType
 
 
@@ -590,3 +597,193 @@ class TestSafeLLMPipeline:
         assert result.blocked
         assert isinstance(result.stage_timings, dict)
         assert "rate_limit" in result.stage_timings
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_disabled(self, mock_llm):
+        """Pipeline works with circuit breaker disabled."""
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            circuit_breaker_enabled=False,
+        )
+        assert pipeline._circuit_breaker is None
+        result = await pipeline.chat(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        assert not result.blocked
+        assert result.content == "Hello there!"
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_blocks_when_open(self, mock_llm, mock_audit):
+        """Circuit breaker open state blocks LLM calls."""
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            audit_log=mock_audit,
+            circuit_breaker_enabled=True,
+        )
+        # Force circuit breaker to open state
+        cb = pipeline._circuit_breaker
+        cb._state.state = "open"
+        cb._state.last_state_change = time.time()  # just opened
+
+        result = await pipeline.chat(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        assert result.blocked
+        assert result.block_stage == PipelineStage.LLM_CALL
+        assert "circuit breaker" in result.block_reason.lower()
+        mock_llm.chat.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_audit_error_with_audit_log(self, mock_llm, mock_audit):
+        """_audit_error logs when audit_log is present."""
+        mock_llm.chat = AsyncMock(side_effect=ConnectionError("fail"))
+        mock_llm.model = "qwen3:8b"
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            audit_log=mock_audit,
+        )
+        result = await pipeline.chat(
+            messages=[{"role": "user", "content": "Hello"}],
+            audit_action="test_chat",
+            audit_details={"extra": "info"},
+        )
+        assert result.blocked
+        mock_audit.log.assert_called_once()
+        call_kwargs = mock_audit.log.call_args.kwargs
+        assert call_kwargs["action"] == "test_chat_error"
+        assert call_kwargs["success"] is False
+        assert "model" in call_kwargs["details"]
+
+    @pytest.mark.asyncio
+    async def test_audit_skip_with_audit_log(self, mock_llm, mock_audit):
+        """_audit_skip logs when security stages are explicitly skipped."""
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            audit_log=mock_audit,
+        )
+        result = await pipeline._chat_with_overrides(
+            messages=[{"role": "user", "content": "Hello"}],
+            skip_preflight=True,
+            skip_output_safety=True,
+        )
+        assert not result.blocked
+        # audit_skip called for preflight and output_safety, plus success audit
+        assert mock_audit.log.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_audit_success_with_model_attr(self, mock_llm, mock_audit):
+        """Audit success includes model when llm has model attribute."""
+        mock_llm.model = "qwen3:8b"
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            audit_log=mock_audit,
+        )
+        await pipeline.chat(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        call_kwargs = mock_audit.log.call_args.kwargs
+        assert call_kwargs["details"]["model"] == "qwen3:8b"
+
+    @pytest.mark.asyncio
+    async def test_audit_blocked_with_model_attr(self, mock_llm, mock_audit, mock_rate_limiter):
+        """Audit blocked includes model when llm has model attribute."""
+        mock_llm.model = "qwen3:8b"
+        mock_rate_limiter.allow = MagicMock(return_value=False)
+        mock_rate_limiter.retry_after = MagicMock(return_value=1.0)
+        pipeline = SafeLLMPipeline(
+            llm_client=mock_llm,
+            audit_log=mock_audit,
+            rate_limiter=mock_rate_limiter,
+        )
+        await pipeline.chat(messages=[{"role": "user", "content": "Hello"}])
+        call_kwargs = mock_audit.log.call_args.kwargs
+        assert call_kwargs["details"]["model"] == "qwen3:8b"
+
+
+class TestCircuitBreaker:
+    def test_initial_state_is_closed(self):
+        cb = CircuitBreaker()
+        assert cb.state == "closed"
+        assert cb.is_closed is True
+        assert cb.is_open is False
+        assert cb.is_half_open is False
+        assert cb.failure_count == 0
+
+    def test_should_allow_request_when_closed(self):
+        cb = CircuitBreaker()
+        assert cb.allow_request() is True
+
+    def test_should_transition_to_open_after_threshold_failures(self):
+        cb = CircuitBreaker(failure_threshold=3)
+        for _ in range(3):
+            cb.on_failure()
+        assert cb.state == "open"
+        assert cb.is_open is True
+
+    def test_should_block_request_when_open(self):
+        cb = CircuitBreaker(failure_threshold=2)
+        cb.on_failure()
+        cb.on_failure()
+        assert cb.allow_request() is False
+
+    def test_should_transition_to_half_open_after_timeout(self):
+        cb = CircuitBreaker(failure_threshold=2, timeout_seconds=0.01)
+        cb.on_failure()
+        cb.on_failure()
+        assert cb.state == "open"
+        time.sleep(0.02)
+        assert cb.state == "half_open"
+        assert cb.is_half_open is True
+
+    def test_should_allow_request_in_half_open(self):
+        cb = CircuitBreaker(failure_threshold=2, timeout_seconds=0.01)
+        cb.on_failure()
+        cb.on_failure()
+        time.sleep(0.02)
+        # State transitions to half_open on access
+        assert cb.allow_request() is True
+
+    def test_should_close_after_success_threshold_in_half_open(self):
+        cb = CircuitBreaker(failure_threshold=2, success_threshold=2, timeout_seconds=0.01)
+        cb.on_failure()
+        cb.on_failure()
+        time.sleep(0.02)
+        _ = cb.state  # trigger half_open
+        cb.on_success()
+        assert cb.state == "half_open"
+        cb.on_success()
+        assert cb.state == "closed"
+        assert cb.failure_count == 0
+
+    def test_should_reopen_on_failure_in_half_open(self):
+        cb = CircuitBreaker(failure_threshold=2, timeout_seconds=30.0)
+        cb.on_failure()
+        cb.on_failure()
+        # Manually set half_open (simulate timeout having passed)
+        cb._state.state = "half_open"
+        cb.on_failure()
+        assert cb._state.state == "open"
+
+    def test_on_success_decrements_failure_count_when_closed(self):
+        cb = CircuitBreaker(failure_threshold=5)
+        cb.on_failure()
+        cb.on_failure()
+        assert cb.failure_count == 2
+        cb.on_success()
+        assert cb.failure_count == 1
+        cb.on_success()
+        assert cb.failure_count == 0
+        # Should not go below zero
+        cb.on_success()
+        assert cb.failure_count == 0
+
+
+class TestCircuitBreakerState:
+    def test_default_values(self):
+        state = CircuitBreakerState()
+        assert state.failure_threshold == 5
+        assert state.success_threshold == 2
+        assert state.timeout_seconds == 30.0
+        assert state.state == "closed"
+        assert state.failure_count == 0
+        assert state.success_count == 0

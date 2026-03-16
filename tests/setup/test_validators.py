@@ -6,12 +6,14 @@ import pytest
 from pydantic import ValidationError
 
 from overblick.setup.validators import (
+    AgentConfig,
     BackendConfig,
     CommunicationData,
     DeepseekConfig,
     LLMData,
     OpenAIConfig,
     PrincipalData,
+    SecurityData,
     UseCaseSelection,
 )
 
@@ -229,3 +231,49 @@ class TestUseCaseSelection:
     def test_single_selection(self):
         data = UseCaseSelection(selected_use_cases=["research"])
         assert data.selected_use_cases == ["research"]
+
+
+class TestSecurityData:
+    """Tests for Step 5 security validation."""
+
+    def test_defaults(self):
+        data = SecurityData()
+        assert not data.network_access
+        assert data.password == ""
+        assert data.password_confirm == ""
+
+    def test_valid_password(self):
+        data = SecurityData(password="securepass", password_confirm="securepass")
+        assert data.password == "securepass"
+
+    def test_empty_password_allowed(self):
+        """Empty password is allowed (no auth required)."""
+        data = SecurityData(password="", password_confirm="")
+        assert data.password == ""
+
+    def test_password_too_short(self):
+        with pytest.raises(ValidationError, match="at least 8 characters"):
+            SecurityData(password="short", password_confirm="short")
+
+    def test_passwords_must_match(self):
+        with pytest.raises(ValidationError, match="do not match"):
+            SecurityData(password="securepass", password_confirm="different")
+
+    def test_network_access_true(self):
+        data = SecurityData(network_access=True)
+        assert data.network_access
+
+
+class TestAgentConfig:
+    """Tests for AgentConfig validation."""
+
+    def test_valid_agent_configs(self):
+        data = AgentConfig(
+            agent_configs={"anomal": {"plugins": ["moltbook"], "temperature": 0.8}}
+        )
+        assert "anomal" in data.agent_configs
+        assert data.agent_configs["anomal"]["temperature"] == 0.8
+
+    def test_empty_agent_configs(self):
+        data = AgentConfig(agent_configs={})
+        assert data.agent_configs == {}

@@ -77,3 +77,40 @@ async def test_handler_error_isolation():
     await bus.emit("evt")
 
     assert "ok" in results
+
+
+def test_unsubscribe_returns_false_when_not_found():
+    bus = EventBus()
+
+    async def handler(**kwargs):
+        pass
+
+    result = bus.unsubscribe("nonexistent_event", handler)
+    assert result is False
+
+
+def test_clear_removes_all_subscriptions():
+    bus = EventBus()
+
+    async def handler(**kwargs):
+        pass
+
+    bus.subscribe("evt1", handler)
+    bus.subscribe("evt2", handler)
+    assert bus.subscription_count == 2
+
+    bus.clear()
+    assert bus.subscription_count == 0
+
+
+def test_subscription_count():
+    bus = EventBus()
+
+    async def handler(**kwargs):
+        pass
+
+    assert bus.subscription_count == 0
+    bus.subscribe("evt", handler)
+    assert bus.subscription_count == 1
+    bus.subscribe("evt", handler)
+    assert bus.subscription_count == 2

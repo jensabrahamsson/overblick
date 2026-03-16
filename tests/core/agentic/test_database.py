@@ -198,3 +198,37 @@ class TestAgenticDB:
         await agentic_db.log_tick(TickLog(tick_number=2))
 
         assert await agentic_db.get_tick_count() == 2
+
+    def test_row_to_goal_with_invalid_metadata_json(self):
+        """_row_to_goal handles invalid JSON in metadata field."""
+        row = {
+            "id": 1,
+            "name": "bad_meta",
+            "description": "Test",
+            "priority": 50,
+            "status": "active",
+            "progress": 0.0,
+            "metadata": "not valid json {{{",
+            "created_at": "",
+            "updated_at": "",
+        }
+        goal = AgenticDB._row_to_goal(row)
+        assert goal.name == "bad_meta"
+        assert goal.metadata == {}
+
+    def test_row_to_goal_with_none_metadata(self):
+        """_row_to_goal handles None metadata (TypeError path)."""
+        row = {
+            "id": 2,
+            "name": "none_meta",
+            "description": "Test",
+            "priority": 50,
+            "status": "active",
+            "progress": 0.0,
+            "metadata": None,
+            "created_at": "",
+            "updated_at": "",
+        }
+        goal = AgenticDB._row_to_goal(row)
+        assert goal.name == "none_meta"
+        assert goal.metadata == {}

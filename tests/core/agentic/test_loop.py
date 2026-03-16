@@ -216,6 +216,49 @@ class TestAgentLoop:
         """_count_observations handles scalar observations."""
         assert AgentLoop._count_observations("some text") == 9
 
+    def test_count_observations_object_without_len(self):
+        """_count_observations returns 1 for objects without __len__."""
+        assert AgentLoop._count_observations(42) == 1
+
+    @pytest.mark.asyncio
+    async def test_tick_with_learning_store(self, mock_components):
+        """Tick uses learning_store.get_relevant when learning_store is provided."""
+
+        class FakeLearning:
+            category = "testing"
+            content = "Tests are important"
+
+        mock_store = AsyncMock()
+        mock_store.get_relevant = AsyncMock(return_value=[FakeLearning()])
+
+        mock_components["learning_store"] = mock_store
+
+        loop = AgentLoop(**mock_components)
+        await loop.setup()
+
+        await loop.tick()
+
+        mock_store.get_relevant.assert_called_once()
+        # Verify planner received learnings text
+        call_kwargs = mock_components["planner"].plan.call_args
+        assert "testing" in call_kwargs.kwargs.get("learnings", "")
+
+    @pytest.mark.asyncio
+    async def test_tick_with_learning_store_empty(self, mock_components):
+        """Tick handles empty learning_store results."""
+        mock_store = AsyncMock()
+        mock_store.get_relevant = AsyncMock(return_value=[])
+
+        mock_components["learning_store"] = mock_store
+
+        loop = AgentLoop(**mock_components)
+        await loop.setup()
+
+        await loop.tick()
+
+        call_kwargs = mock_components["planner"].plan.call_args
+        assert call_kwargs.kwargs.get("learnings", "") == ""
+
     def test_format_recent_actions_empty(self):
         """Format empty recent actions."""
         assert AgentLoop._format_recent_actions([]) == ""
