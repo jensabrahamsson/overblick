@@ -599,6 +599,141 @@ class TestGatewayClientSession:
 # ---------------------------------------------------------------------------
 
 
+class TestGatewayClientReasoningContent:
+    """Test reasoning_content handling (DeepSeek reasoner)."""
+
+    async def test_chat_includes_reasoning_content(self):
+        """chat() includes reasoning_content when present in response."""
+        session = _make_mock_session(
+            response_json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": "The answer is 42.",
+                            "reasoning_content": "Let me think step by step...",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ],
+                "model": "deepseek-r1",
+                "usage": {"total_tokens": 100},
+            }
+        )
+        client = _make_client(session)
+
+        result = await client.chat(
+            messages=[{"role": "user", "content": "What is the meaning?"}],
+        )
+
+        assert result is not None
+        assert result["content"] == "The answer is 42."
+        assert result["reasoning_content"] == "Let me think step by step..."
+
+    async def test_chat_omits_reasoning_content_when_absent(self):
+        """chat() does not include reasoning_content when not in response."""
+        session = _make_mock_session(
+            response_json={
+                "choices": [
+                    {
+                        "message": {"content": "Hello!"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "model": "qwen3:8b",
+                "usage": {"total_tokens": 10},
+            }
+        )
+        client = _make_client(session)
+
+        result = await client.chat(
+            messages=[{"role": "user", "content": "Hi"}],
+        )
+
+        assert result is not None
+        assert "reasoning_content" not in result
+
+
+class TestGatewayClientEmbed:
+    """Test the embed() method."""
+
+    async def test_embed_returns_vector(self):
+        """embed() returns embedding vector on success."""
+        embedding = [0.1, 0.2, 0.3, 0.4, 0.5]
+        session = _make_mock_session(
+            response_json={"embedding": embedding},
+        )
+        client = _make_client(session)
+
+        result = await client.embed("Hello world")
+
+        assert result == embedding
+        url = session.post.call_args[0][0]
+        assert "/v1/embeddings" in url
+        assert "text=Hello" in url
+
+    async def test_embed_empty_text_returns_empty(self):
+        """embed() returns empty list for empty text without making a call."""
+        session = _make_mock_session()
+        client = _make_client(session)
+
+        result = await client.embed("")
+
+        assert result == []
+        session.post.assert_not_called()
+
+    async def test_embed_http_error(self):
+        """embed() raises LLMConnectionError on HTTP error."""
+        session = _make_mock_session(response_status=500, response_text="Internal error")
+        client = _make_client(session)
+
+        with pytest.raises(LLMConnectionError, match="Embedding API error"):
+            await client.embed("Hello")
+
+    async def test_embed_timeout(self):
+        """embed() raises LLMConnectionError on timeout."""
+        mock_response = AsyncMock()
+        mock_response.__aenter__ = AsyncMock(side_effect=TimeoutError())
+        mock_response.__aexit__ = AsyncMock(return_value=False)
+
+        session = MagicMock()
+        session.closed = False
+        session.post = MagicMock(return_value=mock_response)
+
+        client = _make_client(session)
+
+        with pytest.raises(LLMConnectionError, match="timed out"):
+            await client.embed("Hello")
+
+    async def test_embed_connection_error(self):
+        """embed() raises LLMConnectionError on connection error."""
+        mock_response = AsyncMock()
+        mock_response.__aenter__ = AsyncMock(
+            side_effect=aiohttp.ClientError("Connection refused"),
+        )
+        mock_response.__aexit__ = AsyncMock(return_value=False)
+
+        session = MagicMock()
+        session.closed = False
+        session.post = MagicMock(return_value=mock_response)
+
+        client = _make_client(session)
+
+        with pytest.raises(LLMConnectionError, match="connection error"):
+            await client.embed("Hello")
+
+    async def test_embed_custom_model(self):
+        """embed() passes custom model parameter."""
+        session = _make_mock_session(
+            response_json={"embedding": [0.1]},
+        )
+        client = _make_client(session)
+
+        await client.embed("Hello", model="custom-embed-model")
+
+        url = session.post.call_args[0][0]
+        assert "model=custom-embed-model" in url
+
+
 class TestGatewayClientInterface:
     """Verify GatewayClient implements the LLMClient abstract interface."""
 

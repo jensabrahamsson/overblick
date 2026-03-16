@@ -445,3 +445,15 @@ class TestAuditLogIntegration:
         auditor.audit_agent("volt", status)
         assert "volt" in auditor._last_audit
         assert auditor._last_audit["volt"] > 0
+
+    def test_get_history_all_agents_with_limit(self):
+        """get_history without agent filter returns all reports up to limit."""
+        auditor = AgentAuditor()
+        status = {"messages_received": 10, "messages_sent": 10, "errors": 0}
+        for _ in range(5):
+            auditor.audit_agent("volt", status)
+        for _ in range(5):
+            auditor.audit_agent("birch", status)
+        # No agent filter, limit=3 should return last 3 from all
+        history = auditor.get_history(limit=3)
+        assert len(history) == 3

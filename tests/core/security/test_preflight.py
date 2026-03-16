@@ -277,3 +277,201 @@ class TestFlaggedUserPersistence:
 
         checker._evict_stale_contexts()
         assert "good_user" not in checker._flagged_users
+
+
+class TestBlockedUser:
+    @pytest.mark.asyncio
+    async def test_should_reject_when_user_is_temporarily_banned(self):
+        """A user with blocked_until in the future gets rejected immediately."""
+        import time
+
+        checker = PreflightChecker()
+        ctx = SecurityContext(user_id="banned_user")
+        ctx.blocked_until = time.time() + 3600  # blocked for 1 hour
+        checker._user_contexts["banned_user"] = ctx
+
+        result = await checker.check("Hello", "banned_user")
+        assert not result.allowed
+        assert result.threat_level == ThreatLevel.BLOCKED
+        assert result.reason == "Temporary ban active"
+
+
+class TestAIAnalysis:
+    @pytest.mark.asyncio
+    async def test_should_call_ai_when_suspicious_and_llm_available(self):
+        """Suspicious messages are forwarded to AI analysis when LLM client exists."""
+        from unittest.mock import AsyncMock
+
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {
+            "content": '{"manipulation_detected": false, "confidence": 0.1, "reasoning": "benign"}'
+        }
+        checker = PreflightChecker(llm_client=mock_llm)
+        # "base64" triggers suspicion pattern
+        result = await checker.check("What does base64 mean?", "ai_user")
+        assert result.allowed
+        assert result.threat_level == ThreatLevel.SAFE
+        mock_llm.chat.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_should_block_when_ai_detects_manipulation(self):
+        from unittest.mock import AsyncMock
+
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {
+            "content": '{"manipulation_detected": true, "confidence": 0.9, "reasoning": "jailbreak attempt"}'
+        }
+        checker = PreflightChecker(llm_client=mock_llm)
+        result = await checker.check("What does base64 mean?", "ai_user2")
+        assert not result.allowed
+        assert result.threat_level == ThreatLevel.BLOCKED
+        assert result.threat_type == ThreatType.JAILBREAK
+        assert result.deflection is not None
+
+    @pytest.mark.asyncio
+    async def test_should_handle_empty_ai_response(self):
+        from unittest.mock import AsyncMock
+
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = None
+        checker = PreflightChecker(llm_client=mock_llm)
+        result = await checker.check("What does base64 mean?", "ai_user3")
+        assert result.allowed
+        assert result.threat_level == ThreatLevel.SUSPICIOUS
+        assert result.threat_score == 0.3
+
+    @pytest.mark.asyncio
+    async def test_should_handle_invalid_json_with_regex_fallback(self):
+        from unittest.mock import AsyncMock
+
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {
+            "content": 'Some preamble {"manipulation_detected": true, "confidence": 0.85, "reasoning": "bad"} trailing'
+        }
+        checker = PreflightChecker(llm_client=mock_llm)
+        result = await checker.check("What does base64 mean?", "ai_user4")
+        assert not result.allowed
+
+    @pytest.mark.asyncio
+    async def test_should_handle_completely_invalid_json(self):
+        from unittest.mock import AsyncMock
+
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {"content": "I cannot parse this at all"}
+        checker = PreflightChecker(llm_client=mock_llm)
+        result = await checker.check("What does base64 mean?", "ai_user5")
+        assert result.allowed
+        assert result.threat_level == ThreatLevel.SUSPICIOUS
+
+    @pytest.mark.asyncio
+    async def test_should_fail_closed_when_ai_raises_exception(self):
+        from unittest.mock import AsyncMock
+
+        mock_llm = AsyncMock()
+        mock_llm.chat.side_effect = RuntimeError("LLM is down")
+        checker = PreflightChecker(llm_client=mock_llm)
+        result = await checker.check("What does base64 mean?", "ai_user6")
+        assert not result.allowed
+        assert result.threat_level == ThreatLevel.BLOCKED
+        assert "AI analysis unavailable" in result.reason
+
+    @pytest.mark.asyncio
+    async def test_should_allow_when_ai_low_confidence(self):
+        from unittest.mock import AsyncMock
+
+        mock_llm = AsyncMock()
+        mock_llm.chat.return_value = {
+            "content": '{"manipulation_detected": true, "confidence": 0.3, "reasoning": "maybe"}'
+        }
+        checker = PreflightChecker(llm_client=mock_llm)
+        result = await checker.check("What does base64 mean?", "ai_user7")
+        assert result.allowed
+        assert result.threat_level == ThreatLevel.SAFE
+
+
+class TestContextEvictionOnCheck:
+    @pytest.mark.asyncio
+    async def test_should_evict_contexts_when_over_limit(self):
+        """When user contexts exceed MAX_USER_CONTEXTS, stale ones are evicted."""
+        import time
+
+        checker = PreflightChecker()
+        checker.MAX_USER_CONTEXTS = 2
+
+        # Pre-fill with old contexts
+        old_ctx = SecurityContext(user_id="old_user")
+        old_ctx.last_interaction = 1.0
+        checker._user_contexts["old_user"] = old_ctx
+
+        new_ctx = SecurityContext(user_id="new_user")
+        new_ctx.last_interaction = time.time()
+        checker._user_contexts["new_user"] = new_ctx
+
+        # This check should trigger eviction because contexts >= MAX_USER_CONTEXTS
+        result = await checker.check("Hello", "third_user")
+        assert result.allowed
+        # old_user should have been evicted
+        assert "third_user" in checker._user_contexts
+
+
+class TestCacheEviction:
+    @pytest.mark.asyncio
+    async def test_should_evict_expired_cache_entries_when_over_limit(self):
+        """When cache exceeds MAX_CACHE_SIZE, expired entries are purged."""
+        import time
+
+        checker = PreflightChecker(cache_ttl=1)
+        checker.MAX_CACHE_SIZE = 2
+
+        # Fill cache with expired entries
+        checker._message_cache["old1"] = (
+            PreflightResult(
+                allowed=True, threat_level=ThreatLevel.SAFE,
+                threat_type=ThreatType.NONE, threat_score=0.0,
+            ),
+            time.time() - 100,  # expired
+        )
+        checker._message_cache["old2"] = (
+            PreflightResult(
+                allowed=True, threat_level=ThreatLevel.SAFE,
+                threat_type=ThreatType.NONE, threat_score=0.0,
+            ),
+            time.time() - 100,  # expired
+        )
+
+        # This check triggers cache_result which should evict expired entries
+        result = await checker.check("Hello world", "cache_user")
+        assert result.allowed
+        # Expired entries should be gone
+        assert "old1" not in checker._message_cache
+        assert "old2" not in checker._message_cache
+
+    @pytest.mark.asyncio
+    async def test_should_evict_oldest_half_when_all_entries_unexpired(self):
+        """When cache is over limit and no entries are expired, drop oldest half."""
+        import time
+
+        checker = PreflightChecker(cache_ttl=9999)
+        checker.MAX_CACHE_SIZE = 2
+
+        now = time.time()
+        checker._message_cache["oldest"] = (
+            PreflightResult(
+                allowed=True, threat_level=ThreatLevel.SAFE,
+                threat_type=ThreatType.NONE, threat_score=0.0,
+            ),
+            now - 10,
+        )
+        checker._message_cache["newer"] = (
+            PreflightResult(
+                allowed=True, threat_level=ThreatLevel.SAFE,
+                threat_type=ThreatType.NONE, threat_score=0.0,
+            ),
+            now - 5,
+        )
+
+        # Trigger eviction
+        result = await checker.check("Hi there", "evict_user")
+        assert result.allowed
+        # oldest should have been evicted (oldest half)
+        assert "oldest" not in checker._message_cache

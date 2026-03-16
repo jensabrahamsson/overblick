@@ -644,6 +644,81 @@ class TestLoadPolymarketData:
         # Daily P&L should only include today's trade = 50
         assert result["stats"]["daily_pnl_usd"] == 50.0
 
+    def test_load_skips_non_directory_files(self, tmp_path):
+        """Files in data root should be skipped (only directories are identities)."""
+        from overblick.dashboard.routes.polymarket_dash import _load_polymarket_data
+
+        data_root = tmp_path / "data"
+        data_root.mkdir(parents=True)
+        # Create a file (not directory) in data root
+        (data_root / "somefile.txt").write_text("not a directory")
+        # Create a directory with valid data
+        identity_dir = data_root / "polytrader"
+        identity_dir.mkdir()
+        (identity_dir / "polymarket_state.json").write_text(
+            json.dumps({"monitored_markets": {"m1": {"status": "OPEN"}}})
+        )
+
+        mock_request = Mock()
+        mock_request.app.state.config = Mock()
+        mock_request.app.state.config.base_dir = str(tmp_path)
+
+        result = _load_polymarket_data(mock_request)
+        assert result["stats"]["total_markets"] == 1
+
+    def test_load_handles_invalid_portfolio_value(self, tmp_path):
+        """Invalid portfolio value should be silently skipped."""
+        from overblick.dashboard.routes.polymarket_dash import _load_polymarket_data
+
+        data_root = tmp_path / "data"
+        identity_dir = data_root / "polytrader"
+        identity_dir.mkdir(parents=True)
+
+        trader_state = {
+            "portfolio_positions": [
+                {
+                    "market_id": "m1",
+                    "current_value_usd": "not_a_number",
+                },
+            ],
+        }
+        (identity_dir / "whallet_trader_state.json").write_text(json.dumps(trader_state))
+
+        mock_request = Mock()
+        mock_request.app.state.config = Mock()
+        mock_request.app.state.config.base_dir = str(tmp_path)
+
+        result = _load_polymarket_data(mock_request)
+        # Should not crash, portfolio_value_usd stays at 0
+        assert result["stats"]["portfolio_value_usd"] == 0.0
+
+    def test_load_handles_invalid_realized_pnl(self, tmp_path):
+        """Invalid realized_pnl_usd should be silently skipped."""
+        from overblick.dashboard.routes.polymarket_dash import _load_polymarket_data
+
+        data_root = tmp_path / "data"
+        identity_dir = data_root / "polytrader"
+        identity_dir.mkdir(parents=True)
+
+        trader_state = {
+            "trade_history": [
+                {
+                    "market_id": "m1",
+                    "realized_pnl_usd": "not_a_number",
+                },
+            ],
+        }
+        (identity_dir / "whallet_trader_state.json").write_text(json.dumps(trader_state))
+
+        mock_request = Mock()
+        mock_request.app.state.config = Mock()
+        mock_request.app.state.config.base_dir = str(tmp_path)
+
+        result = _load_polymarket_data(mock_request)
+        # Should not crash, total_pnl_usd stays at 0
+        assert result["stats"]["total_pnl_usd"] == 0.0
+        assert result["stats"]["total_trades"] == 1
+
     def test_data_sorting(self, tmp_path, monkeypatch):
         """Data is sorted correctly for display."""
         from overblick.dashboard.routes.polymarket_dash import _load_polymarket_data

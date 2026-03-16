@@ -494,6 +494,87 @@ class TestLoginRoute:
 # ---------------------------------------------------------------------------
 
 
+class TestSecureCookie:
+    """Tests for _should_use_secure_cookie helper."""
+
+    def test_https_scheme(self):
+        """Returns True for https scheme."""
+        from overblick.dashboard.routes.auth import _should_use_secure_cookie
+
+        request = MagicMock()
+        request.url.scheme = "https"
+        request.headers = {}
+        request.app.state.config = MagicMock(network_access=False)
+        assert _should_use_secure_cookie(request) is True
+
+    def test_x_forwarded_proto_https(self):
+        """Returns True when X-Forwarded-Proto is https."""
+        from overblick.dashboard.routes.auth import _should_use_secure_cookie
+
+        request = MagicMock()
+        request.url.scheme = "http"
+        request.headers = {"X-Forwarded-Proto": "https"}
+        request.app.state.config = MagicMock(network_access=False)
+        assert _should_use_secure_cookie(request) is True
+
+    def test_network_access_mode(self):
+        """Returns True when network_access is enabled."""
+        from overblick.dashboard.routes.auth import _should_use_secure_cookie
+
+        request = MagicMock()
+        request.url.scheme = "http"
+        request.headers = {}
+        request.app.state.config = MagicMock(network_access=True)
+        assert _should_use_secure_cookie(request) is True
+
+
+class TestVerifyPassword:
+    """Tests for _verify_password helper."""
+
+    def test_no_password_hash(self):
+        """Returns False when no password_hash configured."""
+        from overblick.dashboard.routes.auth import _verify_password
+
+        config = MagicMock(password_hash="")
+        assert _verify_password("anything", config) is False
+
+    def test_bcrypt_exception(self):
+        """Returns False when bcrypt raises exception."""
+        from overblick.dashboard.routes.auth import _verify_password
+
+        config = MagicMock(password_hash="not-a-valid-bcrypt-hash")
+        assert _verify_password("test", config) is False
+
+
+class TestLoginPageEdgeCases:
+    @pytest.mark.asyncio
+    async def test_login_page_already_authenticated(self, client, session_cookie):
+        """If already authenticated, /login redirects to /."""
+        cookie_value, _ = session_cookie
+        resp = await client.get(
+            "/login",
+            cookies={SESSION_COOKIE: cookie_value},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
+        assert resp.headers.get("location") == "/"
+
+    @pytest.mark.asyncio
+    async def test_login_submit_csrf_mismatch(self, client):
+        """POST /login with mismatched CSRF cookie/form is rejected."""
+        from overblick.dashboard.auth import LOGIN_CSRF_COOKIE
+
+        resp = await client.post(
+            "/login",
+            data={"password": "testpass123", "csrf_token": "form-token"},
+            cookies={LOGIN_CSRF_COOKIE: "different-cookie-token"},
+            follow_redirects=False,
+        )
+        # CSRF validation fails
+        assert resp.status_code == 403
+        assert "Invalid form submission" in resp.text
+
+
 class TestAutoLogin:
     """When no password is set, dashboard auto-logs in."""
 

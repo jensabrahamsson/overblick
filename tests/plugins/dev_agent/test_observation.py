@@ -153,6 +153,177 @@ class TestFormatForPlanner:
         assert "Pending PRs" in text
 
 
+class TestObserveWithLogScanning:
+    @pytest.mark.asyncio
+    async def test_observe_scans_logs_when_enabled(self, mock_db, tmp_path):
+        """When log watcher is enabled, _scan_logs is called during observe."""
+        # Create log files
+        identity_dir = tmp_path / "anomal" / "logs"
+        identity_dir.mkdir(parents=True)
+        log_file = identity_dir / "agent.log"
+        log_file.write_text("2026-02-23 10:00:00 ERROR Connection refused\n")
+
+        log_watcher = LogWatcher(
+            base_log_dir=tmp_path,
+            scan_identities=["anomal"],
+            enabled=True,
+        )
+        observer = BugObserver(db=mock_db, log_watcher=log_watcher)
+
+        obs = await observer.observe()
+        assert obs.log_errors_found >= 1
+
+    @pytest.mark.asyncio
+    async def test_observe_log_scan_with_existing_bug(self, mock_db, tmp_path):
+        """Log errors that already exist in DB are not duplicated."""
+        identity_dir = tmp_path / "anomal" / "logs"
+        identity_dir.mkdir(parents=True)
+        log_file = identity_dir / "agent.log"
+        log_file.write_text("2026-02-23 10:00:00 ERROR Connection refused\n")
+
+        mock_db.get_bug_by_ref = AsyncMock(
+            return_value=BugReport(
+                source=BugSource.LOG_ERROR,
+                source_ref="existing",
+                title="Already tracked",
+            )
+        )
+
+        log_watcher = LogWatcher(
+            base_log_dir=tmp_path,
+            scan_identities=["anomal"],
+            enabled=True,
+        )
+        observer = BugObserver(db=mock_db, log_watcher=log_watcher)
+
+        obs = await observer.observe()
+        # Errors found but not added as new bugs
+        assert obs.log_errors_found >= 1
+        mock_db.upsert_bug.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_observe_log_scan_critical_error(self, mock_db, tmp_path):
+        """CRITICAL errors get priority 70."""
+        identity_dir = tmp_path / "anomal" / "logs"
+        identity_dir.mkdir(parents=True)
+        log_file = identity_dir / "agent.log"
+        log_file.write_text("2026-02-23 10:00:00 CRITICAL Out of memory\n")
+
+        log_watcher = LogWatcher(
+            base_log_dir=tmp_path,
+            scan_identities=["anomal"],
+            enabled=True,
+        )
+        observer = BugObserver(db=mock_db, log_watcher=log_watcher)
+
+        obs = await observer.observe()
+        assert obs.log_errors_found >= 1
+        # Check the bug was upserted with priority 70
+        if mock_db.upsert_bug.called:
+            bug_arg = mock_db.upsert_bug.call_args[0][0]
+            assert bug_arg.priority == 70
+
+    @pytest.mark.asyncio
+    async def test_observe_log_scan_offset_updated(self, mock_db, tmp_path):
+        """Log offset is updated when new data is read."""
+        identity_dir = tmp_path / "anomal" / "logs"
+        identity_dir.mkdir(parents=True)
+        log_file = identity_dir / "agent.log"
+        log_file.write_text("2026-02-23 10:00:00 ERROR Test error\n")
+
+        log_watcher = LogWatcher(
+            base_log_dir=tmp_path,
+            scan_identities=["anomal"],
+            enabled=True,
+        )
+        observer = BugObserver(db=mock_db, log_watcher=log_watcher)
+
+        await observer.observe()
+        mock_db.update_log_offset.assert_awaited()
+
+
+class TestObserveWorkspaceStateException:
+    @pytest.mark.asyncio
+    async def test_workspace_state_fn_exception(self, mock_db, tmp_path):
+        """When workspace_state_fn raises, default WorkspaceState is used."""
+        log_watcher = LogWatcher(
+            base_log_dir=tmp_path,
+            scan_identities=[],
+            enabled=False,
+        )
+
+        async def broken_ws_fn():
+            raise RuntimeError("Workspace check failed")
+
+        observer = BugObserver(
+            db=mock_db,
+            log_watcher=log_watcher,
+            workspace_state_fn=broken_ws_fn,
+        )
+
+        obs = await observer.observe()
+        # Should get default WorkspaceState (cloned=False)
+        assert obs.workspace.cloned is False
+
+
+class TestFormatForPlannerExtended:
+    def test_format_with_error_text_and_analysis(self, observer):
+        """Bug with error_text and analysis are included in format."""
+        bug = BugReport(
+            id=1,
+            source=BugSource.GITHUB_ISSUE,
+            source_ref="issue#1",
+            title="Test bug",
+            error_text="TypeError: NoneType",
+            analysis="Missing null check in api.py",
+        )
+        obs = DevAgentObservation(bugs=[bug])
+        text = observer.format_for_planner(obs)
+        assert "TypeError: NoneType" in text
+        assert "Missing null check" in text
+
+    def test_format_with_recent_fixes(self, observer):
+        """Recent fix attempts are included in format."""
+        from overblick.plugins.dev_agent.models import FixAttempt
+
+        attempt = FixAttempt(
+            bug_id=1,
+            attempt_number=1,
+            tests_passed=True,
+            committed=True,
+        )
+        obs = DevAgentObservation(recent_fixes=[attempt])
+        text = observer.format_for_planner(obs)
+        assert "Recent Fix Attempts" in text
+        assert "PASS" in text
+
+    def test_format_with_failed_test(self, observer):
+        """Failed test attempt shows FAIL."""
+        from overblick.plugins.dev_agent.models import FixAttempt
+
+        attempt = FixAttempt(
+            bug_id=2,
+            attempt_number=1,
+            tests_passed=False,
+            committed=False,
+        )
+        obs = DevAgentObservation(recent_fixes=[attempt])
+        text = observer.format_for_planner(obs)
+        assert "FAIL" in text
+
+    def test_format_with_log_errors(self, observer):
+        """Log errors count is shown."""
+        obs = DevAgentObservation(log_errors_found=5)
+        text = observer.format_for_planner(obs)
+        assert "5 new errors found" in text
+
+    def test_format_with_ipc_messages(self, observer):
+        """IPC message count is shown."""
+        obs = DevAgentObservation(ipc_messages_received=3)
+        text = observer.format_for_planner(obs)
+        assert "3 messages received" in text
+
+
 class TestIPCToBug:
     def test_bug_report(self):
         msg = {

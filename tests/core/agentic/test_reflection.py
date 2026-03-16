@@ -187,3 +187,85 @@ class TestReflectionPipeline:
     def test_extract_json_returns_none_for_garbage(self):
         """Returns None for completely unparseable text."""
         assert ReflectionPipeline._extract_json("no json here") is None
+
+    @pytest.mark.asyncio
+    async def test_reflect_skips_non_dict_learning_entries(self, mock_agentic_db):
+        """Non-dict items in learnings list are skipped."""
+        mock_pipeline = AsyncMock()
+        mock_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(
+                content=json.dumps(
+                    {
+                        "learnings": [
+                            "not a dict",
+                            42,
+                            {"category": "valid", "insight": "Real insight", "confidence": 0.8},
+                        ],
+                    }
+                ),
+            )
+        )
+
+        reflection = ReflectionPipeline(
+            db=mock_agentic_db,
+            llm_pipeline=mock_pipeline,
+        )
+
+        outcomes = [
+            ActionOutcome(
+                action=PlannedAction(action_type="test"),
+                success=True,
+                result="OK",
+            ),
+        ]
+
+        await reflection.reflect(tick_number=1, planning_reasoning="test", outcomes=outcomes)
+        assert mock_agentic_db.add_learning.call_count == 1
+
+    def test_extract_json_invalid_json_in_braces(self):
+        """Invalid JSON between { and } returns None."""
+        result = ReflectionPipeline._extract_json("prefix {not: valid: json} suffix")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_reflect_routes_through_learning_store(self, mock_agentic_db):
+        """When learning_store is provided, learnings are proposed through it."""
+        mock_pipeline = AsyncMock()
+        mock_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(
+                content=json.dumps(
+                    {
+                        "learnings": [
+                            {"category": "testing", "insight": "Store insight", "confidence": 0.9},
+                        ],
+                    }
+                ),
+            )
+        )
+
+        mock_store = AsyncMock()
+        mock_store.propose = AsyncMock()
+
+        reflection = ReflectionPipeline(
+            db=mock_agentic_db,
+            llm_pipeline=mock_pipeline,
+            learning_store=mock_store,
+        )
+
+        outcomes = [
+            ActionOutcome(
+                action=PlannedAction(action_type="test"),
+                success=True,
+                result="OK",
+            ),
+        ]
+
+        await reflection.reflect(tick_number=5, planning_reasoning="test", outcomes=outcomes)
+
+        mock_store.propose.assert_called_once_with(
+            content="Store insight",
+            category="testing",
+            source="reflection",
+            source_context="tick 5",
+        )
+        mock_agentic_db.add_learning.assert_not_called()

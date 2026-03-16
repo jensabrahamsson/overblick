@@ -14,6 +14,7 @@ import pytest
 import yaml
 from cryptography.fernet import Fernet
 
+from overblick.core.exceptions import SecurityError
 from overblick.core.security.secrets_manager import SecretsManager
 
 
@@ -244,7 +245,9 @@ class TestSecretsKeyringFailure:
             patch("keyring.get_password", side_effect=Exception("no keyring")),
             patch("keyring.set_password", side_effect=Exception("no keyring")),
         ):
-            with pytest.raises(RuntimeError, match="Keyring is unavailable"):
+            with pytest.raises(
+                (RuntimeError, SecurityError), match="Keyring is unavailable"
+            ):
                 sm._get_or_create_master_key()
 
     def test_keyring_error_with_file_fallback_succeeds(self, tmp_path):

@@ -2,6 +2,9 @@
 Tests for EngagementDB — unified engagement tracking database.
 """
 
+import asyncio
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import pytest_asyncio
 
@@ -311,3 +314,288 @@ class TestChallengeTracking:
             )
         challenges = await db.get_recent_challenges(limit=3)
         assert len(challenges) == 3
+
+
+class TestBackgroundCleanup:
+    """Background cleanup lifecycle (lines 136-165)."""
+
+    @pytest.mark.asyncio
+    async def test_should_start_background_cleanup_task(self, db):
+        db.start_background_cleanup()
+        assert db._cleanup_task is not None
+        assert not db._cleanup_task.done()
+        db.stop_background_cleanup()
+
+    @pytest.mark.asyncio
+    async def test_should_not_start_duplicate_cleanup_task(self, db):
+        db.start_background_cleanup()
+        first_task = db._cleanup_task
+        db.start_background_cleanup()  # should be no-op
+        assert db._cleanup_task is first_task
+        db.stop_background_cleanup()
+
+    @pytest.mark.asyncio
+    async def test_should_stop_background_cleanup(self, db):
+        db.start_background_cleanup()
+        db.stop_background_cleanup()
+        assert db._cleanup_task is None
+
+    @pytest.mark.asyncio
+    async def test_should_handle_stop_when_no_task(self, db):
+        db.stop_background_cleanup()  # no-op, should not raise
+
+    @pytest.mark.asyncio
+    async def test_should_run_cleanup_loop_and_handle_cancel(self, db):
+        """_cleanup_loop exits cleanly on CancelledError."""
+        with patch.object(db, '_CLEANUP_INTERVAL_SECONDS', 0.01):
+            db.start_background_cleanup()
+            await asyncio.sleep(0.05)  # let it run a cycle
+            db.stop_background_cleanup()
+
+    @pytest.mark.asyncio
+    async def test_should_handle_error_in_cleanup_loop(self, db):
+        """_cleanup_loop logs warning on trim error and continues."""
+        with patch.object(db, 'trim_old_entries', side_effect=RuntimeError("db error")), \
+             patch.object(db, '_CLEANUP_INTERVAL_SECONDS', 0.01), \
+             patch("overblick.core.db.engagement_db.logger") as mock_logger:
+            db.start_background_cleanup()
+            await asyncio.sleep(0.05)
+            db.stop_background_cleanup()
+            mock_logger.warning.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_should_log_when_cleanup_trims_entries(self, db):
+        """_cleanup_loop logs debug when entries are trimmed."""
+        with patch.object(db, 'trim_old_entries', new_callable=AsyncMock, return_value=5), \
+             patch.object(db, '_CLEANUP_INTERVAL_SECONDS', 0.01), \
+             patch("overblick.core.db.engagement_db.logger") as mock_logger:
+            db.start_background_cleanup()
+            await asyncio.sleep(0.05)
+            db.stop_background_cleanup()
+            mock_logger.debug.assert_called()
+
+
+class TestTrimOldEntries:
+    """Retention trimming (lines 174-202)."""
+
+    @pytest.mark.asyncio
+    async def test_should_return_zero_when_no_old_entries(self, db):
+        deleted = await db.trim_old_entries()
+        assert deleted == 0
+
+    @pytest.mark.asyncio
+    async def test_should_trim_old_entries_and_log(self, db):
+        # Insert data with old timestamps
+        await db._db.execute(
+            "INSERT INTO engagements (post_id, action, relevance_score, created_at) "
+            "VALUES (?, ?, ?, datetime('now', '-100 days'))",
+            ("old_post", "upvote", 0.5),
+        )
+        await db._db.execute(
+            "INSERT INTO heartbeats (post_id, title, created_at) "
+            "VALUES (?, ?, datetime('now', '-100 days'))",
+            ("old_hb", "Old Title"),
+        )
+        with patch("overblick.core.db.engagement_db.logger") as mock_logger:
+            deleted = await db.trim_old_entries(retention_days=90)
+        assert deleted >= 2
+        mock_logger.info.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_should_handle_non_int_execute_result(self, db):
+        """If execute returns non-int, treat as 0."""
+        with patch.object(db._db, 'execute', new_callable=AsyncMock, return_value="not_an_int"):
+            deleted = await db.trim_old_entries()
+        assert deleted == 0
+
+
+class TestFeedDeduplication:
+    """Feed deduplication: is_post_seen, mark_post_seen, are_posts_seen."""
+
+    @pytest.mark.asyncio
+    async def test_should_return_false_for_unseen_post(self, db):
+        result = await db.is_post_seen("new_post")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_should_return_true_after_marking_seen(self, db):
+        await db.mark_post_seen("post_x")
+        result = await db.is_post_seen("post_x")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_should_return_empty_dict_for_empty_list(self, db):
+        result = await db.are_posts_seen([])
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_should_batch_check_seen_posts(self, db):
+        await db.mark_post_seen("seen1")
+        await db.mark_post_seen("seen2")
+        result = await db.are_posts_seen(["seen1", "seen2", "unseen1"])
+        assert result["seen1"] is True
+        assert result["seen2"] is True
+        assert result["unseen1"] is False
+
+    @pytest.mark.asyncio
+    async def test_should_handle_large_batch_with_chunking(self, db):
+        """are_posts_seen chunks at 900 params."""
+        # Create 950 post IDs (triggers chunking)
+        post_ids = [f"post_{i}" for i in range(950)]
+        await db.mark_post_seen(post_ids[0])
+        result = await db.are_posts_seen(post_ids)
+        assert result[post_ids[0]] is True
+        assert result[post_ids[1]] is False
+        assert len(result) == 950
+
+
+class TestHeartbeatTitles:
+    """get_recent_heartbeat_titles and get_todays_heartbeat_titles."""
+
+    @pytest.mark.asyncio
+    async def test_should_get_recent_heartbeat_titles(self, db):
+        await db.record_heartbeat("p1", "Title A")
+        await db.record_heartbeat("p2", "Title B")
+        titles = await db.get_recent_heartbeat_titles(limit=5)
+        assert "Title A" in titles
+        assert "Title B" in titles
+
+    @pytest.mark.asyncio
+    async def test_should_respect_limit_in_heartbeat_titles(self, db):
+        for i in range(10):
+            await db.record_heartbeat(f"p{i}", f"Title {i}")
+        titles = await db.get_recent_heartbeat_titles(limit=3)
+        assert len(titles) == 3
+
+    @pytest.mark.asyncio
+    async def test_should_get_todays_heartbeat_titles(self, db):
+        await db.record_heartbeat("p1", "Today Title")
+        titles = await db.get_todays_heartbeat_titles()
+        assert "Today Title" in titles
+
+    @pytest.mark.asyncio
+    async def test_should_exclude_old_heartbeat_titles_from_today(self, db):
+        # Insert with yesterday's timestamp
+        await db._db.execute(
+            "INSERT INTO heartbeats (post_id, title, created_at) "
+            "VALUES (?, ?, datetime('now', '-2 days'))",
+            ("old_p", "Old Title"),
+        )
+        await db.record_heartbeat("new_p", "New Title")
+        titles = await db.get_todays_heartbeat_titles()
+        assert "New Title" in titles
+        assert "Old Title" not in titles
+
+
+class TestQueueCleanup:
+    """cleanup_expired_queue_items and trim_stale_queue_items."""
+
+    @pytest.mark.asyncio
+    async def test_should_cleanup_expired_queue_items(self, db):
+        # Insert an already-expired item
+        await db._db.execute(
+            "INSERT INTO reply_action_queue (comment_id, post_id, action, relevance_score, expires_at) "
+            "VALUES (?, ?, ?, ?, datetime('now', '-1 day'))",
+            ("expired_c", "expired_p", "reply", 0.5),
+        )
+        deleted = await db.cleanup_expired_queue_items()
+        assert deleted >= 1
+        # Should be archived in processed_replies
+        row = await db._db.fetch_one(
+            "SELECT * FROM processed_replies WHERE comment_id = ?",
+            ("expired_c",),
+        )
+        assert row is not None
+        assert "expired" in row["action"]
+
+    @pytest.mark.asyncio
+    async def test_should_trim_stale_queue_items(self, db):
+        # Insert a stale item (created 24 hours ago)
+        await db._db.execute(
+            "INSERT INTO reply_action_queue (comment_id, post_id, action, relevance_score, created_at) "
+            "VALUES (?, ?, ?, ?, datetime('now', '-24 hours'))",
+            ("stale_c", "stale_p", "reply", 0.4),
+        )
+        deleted = await db.trim_stale_queue_items(max_age_hours=12)
+        assert deleted >= 1
+        # Should be archived
+        row = await db._db.fetch_one(
+            "SELECT * FROM processed_replies WHERE comment_id = ?",
+            ("stale_c",),
+        )
+        assert row is not None
+        assert "stale" in row["action"]
+
+
+class TestDreamPersistence:
+    """save_dream and get_recent_dreams."""
+
+    @pytest.mark.asyncio
+    async def test_should_save_dream_and_return_id(self, db):
+        dream = {
+            "dream_type": "symbolic",
+            "content": "Walking through a forest",
+            "symbols": ["forest", "path"],
+            "tone": "peaceful",
+            "insight": "Seeking clarity",
+            "topics_referenced": ["nature"],
+            "potential_learning": "Mindfulness",
+        }
+        dream_id = await db.save_dream(dream)
+        assert isinstance(dream_id, int)
+
+    @pytest.mark.asyncio
+    async def test_should_save_dream_with_defaults(self, db):
+        dream_id = await db.save_dream({})
+        assert isinstance(dream_id, int)
+
+    @pytest.mark.asyncio
+    async def test_should_get_recent_dreams(self, db):
+        await db.save_dream({
+            "dream_type": "lucid",
+            "content": "Flying",
+            "symbols": ["wings", "sky"],
+            "tone": "joyful",
+            "insight": "Freedom",
+            "topics_referenced": ["travel"],
+            "potential_learning": "Adventure",
+        })
+        dreams = await db.get_recent_dreams(days=7, limit=10)
+        assert len(dreams) == 1
+        assert dreams[0]["dream_type"] == "lucid"
+        assert dreams[0]["symbols"] == ["wings", "sky"]
+        assert dreams[0]["topics_referenced"] == ["travel"]
+
+    @pytest.mark.asyncio
+    async def test_should_handle_invalid_json_in_dream_fields(self, db):
+        """get_recent_dreams handles malformed JSON in symbols/topics_referenced."""
+        await db._db.execute(
+            "INSERT INTO dreams (dream_type, content, symbols, tone, insight, "
+            "topics_referenced, potential_learning) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("test", "content", "not-valid-json{", "tone", "insight", "also{bad", "learning"),
+        )
+        dreams = await db.get_recent_dreams(days=7, limit=10)
+        assert len(dreams) == 1
+        assert dreams[0]["symbols"] == []
+        assert dreams[0]["topics_referenced"] == []
+
+    @pytest.mark.asyncio
+    async def test_should_return_zero_when_save_dream_returns_non_int(self, db):
+        """save_dream returns 0 if execute returns non-int."""
+        with patch.object(db._db, 'execute', new_callable=AsyncMock, return_value="not_int"):
+            result = await db.save_dream({"dream_type": "test"})
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_should_filter_old_dreams(self, db):
+        """get_recent_dreams respects the days parameter."""
+        # Insert a dream with old timestamp
+        await db._db.execute(
+            "INSERT INTO dreams (dream_type, content, symbols, tone, insight, "
+            "topics_referenced, potential_learning, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '-30 days'))",
+            ("old", "old dream", "[]", "neutral", "", "[]", ""),
+        )
+        dreams = await db.get_recent_dreams(days=7, limit=10)
+        assert len(dreams) == 0

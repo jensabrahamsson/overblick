@@ -62,7 +62,7 @@ def _patch_init(mock_personality, mock_pipeline):
     return (
         patch("overblick.identities.load_identity", return_value=mock_personality),
         patch("overblick.identities.build_system_prompt", return_value="system prompt"),
-        patch("overblick.core.llm.ollama_client.OllamaClient"),
+        patch("overblick.core.llm.gateway_client.GatewayClient"),
         patch("overblick.core.llm.pipeline.SafeLLMPipeline", return_value=mock_pipeline),
         patch("overblick.core.security.rate_limiter.RateLimiter"),
     )

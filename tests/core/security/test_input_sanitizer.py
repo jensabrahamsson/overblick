@@ -1,6 +1,11 @@
 """Tests for input sanitizer."""
 
-from overblick.core.security.input_sanitizer import sanitize, wrap_external_content
+from overblick.core.security.input_sanitizer import (
+    normalize_homoglyphs,
+    sanitize,
+    sanitize_dict,
+    wrap_external_content,
+)
 
 
 class TestSanitize:
@@ -75,3 +80,35 @@ class TestWrapExternalContent:
         result = wrap_external_content(malicious, "test")
         inner = result.split("\n")[1]
         assert "<<<EXTERNAL_" not in inner
+
+
+class TestNormalizeHomoglyphs:
+    def test_should_normalize_fullwidth_chars(self):
+        result = normalize_homoglyphs("\uff21\uff22\uff23")
+        assert result == "ABC"
+
+    def test_should_pass_through_ascii(self):
+        assert normalize_homoglyphs("hello") == "hello"
+
+
+class TestSanitizeDict:
+    def test_should_sanitize_string_values(self):
+        data = {"name": "hello\x00world", "count": 42}
+        result = sanitize_dict(data)
+        assert result["name"] == "helloworld"
+        assert result["count"] == 42
+
+    def test_should_preserve_non_string_values(self):
+        data = {"flag": True, "items": [1, 2, 3], "nested": {"a": 1}}
+        result = sanitize_dict(data)
+        assert result["flag"] is True
+        assert result["items"] == [1, 2, 3]
+        assert result["nested"] == {"a": 1}
+
+    def test_should_respect_max_length(self):
+        data = {"long": "a" * 100}
+        result = sanitize_dict(data, max_length=10)
+        assert len(result["long"]) == 10
+
+    def test_should_handle_empty_dict(self):
+        assert sanitize_dict({}) == {}

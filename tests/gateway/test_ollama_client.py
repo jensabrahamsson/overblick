@@ -195,3 +195,76 @@ class TestOllamaClient:
     async def test_embed_empty_text(self, client):
         result = await client.embed("")
         assert result == []
+
+    async def test_list_models_generic_exception(self, client):
+        """list_models returns empty list on generic exception."""
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.get = AsyncMock(side_effect=RuntimeError("Unexpected"))
+            mock_get.return_value = mock_http
+
+            models = await client.list_models()
+            assert models == []
+
+    async def test_list_models_connect_error(self, client):
+        """list_models raises OllamaConnectionError on ConnectError."""
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
+            mock_get.return_value = mock_http
+
+            with pytest.raises(OllamaConnectionError):
+                await client.list_models()
+
+    async def test_chat_completion_generic_exception(self, client, sample_request):
+        """chat_completion raises OllamaError on unexpected exception."""
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(side_effect=RuntimeError("Unexpected"))
+            mock_get.return_value = mock_http
+
+            with pytest.raises(OllamaError, match="Failed to call"):
+                await client.chat_completion(sample_request)
+
+    async def test_embed_empty_embeddings_response(self, client):
+        """embed returns empty list when embeddings are not list of lists."""
+        mock_response_data = {"embeddings": []}
+
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_response_data
+            mock_response.raise_for_status = MagicMock()
+            mock_http.post = AsyncMock(return_value=mock_response)
+            mock_get.return_value = mock_http
+
+            result = await client.embed("test text")
+            assert result == []
+
+    async def test_embed_http_status_error(self, client):
+        """embed raises OllamaError on HTTP status error."""
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 500
+            mock_response.text = "Internal Server Error"
+            error = httpx.HTTPStatusError(
+                "Server error",
+                request=MagicMock(),
+                response=mock_response,
+            )
+            mock_http.post = AsyncMock(side_effect=error)
+            mock_get.return_value = mock_http
+
+            with pytest.raises(OllamaError, match="Embedding request failed"):
+                await client.embed("test text")
+
+    async def test_embed_generic_exception(self, client):
+        """embed raises OllamaError on unexpected exception."""
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(side_effect=RuntimeError("Unexpected"))
+            mock_get.return_value = mock_http
+
+            with pytest.raises(OllamaError, match="Failed to generate embedding"):
+                await client.embed("test text")

@@ -10,6 +10,7 @@ import pytest
 from overblick.plugins.irc.models import (
     ConversationState,
     IRCConversation,
+    IRCEventType,
     IRCTurn,
     TopicState,
 )
@@ -711,6 +712,504 @@ class TestIRCPluginSystemCheck:
             mock_cap.side_effect = ImportError("not available")
             result = await irc_plugin._is_system_idle()
         assert result is True
+
+    @pytest.mark.asyncio
+    async def test_should_return_false_when_cpu_high(self, irc_plugin):
+        """Returns False when CPU load is high."""
+        mock_inspector = AsyncMock()
+        health = MagicMock()
+        health.cpu.core_count = 4
+        health.cpu.load_1m = 4.0  # 100% per core
+        health.memory.total = 100
+        health.memory.used = 50
+        mock_inspector.inspect = AsyncMock(return_value=health)
+        irc_plugin._host_inspector = mock_inspector
+
+        result = await irc_plugin._is_system_idle()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_should_return_false_when_memory_high(self, irc_plugin):
+        """Returns False when memory usage is high."""
+        mock_inspector = AsyncMock()
+        health = MagicMock()
+        health.cpu.core_count = 4
+        health.cpu.load_1m = 0.5
+        health.memory.total = 100
+        health.memory.used = 90  # 90% used
+        mock_inspector.inspect = AsyncMock(return_value=health)
+        irc_plugin._host_inspector = mock_inspector
+
+        result = await irc_plugin._is_system_idle()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_should_return_true_when_idle(self, irc_plugin):
+        """Returns True when system is idle."""
+        mock_inspector = AsyncMock()
+        health = MagicMock()
+        health.cpu.core_count = 4
+        health.cpu.load_1m = 0.5  # Low
+        health.memory.total = 100
+        health.memory.used = 50  # 50%
+        mock_inspector.inspect = AsyncMock(return_value=health)
+        irc_plugin._host_inspector = mock_inspector
+
+        result = await irc_plugin._is_system_idle()
+        assert result is True
+
+
+class TestIRCPluginQuietHours:
+    def test_should_return_true_during_quiet_hours(self, irc_plugin):
+        """Returns True when in quiet hours (23-07)."""
+        from datetime import datetime as dt
+
+        mock_now = dt(2026, 3, 15, 2, 0)  # 02:00 - quiet
+        with patch("overblick.plugins.irc.plugin.datetime") as mock_datetime:
+            mock_datetime.now.return_value = mock_now
+            result = irc_plugin._is_irc_quiet_hours()
+        assert result is True
+
+    def test_should_return_false_outside_quiet_hours(self, irc_plugin):
+        """Returns False when outside quiet hours."""
+        from datetime import datetime as dt
+
+        mock_now = dt(2026, 3, 15, 12, 0)  # 12:00 - active
+        with patch("overblick.plugins.irc.plugin.datetime") as mock_datetime:
+            mock_datetime.now.return_value = mock_now
+            result = irc_plugin._is_irc_quiet_hours()
+        assert result is False
+
+    def test_should_handle_zoneinfo_exception(self, irc_plugin):
+        """Falls back to local time when ZoneInfo fails."""
+        with patch("overblick.plugins.irc.plugin.datetime") as mock_datetime:
+            from datetime import datetime as dt
+
+            # First call (with ZoneInfo) raises, second call (fallback) returns 12:00
+            mock_datetime.now.side_effect = [Exception("no tz"), dt(2026, 3, 15, 12, 0)]
+            result = irc_plugin._is_irc_quiet_hours()
+        assert result is False
+
+    def test_should_handle_non_wrapping_quiet_hours(self, irc_plugin):
+        """Covers the non-wrapping branch (start <= end)."""
+        from datetime import datetime as dt
+
+        mock_now = dt(2026, 3, 15, 10, 0)  # 10:00
+        with (
+            patch("overblick.plugins.irc.plugin.datetime") as mock_datetime,
+            patch("overblick.plugins.irc.plugin._IRC_QUIET_START", 8),
+            patch("overblick.plugins.irc.plugin._IRC_QUIET_END", 12),
+        ):
+            mock_datetime.now.return_value = mock_now
+            result = irc_plugin._is_irc_quiet_hours()
+        assert result is True
+
+
+class TestIRCPluginSetupErrors:
+    @pytest.mark.asyncio
+    async def test_should_handle_identity_load_failure(self, irc_plugin, mock_ctx):
+        """Setup handles identity load failures gracefully."""
+        with (
+            patch("overblick.identities.list_identities", return_value=["bad_identity"]),
+            patch("overblick.identities.load_identity", side_effect=RuntimeError("load failed")),
+        ):
+            await irc_plugin.setup()
+
+        assert "bad_identity" not in irc_plugin._identities
+        assert irc_plugin._running is True
+
+
+class TestIRCPluginRunTurns:
+    @pytest.mark.asyncio
+    async def test_should_return_early_when_no_active_conversation(self, irc_plugin):
+        """_run_turns returns early when no active conversation."""
+        irc_plugin._current_conversation = None
+        await irc_plugin._run_turns()
+
+    @pytest.mark.asyncio
+    async def test_should_complete_conversation_when_should_end(self, irc_plugin, mock_ctx):
+        """Completes conversation when should_end is True."""
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._running = True
+
+        # Create conversation that has reached max_turns
+        turns = [IRCTurn(identity="anomal", content=f"msg {i}", turn_number=i) for i in range(20)]
+        conv = IRCConversation(
+            id="irc-ending",
+            topic="Ending",
+            channel="#test",
+            participants=["anomal", "cherry"],
+            turns=turns,
+            max_turns=20,
+        )
+        irc_plugin._current_conversation = conv
+
+        await irc_plugin._run_turns()
+
+        assert irc_plugin._current_conversation.state == ConversationState.COMPLETED
+        assert len(irc_plugin._recent_participants) > 0
+        mock_ctx.event_bus.emit.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_should_break_when_speaker_is_none(self, irc_plugin, mock_ctx):
+        """Breaks when _select_next_speaker returns None."""
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._running = True
+
+        conv = IRCConversation(
+            id="irc-no-speaker",
+            topic="No Speaker",
+            participants=[],  # Empty participants -> speaker = None
+        )
+        irc_plugin._current_conversation = conv
+
+        await irc_plugin._run_turns()
+
+    @pytest.mark.asyncio
+    async def test_should_break_when_generate_returns_none(self, irc_plugin, mock_ctx):
+        """Breaks when _generate_turn returns None."""
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._running = True
+
+        conv = IRCConversation(
+            id="irc-no-gen",
+            topic="No Gen",
+            participants=["anomal"],
+        )
+        irc_plugin._current_conversation = conv
+        # No identities loaded -> _generate_turn returns None
+        irc_plugin._identities = {}
+
+        await irc_plugin._run_turns()
+
+    @pytest.mark.asyncio
+    async def test_should_add_turn_and_emit_event(self, irc_plugin, mock_ctx):
+        """Successfully adds turns and emits events."""
+        from overblick.core.llm.pipeline import PipelineResult
+
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._running = True
+
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        mock_identity.display_name = "Anomal"
+        irc_plugin._identities = {"anomal": mock_identity, "cherry": MagicMock(name="cherry", display_name="Cherry")}
+
+        conv = IRCConversation(
+            id="irc-gen-test",
+            topic="Gen Test",
+            topic_description="Test",
+            channel="#test",
+            participants=["anomal", "cherry"],
+            max_turns=5,
+        )
+        irc_plugin._current_conversation = conv
+
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(content="Test response")
+        )
+
+        with (
+            patch("overblick.identities.build_system_prompt", return_value="System prompt"),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            await irc_plugin._run_turns(max_turns=1)
+
+        # Should have added a turn
+        assert irc_plugin._current_conversation.turn_count > 0
+        mock_ctx.event_bus.emit.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_should_handle_teardown_during_generate(self, irc_plugin, mock_ctx):
+        """Handles teardown cancelling conversation during _generate_turn."""
+        from overblick.core.llm.pipeline import PipelineResult
+
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._running = True
+
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        mock_identity.display_name = "Anomal"
+        irc_plugin._identities = {"anomal": mock_identity}
+
+        conv = IRCConversation(
+            id="irc-teardown",
+            topic="Teardown",
+            topic_description="Test",
+            channel="#test",
+            participants=["anomal"],
+            max_turns=5,
+        )
+        irc_plugin._current_conversation = conv
+
+        async def cancel_during_generate(*args, **kwargs):
+            # Simulate teardown cancelling the conversation
+            irc_plugin._current_conversation = None
+            return PipelineResult(content="Response")
+
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(side_effect=cancel_during_generate)
+
+        with patch("overblick.identities.build_system_prompt", return_value="System"):
+            await irc_plugin._run_turns(max_turns=1)
+
+
+class TestIRCPluginGenerateTurn:
+    @pytest.mark.asyncio
+    async def test_should_return_none_for_unknown_identity(self, irc_plugin, mock_ctx):
+        """Returns None when identity is not in loaded identities."""
+        irc_plugin._identities = {}
+        result = await irc_plugin._generate_turn("unknown")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_should_return_none_when_no_pipeline(self, irc_plugin, mock_ctx):
+        """Returns None when no LLM pipeline."""
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        irc_plugin._identities = {"anomal": mock_identity}
+        mock_ctx.llm_pipeline = None
+        result = await irc_plugin._generate_turn("anomal")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_should_return_none_when_no_conversation(self, irc_plugin, mock_ctx):
+        """Returns None when no current conversation."""
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        irc_plugin._identities = {"anomal": mock_identity}
+        irc_plugin._current_conversation = None
+        result = await irc_plugin._generate_turn("anomal")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_should_use_start_prompt_when_no_turns(self, irc_plugin, mock_ctx):
+        """Uses start-conversation prompt when no turns exist."""
+        from overblick.core.llm.pipeline import PipelineResult
+
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        mock_identity.display_name = "Anomal"
+        irc_plugin._identities = {"anomal": mock_identity}
+
+        conv = IRCConversation(
+            id="irc-start",
+            topic="Start Topic",
+            topic_description="Test",
+            participants=["anomal"],
+            turns=[],  # No turns
+        )
+        irc_plugin._current_conversation = conv
+
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(content="Opening thought")
+        )
+        with patch("overblick.identities.build_system_prompt", return_value="System"):
+            result = await irc_plugin._generate_turn("anomal")
+
+        assert result == "Opening thought"
+        call_args = mock_ctx.llm_pipeline._chat_with_overrides.call_args
+        messages = call_args.kwargs.get("messages", call_args.args[0] if call_args.args else [])
+        last_msg = messages[-1]["content"]
+        assert "Start a conversation" in last_msg
+
+    @pytest.mark.asyncio
+    async def test_should_return_none_when_blocked(self, irc_plugin, mock_ctx):
+        """Returns None when LLM response is blocked."""
+        from overblick.core.llm.pipeline import PipelineResult
+
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        mock_identity.display_name = "Anomal"
+        irc_plugin._identities = {"anomal": mock_identity}
+
+        conv = IRCConversation(
+            id="irc-blocked",
+            topic="Blocked",
+            participants=["anomal"],
+            turns=[IRCTurn(identity="cherry", content="Hi")],
+        )
+        irc_plugin._current_conversation = conv
+
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(
+            return_value=PipelineResult(blocked=True, block_reason="safety")
+        )
+        with patch("overblick.identities.build_system_prompt", return_value="System"):
+            result = await irc_plugin._generate_turn("anomal")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_should_return_none_on_exception(self, irc_plugin, mock_ctx):
+        """Returns None when LLM call raises exception."""
+        mock_identity = MagicMock()
+        mock_identity.name = "anomal"
+        mock_identity.display_name = "Anomal"
+        irc_plugin._identities = {"anomal": mock_identity}
+
+        conv = IRCConversation(
+            id="irc-error",
+            topic="Error",
+            participants=["anomal"],
+            turns=[IRCTurn(identity="cherry", content="Hi")],
+        )
+        irc_plugin._current_conversation = conv
+
+        mock_ctx.llm_pipeline._chat_with_overrides = AsyncMock(
+            side_effect=RuntimeError("LLM crashed")
+        )
+        with patch("overblick.identities.build_system_prompt", return_value="System"):
+            result = await irc_plugin._generate_turn("anomal")
+
+        assert result is None
+
+
+class TestIRCPluginSpeakerFallback:
+    def test_should_fallback_to_first_when_single_participant(self, irc_plugin):
+        """Falls back to first participant when only one."""
+        turns = [IRCTurn(identity="anomal", content="solo")]
+        irc_plugin._current_conversation = IRCConversation(
+            id="irc-solo",
+            topic="Solo",
+            participants=["anomal"],
+            turns=turns,
+        )
+        speaker = irc_plugin._select_next_speaker()
+        assert speaker == "anomal"
+
+
+class TestIRCPluginStartConversation:
+    @pytest.mark.asyncio
+    async def test_should_handle_no_topics(self, irc_plugin, mock_ctx):
+        """Handles when no topics are available."""
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+
+        with patch("overblick.plugins.irc.plugin.select_topic", return_value=None):
+            await irc_plugin._start_conversation()
+
+        assert irc_plugin._current_conversation is None
+
+    @pytest.mark.asyncio
+    async def test_should_handle_not_enough_participants(self, irc_plugin, mock_ctx):
+        """Handles when fewer than 2 participants interested."""
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+
+        p1 = MagicMock()
+        p1.name = "only_one"
+        p1.display_name = "Only One"
+
+        with (
+            patch("overblick.plugins.irc.plugin.select_topic", return_value={"id": "t1", "topic": "T1"}),
+            patch("overblick.plugins.irc.plugin.select_participants", return_value=[p1]),
+        ):
+            await irc_plugin._start_conversation()
+
+        assert irc_plugin._current_conversation is None
+
+
+class TestIRCPluginResumePaused:
+    @pytest.mark.asyncio
+    async def test_should_resume_paused_conversation(self, irc_plugin, mock_ctx):
+        """Resumes paused conversation with REJOIN events."""
+        irc_plugin._data_dir = mock_ctx.data_dir / "irc"
+        irc_plugin._data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._running = True
+
+        conv = IRCConversation(
+            id="irc-paused",
+            topic="Paused",
+            channel="#test",
+            participants=["anomal", "cherry"],
+            state=ConversationState.PAUSED,
+        )
+        irc_plugin._current_conversation = conv
+
+        mock_identity = MagicMock()
+        mock_identity.display_name = "Test"
+        irc_plugin._identities = {"anomal": mock_identity, "cherry": mock_identity}
+
+        with (
+            patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False),
+            patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=True),
+            patch.object(irc_plugin, "_run_turns", new_callable=AsyncMock),
+        ):
+            await irc_plugin._conversation_tick()
+
+        assert irc_plugin._current_conversation.state == ConversationState.ACTIVE
+        # Check for REJOIN events
+        rejoin_turns = [
+            t for t in irc_plugin._current_conversation.turns
+            if t.type == IRCEventType.REJOIN
+        ]
+        assert len(rejoin_turns) == 2
+
+
+class TestIRCPluginHighLoadNoConversation:
+    @pytest.mark.asyncio
+    async def test_should_log_debug_when_no_active_conversation(self, irc_plugin, mock_ctx):
+        """Logs debug and returns when no active conversation and high load."""
+        irc_plugin._running = True
+        irc_plugin._current_conversation = None
+
+        with (
+            patch.object(irc_plugin, "_is_irc_quiet_hours", return_value=False),
+            patch.object(irc_plugin, "_is_system_idle", new_callable=AsyncMock, return_value=False),
+        ):
+            await irc_plugin._conversation_tick()
+
+        # Should not have started a conversation
+        assert irc_plugin._current_conversation is None
+
+
+class TestIRCPluginTopicState:
+    def test_save_topic_state_no_data_dir(self, irc_plugin):
+        """No-op when data_dir is None."""
+        irc_plugin._data_dir = None
+        irc_plugin._save_topic_state()  # Should not raise
+
+    def test_load_topic_state_no_data_dir(self, irc_plugin):
+        """No-op when data_dir is None."""
+        irc_plugin._data_dir = None
+        irc_plugin._load_topic_state()  # Should not raise
+
+    def test_load_topic_state_corrupt_json(self, irc_plugin, mock_ctx):
+        """Handles corrupt topic state file."""
+        data_dir = mock_ctx.data_dir / "irc"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        irc_plugin._data_dir = data_dir
+        (data_dir / "topic_state.json").write_text("broken{{{")
+        irc_plugin._load_topic_state()
+        # Should not crash, keeps defaults
+        assert irc_plugin._used_topics == []
+
+
+class TestIRCPluginStorageNullDir:
+    def test_save_conversation_no_data_dir(self, irc_plugin):
+        """No-op when data_dir is None."""
+        irc_plugin._data_dir = None
+        conv = IRCConversation(id="test", topic="Test")
+        irc_plugin._save_conversation(conv)  # Should not raise
+
+    def test_load_conversations_no_data_dir(self, irc_plugin):
+        """Returns empty list when data_dir is None."""
+        irc_plugin._data_dir = None
+        result = irc_plugin._load_conversations()
+        assert result == []
+
+
+class TestIRCPluginTickDelegates:
+    @pytest.mark.asyncio
+    async def test_tick_delegates_to_conversation_tick(self, irc_plugin):
+        """tick() calls _conversation_tick()."""
+        with patch.object(irc_plugin, "_conversation_tick", new_callable=AsyncMock) as mock_tick:
+            await irc_plugin.tick()
+        mock_tick.assert_called_once()
 
 
 class TestIRCPluginDailyLimit:
