@@ -5,6 +5,7 @@ Covers: set/get roundtrip, missing identity, file isolation,
 encryption verification, cache behavior, key listing.
 """
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -100,6 +101,7 @@ class TestFileIsolation:
         assert sm.get("anomal", "secret") == "anomal_secret"
         assert sm.get("cherry", "secret") == "cherry_secret"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix file permissions not available on Windows")
     def test_file_permissions(self, sm, secrets_dir):
         """Secret files have restricted permissions (0o600)."""
         sm.set("anomal", "key", "value")
@@ -393,6 +395,7 @@ class TestMasterKeyFromKeyring:
             with pytest.raises(SecurityError, match="Keyring is unavailable"):
                 sm._get_or_create_master_key()
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix file permissions not available on Windows")
     def test_should_fallback_to_file_when_keyring_set_fails(self, tmp_path):
         """When keyring.set_password fails, key is written to file with 0o600."""
         secrets_dir = tmp_path / "fb_secrets"

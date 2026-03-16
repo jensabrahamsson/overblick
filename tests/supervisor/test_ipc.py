@@ -129,6 +129,7 @@ class TestIPCMessage:
         assert msg.timestamp  # Should be non-empty ISO timestamp
 
 
+@unix_only
 class TestIPCServer:
     """Tests for IPCServer lifecycle and auth."""
 
@@ -145,7 +146,6 @@ class TestIPCServer:
         yield srv, token
         await srv.stop()
 
-    @unix_only
     @pytest.mark.asyncio
     async def test_start_creates_socket(self, ipc_dir):
         srv = IPCServer(name="test", socket_dir=ipc_dir, auth_token="tok")
@@ -153,7 +153,6 @@ class TestIPCServer:
         assert srv.socket_path.exists()
         await srv.stop()
 
-    @unix_only
     @pytest.mark.asyncio
     async def test_stop_removes_socket(self, ipc_dir):
         srv = IPCServer(name="test", socket_dir=ipc_dir, auth_token="tok")
@@ -162,7 +161,6 @@ class TestIPCServer:
         await srv.stop()
         assert not socket_path.exists()
 
-    @unix_only
     @pytest.mark.asyncio
     async def test_token_file_created_with_secure_permissions(self, ipc_dir):
         from overblick.supervisor.ipc import read_ipc_token
@@ -193,7 +191,6 @@ class TestIPCServer:
         assert not srv.token_path.exists()
         await srv.stop()
 
-    @unix_only
     @pytest.mark.asyncio
     async def test_stale_socket_removed_on_start(self, ipc_dir):
         socket_path = ipc_dir / "overblick-test.sock"
@@ -238,6 +235,7 @@ class TestIPCServer:
         assert srv.rejected_count == 1
 
 
+@unix_only
 class TestIPCClientServer:
     """Integration tests for IPC client-server communication."""
 
@@ -819,6 +817,7 @@ class TestReadConnFileFallbacks:
         assert result is None
 
 
+@unix_only
 class TestIPCServerHandlerErrors:
     """Tests for _handle_connection error paths."""
 
@@ -983,6 +982,7 @@ class TestIPCServerConnFileWriting:
         assert data["token"] == "tok"
 
 
+@unix_only
 class TestIPCClientErrors:
     """Tests for IPCClient error handling paths."""
 
@@ -1150,6 +1150,7 @@ class TestIPCServerStopCleanup:
             assert not srv._conn_path.exists()
             assert srv.tcp_port is None
 
+    @unix_only
     @pytest.mark.asyncio
     async def test_stop_socket_already_gone(self, ipc_dir):
         """stop() handles missing socket file gracefully."""
@@ -1160,6 +1161,7 @@ class TestIPCServerStopCleanup:
         srv.token_path.unlink(missing_ok=True)
         await srv.stop()  # Should not raise
 
+    @unix_only
     @pytest.mark.asyncio
     async def test_stop_with_lingering_socket(self, ipc_dir):
         """stop() removes socket that lingers after server close."""
@@ -1180,6 +1182,7 @@ class TestIPCServerStopCleanup:
         assert not srv._socket_path.exists()
 
 
+@unix_only
 class TestIPCServerHandleConnectionEdgeCases:
     """Additional _handle_connection error path tests."""
 
@@ -1346,6 +1349,7 @@ class TestIPCServerMiscEdgeCases:
         # Socket/token/conn paths don't exist - should not raise
         await srv.stop()
 
+    @unix_only
     @pytest.mark.asyncio
     async def test_handle_connection_empty_data_after_read(self, ipc_dir):
         """Empty data after readuntil triggers early return."""

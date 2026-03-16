@@ -5,6 +5,7 @@ Tests for the Supervisor, AgentProcess, and IPC system.
 import asyncio
 import json
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,6 +15,11 @@ import pytest
 from overblick.supervisor.ipc import IPCClient, IPCMessage, IPCServer
 from overblick.supervisor.process import AgentProcess, ProcessState
 from overblick.supervisor.supervisor import Supervisor, SupervisorState
+
+# Skip marker for Unix-only tests (Unix domain sockets)
+unix_only = pytest.mark.skipif(
+    sys.platform == "win32", reason="Unix domain sockets not available on Windows"
+)
 
 
 @pytest.fixture
@@ -180,6 +186,7 @@ class TestAgentProcess:
 # ---------------------------------------------------------------------------
 
 
+@unix_only
 class TestIPC:
     @pytest.mark.asyncio
     async def test_server_start_stop(self, short_tmp):
@@ -261,6 +268,7 @@ class TestIPC:
 # ---------------------------------------------------------------------------
 
 
+@unix_only
 class TestSupervisor:
     def test_initial_state(self):
         sup = Supervisor(identities=["anomal", "cherry"])
@@ -349,6 +357,7 @@ class TestSupervisor:
 # ---------------------------------------------------------------------------
 
 
+@unix_only
 class TestSupervisorAgentActions:
     """Test start/stop agent IPC handlers."""
 
@@ -452,6 +461,7 @@ class TestSupervisorAgentActions:
             await sup.stop()
 
 
+@unix_only
 class TestIPCAuth:
     @pytest.mark.asyncio
     async def test_auth_accepted(self, short_tmp):
@@ -539,6 +549,7 @@ class TestIPCAuth:
 # ---------------------------------------------------------------------------
 
 
+@unix_only
 class TestSupervisorIdentityPlugins:
     """Test that start_agent loads plugins from identity config."""
 
@@ -584,6 +595,7 @@ class TestSupervisorIdentityPlugins:
 # ---------------------------------------------------------------------------
 
 
+@unix_only
 class TestSupervisorStartFailure:
     """Test supervisor start failure and cleanup."""
 
@@ -725,6 +737,7 @@ class TestSupervisorStartFailure:
             await sup.stop()
 
 
+@unix_only
 class TestSupervisorStop:
     """Test supervisor stop scenarios."""
 
@@ -765,6 +778,7 @@ class TestSupervisorStop:
         assert len(sup._monitor_tasks) == 0
 
 
+@unix_only
 class TestSupervisorMonitor:
     """Test _monitor_agent method."""
 
@@ -819,6 +833,7 @@ class TestSupervisorMonitor:
         await sup._monitor_agent("test")
 
 
+@unix_only
 class TestSupervisorRun:
     """Test supervisor run method."""
 
@@ -841,6 +856,7 @@ class TestSupervisorRun:
         assert sup.state == SupervisorState.STOPPED
 
 
+@unix_only
 class TestSupervisorGetStatus:
     """Test get_status method."""
 
@@ -869,6 +885,7 @@ class TestSupervisorGetStatus:
             await sup.stop()
 
 
+@unix_only
 class TestSupervisorMessageRouter:
     """Test message_router property."""
 
@@ -881,6 +898,7 @@ class TestSupervisorMessageRouter:
         assert isinstance(sup.message_router, MessageRouter)
 
 
+@unix_only
 class TestSupervisorIPCHandlers:
     """Test IPC handler methods directly."""
 

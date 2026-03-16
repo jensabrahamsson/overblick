@@ -1,6 +1,7 @@
 """Tests for dashboard main page, partials, and agent actions."""
 
 import json
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -312,6 +313,7 @@ class TestWritePluginState:
         data = json.loads(path.read_text())
         assert data == {"moltbook": "running"}
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="os.rename cannot atomically replace on Windows")
     def test_should_update_existing_state(self, tmp_path):
         _write_plugin_state(tmp_path, "anomal", "moltbook", "running")
         _write_plugin_state(tmp_path, "anomal", "telegram", "stopped")

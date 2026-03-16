@@ -14,6 +14,7 @@ Covers:
 - _save_state exception on write failure (477-478)
 """
 
+import sys
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -45,6 +46,10 @@ class TestSetupSecretException:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="ZoneInfo('Europe/Stockholm') requires tzdata package on Windows",
+)
 class TestTickPipeline:
     """Test tick() running the full digest pipeline."""
 
@@ -279,6 +284,10 @@ class TestGenerationNoLLM:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="ZoneInfo('Europe/Stockholm') requires tzdata package on Windows",
+)
 class TestSuccessfulGeneration:
     """Test _generate_digest returns content on success."""
 
