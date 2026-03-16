@@ -3,7 +3,9 @@ Orchestrator shutdown — graceful teardown of all components.
 """
 
 import logging
-from typing import Any
+
+from overblick.core.orchestrator_services import OrchestratorServices
+from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +16,8 @@ class OrchestratorShutdown:
     def __init__(
         self,
         *,
-        services: Any,
-        runtime_state: Any,
+        services: OrchestratorServices,
+        runtime_state: OrchestratorRuntimeState,
     ) -> None:
         """
         Args:
@@ -26,11 +28,9 @@ class OrchestratorShutdown:
         self._runtime_state = runtime_state
 
     async def shutdown(self) -> None:
-        """Execute the full shutdown sequence (idempotent)."""
-        if self._runtime_state.lifecycle_state == self._runtime_state.lifecycle_state.STOPPING:
-            return  # Prevent double-stop (already in progress)
+        """Execute the full shutdown sequence."""
+        from overblick.core.orchestrator_types import OrchestratorState
 
-        self._runtime_state.lifecycle_state = self._runtime_state.lifecycle_state.STOPPING
         logger.info("Orchestrator stopping...")
 
         # Stop scheduler
@@ -47,16 +47,16 @@ class OrchestratorShutdown:
         for plugin in reversed(self._runtime_state.plugins):
             try:
                 await plugin.teardown()
-                logger.info(f"Plugin '{plugin.name}' torn down")
+                logger.info("Plugin '%s' torn down", plugin.name)
             except Exception as e:
-                logger.error(f"Error tearing down '{plugin.name}': {e}", exc_info=True)
+                logger.error("Error tearing down '%s': %s", plugin.name, e, exc_info=True)
 
         # Close LLM client
         if self._services.llm_client and hasattr(self._services.llm_client, "close"):
             try:
                 await self._services.llm_client.close()
             except Exception as e:
-                logger.error(f"Error closing LLM client: {e}", exc_info=True)
+                logger.error("Error closing LLM client: %s", e, exc_info=True)
 
         # Close engagement DB backend
         if self._services.engagement_db_backend:
@@ -74,5 +74,5 @@ class OrchestratorShutdown:
         if self._services.event_bus:
             self._services.event_bus.clear()
 
-        self._runtime_state.lifecycle_state = self._runtime_state.lifecycle_state.STOPPED
+        self._runtime_state.lifecycle_state = OrchestratorState.STOPPED
         logger.info("Orchestrator stopped cleanly")

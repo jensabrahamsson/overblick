@@ -37,6 +37,7 @@ class OrchestratorRuntime:
         self._services = services
         self._runtime_state = runtime_state
         self._on_stop_requested = on_stop_requested
+        self._run_controller = run_controller
 
     async def run(self) -> None:
         """Execute the main runtime loop (blocks until shutdown signal)."""
@@ -136,30 +137,7 @@ class OrchestratorRuntime:
             await self._on_stop_requested()
 
     async def _is_plugin_stopped(self, plugin_name: str) -> bool:
-        """Check if a plugin is stopped via control file."""
-        if not self._runtime_state.control_file or not self._runtime_state.control_file.exists():
-            return False
-
-        # Use cache for performance
-        now = time.time()
-        if (
-            self._runtime_state.control_cache_ts > 0
-            and now - self._runtime_state.control_cache_ts < 2.0
-        ):
-            return self._runtime_state.control_cache.get(plugin_name, "false") == "true"
-
-        try:
-            import json
-
-            with open(self._runtime_state.control_file, "r") as f:
-                data = json.load(f)
-                value = data.get(plugin_name, "false")
-                self._runtime_state.control_cache[plugin_name] = value
-                self._runtime_state.control_cache_ts = now
-                return value == "true"
-        except (json.JSONDecodeError, FileNotFoundError, OSError):
-            return False
-
-
-# Import time here to avoid circular import at module level
-import time
+        """Check if a plugin is stopped via run controller."""
+        if self._run_controller is not None:
+            return await self._run_controller.is_plugin_stopped(plugin_name)
+        return False
