@@ -589,7 +589,11 @@ class TestCmdSupervisor:
                 cmd_supervisor(args)
                 # Get the coroutine passed to asyncio.run and execute it
                 coro = mock_arun.call_args[0][0]
-                asyncio.get_event_loop().run_until_complete(coro)
+                loop = asyncio.new_event_loop()
+                try:
+                    loop.run_until_complete(coro)
+                finally:
+                    loop.close()
 
     def test_supervisor_keyboard_interrupt(self):
         args = argparse.Namespace(identities=["anomal"], verbose=True, no_restart=True)

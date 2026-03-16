@@ -1,7 +1,6 @@
 """Tests for dashboard onboarding service."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -99,7 +98,7 @@ class TestOnboardingService:
                 "cloud_model": "gpt-4",
             },
         }
-        result = svc.create_identity(state)
+        svc.create_identity(state)
 
         yaml_path = tmp_path / "overblick" / "identities" / "cloudbot" / "identity.yaml"
         config = yaml.safe_load(yaml_path.read_text())

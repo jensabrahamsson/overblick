@@ -1,16 +1,13 @@
 """Tests for SkuggspelPlugin — shadow-self content generation."""
 
-import json
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
-
-from overblick.core.llm.pipeline import PipelineResult
 
 import pytest
 
 from overblick.core.llm.pipeline import PipelineResult, PipelineStage
 from overblick.plugins.skuggspel.models import ShadowPost, ShadowProfile
-from overblick.plugins.skuggspel.plugin import _DEFAULT_SHADOWS, SkuggspelPlugin
+from overblick.plugins.skuggspel.plugin import SkuggspelPlugin
 
 
 def _make_mock_identity(name="anomal"):
@@ -325,7 +322,6 @@ class TestGenerateShadowPost:
     @pytest.mark.asyncio
     async def test_should_return_none_when_blocked(self, skuggspel_context):
         """Returns None when LLM response is blocked."""
-        from overblick.core.llm.pipeline import PipelineStage
 
         skuggspel_context.llm_pipeline.chat = AsyncMock(
             return_value=PipelineResult(

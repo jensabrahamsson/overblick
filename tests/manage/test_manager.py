@@ -534,7 +534,6 @@ class TestKillProcessUnix:
     @pytest.mark.skipif(sys.platform == "win32", reason="Unix-only")
     def test_kill_process_force_kill_path(self):
         """Kill process that ignores SIGTERM requires SIGKILL."""
-        import signal as signal_mod
 
         # Start a process that ignores SIGTERM
         proc = subprocess.Popen(
@@ -594,6 +593,7 @@ class TestKillProcessWindows:
     def test_kill_process_windows_success(self):
         """Kill process on Windows succeeds via ctypes mock."""
         import ctypes
+
         import overblick.manage.manager as mgr
 
         mock_kernel32 = MagicMock()
@@ -611,6 +611,7 @@ class TestKillProcessWindows:
     def test_kill_process_windows_no_handle(self):
         """Kill process on Windows fails when OpenProcess returns 0."""
         import ctypes
+
         import overblick.manage.manager as mgr
 
         mock_kernel32 = MagicMock()
@@ -630,6 +631,7 @@ class TestIsProcessAliveWindows:
     def test_alive_still_active(self):
         """Windows process with STILL_ACTIVE exit code is alive."""
         import ctypes
+
         import overblick.manage.manager as mgr
 
         mock_kernel32 = MagicMock()
@@ -653,6 +655,7 @@ class TestIsProcessAliveWindows:
     def test_not_alive_exited(self):
         """Windows process with non-STILL_ACTIVE exit code is dead."""
         import ctypes
+
         import overblick.manage.manager as mgr
 
         mock_kernel32 = MagicMock()
@@ -675,6 +678,7 @@ class TestIsProcessAliveWindows:
     def test_no_handle(self):
         """Windows process with no handle is dead."""
         import ctypes
+
         import overblick.manage.manager as mgr
 
         mock_kernel32 = MagicMock()
@@ -690,6 +694,7 @@ class TestIsProcessAliveWindows:
     def test_get_exit_code_fails(self):
         """Windows GetExitCodeProcess failure returns False."""
         import ctypes
+
         import overblick.manage.manager as mgr
 
         mock_kernel32 = MagicMock()

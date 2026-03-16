@@ -10,11 +10,8 @@ Covers uncovered lines:
 """
 
 import json
-from datetime import date, timedelta
-from pathlib import Path
+from datetime import date
 from unittest.mock import patch
-
-import pytest
 
 from overblick.capabilities.psychology.mood_cycle import (
     CyclePhase,
@@ -143,7 +140,7 @@ class TestMoodStateEmptyParts:
             optimism=0.5,
         )
         state = MoodState(phase=CyclePhase.FOLLICULAR, day_in_cycle=7, modifiers=m)
-        ctx = state.to_prompt_context()
+        state.to_prompt_context()
         # energy=0.5 produces "Medium energy" so parts won't be empty
         # To hit empty parts, ALL conditions must fail
         m2 = MoodModifiers(

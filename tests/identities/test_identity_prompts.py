@@ -1,6 +1,5 @@
 """Tests for identity prompts modules — cover 0% files."""
 
-import pytest
 
 
 class TestAnomalPrompts:

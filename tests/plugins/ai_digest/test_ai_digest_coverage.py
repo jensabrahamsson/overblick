@@ -14,17 +14,13 @@ Covers:
 - _save_state exception on write failure (477-478)
 """
 
-import json
 import time
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from zoneinfo import ZoneInfo
 
 import pytest
 
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.ai_digest.plugin import AiDigestPlugin, FeedArticle
-
 
 # ---------------------------------------------------------------------------
 # Setup: secret read exception — lines 103-104

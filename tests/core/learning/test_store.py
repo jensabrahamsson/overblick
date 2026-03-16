@@ -1,11 +1,10 @@
 """Unit tests for LearningStore."""
 
-import struct
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from overblick.core.learning.models import Learning, LearningStatus
+from overblick.core.learning.models import LearningStatus
 from overblick.core.learning.store import (
     LearningStore,
     _cosine_similarity,
@@ -292,7 +291,6 @@ class TestGetRelevantFallback:
         await s.propose(content="Learning two")
 
         # Patch _search_by_similarity to raise an exception
-        original = s._search_by_similarity
 
         async def broken_search(*args, **kwargs):
             raise RuntimeError("DB corrupt")

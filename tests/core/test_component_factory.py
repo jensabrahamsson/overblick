@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-import pytest
-
 from overblick.core.component_factory import ComponentFactory
 from overblick.identities import Identity, LLMSettings, SecuritySettings
 
@@ -201,7 +199,7 @@ class TestCreateLLMClient:
         with patch("overblick.core.llm.gateway_client.GatewayClient") as mock_cls:
             mock_cls.return_value = mock_client
             mock_cls._instantiation_allowed.return_value = mock_ctx
-            result = await factory.create_llm_client(identity)
+            await factory.create_llm_client(identity)
 
             call_kwargs = mock_cls.call_args.kwargs
             assert call_kwargs["base_url"] == "http://custom:9999"

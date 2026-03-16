@@ -5,17 +5,15 @@ import os
 import signal
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 import overblick.shared.platform as plat
 from overblick.shared.platform import (
     enforce_restrictive_permissions,
-    get_python_executable,
     verify_restrictive_permissions,
 )
-
 
 unix_only = pytest.mark.skipif(
     sys.platform == "win32", reason="Unix-only"

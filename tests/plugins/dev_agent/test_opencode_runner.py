@@ -1,7 +1,6 @@
 """Tests for opencode runner (mocked subprocess)."""
 
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

@@ -32,14 +32,14 @@ class TestAPIKeyManager:
         assert record.expires_at is None
 
     def test_create_key_with_expiry(self, key_manager: APIKeyManager):
-        raw_key, record = key_manager.create_key(name="temp", expires_days=30)
+        _raw_key, record = key_manager.create_key(name="temp", expires_days=30)
 
         assert record.expires_at is not None
         assert record.expires_at > time.time()
         assert record.expires_at < time.time() + (31 * 86400)
 
     def test_create_key_with_permissions(self, key_manager: APIKeyManager):
-        raw_key, record = key_manager.create_key(
+        _raw_key, record = key_manager.create_key(
             name="restricted",
             allowed_models=["qwen3:8b"],
             allowed_backends=["local"],
@@ -117,7 +117,7 @@ class TestAPIKeyManager:
         result = key_manager.rotate_key(record_1.key_id)
         assert result is not None
 
-        raw_key_2, record_2 = result
+        raw_key_2, _record_2 = result
 
         # New key works
         assert raw_key_2 != raw_key_1
@@ -229,7 +229,7 @@ class TestAPIKeyManager:
 
     def test_should_rollback_rotate_on_failure(self, key_manager: APIKeyManager):
         """rotate_key rolls back if insert fails mid-transaction."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import patch
 
         raw_key, record = key_manager.create_key(name="rollback-test")
 

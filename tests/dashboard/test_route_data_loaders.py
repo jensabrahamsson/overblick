@@ -27,7 +27,6 @@ import pytest
 
 from overblick.dashboard.auth import SESSION_COOKIE
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -682,7 +681,7 @@ class TestLoadCompassData:
         (identity_dir / "compass_state.json").write_text(json.dumps(state))
 
         request = _make_request(tmp_path)
-        baselines, alerts, drift_history, threshold, identity_status = _load_compass_data(request)
+        baselines, alerts, drift_history, _threshold, identity_status = _load_compass_data(request)
 
         assert "anomal" in baselines
         assert len(alerts) == 1
@@ -695,7 +694,7 @@ class TestLoadCompassData:
         from overblick.dashboard.routes.compass import _load_compass_data
 
         request = _make_request(tmp_path)
-        baselines, alerts, drift_history, threshold, identity_status = _load_compass_data(request)
+        baselines, alerts, _drift_history, _threshold, _identity_status = _load_compass_data(request)
         assert baselines == {}
         assert alerts == []
 
@@ -707,7 +706,7 @@ class TestLoadCompassData:
         (identity_dir / "compass_state.json").write_text("not json")
 
         request = _make_request(tmp_path)
-        baselines, alerts, drift_history, threshold, identity_status = _load_compass_data(request)
+        baselines, _alerts, _drift_history, _threshold, _identity_status = _load_compass_data(request)
         assert baselines == {}
 
     def test_should_include_baselines_without_drift_as_low(self, tmp_path):
@@ -1262,9 +1261,9 @@ class TestSystemHelpers:
     async def test_should_handle_gateway_connect_error(self):
         from unittest.mock import AsyncMock
 
-        from overblick.dashboard.routes.system import _fetch_gateway_health
-
         import httpx
+
+        from overblick.dashboard.routes.system import _fetch_gateway_health
 
         mock_client = AsyncMock()
         mock_client.get.side_effect = httpx.ConnectError("refused")

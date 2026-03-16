@@ -9,12 +9,10 @@ import asyncio
 import builtins
 import os
 import signal
-import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ── 1. identities/__init__.py line 398: _find_identity_dir returns i_dir ──
 
@@ -88,7 +86,14 @@ class TestCmdSupervisorAsyncBody:
         ):
             # Instead of mocking asyncio.run, let it actually execute
             # the coroutine so lines 331-332 are covered
-            with patch("asyncio.run", side_effect=lambda coro: asyncio.get_event_loop().run_until_complete(coro)):
+            def _run_coro(coro):
+                loop = asyncio.new_event_loop()
+                try:
+                    return loop.run_until_complete(coro)
+                finally:
+                    loop.close()
+
+            with patch("asyncio.run", side_effect=_run_coro):
                 cmd_supervisor(args)
 
         mock_supervisor.start.assert_awaited_once()

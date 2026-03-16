@@ -435,7 +435,7 @@ class TestPluginRegistrySecurity:
         with patch(
             "overblick.core.plugin_registry.importlib.import_module", return_value=fake_module
         ) as mock_import:
-            plugin = registry.load("safe_test", plugin_ctx)
+            registry.load("safe_test", plugin_ctx)
             mock_import.assert_called_once_with("safe_module")
 
 
@@ -555,7 +555,6 @@ class TestExtractPluginMetadata:
         # Fallback: base_dir / Path(*parts).with_suffix(".py")
         # base_dir = Path(__file__).parent.parent.parent for the real code
         # We need to mock the fallback path to point to tmp_path
-        parts = ["fake", "fallback", "plugin"]
         fallback_dir = tmp_path / "fake" / "fallback"
         fallback_dir.mkdir(parents=True)
         src_file = fallback_dir / "plugin.py"
@@ -713,7 +712,7 @@ class TestGetPluginMetadata:
 
     def test_should_raise_value_error_when_unknown_plugin(self, registry):
         """get_plugin_metadata should raise ValueError for unknown plugin names."""
-        with pytest.raises(ValueError, match="Unknown plugin.*nonexistent"):
+        with pytest.raises(ValueError, match=r"Unknown plugin.*nonexistent"):
             registry.get_plugin_metadata("nonexistent")
 
     def test_should_raise_value_error_listing_available_plugins(self, registry):

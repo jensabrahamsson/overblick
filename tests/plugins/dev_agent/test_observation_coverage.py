@@ -12,16 +12,12 @@ Covers uncovered lines:
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from overblick.plugins.dev_agent.log_watcher import LogWatcher
 from overblick.plugins.dev_agent.models import (
     BugReport,
     BugSource,
     BugStatus,
     DevAgentObservation,
-    FixAttempt,
-    WorkspaceState,
 )
 from overblick.plugins.dev_agent.observation import BugObserver
 

@@ -6,7 +6,6 @@ Covers uncovered lines:
 - 159-160: _event_age_hours with invalid timestamp
 """
 
-import pytest
 
 from overblick.plugins.github.decision_engine import GitHubDecisionEngine
 from overblick.plugins.github.models import EventType, GitHubEvent

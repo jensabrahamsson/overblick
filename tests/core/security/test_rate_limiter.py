@@ -197,7 +197,7 @@ class TestGetBucket:
         rl._get_bucket("b")
         rl._get_bucket("a")  # Move "a" to end
         # "b" should now be at the front (LRU)
-        assert list(rl._buckets.keys())[0] == "b"
+        assert next(iter(rl._buckets.keys())) == "b"
 
     def test_should_evict_lru_when_at_capacity(self):
         """Eviction happens when buckets >= max_buckets."""

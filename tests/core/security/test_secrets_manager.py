@@ -5,7 +5,6 @@ Covers: set/get roundtrip, missing identity, file isolation,
 encryption verification, cache behavior, key listing.
 """
 
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -586,7 +585,6 @@ class TestKeyRotation:
         # Create a file and make decrypt_with_all_keys raise
         (secrets_dir / "error.yaml").write_text("data")
 
-        original_decrypt = sm.decrypt_with_all_keys
         call_count = 0
 
         def failing_decrypt(data):

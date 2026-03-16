@@ -5,7 +5,6 @@ Unit tests for wizard.py helper functions and untested route paths.
 import json
 import os
 import signal
-import threading
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,8 +13,6 @@ import yaml
 from httpx import ASGITransport, AsyncClient
 
 from overblick.setup.wizard import (
-    PLUGIN_DISPLAY_NAMES,
-    USE_CASES,
     _build_assignment_data,
     _derive_provisioner_state,
     _friendly_error,
@@ -509,7 +506,7 @@ class TestWizardRoutesCoverage:
 
     async def test_test_gmail_success(self, client):
         """Gmail test succeeds."""
-        with patch("imaplib.IMAP4_SSL") as mock_imap:
+        with patch("imaplib.IMAP4_SSL"):
             resp = await client.post(
                 "/test/gmail", data={"gmail_address": "test@gmail.com", "gmail_app_password": "good"}
             )
@@ -663,7 +660,7 @@ class TestWizardRoutesCoverage:
 
     async def test_shutdown_endpoint(self, client):
         """Shutdown endpoint triggers server stop."""
-        with patch("threading.Timer") as mock_timer:
+        with patch("threading.Timer"):
             resp = await client.post("/shutdown")
         assert resp.status_code == 200
         data = resp.json()
@@ -712,7 +709,6 @@ class TestWizardRoutesCoverage:
         # We verify the timer is created with the right target
         captured_funcs = []
 
-        original_timer = threading.Timer
 
         class MockTimer:
             def __init__(self, interval, func):

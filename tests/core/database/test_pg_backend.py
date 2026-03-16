@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from overblick.core.database.base import DatabaseConfig
-from overblick.core.database.pg_backend import PostgreSQLBackend, _SAFE_IDENTIFIER_RE
+from overblick.core.database.pg_backend import _SAFE_IDENTIFIER_RE, PostgreSQLBackend
 
 
 def _make_config(**overrides: Any) -> DatabaseConfig:

@@ -4,7 +4,6 @@ Covers uncovered lines 70, 86.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 

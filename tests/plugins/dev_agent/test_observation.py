@@ -1,6 +1,6 @@
 """Tests for bug observer."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -8,7 +8,6 @@ from overblick.plugins.dev_agent.log_watcher import LogWatcher
 from overblick.plugins.dev_agent.models import (
     BugReport,
     BugSource,
-    BugStatus,
     DevAgentObservation,
     WorkspaceState,
 )
@@ -89,7 +88,7 @@ class TestObserve:
             },
         )
 
-        obs = await observer.observe()
+        await observer.observe()
         # upsert_bug should NOT have been called for duplicates
         mock_db.upsert_bug.assert_not_called()
 

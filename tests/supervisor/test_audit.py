@@ -12,10 +12,7 @@ Tests cover:
 - Configurable thresholds
 """
 
-import time
 from unittest.mock import MagicMock
-
-import pytest
 
 from overblick.supervisor.audit import (
     AgentAuditor,

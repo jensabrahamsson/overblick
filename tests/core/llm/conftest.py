@@ -6,7 +6,6 @@ can be instantiated directly in tests (bypassing the security check that
 prevents plugins from creating their own LLM clients).
 """
 
-import os
 
 import pytest
 

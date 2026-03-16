@@ -399,7 +399,6 @@ class TestQueueManager:
 
     async def test_should_handle_unexpected_worker_error(self, config, sample_request):
         """Worker loop handles unexpected exceptions from _process_request."""
-        from unittest.mock import patch
 
         mock_client = AsyncMock()
         mock_client.close.return_value = None

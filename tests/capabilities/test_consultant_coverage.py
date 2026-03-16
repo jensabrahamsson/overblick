@@ -6,8 +6,6 @@ Uncovered: 165 (discover_consultants: identity returns None), 186 (cached identi
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from overblick.capabilities.consulting.personality_consultant import (
     PersonalityConsultantCapability,
 )

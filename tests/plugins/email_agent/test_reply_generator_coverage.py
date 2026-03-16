@@ -138,5 +138,5 @@ class TestSendDraftWithToneGuidance:
         result = await gen.send_draft_notification(sample_email(), notifier)
 
         assert result is not None
-        tg_id, body = result
+        tg_id, _body = result
         assert tg_id == 55

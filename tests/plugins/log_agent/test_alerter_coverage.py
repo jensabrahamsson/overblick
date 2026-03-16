@@ -6,7 +6,7 @@ Covers uncovered line:
 """
 
 from overblick.plugins.log_agent.alerter import AlertFormatter
-from overblick.plugins.log_agent.models import LogEntry, LogScanResult
+from overblick.plugins.log_agent.models import LogScanResult
 
 
 class TestFormatScanSummaryErrorsNoEntries:

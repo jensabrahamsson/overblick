@@ -6,7 +6,6 @@ Covers uncovered lines:
 - 148-157: check_rate_limit when at capacity (recursive wait)
 """
 
-import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 

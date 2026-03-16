@@ -11,17 +11,15 @@ Covers:
 
 import hmac
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
 
 from overblick.dashboard.auth import (
-    CSRF_COOKIE,
     LOGIN_CSRF_COOKIE,
     PUBLIC_PATHS,
     SESSION_COOKIE,
-    AuthMiddleware,
     SessionManager,
     check_csrf,
     get_session,
@@ -267,7 +265,7 @@ class TestAuthMiddleware:
     @pytest.mark.asyncio
     async def test_csrf_on_post_with_invalid_token_rejected(self, client, session_cookie):
         """POST with wrong X-CSRF-Token header is rejected with 403."""
-        cookie_value, csrf_token = session_cookie
+        cookie_value, _csrf_token = session_cookie
         resp = await client.post(
             "/partials/audit-recent",
             cookies={SESSION_COOKIE: cookie_value},
@@ -344,7 +342,7 @@ class TestAuthMiddleware:
     @pytest.mark.asyncio
     async def test_session_data_attached_to_request_state(self, client, session_cookie):
         """Middleware attaches session data to request.state for route handlers."""
-        cookie_value, csrf = session_cookie
+        cookie_value, _csrf = session_cookie
         # Access a protected route; if session data wasn't attached,
         # route handlers would fail. A 200 proves it was attached.
         resp = await client.get("/", cookies={SESSION_COOKIE: cookie_value})
@@ -402,7 +400,7 @@ class TestHelperFunctions:
 
     def test_check_csrf_with_wrong_header_token(self):
         sm = SessionManager("csrf-helper-key", max_age_hours=1)
-        cookie, csrf = sm.create_session()
+        cookie, _csrf = sm.create_session()
         session = sm.validate_session(cookie)
 
         request = MagicMock()
@@ -414,7 +412,7 @@ class TestHelperFunctions:
     def test_check_csrf_rejects_without_header(self):
         """When no X-CSRF-Token header, check_csrf returns False."""
         sm = SessionManager("csrf-helper-key", max_age_hours=1)
-        cookie, csrf = sm.create_session()
+        cookie, _csrf = sm.create_session()
         session = sm.validate_session(cookie)
 
         request = MagicMock()

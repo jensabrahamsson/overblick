@@ -1,12 +1,10 @@
 """Tests for overblick.core.http_retry module."""
 
-import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from overblick.core.http_retry import retry_http, with_retry
-
 
 # ---------------------------------------------------------------------------
 # retry_http decorator tests
@@ -175,7 +173,7 @@ class TestRetryHttpDecorator:
             nonlocal call_count
             call_count += 1
             if call_count < 2:
-                raise asyncio.TimeoutError()
+                raise TimeoutError()
             return "ok"
 
         assert await flaky() == "ok"

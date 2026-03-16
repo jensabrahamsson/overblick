@@ -6,7 +6,7 @@ Covers uncovered lines:
 - 160: _compute_formality with empty word list
 """
 
-from overblick.plugins.compass.stylometry import analyze_text, _compute_formality
+from overblick.plugins.compass.stylometry import _compute_formality, analyze_text
 
 
 class TestAnalyzeTextEdgeCases:
@@ -35,7 +35,7 @@ class TestComputeDriftScoreZeroStd:
             "avg_sentence_length": 0.0,  # This triggers line 124
             "avg_word_length": 1.0,
         }
-        score, drifted = compute_drift_score(current, baseline, std_devs)
+        score, _drifted = compute_drift_score(current, baseline, std_devs)
         assert score >= 0
 
 

@@ -7,16 +7,15 @@ dream date persistence/loading, engage_with_post details, reply handling,
 own comment/post reply checking, and fallback prompts.
 """
 
-import asyncio
 import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from overblick.plugins.moltbook.client import MoltbookError, RateLimitError, SuspensionError
-from overblick.plugins.moltbook.models import Comment, Conversation, DMRequest, Post
+from overblick.plugins.moltbook.models import Comment, Post
 from overblick.plugins.moltbook.plugin import MoltbookPlugin, _FallbackPrompts
 
 
@@ -659,7 +658,7 @@ class TestHeartbeat:
         plugin._prompts.SYSTEM_PROMPT = "Test"
         plugin._prompts.HEARTBEAT_PROMPT = "Write about {topic_index}"
         plugin._prompts.HEARTBEAT_TOPICS = [{"id": "t1", "instruction": "test", "submolt": "crypto"}]
-        result = await plugin.post_heartbeat()
+        await plugin.post_heartbeat()
         # Verify submolt was overridden
         call_args = mock_client.create_post.call_args
         assert call_args[1]["submolt"] == "crypto" or call_args[0][2] == "crypto"

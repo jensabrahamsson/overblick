@@ -103,7 +103,6 @@ class TestComposerCoverageGaps:
             return_value=PipelineResult(content=None)
         )
         # Need a real generator
-        from overblick.capabilities.engagement.response_gen import ResponseGenerator
 
         ctx = make_ctx(
             llm_pipeline=pipeline,
@@ -136,7 +135,7 @@ class TestComposerCoverageGaps:
 
         result = await cap.compose_heartbeat("template {topic_index}")
         assert result is not None
-        title, content, submolt = result
+        title, _content, submolt = result
         assert title == "Untitled Post"
         assert submolt == "ai"
 
@@ -157,7 +156,7 @@ class TestComposerCoverageGaps:
 
         result = await cap.compose_heartbeat("template {topic_index}")
         assert result is not None
-        title, content, submolt = result
+        title, _content, submolt = result
         assert title == "Untitled Post"
         assert submolt == "ai"
 
@@ -166,7 +165,7 @@ class TestComposerCoverageGaps:
         ctx = make_ctx()
         cap = ComposerCapability(ctx)
         result = cap._parse_post_output("Short first line\nSecond line")
-        title, content, submolt = result
+        title, _content, _submolt = result
         assert title == "Short first line"
 
     def test_parse_post_output_title_fallback_long(self):
@@ -175,7 +174,7 @@ class TestComposerCoverageGaps:
         cap = ComposerCapability(ctx)
         long_line = "A" * 60
         result = cap._parse_post_output(f"{long_line}\nSecond line")
-        title, content, submolt = result
+        title, _content, _submolt = result
         assert title == "A" * 50 + "..."
 
     @pytest.mark.asyncio

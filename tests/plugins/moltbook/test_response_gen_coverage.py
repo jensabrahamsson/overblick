@@ -63,7 +63,7 @@ class TestGenerateHeartbeatTopicVars:
         )
 
         assert result is not None
-        title, content, submolt = result
+        title, _content, _submolt = result
         assert title == "Test"
 
     @pytest.mark.asyncio
@@ -136,7 +136,7 @@ class TestParsePostOutputFallbackTitle:
         # Content with no TITLE: or SUBMOLT: lines, first line > 50 chars
         long_first_line = "A" * 60
         text = f"{long_first_line}\nSecond line\nThird line"
-        title, content, submolt = gen._parse_post_output(text)
+        title, _content, submolt = gen._parse_post_output(text)
 
         assert title == "A" * 50 + "..."
         assert submolt == "ai"  # default
@@ -147,7 +147,7 @@ class TestParsePostOutputFallbackTitle:
         gen = ResponseGenerator(llm_pipeline=pipeline)
 
         text = "Short title line\nSecond line"
-        title, content, submolt = gen._parse_post_output(text)
+        title, _content, _submolt = gen._parse_post_output(text)
 
         assert title == "Short title line"
 
@@ -313,6 +313,6 @@ class TestGenerateDreamPost:
         )
 
         assert result is not None
-        title, content, submolt = result
+        title, _content, submolt = result
         assert title == "Dream Post"
         assert submolt == "dreams"

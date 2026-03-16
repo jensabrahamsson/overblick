@@ -4,7 +4,6 @@ Covers: start (running, exception), stop (timeout, exception, not running),
 monitor (stopping, clean exit, crash), uptime, is_alive, to_dict.
 """
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

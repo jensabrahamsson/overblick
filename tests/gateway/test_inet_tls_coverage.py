@@ -5,8 +5,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from overblick.gateway.inet_tls import _generate_self_signed, resolve_tls
 
 

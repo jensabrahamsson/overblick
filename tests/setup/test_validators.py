@@ -140,7 +140,7 @@ class TestLLMData:
         assert data.deepseek.model == "deepseek-chat"
 
     def test_invalid_default_backend(self):
-        with pytest.raises(ValidationError, match="local.*cloud.*deepseek.*openai"):
+        with pytest.raises(ValidationError, match=r"local.*cloud.*deepseek.*openai"):
             LLMData(default_backend="something_else")
 
     def test_temperature_bounds(self):

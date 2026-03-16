@@ -18,7 +18,6 @@ import pytest
 
 from overblick.capabilities.communication.gmail import (
     GmailCapability,
-    GmailMessage,
 )
 
 
@@ -220,9 +219,9 @@ class TestImapFindUidByMessageId:
 
 class TestExtractBodyEdgeCases:
     def test_should_return_empty_for_multipart_with_no_text(self):
+        from email import policy as ep
         from email.mime.base import MIMEBase
         from email.mime.multipart import MIMEMultipart
-        from email import policy as ep
         from email.parser import BytesParser
 
         outer = MIMEMultipart("mixed")

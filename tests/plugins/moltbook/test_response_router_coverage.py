@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from overblick.plugins.moltbook.response_router import ResponseRouter, RouterVerdict
+from overblick.plugins.moltbook.response_router import ResponseRouter
 
 
 class TestLLMException:

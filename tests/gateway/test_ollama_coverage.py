@@ -28,7 +28,7 @@ class TestOllamaCoverage:
     @pytest.mark.asyncio
     async def test_list_models_generic_exception(self, client):
         """Cover lines 89-91: list_models returns [] on generic exception."""
-        with MagicMock() as mock_get:
+        with MagicMock():
             mock_http = AsyncMock()
             mock_http.get = AsyncMock(side_effect=RuntimeError("Unexpected"))
             with MagicMock() as _:

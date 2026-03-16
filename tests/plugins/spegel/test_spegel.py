@@ -291,7 +291,6 @@ class TestGeneratePair:
     @pytest.mark.asyncio
     async def test_should_return_none_when_profile_blocked(self, spegel_context):
         """Returns None when profile generation is blocked."""
-        from overblick.core.llm.pipeline import PipelineStage
 
         spegel_context.llm_pipeline.chat = AsyncMock(
             return_value=PipelineResult(
@@ -318,7 +317,6 @@ class TestGeneratePair:
     @pytest.mark.asyncio
     async def test_should_return_none_when_reflection_blocked(self, spegel_context):
         """Returns None when reflection generation is blocked."""
-        from overblick.core.llm.pipeline import PipelineStage
 
         # First call (profile) succeeds, second call (reflection) is blocked
         spegel_context.llm_pipeline.chat = AsyncMock(

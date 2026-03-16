@@ -3,12 +3,10 @@ Tests for the GitHubAgentPlugin — lifecycle, configuration, status.
 """
 
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from overblick.core.llm.pipeline import PipelineResult
-from overblick.plugins.github.models import PluginState
 from overblick.plugins.github.plugin import GitHubAgentPlugin
 
 
@@ -319,8 +317,8 @@ class TestMultiRepoObserver:
     @pytest.mark.asyncio
     async def test_observe_collects_from_all_repos(self, github_plugin_context):
         """observe() collects observations from all configured repos."""
-        from overblick.plugins.github.plugin import _MultiRepoObserver
         from overblick.plugins.github.models import RepoObservation
+        from overblick.plugins.github.plugin import _MultiRepoObserver
 
         mock_observer = AsyncMock()
         mock_observer.observe = AsyncMock(return_value=RepoObservation(repo="o/r"))
@@ -335,7 +333,6 @@ class TestMultiRepoObserver:
     async def test_observe_handles_errors(self):
         """observe() handles errors for individual repos."""
         from overblick.plugins.github.plugin import _MultiRepoObserver
-        from overblick.plugins.github.models import RepoObservation
 
         mock_observer = AsyncMock()
         mock_observer.observe = AsyncMock(side_effect=Exception("fail"))
@@ -348,8 +345,8 @@ class TestMultiRepoObserver:
     @pytest.mark.asyncio
     async def test_observe_partial_failure(self):
         """observe() returns successful repos even if some fail."""
-        from overblick.plugins.github.plugin import _MultiRepoObserver
         from overblick.plugins.github.models import RepoObservation
+        from overblick.plugins.github.plugin import _MultiRepoObserver
 
         call_count = [0]
 
@@ -371,8 +368,8 @@ class TestMultiRepoObserver:
 
     def test_format_for_planner_with_observations(self):
         """format_for_planner formats all repo observations."""
-        from overblick.plugins.github.plugin import _MultiRepoObserver
         from overblick.plugins.github.models import RepoObservation
+        from overblick.plugins.github.plugin import _MultiRepoObserver
 
         mock_observer = MagicMock()
         mock_observer.format_for_planner = MagicMock(return_value="formatted text")

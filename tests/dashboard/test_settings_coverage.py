@@ -5,7 +5,6 @@ Covers helper functions, SSRF guards, plugin config parsing,
 pre-population, test endpoints, and partial-failure paths.
 """
 
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,7 +16,6 @@ from overblick.dashboard.routes.settings import (
     _config_to_wizard_state,
     _get_version,
     _is_private_or_blocked,
-    _load_existing_config,
     _migrate_old_llm_config,
     _parse_plugin_config,
     _parse_textarea_lines,
@@ -802,7 +800,7 @@ class TestSettingsTestEndpointsExtended:
         """Test Gmail with successful connection."""
         cookie_value, csrf_token = session_cookie
 
-        with patch("imaplib.IMAP4_SSL") as mock_imap_ssl:
+        with patch("imaplib.IMAP4_SSL"):
             resp = await client.post(
                 "/settings/test/gmail",
                 headers={"X-CSRF-Token": csrf_token},

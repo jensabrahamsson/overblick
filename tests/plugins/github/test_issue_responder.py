@@ -2,7 +2,7 @@
 Tests for IssueResponder — issue classification, response, and posting.
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 

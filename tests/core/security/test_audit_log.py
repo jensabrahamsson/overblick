@@ -1,10 +1,8 @@
 """Tests for audit log."""
 
 import asyncio
-import json
 import logging
 import time
-from unittest.mock import patch
 
 import pytest
 
@@ -488,7 +486,7 @@ class TestQueryFilterConditions:
     def test_should_apply_since_filter_correctly(self, tmp_path):
         """since filter uses >= comparison."""
         log = AuditLog(tmp_path / "audit.db", identity="test")
-        now = time.time()
+        time.time()
         conn = log._conn
         # Entry exactly at the boundary
         conn.execute(
@@ -1040,7 +1038,7 @@ class TestVerifyChainDetails:
         )
         log._conn.commit()
 
-        is_valid, tampered = log.verify_chain()
+        is_valid, _tampered = log.verify_chain()
         assert not is_valid
         # Entry 2 is tampered, but the algorithm continues checking from the stored hash
 

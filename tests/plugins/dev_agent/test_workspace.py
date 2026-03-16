@@ -1,6 +1,5 @@
 """Tests for workspace manager."""
 
-import asyncio
 import subprocess
 
 import pytest
@@ -415,7 +414,7 @@ async def test_run_git_timeout(source_repo, tmp_path):
     ws = WorkspaceManager(workspace_path=ws_path, repo_url=str(source_repo))
     await ws.ensure_cloned()
     # Use a very short timeout to trigger timeout
-    ok, output = await ws._run_git("log", "--oneline", timeout=0)
+    ok, _output = await ws._run_git("log", "--oneline", timeout=0)
     # Timeout of 0 should be near-instant; might succeed or fail
     assert isinstance(ok, bool)
 
@@ -423,7 +422,7 @@ async def test_run_git_timeout(source_repo, tmp_path):
 @pytest.mark.asyncio
 async def test_run_git_file_not_found(tmp_path):
     """Test _run_git with a non-existent git binary."""
-    from unittest.mock import patch, AsyncMock
+    from unittest.mock import patch
 
     ws_path = tmp_path / "ws"
     ws_path.mkdir()
@@ -465,7 +464,6 @@ async def test_sync_main_pull_fails(source_repo, tmp_path):
 @pytest.mark.asyncio
 async def test_commit_and_push_add_fails(source_repo, tmp_path):
     """git add failure returns False."""
-    from unittest.mock import patch, AsyncMock
 
     ws_path = tmp_path / "ws"
     ws = WorkspaceManager(
@@ -492,7 +490,6 @@ async def test_commit_and_push_add_fails(source_repo, tmp_path):
 @pytest.mark.asyncio
 async def test_commit_and_push_commit_fails(source_repo, tmp_path):
     """git commit failure returns False."""
-    from unittest.mock import patch, AsyncMock
 
     ws_path = tmp_path / "ws"
     ws = WorkspaceManager(
@@ -548,7 +545,7 @@ async def test_commit_and_push_push_fails(source_repo, tmp_path):
 @pytest.mark.asyncio
 async def test_run_git_timeout_kills_proc(source_repo, tmp_path):
     """Test that timeout kills the subprocess."""
-    from unittest.mock import patch, AsyncMock, MagicMock
+    from unittest.mock import AsyncMock, MagicMock, patch
 
     ws_path = tmp_path / "ws"
     ws = WorkspaceManager(workspace_path=ws_path, repo_url=str(source_repo))

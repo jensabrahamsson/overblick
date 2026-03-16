@@ -6,10 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from overblick.core.agentic.models import ActionOutcome, PlannedAction
+from overblick.core.agentic.models import PlannedAction
 from overblick.core.plugin_base import PluginContext
 from overblick.plugins.log_agent.models import (
-    ActionType,
     LogEntry,
     LogObservation,
     LogScanResult,
@@ -164,7 +163,6 @@ class TestAnalyzePatternHandler:
     @pytest.mark.asyncio
     async def test_no_entries_returns_success(self):
         """No entries to analyze returns success."""
-        from overblick.core.llm.pipeline import PipelineResult
 
         pipeline = AsyncMock()
         handler = _AnalyzePatternHandler(llm_pipeline=pipeline, dry_run=False)
@@ -500,7 +498,6 @@ class TestAnalyzePatternHandlerExtended:
 
     @pytest.mark.asyncio
     async def test_should_analyze_entries_with_llm(self):
-        from overblick.core.llm.pipeline import PipelineResult
 
         pipeline = AsyncMock()
         mock_result = MagicMock()

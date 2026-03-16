@@ -55,7 +55,7 @@ class TestEmailHandlerCoverage:
         handler = EmailConsultationHandler(audit_log=mock_audit_log)
 
         # Non-JSON text with braces that form an extractable but invalid JSON
-        action, reasoning = handler._parse_advice(
+        action, _reasoning = handler._parse_advice(
             'Some text {not: valid, json: here} more text', "notify"
         )
         # Falls through to text extraction since {not: valid, json: here} is not valid JSON

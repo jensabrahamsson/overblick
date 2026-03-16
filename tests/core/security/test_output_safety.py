@@ -1,6 +1,6 @@
 """Tests for output safety filter."""
 
-from overblick.core.security.output_safety import OutputSafety, OutputSafetyResult
+from overblick.core.security.output_safety import OutputSafety
 
 
 class TestOutputSafety:

@@ -142,9 +142,7 @@ class TestSelectFocusFallback:
 
         # Alternative: directly test the fallback line by calling the method
         # with carefully chosen parameters to create floating point gap
-        import random as rand_mod
         # Save original
-        orig_random = rand_mod.random
 
         # Force a case where floating point arithmetic makes cumulative < r
         # by using a tiny epsilon

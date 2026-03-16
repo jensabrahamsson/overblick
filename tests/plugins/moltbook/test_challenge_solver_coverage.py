@@ -7,7 +7,6 @@ Covers uncovered lines:
 - _fallback_word: letter not in fallbacks dict
 """
 
-import pytest
 
 from overblick.plugins.moltbook.challenge_solver import (
     ChallengeSpec,

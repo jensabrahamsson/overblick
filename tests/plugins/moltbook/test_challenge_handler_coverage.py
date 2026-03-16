@@ -121,7 +121,7 @@ class TestSolveArithmeticCrossValidation:
         llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="5"))
         handler = _make_handler(llm_pipeline=llm)
         with patch("overblick.plugins.moltbook.challenge_handler.solve_arithmetic", return_value="-3"):
-            result = await handler.solve(
+            await handler.solve(
                 {"question": "What is five?", "nonce": "abc"},
             )
         # Should trust LLM since arithmetic is negative

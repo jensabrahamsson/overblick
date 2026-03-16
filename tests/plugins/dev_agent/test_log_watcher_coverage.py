@@ -7,9 +7,7 @@ Covers uncovered lines:
 """
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 from overblick.plugins.dev_agent.log_watcher import LogWatcher
 
@@ -31,7 +29,6 @@ class TestScanFileOSErrors:
         log_file = tmp_path / "test.log"
         log_file.write_text("test")
 
-        original_stat = log_file.stat
 
         def stat_fail():
             raise OSError("Permission denied")

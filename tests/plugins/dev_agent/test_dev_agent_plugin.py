@@ -3,12 +3,11 @@ Tests for DevAgentPlugin — covers lifecycle, tick guards, IPC handlers, and he
 """
 
 import time
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from overblick.plugins.dev_agent.plugin import DevAgentPlugin, _DEFAULT_GOALS
+from overblick.plugins.dev_agent.plugin import _DEFAULT_GOALS, DevAgentPlugin
 
 
 def _make_ctx(tmp_path, has_identity=True, has_repo=True, dry_run=True):

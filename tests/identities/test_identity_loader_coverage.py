@@ -11,24 +11,15 @@ Covers uncovered lines:
 - Identity model: validators, backward-compat properties, accessors
 """
 
-import time
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
-import yaml
 
 from overblick.identities import (
     Identity,
     LLMSettings,
     _build_identity,
     _deep_merge,
-    _find_identity_dir,
-    _identity_cache,
-    _identity_list_cache,
-    _identity_list_cache_ts,
     build_system_prompt,
-    list_identities,
     load_identity,
     load_llm_hints,
 )
