@@ -43,9 +43,9 @@ class ResourceSetup:
             self._services.learning_store = await builder.build()
 
         # 2. Capabilities
-        if self._services.capability_checker and self._services.registry:
+        if self._services.capability_checker and self._services.capability_registry:
             cap_setup = CapabilitySetup(
-                registry=self._services.registry,
+                registry=self._services.capability_registry,
                 services=self._services,
                 paths=self._paths,
                 identity_name=self._identity_name,

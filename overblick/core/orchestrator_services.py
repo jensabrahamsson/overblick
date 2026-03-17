@@ -11,6 +11,7 @@ from overblick.core.llm.client import LLMClient
 from overblick.core.llm.pipeline import SafeLLMPipeline
 from overblick.core.permissions import PermissionChecker
 from overblick.core.plugin_capability_checker import PluginCapabilityChecker
+from overblick.core.capability import CapabilityRegistry
 from overblick.core.plugin_registry import PluginRegistry
 from overblick.core.quiet_hours import QuietHoursChecker
 from overblick.core.scheduler import Scheduler
@@ -30,6 +31,7 @@ class OrchestratorServices:
     event_bus: EventBus = field(default_factory=EventBus)
     scheduler: Scheduler = field(default_factory=Scheduler)
     registry: PluginRegistry = field(default_factory=PluginRegistry)
+    capability_registry: CapabilityRegistry | None = None
 
     audit_log: AuditLog | None = None
     secrets: SecretsManager | None = None

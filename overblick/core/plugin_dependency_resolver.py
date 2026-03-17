@@ -16,28 +16,22 @@ class PluginDependencyResolver:
         Plugins that declare `REQUIRES_PLUGINS` are ordered after their dependencies.
         Cycles raise ValueError.
         """
-        # Build dependency graph
-        graph: dict[str, list[str]] = {}
+        # Build dependency-to-dependent graph (edges: dep → name)
+        graph: dict[str, list[str]] = {name: [] for name in plugin_names}
         all_plugins = set(plugin_names)
+        in_degree = {name: 0 for name in plugin_names}
 
         for name in plugin_names:
-            graph[name] = []
             try:
                 plugin_cls = self._registry.load_plugin(name)
                 requires = getattr(plugin_cls, "REQUIRES_PLUGINS", [])
                 for dep in requires:
                     if dep in all_plugins:
-                        graph[name].append(dep)
-            except Exception as e:
-                # Skip plugins that can't be loaded (e.g. during setup)
-                pass
-
-        # Simple topological sort (Kahn's algorithm)
-        in_degree = {name: 0 for name in plugin_names}
-        for deps in graph.values():
-            for dep in deps:
-                if dep in in_degree:
-                    in_degree[dep] += 1
+                        graph[dep].append(name)
+                        in_degree[name] += 1
+            except Exception:
+                # Let PluginLoader handle actual load failures later
+                continue
 
         queue = [name for name in plugin_names if in_degree[name] == 0]
         result = []
