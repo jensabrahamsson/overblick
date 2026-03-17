@@ -80,11 +80,12 @@ class PluginLoader:
             logger.error("Plugin dependency resolution failed: %s", e)
             raise
 
-        # 5. Create context factory
+        # 5. Create context factory (with capabilities from resource setup)
         factory = PluginContextFactory(
             identity_name=self._identity_name,
             services=self._services,
             paths=self._paths,
+            capabilities=self._runtime_state.capabilities,
         )
 
         # 6. Load each plugin

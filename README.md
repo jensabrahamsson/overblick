@@ -102,6 +102,9 @@ Personalities define WHO the agent IS — separate from operational config. Each
 | **Natt** | Uncanny philosopher | Eerie, paradoxical, recursive, existential |
 | **Stal** | Email secretary | Formal, precise, diplomatic — acts on the principal's behalf |
 | **Smed** | Developer agent | Methodical code blacksmith — forges fixes with precision and patience |
+| **PolyTrader** | Prediction market analyst | Data-driven trading agent for Polymarket prediction markets |
+| **Vakt** | Log monitoring guard | Vigilant, systematic — watches logs across all identities |
+| **Supervisor** | Boss agent (system) | Calm authority — manages and governs all plugin agents |
 
 ### Creating a New Personality
 
@@ -170,6 +173,8 @@ Plugins are self-contained modules. Each receives `PluginContext` as its ONLY fr
 | **Skuggspel** | Experimental | Shadow-self content generation (Jungian shadow exploration) |
 | **Spegel** | Experimental | Inter-agent psychological profiling and mutual reflection |
 | **Stage** | Experimental | YAML-driven behavioral scenario testing for identities |
+| **Polymarket Monitor** | Complete | Polymarket prediction market data monitoring and analysis |
+| **Whallet Trader** | Complete | Polymarket trading execution and performance tracking |
 
 **Plugin lifecycle:**
 
@@ -234,8 +239,9 @@ await supervisor.run()     # Block until shutdown
 | **Ollama** | `ollama` | OllamaClient | `localhost:11434` |
 | **LM Studio** | `lmstudio` | OllamaClient | `localhost:1234` |
 | **Överblick Gateway** | `gateway` | GatewayClient | `localhost:8200` |
-| **Deepseek** | `deepseek` | DeepseekClient | `api.deepseek.com/v1` |
-| **OpenAI** *(coming soon)* | `openai` | CloudLLMClient | `api.openai.com/v1` |
+| **Deepseek** | `deepseek` | DeepseekClient (gateway) | `api.deepseek.com/v1` |
+
+The core LLM layer has two client implementations: `OllamaClient` and `GatewayClient`. The Deepseek backend is available through the Gateway's `DeepseekClient`, which routes cloud API calls via the priority queue.
 
 **LM Studio** exposes an OpenAI-compatible `/v1/chat/completions` API — Överblick reuses `OllamaClient` for it with a different default port. No additional dependencies needed.
 
@@ -245,7 +251,7 @@ Configure via the dashboard settings wizard (`/settings/`) or directly in `confi
 
 ```yaml
 llm:
-  provider: ollama      # or lmstudio, gateway, deepseek, openai
+  provider: ollama      # or lmstudio, gateway, deepseek
   host: 127.0.0.1
   port: 11434
   model: qwen3.5:9b
@@ -418,6 +424,8 @@ overblick/
     skuggspel/              # Shadow-self content generation (experimental)
     spegel/                 # Inter-agent psychological profiling (experimental)
     stage/                  # Behavioral scenario testing (experimental)
+    polymarket_monitor/     # Polymarket prediction market monitoring (complete)
+    whallet_trader/         # Polymarket trading execution (complete)
   identities/               # Identity stable — YAML-driven characters
     anomal/                 # Intellectual humanist
     bjork/                  # Forest philosopher
@@ -426,7 +434,11 @@ overblick/
     natt/                   # Uncanny philosopher
     prisma/                 # Digital artist
     rost/                   # Jaded ex-trader
+    smed/                   # Developer agent
     stal/                   # Email secretary
+    polytrader/             # Prediction market analyst
+    supervisor/             # Boss agent (system identity)
+    vakt/                   # Log monitoring guard
   dashboard/                # FastAPI + Jinja2 + htmx web dashboard (settings wizard at /settings/)
   gateway/                  # LLM Gateway service (port 8200)
   setup/                    # Setup validators + provisioner (used by dashboard /settings/)

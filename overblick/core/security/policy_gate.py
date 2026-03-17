@@ -143,13 +143,14 @@ class PolicyGate:
         Check if content passes output safety filters.
 
         Returns True if safe, False if blocked.
+        Fail-closed: returns False if output safety is not configured.
         """
         if self._output_safety is None:
             logger.warning(
-                "Output safety not configured for identity '%s' — content check skipped",
+                "Output safety not configured for identity '%s' — denying content (fail-closed)",
                 self._identity_name,
             )
-            return True
+            return False
         # OutputSafety provides a sanitize method
         result = self._output_safety.sanitize(content)
         return not result.blocked
@@ -168,17 +169,21 @@ class PolicyGate:
         """
         if self._preflight_checker is None:
             logger.warning(
-                "Preflight checker not configured for identity '%s' — preflight skipped",
+                "Preflight checker not configured for identity '%s' — denying request (fail-closed)",
                 self._identity_name,
             )
-            return True
+            return False
         # Assuming PreflightChecker has a check method
         if hasattr(self._preflight_checker, "check"):
             result = await self._preflight_checker.check(messages, user_id)
             return not result.blocked if hasattr(result, "blocked") else result
         else:
-            # Fallback: treat as allowed
-            return True
+            # Fallback: fail-closed — deny if checker lacks expected interface
+            logger.warning(
+                "Preflight checker for identity '%s' has no check() method — denying request (fail-closed)",
+                self._identity_name,
+            )
+            return False
 
     # --- Rate limiting ---
 
@@ -193,7 +198,11 @@ class PolicyGate:
             True if allowed, False if rate limited
         """
         if self._rate_limiter is None:
-            return True
+            logger.warning(
+                "Rate limiter not configured — denying request for key '%s' (fail-closed)",
+                key,
+            )
+            return False
         return self._rate_limiter.allow(key)
 
     # --- Convenience methods for common plugin patterns ---

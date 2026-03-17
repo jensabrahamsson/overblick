@@ -10,35 +10,40 @@ class IPCBootstrap:
         self._base_dir = base_dir
 
     def create_client(self) -> IPCClient | None:
-        """
-        Create an IPC client by searching for supervisor token in standard locations.
-
-        Search order:
-          1. Environment variable (SUPERVISOR_TOKEN_PATH)
-          2. Project config directory (config/supervisor_token)
-          3. System temp directory (fallback)
-        """
+        """Create an IPC client by searching for supervisor token in standard locations."""
         import os
-        from pathlib import Path
+        import tempfile
 
-        # 1. Try environment variable
-        env_path = os.environ.get("SUPERVISOR_TOKEN_PATH")
-        if env_path and Path(env_path).exists():
-            return IPCClient.from_token_file(Path(env_path))
+        token_name = "overblick-supervisor.token"
+        search_dirs: list[Path] = []
 
-        # 2. Try project config
-        proj_path = self._base_dir / "config" / "supervisor_token"
-        if proj_path.exists():
-            return IPCClient.from_token_file(proj_path)
+        env_dir = os.environ.get("OVERBLICK_IPC_DIR")
+        if env_dir:
+            search_dirs.append(Path(env_dir))
 
-        # 3. Try temp directory
+        search_dirs.append(self._base_dir / "data" / "ipc")
+        search_dirs.append(Path(tempfile.gettempdir()) / "overblick")
+
+        socket_dir = None
+        token_path = None
+        for candidate in search_dirs:
+            tp = candidate / token_name
+            if tp.exists():
+                socket_dir = candidate
+                token_path = tp
+                break
+
+        if not token_path:
+            return None
+
         try:
-            import tempfile
+            from overblick.supervisor.ipc import read_ipc_token
 
-            tmp_path = Path(tempfile.gettempdir()) / "overblick_supervisor_token"
-            if tmp_path.exists():
-                return IPCClient.from_token_file(tmp_path)
+            auth_token = read_ipc_token(socket_dir=socket_dir)
+            return IPCClient(
+                target="supervisor",
+                socket_dir=socket_dir,
+                auth_token=auth_token,
+            )
         except Exception:
-            pass
-
-        return None
+            return None

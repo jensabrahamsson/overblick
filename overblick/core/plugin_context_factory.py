@@ -25,10 +25,12 @@ class PluginContextFactory:
         identity_name: str,
         services: OrchestratorServices,
         paths: OrchestratorPaths,
+        capabilities: dict | None = None,
     ) -> None:
         self._identity_name = identity_name
         self._services = services
         self._paths = paths
+        self._capabilities = capabilities or {}
 
     def create(
         self,
@@ -81,16 +83,18 @@ class PluginContextFactory:
             quiet_hours_checker=self._services.quiet_hours,
             llm_pipeline=self._services.llm_pipeline,
             identity=self._services.identity,
-            preflight=self._services.preflight,
+            preflight_checker=self._services.preflight,
             output_safety=self._services.output_safety,
-            rate_limiter=self._services.rate_limiter,
             permissions=permissions,
             policy_gate=self._services.policy_gate,
             ipc_client=self._services.ipc_client,
             engagement_db=self._services.engagement_db,
             learning_store=self._services.learning_store,
-            get_secret=self._services.secrets.get_secret
-            if self._services.secrets
-            else lambda x: None,
+            capabilities=self._capabilities,
         )
+        # Set secrets getter as PrivateAttr (cannot be set via constructor)
+        if self._services.secrets is not None:
+            secrets = self._services.secrets
+            identity_name = self._identity_name
+            ctx._secrets_getter = lambda key, _s=secrets, _id=identity_name: _s.get(_id, key)
         return ctx

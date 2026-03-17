@@ -10,6 +10,7 @@
     <script src="/setup-static/js/htmx.min.js"></script>
 </head>
 <body hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'>
+    <a href="#main-content" class="skip-nav">Skip to main content</a>
     <div class="setup-container">
         <!-- Exit to dashboard link -->
         <a href="/" class="dashboard-exit-link">
@@ -40,7 +41,7 @@
         {% endif %}
 
         <!-- Main content -->
-        <div class="step-content">
+        <div class="step-content" id="main-content">
             {% block content %}{% endblock %}
         </div>
     </div>
