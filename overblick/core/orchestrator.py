@@ -10,45 +10,18 @@ import importlib
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-from overblick.core.capability import CapabilityBase, CapabilityRegistry
-from overblick.core.database.sqlite_backend import SQLiteBackend
-from overblick.core.db.engagement_db import EngagementDB
-from overblick.core.event_bus import EventBus
-from overblick.core.exceptions import ConfigError
-from overblick.core.learning.store import LearningStore
-from overblick.core.llm.client import LLMClient
-from overblick.core.llm.pipeline import SafeLLMPipeline
 from overblick.core.orchestrator_bootstrap import OrchestratorBootstrap
 from overblick.core.orchestrator_runtime import OrchestratorRuntime
 from overblick.core.orchestrator_shutdown import OrchestratorShutdown
-from overblick.core.orchestrator_bootstrap_result import OrchestratorBootstrapResult
 from overblick.core.orchestrator_paths import OrchestratorPaths
 from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
 from overblick.core.orchestrator_services import OrchestratorServices
 from overblick.core.orchestrator_types import OrchestratorState
-from overblick.core.permissions import PermissionChecker
-from overblick.core.plugin_base import (
-    AgenticPluginContext,
-    CommunicationPluginContext,
-    ContentPluginContext,
-    DefaultPluginContext,
-    MonitoringPluginContext,
-    PluginBase,
-    PluginContext,
-)
-from overblick.core.plugin_capability_checker import PluginCapabilityChecker
+from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.plugin_loader import PluginLoader
-from overblick.core.plugin_registry import PluginRegistry
-from overblick.core.quiet_hours import QuietHoursChecker
-from overblick.core.scheduler import Scheduler
-from overblick.core.security.audit_log import AuditLog
-from overblick.core.security.output_safety import OutputSafety
-from overblick.core.security.policy_gate import PolicyGate
-from overblick.core.security.preflight import PreflightChecker
-from overblick.core.security.rate_limiter import RateLimiter
-from overblick.core.security.secrets_manager import SecretsManager
+from overblick.core.plugin_run_controller import PluginRunController
 from overblick.identities import Identity
 from overblick.supervisor.ipc import IPCClient
 
@@ -66,29 +39,6 @@ class Orchestrator:
         orch = Orchestrator(identity_name="anomal")
         await orch.run()  # Blocks until shutdown signal
     """
-
-    # Plugin name → context class mapping (ARCH‑2: narrow per role)
-    _PLUGIN_ROLES: ClassVar[dict[str, type[PluginContext]]] = {
-        # Agentic plugins
-        "github": AgenticPluginContext,
-        "dev_agent": AgenticPluginContext,
-        "log_agent": AgenticPluginContext,
-        # Communication plugins
-        "telegram": CommunicationPluginContext,
-        "email_agent": CommunicationPluginContext,
-        "irc": CommunicationPluginContext,
-        # Content plugins
-        "moltbook": ContentPluginContext,
-        "kontrast": ContentPluginContext,
-        "skuggspel": ContentPluginContext,
-        "spegel": ContentPluginContext,
-        "ai_digest": ContentPluginContext,
-        # Monitoring plugins
-        "host_health": MonitoringPluginContext,
-        "compass": MonitoringPluginContext,
-        "stage": MonitoringPluginContext,
-        # Default fallback for others
-    }
 
     def __init__(
         self,
@@ -195,52 +145,6 @@ class Orchestrator:
             base_dir=self._base_dir,
             plugin_names=self._plugin_names,
         )
-
-    def _create_plugin_context(
-        self,
-        plugin_name: str,
-        data_dir: Path,
-        log_dir: Path,
-        permissions: Any,
-        capability_checker: Any,
-    ) -> PluginContext:
-        """
-        Create a role-specific PluginContext for a plugin (ARCH‑2).
-
-        Uses _PLUGIN_ROLES mapping to select appropriate context class.
-        Falls back to DefaultPluginContext for unclassified plugins.
-        """
-        assert self._services.secrets is not None, "Secrets manager must be initialized"
-        assert self._services.audit_log is not None, "Audit log must be initialized"
-        assert self._services.identity is not None, "Identity must be loaded"
-
-        context_class = self._PLUGIN_ROLES.get(plugin_name, DefaultPluginContext)
-
-        # All context classes have the same constructor signature
-        ctx = context_class(
-            identity_name=self._identity_name,
-            data_dir=data_dir,
-            log_dir=log_dir,
-            event_bus=self._services.event_bus,
-            scheduler=self._services.scheduler,
-            audit_log=self._services.audit_log,
-            quiet_hours_checker=self._services.quiet_hours,
-            llm_pipeline=self._services.llm_pipeline,
-            identity=self._services.identity,
-            preflight_checker=self._services.preflight,  # type: ignore
-            output_safety=self._services.output_safety,  # type: ignore
-            permissions=permissions,  # type: ignore
-            policy_gate=self._services.policy_gate,  # type: ignore
-            ipc_client=self._services.ipc_client,  # type: ignore
-            engagement_db=self._services.engagement_db,  # type: ignore
-            learning_store=self._services.learning_store,  # type: ignore
-        )
-        # Set secrets getter as PrivateAttr (cannot be set via constructor)
-        if self._services.secrets is not None:
-            secrets = self._services.secrets
-            identity_name = self._identity_name
-            ctx._secrets_getter = lambda key, _s=secrets, _id=identity_name: _s.get(_id, key)
-        return ctx
 
     def _register_local_plugins(self) -> None:
         """Register local plugins with the registry."""
