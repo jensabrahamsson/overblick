@@ -32,6 +32,20 @@
     --orange: #ff8c42;
     --purple: #bc8cff;
     --accent-bg: #1e3a5f;
+    --white: #fff;
+    --red-light: #ff7b72;
+    --teal: #2dd4bf;
+
+    /* Semantic badge backgrounds */
+    --badge-bg-green: #0d2a1e;
+    --badge-bg-red: #2a0f0f;
+    --badge-bg-amber: #2a1f0d;
+
+    /* Tinted overlays */
+    --accent-tint: rgba(88, 166, 255, 0.1);
+    --green-tint: rgba(63, 185, 80, 0.1);
+    --red-tint: rgba(248, 81, 73, 0.1);
+    --amber-tint: rgba(210, 153, 34, 0.1);
 
     /* Spacing */
     --space-xs: 0.25rem;
@@ -171,7 +185,7 @@ button:focus-visible,
     transition: all 0.15s;
 }
 .nav-link:hover { color: var(--text-primary); background: var(--bg-tertiary); text-decoration: none; }
-.nav-link.active { color: var(--accent); background: rgba(88, 166, 255, 0.1); }
+.nav-link.active { color: var(--accent); background: var(--accent-tint); }
 .nav-link-logout { color: var(--text-muted); }
 .nav-link-logout:hover { color: var(--red); }
 
@@ -329,10 +343,10 @@ button:focus-visible,
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
-.status-badge.status-running { background: #0d2a1e; color: var(--green); }
-.status-badge.status-stopped { background: #2a0f0f; color: #ff7b72; }
+.status-badge.status-running { background: var(--badge-bg-green); color: var(--green); }
+.status-badge.status-stopped { background: var(--badge-bg-red); color: var(--red-light); }
 .status-badge.status-offline { background: var(--bg-tertiary); color: var(--text-secondary); }
-.status-badge.status-starting { background: #2a1f0d; color: var(--amber); }
+.status-badge.status-starting { background: var(--badge-bg-amber); color: var(--amber); }
 
 /* Semantic badge variants for conversation/IRC state indicators */
 .badge-state {
@@ -344,10 +358,10 @@ button:focus-visible,
     text-transform: uppercase;
     font-family: var(--font-mono);
 }
-.badge-state--active   { background: #0d2a1e; color: var(--green); }
-.badge-state--paused   { background: #2a1f0d; color: var(--amber); }
+.badge-state--active   { background: var(--badge-bg-green); color: var(--green); }
+.badge-state--paused   { background: var(--badge-bg-amber); color: var(--amber); }
 .badge-state--completed { background: var(--bg-tertiary); color: var(--text-secondary); }
-.badge-state--error    { background: #2a0f0f; color: var(--red); }
+.badge-state--error    { background: var(--badge-bg-red); color: var(--red); }
 
 /* Conversation type badges */
 .badge-type {
@@ -360,9 +374,9 @@ button:focus-visible,
 }
 .badge-type--email    { background: #0d2d4b; color: var(--accent); }
 .badge-type--research { background: #2d0d4b; color: var(--purple); }
-.badge-type--good     { background: #0d2a1e; color: var(--green); }
-.badge-type--fair     { background: #2a1f0d; color: var(--amber); }
-.badge-type--poor     { background: #2a0f0f; color: var(--red); }
+.badge-type--good     { background: var(--badge-bg-green); color: var(--green); }
+.badge-type--fair     { background: var(--badge-bg-amber); color: var(--amber); }
+.badge-type--poor     { background: var(--badge-bg-red); color: var(--red); }
 .badge-type--default  { background: var(--bg-tertiary); color: var(--text-secondary); }
 
 /* --- Tags --- */
@@ -380,7 +394,7 @@ button:focus-visible,
 a.tag-link { text-decoration: none; cursor: pointer; transition: all 0.2s; }
 a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 .tag-capability { border-color: var(--orange); color: var(--orange); }
-.tag-operational { border-color: #2dd4bf; color: #2dd4bf; }
+.tag-operational { border-color: var(--teal); color: var(--teal); }
 .tag-psychology {
     background-color: #3a1a4a;
     border-color: #6b2d6b;
@@ -393,7 +407,7 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
     transition: all 0.15s;
 }
 .tag-agent:hover {
-    background-color: rgba(63, 185, 80, 0.1);
+    background-color: var(--green-tint);
     text-decoration: none;
 }
 .tag-agent.status-stopped {
@@ -688,7 +702,7 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 }
 .plugin-card-status--functional {
     color: var(--green);
-    background: rgba(63, 185, 80, 0.1);
+    background: var(--green-tint);
 }
 .plugin-card-status--shell {
     color: var(--text-muted);
@@ -765,7 +779,7 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 .btn-primary {
     background: var(--green-dim);
     border-color: var(--green);
-    color: #fff;
+    color: var(--white);
 }
 .btn-primary:hover { background: var(--green); }
 .btn-primary:disabled {
@@ -792,8 +806,8 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
     margin-bottom: var(--space-md);
     font-size: 0.9rem;
 }
-.flash-error { background: rgba(248, 81, 73, 0.1); border: 1px solid var(--red-dim); color: #ff7b72; }
-.flash-success { background: rgba(63, 185, 80, 0.1); border: 1px solid var(--green-dim); color: var(--green); }
+.flash-error { background: var(--red-tint); border: 1px solid var(--red-dim); color: var(--red-light); }
+.flash-success { background: var(--green-tint); border: 1px solid var(--green-dim); color: var(--green); }
 
 /* --- Login Page --- */
 .login-body {
@@ -864,11 +878,11 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 .wizard-step-active .wizard-step-num {
     border-color: var(--accent);
     color: var(--accent);
-    background: rgba(88, 166, 255, 0.1);
+    background: var(--accent-tint);
 }
 .wizard-step-done .wizard-step-num {
     border-color: var(--green);
-    color: #fff;
+    color: var(--white);
     background: var(--green-dim);
 }
 .wizard-step-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
@@ -993,7 +1007,7 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
     font-family: var(--font-mono);
 }
 .agent-card-action-fail {
-    background: rgba(248, 81, 73, 0.1);
+    background: var(--red-tint);
     color: var(--red);
 }
 
@@ -1013,12 +1027,12 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 .btn-agent-start:hover {
     border-color: var(--accent);
     color: var(--accent);
-    background: rgba(88, 166, 255, 0.1);
+    background: var(--accent-tint);
 }
 .btn-agent-stop:hover {
     border-color: var(--amber);
     color: var(--amber);
-    background: rgba(210, 153, 34, 0.1);
+    background: var(--amber-tint);
 }
 .btn-agent-start.htmx-request,
 .btn-agent-stop.htmx-request {
@@ -1489,7 +1503,7 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
     height: 48px;
     border-radius: 50%;
     background: var(--accent);
-    color: #fff;
+    color: var(--white);
     border: none;
     cursor: pointer;
     font-size: 1.3rem;
@@ -1601,7 +1615,7 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 }
 
 .chat-msg--user .chat-msg-text {
-    background: rgba(88, 166, 255, 0.1);
+    background: var(--accent-tint);
     border-left: 2px solid var(--accent);
 }
 
@@ -1648,7 +1662,7 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 
 .chat-send-btn {
     background: var(--accent);
-    color: #fff;
+    color: var(--white);
     border: none;
     border-radius: var(--radius-sm);
     padding: 0.5rem 0.75rem;
@@ -1912,7 +1926,7 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 
 .view-toggle .btn[aria-pressed="true"] {
     background: var(--accent);
-    color: #fff;
+    color: var(--white);
 }
 
 .view-toggle .btn + .btn {
@@ -2195,8 +2209,8 @@ a.tag-link:hover { background: var(--accent); color: var(--bg-card); }
 .conv-outcome-text { font-size: 0.85rem; color: var(--text-secondary); }
 
 /* --- Stage --- */
-.badge-pass { background: var(--green); color: white; }
-.badge-fail { background: var(--red-dim); color: white; }
+.badge-pass { background: var(--green); color: var(--white); }
+.badge-fail { background: var(--red-dim); color: var(--white); }
 .stage-results-card { margin-bottom: 2rem; }
 .stage-card-title { margin: 0; font-size: 1rem; }
 .stage-table-wrap { padding: var(--space-md); overflow-x: auto; }
@@ -2575,12 +2589,12 @@ details.obs-error-message[open] .obs-error-full {
     border: 1px solid transparent;
 }
 .alert-warning {
-    background: rgba(210, 153, 34, 0.1);
+    background: var(--amber-tint);
     border-color: var(--amber-dim);
     color: var(--amber);
 }
 .alert-danger {
-    background: rgba(248, 81, 73, 0.1);
+    background: var(--red-tint);
     border-color: var(--red-dim);
     color: var(--red);
 }

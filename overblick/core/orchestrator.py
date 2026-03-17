@@ -227,42 +227,39 @@ class Orchestrator:
             quiet_hours_checker=self._services.quiet_hours,
             llm_pipeline=self._services.llm_pipeline,
             identity=self._services.identity,
-            preflight=self._services.preflight,  # type: ignore
+            preflight_checker=self._services.preflight,  # type: ignore
             output_safety=self._services.output_safety,  # type: ignore
-            rate_limiter=self._services.rate_limiter,  # type: ignore
-            permissions=self._services.permissions,  # type: ignore
+            permissions=permissions,  # type: ignore
             policy_gate=self._services.policy_gate,  # type: ignore
             ipc_client=self._services.ipc_client,  # type: ignore
             engagement_db=self._services.engagement_db,  # type: ignore
             learning_store=self._services.learning_store,  # type: ignore
-            get_secret=self._services.secrets.get_secret
-            if self._services.secrets is not None
-            else lambda x: None,  # type: ignore
         )
+        # Set secrets getter as PrivateAttr (cannot be set via constructor)
+        if self._services.secrets is not None:
+            secrets = self._services.secrets
+            identity_name = self._identity_name
+            ctx._secrets_getter = lambda key, _s=secrets, _id=identity_name: _s.get(_id, key)
         return ctx
 
     def _register_local_plugins(self) -> None:
         """Register local plugins with the registry."""
+        if self._factory:
+            try:
+                self._factory.register_local_plugins(self._services.registry)  # type: ignore
+            except (AttributeError, Exception) as e:
+                logger.debug("Factory local plugin registration skipped: %s", e)
+            return
+
+        # Fallback: manual registration when no factory
         try:
-            # Try to load local plugins via component factory first
-            if self._factory:
-                try:
-                    self._factory.register_local_plugins(self._services.registry)  # type: ignore
-                except AttributeError:
-                    pass  # fallback to manual registration
-                return
+            from overblick.plugins._local import register_local_plugins
+
+            register_local_plugins(self._services.registry)
+        except ImportError:
+            logger.debug("No local plugins found or registered.")
         except Exception as e:
             logger.warning("Failed to register local plugins: %s", e)
-
-            # Fallback: manual registration
-            try:
-                from overblick.plugins._local import register_local_plugins
-
-                register_local_plugins(self._services.registry)
-            except ImportError:
-                logger.debug("No local plugins found or registered.")
-            except Exception as e:
-                logger.warning("Failed to register local plugins: %s", e)
 
     async def setup(self) -> None:
         """Initialize orchestrator and all dependencies."""

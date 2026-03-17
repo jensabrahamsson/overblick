@@ -130,7 +130,11 @@ class OrchestratorBootstrap:
             raw_config=self._services.identity.raw_config,
         )
 
-        # 8b. Create policy gate
+        # 8b. Create capability registry for resource setup
+        from overblick.core.capability import CapabilityRegistry
+        self._services.capability_registry = CapabilityRegistry.default()
+
+        # 8c. Create policy gate
         from overblick.core.security.policy_gate import PolicyGate
         self._services.policy_gate = PolicyGate(
             identity_name=self._identity_name,

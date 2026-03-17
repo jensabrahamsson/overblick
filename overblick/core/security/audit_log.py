@@ -20,6 +20,8 @@ from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
+GENESIS_HASH = "0" * 64
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,13 +34,18 @@ CREATE TABLE IF NOT EXISTS audit_log (
     success INTEGER NOT NULL DEFAULT 1,
     duration_ms REAL,
     error TEXT,
-    previous_hash TEXT
+    previous_hash TEXT,
+    chain_hash TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
 CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
 CREATE INDEX IF NOT EXISTS idx_audit_category ON audit_log(category);
 """
+
+_MIGRATION_ADD_CHAIN_HASH = (
+    "ALTER TABLE audit_log ADD COLUMN chain_hash TEXT"
+)
 
 
 class AuditLog:
@@ -75,6 +82,9 @@ class AuditLog:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
+        self._migrate_add_chain_hash()
+        # Initialize prev_hash from last entry (or genesis)
+        self._prev_hash = self._load_last_chain_hash()
         # Single-thread executor for non-blocking writes
         self._write_executor = ThreadPoolExecutor(
             max_workers=1,
@@ -97,8 +107,6 @@ class AuditLog:
 
         Hash includes all entry fields plus the previous hash to create a chain.
         """
-        import json
-
         # Create deterministic string representation
         data_str = f"{timestamp}|{action}|{category}|{self._identity}|{plugin}|"
         if details_json:
@@ -114,45 +122,26 @@ class AuditLog:
 
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
 
-    def _get_last_hash(self) -> str:
-        """Get the hash of the most recent audit log entry.
+    def _migrate_add_chain_hash(self) -> None:
+        """Add chain_hash column if missing (backward compat with old DBs)."""
+        assert self._conn is not None
+        cursor = self._conn.execute("PRAGMA table_info(audit_log)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "chain_hash" not in columns:
+            self._conn.execute(_MIGRATION_ADD_CHAIN_HASH)
+            self._conn.commit()
+            logger.info("Migrated audit_log: added chain_hash column")
 
-        Returns "genesis" if no entries exist.
-        """
+    def _load_last_chain_hash(self) -> str:
+        """Load chain_hash of the most recent entry, or genesis if empty."""
         assert self._conn is not None
         cursor = self._conn.execute(
-            "SELECT timestamp, action, category, identity, plugin, details, success, duration_ms, error, previous_hash FROM audit_log ORDER BY id DESC LIMIT 1"
+            "SELECT chain_hash FROM audit_log ORDER BY id DESC LIMIT 1"
         )
         row = cursor.fetchone()
-        if row is None:
-            return "genesis"
-
-        # Unpack row
-        (
-            timestamp,
-            action,
-            category,
-            identity,
-            plugin,
-            details_json,
-            success,
-            duration_ms,
-            error,
-            previous_hash,
-        ) = row
-
-        # Compute hash of the last entry
-        return self._compute_entry_hash(
-            timestamp,
-            action,
-            category,
-            plugin,
-            details_json,
-            bool(success),
-            duration_ms,
-            error,
-            previous_hash,
-        )
+        if row is None or row[0] is None:
+            return GENESIS_HASH
+        return row[0]
 
     def _log_sync(
         self,
@@ -168,12 +157,11 @@ class AuditLog:
         assert self._conn is not None
         conn = self._conn
 
-        # Get hash of previous entry
-        previous_hash = self._get_last_hash()
-
-        # Compute hash for this entry
         timestamp = time.time()
-        entry_hash = self._compute_entry_hash(
+        previous_hash = self._prev_hash
+
+        # Compute chain hash for this entry
+        chain_hash = self._compute_entry_hash(
             timestamp,
             action,
             category,
@@ -188,8 +176,9 @@ class AuditLog:
         cursor = conn.execute(
             """
             INSERT INTO audit_log
-                (timestamp, action, category, identity, plugin, details, success, duration_ms, error, previous_hash)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (timestamp, action, category, identity, plugin, details,
+                 success, duration_ms, error, previous_hash, chain_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 timestamp,
@@ -201,18 +190,14 @@ class AuditLog:
                 1 if success else 0,
                 duration_ms,
                 error,
-                previous_hash,  # Store the hash of the previous entry
+                previous_hash,
+                chain_hash,
             ),
         )
         conn.commit()
 
-        # Verify the chain integrity (entry_hash should match what next entry will use as previous_hash)
-        # This is a sanity check
-        last_hash = self._get_last_hash()
-        if last_hash != entry_hash:
-            logger.error(
-                "Audit log hash chain mismatch! Expected %s, got %s", entry_hash, last_hash
-            )
+        # Advance the chain
+        self._prev_hash = chain_hash
 
         assert cursor.lastrowid is not None
         return cursor.lastrowid
@@ -325,7 +310,7 @@ class AuditLog:
             cursor = conn.execute(
                 f"""
                 SELECT id, timestamp, action, category, identity, plugin,
-                       details, success, duration_ms, error, previous_hash
+                       details, success, duration_ms, error, previous_hash, chain_hash
                 FROM audit_log
                 {where}
                 ORDER BY timestamp DESC
@@ -365,7 +350,7 @@ class AuditLog:
             cursor = conn.execute(
                 f"""
                 SELECT id, timestamp, action, category, identity, plugin,
-                       details, success, duration_ms, error, previous_hash
+                       details, success, duration_ms, error, previous_hash, chain_hash
                 FROM audit_log
                 {where}
                 ORDER BY timestamp DESC
@@ -381,7 +366,7 @@ class AuditLog:
             cursor = conn.execute(
                 f"""
                 SELECT id, timestamp, action, category, identity, plugin,
-                       details, success, duration_ms, error, previous_hash
+                       details, success, duration_ms, error, previous_hash, chain_hash
                 FROM audit_log
                 {where}
                 ORDER BY timestamp DESC
@@ -489,17 +474,26 @@ class AuditLog:
     def verify_chain(self) -> tuple[bool, list[int]]:
         """Verify the integrity of the audit log hash chain.
 
+        Walks every entry in id order and checks:
+        1. stored ``previous_hash`` equals the chain hash of the prior entry
+        2. stored ``chain_hash`` equals the recomputed hash
+
+        Entries from old logs that lack hash columns are silently skipped
+        (backward compatibility).
+
         Returns:
             Tuple of (is_valid, list_of_tampered_entry_ids)
         """
         assert self._conn is not None
         cursor = self._conn.execute(
-            "SELECT id, timestamp, action, category, identity, plugin, details, success, duration_ms, error, previous_hash FROM audit_log ORDER BY id ASC"
+            "SELECT id, timestamp, action, category, identity, plugin, "
+            "details, success, duration_ms, error, previous_hash, chain_hash "
+            "FROM audit_log ORDER BY id ASC"
         )
         rows = cursor.fetchall()
 
-        tampered_ids = []
-        previous_hash = "genesis"
+        tampered_ids: list[int] = []
+        expected_prev = GENESIS_HASH
 
         for row in rows:
             (
@@ -514,17 +508,23 @@ class AuditLog:
                 duration_ms,
                 error,
                 stored_previous_hash,
+                stored_chain_hash,
             ) = row
 
-            # Check that stored previous_hash matches computed previous hash
-            if stored_previous_hash != previous_hash:
-                tampered_ids.append(entry_id)
-                # Continue checking but with the stored previous_hash as new base
-                previous_hash = stored_previous_hash
+            # Backward compat: skip entries without hash data
+            if stored_previous_hash is None and stored_chain_hash is None:
+                expected_prev = GENESIS_HASH
                 continue
 
-            # Compute hash for this entry
-            entry_hash = self._compute_entry_hash(
+            # Check previous_hash linkage
+            if stored_previous_hash != expected_prev:
+                tampered_ids.append(entry_id)
+                # Reset chain from this entry's stored chain_hash
+                expected_prev = stored_chain_hash if stored_chain_hash else GENESIS_HASH
+                continue
+
+            # Recompute and verify chain_hash
+            computed = self._compute_entry_hash(
                 timestamp,
                 action,
                 category,
@@ -533,9 +533,16 @@ class AuditLog:
                 bool(success),
                 duration_ms,
                 error,
-                previous_hash,
+                stored_previous_hash,
             )
-            previous_hash = entry_hash
+
+            if stored_chain_hash is not None and stored_chain_hash != computed:
+                tampered_ids.append(entry_id)
+                # Use stored hash to keep walking even if tampered
+                expected_prev = stored_chain_hash
+                continue
+
+            expected_prev = computed
 
         return (len(tampered_ids) == 0, tampered_ids)
 
