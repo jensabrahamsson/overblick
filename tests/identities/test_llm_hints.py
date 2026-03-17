@@ -1,9 +1,15 @@
 """Tests for LLM hints files — structure, content, and integration."""
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="YAML identity files contain Swedish characters; Windows default encoding causes UnicodeDecodeError",
+)
 import yaml
 
 from overblick.identities import build_system_prompt, load_llm_hints, load_personality

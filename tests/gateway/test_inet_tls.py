@@ -1,11 +1,17 @@
 """Tests for TLS certificate handling."""
 
 import os
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="chmod 0o600 file permissions are not enforced on Windows (shows 0o666)",
+)
 
 from overblick.gateway.inet_tls import _generate_self_signed, resolve_tls
 

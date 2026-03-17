@@ -3,6 +3,7 @@ Tests for the monitoring capability: models, inspector, and command whitelisting
 """
 
 import asyncio
+import sys
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -161,6 +162,10 @@ class TestCommandWhitelisting:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="os.getloadavg() is not available on Windows",
+)
 class TestHostInspectionCapability:
     """Test the inspector with mocked subprocess commands."""
 

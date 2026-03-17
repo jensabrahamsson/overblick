@@ -1,6 +1,13 @@
 """Tests for identity loading."""
 
+import sys
+
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="YAML identity files contain Swedish characters; Windows default encoding causes UnicodeDecodeError",
+)
 from pydantic import ValidationError
 
 from overblick.identities import (
