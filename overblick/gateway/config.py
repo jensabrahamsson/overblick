@@ -43,7 +43,7 @@ class GatewayConfig(BaseModel):
 
     # Queue settings
     max_queue_size: int = 100
-    request_timeout_seconds: float = 300.0
+    request_timeout_seconds: float = 600.0
 
     # Worker settings
     max_concurrent_requests: int = 1

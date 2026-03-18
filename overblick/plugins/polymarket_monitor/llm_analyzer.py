@@ -63,7 +63,7 @@ class PolymarketLLMAnalyzer:
         ]
 
         try:
-            result = await self.llm_pipeline.chat(messages)
+            result = await self.llm_pipeline.chat(messages, max_tokens=4000)
 
             if result and not result.blocked and result.content:
                 return self._parse_analysis_result(result.content, market)
@@ -108,7 +108,7 @@ class PolymarketLLMAnalyzer:
         ]
 
         try:
-            result = await self.llm_pipeline.chat(messages)
+            result = await self.llm_pipeline.chat(messages, max_tokens=4000)
 
             if result and not result.blocked and result.content:
                 return self._parse_trading_evaluation(
@@ -162,7 +162,7 @@ class PolymarketLLMAnalyzer:
         ]
 
         try:
-            result = await self.llm_pipeline.chat(messages)
+            result = await self.llm_pipeline.chat(messages, max_tokens=4000)
 
             if result and not result.blocked and result.content:
                 return result.content

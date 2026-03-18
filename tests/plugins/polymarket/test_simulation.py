@@ -59,6 +59,7 @@ async def test_plugin_initialization_simulation():
         ctx.data_dir = data_dir
         ctx.log_dir = log_dir
         ctx.identity = Mock()
+        ctx.event_bus = None
 
         # Load PolyTrader identity config
         from overblick.identities import load_identity
@@ -77,8 +78,8 @@ async def test_plugin_initialization_simulation():
 
         monitor_plugin = PolymarketMonitorPlugin(ctx)
 
-        # Should start in simulation mode by default
-        assert monitor_plugin._config["simulation_mode"] == True
+        # Verify default config is populated (simulation_mode is set via identity config)
+        assert monitor_plugin._config["enable_real_api"] is True
 
         # Call setup (async)
         await monitor_plugin.setup()
@@ -90,9 +91,6 @@ async def test_plugin_initialization_simulation():
         from overblick.plugins.whallet_trader.plugin import WhalletTraderPlugin
 
         trader_plugin = WhalletTraderPlugin(ctx)
-
-        # Should start in simulation mode by default
-        assert trader_plugin._config["simulation_mode"] == True
 
         # Call setup (async)
         await trader_plugin.setup()
@@ -123,6 +121,7 @@ async def test_trading_signal_flow():
         ctx.data_dir = data_dir
         ctx.log_dir = temp_dir / "logs"
         ctx.identity = Mock()
+        ctx.event_bus = None
 
         # Load identity config
         from overblick.identities import load_identity

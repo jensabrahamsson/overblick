@@ -8,6 +8,7 @@ for each identity running the ai_digest plugin.
 import asyncio
 import json
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse

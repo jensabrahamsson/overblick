@@ -20,6 +20,13 @@ import pytest
 from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
 from overblick.core.llm.gateway_client import GatewayClient
 
+
+@pytest.fixture(autouse=True)
+def _allow_direct_llm(monkeypatch):
+    """Allow direct LLM client instantiation in tests."""
+    monkeypatch.setenv("OVERBLICK_ALLOW_DIRECT_LLM", "1")
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
