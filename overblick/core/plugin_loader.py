@@ -99,11 +99,8 @@ class PluginLoader:
                     capability_checker=self._services.capability_checker,
                 )
 
-                # Load plugin class
-                plugin_cls = self._registry.load_plugin(name)
-
-                # Instantiate plugin
-                plugin = plugin_cls(ctx)
+                # Load and instantiate plugin via registry
+                plugin = self._registry.load(name, ctx)
 
                 # Run setup
                 await plugin.setup()

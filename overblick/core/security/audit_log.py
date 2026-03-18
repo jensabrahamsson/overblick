@@ -43,9 +43,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
 CREATE INDEX IF NOT EXISTS idx_audit_category ON audit_log(category);
 """
 
-_MIGRATION_ADD_CHAIN_HASH = (
-    "ALTER TABLE audit_log ADD COLUMN chain_hash TEXT"
-)
+_MIGRATION_ADD_CHAIN_HASH = "ALTER TABLE audit_log ADD COLUMN chain_hash TEXT"
+_MIGRATION_ADD_PREVIOUS_HASH = "ALTER TABLE audit_log ADD COLUMN previous_hash TEXT"
 
 
 class AuditLog:
@@ -123,14 +122,17 @@ class AuditLog:
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
 
     def _migrate_add_chain_hash(self) -> None:
-        """Add chain_hash column if missing (backward compat with old DBs)."""
+        """Add chain_hash and previous_hash columns if missing (backward compat)."""
         assert self._conn is not None
         cursor = self._conn.execute("PRAGMA table_info(audit_log)")
         columns = {row[1] for row in cursor.fetchall()}
+        if "previous_hash" not in columns:
+            self._conn.execute(_MIGRATION_ADD_PREVIOUS_HASH)
+            logger.info("Migrated audit_log: added previous_hash column")
         if "chain_hash" not in columns:
             self._conn.execute(_MIGRATION_ADD_CHAIN_HASH)
-            self._conn.commit()
             logger.info("Migrated audit_log: added chain_hash column")
+        self._conn.commit()
 
     def _load_last_chain_hash(self) -> str:
         """Load chain_hash of the most recent entry, or genesis if empty."""
