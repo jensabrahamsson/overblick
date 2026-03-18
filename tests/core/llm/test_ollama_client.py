@@ -21,6 +21,13 @@ import pytest
 from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
 from overblick.core.llm.ollama_client import OllamaClient
 
+
+@pytest.fixture(autouse=True)
+def _allow_direct_llm(monkeypatch):
+    """Allow direct LLM client instantiation in tests."""
+    monkeypatch.setenv("OVERBLICK_ALLOW_DIRECT_LLM", "1")
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -78,7 +85,7 @@ class TestOllamaClientInit:
         assert client.max_tokens == 2000
         assert client.temperature == 0.7
         assert client.top_p == 0.9
-        assert client.timeout_seconds == 180
+        assert client.timeout_seconds == 600
         assert client._session is None
 
     def test_custom_init(self):
