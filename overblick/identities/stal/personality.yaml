@@ -539,7 +539,7 @@ operational:
     model: "qwen3.5:9b"
     temperature: 0.4          # Low — precision over creativity
     max_tokens: 1500
-    timeout_seconds: 180
+    timeout_seconds: 600
 
   schedule:
     heartbeat_hours: 1        # Check email frequently

@@ -684,7 +684,7 @@ operational:
     model: "qwen3.5:9b"
     temperature: 0.75
     max_tokens: 1800
-    timeout_seconds: 180
+    timeout_seconds: 600
   schedule:
     heartbeat_hours: 4
     feed_poll_minutes: 5

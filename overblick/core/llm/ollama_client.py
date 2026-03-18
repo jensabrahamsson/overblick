@@ -45,7 +45,7 @@ class OllamaClient(LLMClient):
         max_tokens: int = 2000,
         temperature: float = 0.7,
         top_p: float = 0.9,
-        timeout_seconds: int = 180,
+        timeout_seconds: int = 600,
     ):
         # Security: prevent plugins from instantiating LLM clients directly
         self._check_instantiation_allowed()

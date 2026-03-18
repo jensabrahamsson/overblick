@@ -27,9 +27,24 @@ class LearningStoreBuilder:
         Uses ethos text from identity, embedding function from LLM client if available.
         Returns None if learning is disabled or no embedding function can be resolved.
         """
+        from logging import getLogger
+
+        logger = getLogger(__name__)
+
         # Check if learning is enabled in identity config
-        if not self._identity.learning.enabled:
-            return None
+        learning_config = getattr(self._identity, "learning", None)
+        if learning_config is None:
+            # Identity has no learning config — check raw_config fallback
+            raw = getattr(self._identity, "raw_config", {}) or {}
+            learning_raw = raw.get("learning", {})
+            if not learning_raw or not learning_raw.get("enabled", False):
+                logger.debug("Learning disabled for %s (no config)", self._identity.name)
+                return None
+            ethos_text = learning_raw.get("ethos", "")
+        else:
+            if not learning_config.enabled:
+                return None
+            ethos_text = learning_config.ethos
 
         # Try to get embedding function from LLM client
         embed_fn = None
@@ -37,16 +52,13 @@ class LearningStoreBuilder:
             try:
                 embed_fn = await self._llm_client.get_embedding_function()
             except Exception as e:
-                # Log but don't crash — fallback to no embeddings
-                from logging import getLogger
-
-                getLogger(__name__).debug("Failed to get embedding function: %s", e)
+                logger.debug("Failed to get embedding function: %s", e)
 
         # Build store
         store = LearningStore(
             identity_name=self._identity.name,
             data_dir=self._data_dir,
-            ethos_text=self._identity.learning.ethos,
+            ethos_text=ethos_text,
             embed_fn=embed_fn,
         )
         await store.setup()

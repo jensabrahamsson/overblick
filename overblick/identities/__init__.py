@@ -87,7 +87,7 @@ class LLMSettings(BaseModel):
     temperature: float = 0.7
     top_p: float = 0.9
     max_tokens: int = 2000
-    timeout_seconds: int = 180
+    timeout_seconds: int = 600
 
     # Gateway URL — all agents route through this
     gateway_url: str = "http://127.0.0.1:8200"

@@ -11,7 +11,7 @@ class _FakeRegistry:
     def __init__(self, requires_map: dict[str, list[str]]):
         self._requires_map = requires_map
 
-    def load_plugin(self, name: str):
+    def get_plugin_class(self, name: str):
         requires = self._requires_map.get(name, [])
 
         class _Plugin:
@@ -80,17 +80,17 @@ class TestPluginDependencyResolver:
         assert result.index("C") < result.index("A")
 
     def test_plugin_that_fails_to_load_is_skipped(self):
-        """If registry.load_plugin raises, plugin is included but unordered."""
+        """If registry.get_plugin_class raises, plugin is included but unordered."""
         registry = _FakeRegistry({"A": []})
         # Override to make B fail to load
-        original_load = registry.load_plugin
+        original_load = registry.get_plugin_class
 
         def failing_load(name):
             if name == "B":
                 raise ImportError("no such plugin")
             return original_load(name)
 
-        registry.load_plugin = failing_load
+        registry.get_plugin_class = failing_load
 
         resolver = PluginDependencyResolver(registry)
         result = resolver.resolve(["A", "B"])

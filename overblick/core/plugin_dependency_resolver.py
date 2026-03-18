@@ -23,7 +23,7 @@ class PluginDependencyResolver:
 
         for name in plugin_names:
             try:
-                plugin_cls = self._registry.load_plugin(name)
+                plugin_cls = self._registry.get_plugin_class(name)
                 requires = getattr(plugin_cls, "REQUIRES_PLUGINS", [])
                 for dep in requires:
                     if dep in all_plugins:
