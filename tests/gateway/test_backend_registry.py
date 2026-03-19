@@ -71,7 +71,7 @@ def disabled_backend_config() -> GatewayConfig:
                 "port": 11434,
                 "model": "qwen3.5:9b",
             },
-            "cloud": {
+            "disabled_backend": {
                 "enabled": False,
                 "type": "deepseek",
             },
@@ -126,7 +126,7 @@ class TestRegistration:
 
     def test_disabled_backend_skipped(self, disabled_backend_config):
         registry = BackendRegistry(disabled_backend_config)
-        assert "cloud" not in registry.available_backends
+        assert "disabled_backend" not in registry.available_backends
         assert "local" in registry.available_backends
 
     def test_unknown_type_skipped(self):
@@ -218,7 +218,7 @@ class TestLegacyFallback:
     def test_all_disabled_creates_fallback(self):
         config = GatewayConfig(
             backends={
-                "cloud": {"enabled": False, "type": "deepseek"},
+                "disabled_backend": {"enabled": False, "type": "deepseek"},
             },
         )
         registry = BackendRegistry(config)

@@ -197,8 +197,9 @@ def _build_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
 def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
     """Build LLM config from new backends-format wizard state."""
     local = llm.get("local", {})
-    cloud = llm.get("cloud", {})
+    remote = llm.get("remote", llm.get("cloud", {}))
     deepseek = llm.get("deepseek", {})
+    dashscope = llm.get("dashscope", {})
     openai = llm.get("openai", {})
 
     config: dict[str, Any] = {
@@ -207,6 +208,13 @@ def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
         "temperature": llm.get("default_temperature", 0.7),
         "max_tokens": llm.get("default_max_tokens", 2000),
         "backends": {
+            "remote": {
+                "enabled": remote.get("enabled", False),
+                "type": remote.get("backend_type", "ollama"),
+                "host": remote.get("host", ""),
+                "port": remote.get("port", 1234),
+                "model": remote.get("model", "qwen3.5:9b"),
+            },
             "local": {
                 "enabled": local.get("enabled", True),
                 "type": local.get("backend_type", "ollama"),
@@ -214,26 +222,32 @@ def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
                 "port": local.get("port", 11434),
                 "model": local.get("model", "qwen3.5:9b"),
             },
-            "cloud": {
-                "enabled": cloud.get("enabled", False),
-                "type": cloud.get("backend_type", "ollama"),
-                "host": cloud.get("host", ""),
-                "port": cloud.get("port", 11434),
-                "model": cloud.get("model", "qwen3.5:9b"),
-            },
             "deepseek": {
                 "enabled": deepseek.get("enabled", False),
                 "type": "deepseek",
                 "api_url": deepseek.get("api_url", "https://api.deepseek.com/v1"),
                 "model": deepseek.get("model", "deepseek-chat"),
             },
-            "openai": {
-                "enabled": openai.get("enabled", False),
-                "api_url": openai.get("api_url", "https://api.openai.com/v1"),
-                "model": openai.get("model", "gpt-4o"),
-            },
         },
     }
+
+    # Only include dashscope if enabled (auto-injected from env otherwise)
+    if dashscope.get("enabled"):
+        config["backends"]["dashscope"] = {
+            "enabled": True,
+            "type": "dashscope",
+            "api_url": dashscope.get(
+                "api_url",
+                "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+            ),
+            "model": dashscope.get("model", "qwen-plus"),
+        }
+
+    # Backend preference (routing fallback order)
+    backend_preference = llm.get("backend_preference", [])
+    if backend_preference:
+        config["backend_preference"] = backend_preference
+
     return config
 
 
@@ -247,6 +261,13 @@ def _build_llm_config_legacy(llm: dict[str, Any]) -> dict[str, Any]:
         "temperature": llm.get("default_temperature", 0.7),
         "max_tokens": llm.get("default_max_tokens", 2000),
         "backends": {
+            "remote": {
+                "enabled": False,
+                "type": "ollama",
+                "host": "",
+                "port": 1234,
+                "model": "qwen3.5:9b",
+            },
             "local": {
                 "enabled": True,
                 "type": provider if provider in ("ollama", "lmstudio") else "ollama",
@@ -254,23 +275,11 @@ def _build_llm_config_legacy(llm: dict[str, Any]) -> dict[str, Any]:
                 "port": llm.get("ollama_port", 11434),
                 "model": llm.get("model", "qwen3.5:9b"),
             },
-            "cloud": {
-                "enabled": False,
-                "type": "ollama",
-                "host": "",
-                "port": 11434,
-                "model": "qwen3.5:9b",
-            },
             "deepseek": {
                 "enabled": False,
                 "type": "deepseek",
                 "api_url": "https://api.deepseek.com/v1",
                 "model": "deepseek-chat",
-            },
-            "openai": {
-                "enabled": False,
-                "api_url": "https://api.openai.com/v1",
-                "model": "gpt-4o",
             },
         },
     }
