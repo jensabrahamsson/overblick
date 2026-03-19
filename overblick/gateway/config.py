@@ -46,7 +46,7 @@ class GatewayConfig(BaseModel):
     request_timeout_seconds: float = 600.0
 
     # Worker settings
-    max_concurrent_requests: int = 1
+    max_concurrent_requests: int = 2
 
     # API settings
     api_host: str = "127.0.0.1"
@@ -60,6 +60,7 @@ class GatewayConfig(BaseModel):
 
     # Multi-backend configuration
     default_backend: str = "local"
+    backend_preference: list[str] = Field(default_factory=list)
     backends: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     @property
@@ -85,8 +86,8 @@ class GatewayConfig(BaseModel):
             ollama_port=_get_env_int("OLLAMA_PORT", 11434),
             default_model=_get_env("DEFAULT_MODEL", "qwen3.5:9b"),
             max_queue_size=_get_env_int("MAX_QUEUE_SIZE", 100),
-            request_timeout_seconds=_get_env_float("REQUEST_TIMEOUT", 300.0),
-            max_concurrent_requests=_get_env_int("MAX_CONCURRENT", 1),
+            request_timeout_seconds=_get_env_float("REQUEST_TIMEOUT", 600.0),
+            max_concurrent_requests=_get_env_int("MAX_CONCURRENT", 2),
             api_key=_get_env("API_KEY", os.getenv("OVERBLICK_GATEWAY_KEY", "")),
             api_host=_get_env("API_HOST", "127.0.0.1"),
             api_port=_get_env_int("API_PORT", 8200),
@@ -101,6 +102,7 @@ class GatewayConfig(BaseModel):
             if backends:
                 config.backends = backends
                 config.default_backend = llm.get("default_backend", "local")
+                config.backend_preference = llm.get("backend_preference", [])
                 config.default_model = llm.get(
                     "model",
                     backends.get("local", {}).get("model", config.default_model),
@@ -128,6 +130,18 @@ class GatewayConfig(BaseModel):
                 "model": "deepseek-chat",
             }
             logger.info("Deepseek backend injected from OVERBLICK_DEEPSEEK_API_KEY env var")
+
+        # Inject DashScope backend from env if not already in YAML
+        dashscope_key = os.getenv("OVERBLICK_DASHSCOPE_API_KEY", "")
+        if dashscope_key and "dashscope" not in config.backends:
+            config.backends["dashscope"] = {
+                "enabled": True,
+                "type": "dashscope",
+                "api_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+                "api_key": dashscope_key,
+                "model": "qwen-plus",
+            }
+            logger.info("DashScope backend injected from OVERBLICK_DASHSCOPE_API_KEY env var")
 
         return config
 

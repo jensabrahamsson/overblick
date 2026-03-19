@@ -115,15 +115,17 @@ function _bindOnce(el, event, handler) {
 function initLLMBackends() {
     // Backend enable/disable checkboxes
     var backends = [
-        { name: 'local_enabled', target: 'local-config' },
-        { name: 'cloud_enabled', target: 'cloud-config' },
-        { name: 'deepseek_enabled', target: 'deepseek-config' },
+        { name: 'local_enabled', target: 'local-config', key: 'local', label: 'Local' },
+        { name: 'remote_enabled', target: 'remote-config', key: 'remote', label: 'Remote' },
+        { name: 'dashscope_enabled', target: 'dashscope-config', key: 'dashscope', label: 'DashScope' },
+        { name: 'deepseek_enabled', target: 'deepseek-config', key: 'deepseek', label: 'Deepseek' },
     ];
     backends.forEach(function(b) {
         var cb = document.querySelector('input[name="' + b.name + '"]');
         if (cb) {
             _bindOnce(cb, 'change', function() {
                 toggleSection(b.target, this.checked);
+                _updatePreferenceList();
             });
         }
     });
@@ -144,6 +146,153 @@ function initLLMBackends() {
             tempValue.textContent = this.value;
         });
     }
+
+    // Preference list arrow buttons
+    _initPreferenceButtons();
+}
+
+/* ── Preference list management ────────────────────── */
+
+var _BACKEND_LABELS = {
+    local: 'Local',
+    remote: 'Remote',
+    dashscope: 'DashScope',
+    deepseek: 'Deepseek',
+};
+
+function _getEnabledBackends() {
+    var enabled = [];
+    var checks = [
+        { name: 'local_enabled', key: 'local' },
+        { name: 'remote_enabled', key: 'remote' },
+        { name: 'dashscope_enabled', key: 'dashscope' },
+        { name: 'deepseek_enabled', key: 'deepseek' },
+    ];
+    checks.forEach(function(c) {
+        var cb = document.querySelector('input[name="' + c.name + '"]');
+        if (cb && cb.checked) enabled.push(c.key);
+    });
+    return enabled;
+}
+
+function _createPreferenceItem(key, idx, total) {
+    var li = document.createElement('li');
+    li.className = 'preference-item';
+    li.setAttribute('data-backend', key);
+
+    var rank = document.createElement('span');
+    rank.className = 'preference-rank';
+    rank.textContent = String(idx + 1);
+    li.appendChild(rank);
+
+    var name = document.createElement('span');
+    name.className = 'preference-name';
+    name.textContent = _BACKEND_LABELS[key] || key;
+    li.appendChild(name);
+
+    var upBtn = document.createElement('button');
+    upBtn.type = 'button';
+    upBtn.className = 'btn-icon pref-up';
+    upBtn.setAttribute('aria-label', 'Move up');
+    upBtn.textContent = '\u25B2';
+    if (idx === 0) upBtn.disabled = true;
+    li.appendChild(upBtn);
+
+    var downBtn = document.createElement('button');
+    downBtn.type = 'button';
+    downBtn.className = 'btn-icon pref-down';
+    downBtn.setAttribute('aria-label', 'Move down');
+    downBtn.textContent = '\u25BC';
+    if (idx === total - 1) downBtn.disabled = true;
+    li.appendChild(downBtn);
+
+    return li;
+}
+
+function _updatePreferenceList() {
+    var list = document.getElementById('preference-list');
+    var hidden = document.getElementById('backend_preference');
+    if (!list || !hidden) return;
+
+    var enabled = _getEnabledBackends();
+
+    // Get current order from existing list items
+    var currentOrder = [];
+    list.querySelectorAll('.preference-item[data-backend]').forEach(function(li) {
+        currentOrder.push(li.getAttribute('data-backend'));
+    });
+
+    // Keep enabled items in their current order, add new ones at end
+    var newOrder = [];
+    currentOrder.forEach(function(key) {
+        if (enabled.indexOf(key) !== -1) newOrder.push(key);
+    });
+    enabled.forEach(function(key) {
+        if (newOrder.indexOf(key) === -1) newOrder.push(key);
+    });
+
+    // Rebuild list using safe DOM methods
+    while (list.firstChild) list.removeChild(list.firstChild);
+
+    if (newOrder.length === 0) {
+        var emptyLi = document.createElement('li');
+        emptyLi.className = 'preference-item preference-item--empty';
+        var hint = document.createElement('span');
+        hint.className = 'form-hint';
+        hint.textContent = 'Enable at least one backend above';
+        emptyLi.appendChild(hint);
+        list.appendChild(emptyLi);
+    } else {
+        newOrder.forEach(function(key, idx) {
+            list.appendChild(_createPreferenceItem(key, idx, newOrder.length));
+        });
+    }
+
+    hidden.value = newOrder.join(',');
+    _initPreferenceButtons();
+}
+
+function _initPreferenceButtons() {
+    var list = document.getElementById('preference-list');
+    if (!list) return;
+
+    list.querySelectorAll('.pref-up').forEach(function(btn) {
+        _bindOnce(btn, 'click', function() {
+            var li = this.closest('.preference-item');
+            var prev = li.previousElementSibling;
+            if (prev && prev.classList.contains('preference-item')) {
+                li.parentNode.insertBefore(li, prev);
+                _refreshPreferenceState();
+            }
+        });
+    });
+
+    list.querySelectorAll('.pref-down').forEach(function(btn) {
+        _bindOnce(btn, 'click', function() {
+            var li = this.closest('.preference-item');
+            var next = li.nextElementSibling;
+            if (next && next.classList.contains('preference-item')) {
+                li.parentNode.insertBefore(next, li);
+                _refreshPreferenceState();
+            }
+        });
+    });
+}
+
+function _refreshPreferenceState() {
+    var list = document.getElementById('preference-list');
+    var hidden = document.getElementById('backend_preference');
+    if (!list || !hidden) return;
+
+    var items = list.querySelectorAll('.preference-item[data-backend]');
+    var order = [];
+    items.forEach(function(li, idx) {
+        li.querySelector('.preference-rank').textContent = String(idx + 1);
+        li.querySelector('.pref-up').disabled = (idx === 0);
+        li.querySelector('.pref-down').disabled = (idx === items.length - 1);
+        order.push(li.getAttribute('data-backend'));
+    });
+    hidden.value = order.join(',');
 }
 
 /* ── Step 4: Communication toggle headers + checkboxes ── */

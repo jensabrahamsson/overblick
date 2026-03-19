@@ -16,6 +16,7 @@ import os
 from typing import Any, Optional
 
 from .config import GatewayConfig
+from .dashscope_client import DashScopeClient
 from .deepseek_client import DeepseekClient
 from .ollama_client import OllamaClient
 
@@ -59,6 +60,7 @@ class BackendRegistry:
         self._clients: dict[str, Any] = {}
         self._backend_configs: dict[str, BackendConfig] = {}
         self._default = config.default_backend
+        self._backend_preference = config.backend_preference
 
         for name, bcfg in config.backends.items():
             if not bcfg.get("enabled", False):
@@ -71,6 +73,8 @@ class BackendRegistry:
                 self._register_ollama_backend(name, bcfg, config)
             elif btype == "deepseek":
                 self._register_deepseek_backend(name, bcfg, config)
+            elif btype == "dashscope":
+                self._register_dashscope_backend(name, bcfg, config)
             elif btype == "openai":
                 logger.info(
                     "Backend '%s': OpenAI support coming soon, skipping",
@@ -168,6 +172,55 @@ class BackendRegistry:
             "configured" if api_key else "MISSING",
         )
 
+    def _register_dashscope_backend(
+        self,
+        name: str,
+        bcfg: dict[str, Any],
+        config: GatewayConfig,
+    ) -> None:
+        """Register a DashScope (Alibaba Qwen) API backend."""
+        api_url = bcfg.get("api_url", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+        model = bcfg.get("model", "qwen-plus")
+
+        if bcfg.get("api_key"):
+            logger.warning(
+                "Backend '%s': API key found in YAML config — IGNORED for security. "
+                "Set OVERBLICK_DASHSCOPE_API_KEY environment variable instead.",
+                name,
+            )
+        api_key = os.getenv("OVERBLICK_DASHSCOPE_API_KEY", "")
+
+        if not api_key:
+            logger.warning(
+                "Backend '%s': DashScope enabled but no API key configured "
+                "(set OVERBLICK_DASHSCOPE_API_KEY env var)",
+                name,
+            )
+
+        bc = BackendConfig(
+            name=name,
+            enabled=True,
+            backend_type="dashscope",
+            model=model,
+            api_url=api_url,
+            api_key=api_key,
+        )
+        self._backend_configs[name] = bc
+
+        self._clients[name] = DashScopeClient(
+            api_url=api_url,
+            api_key=api_key,
+            model=model,
+            timeout_seconds=config.request_timeout_seconds,
+        )
+        logger.info(
+            "Registered backend '%s': %s (model: %s, key: %s)",
+            name,
+            api_url,
+            model,
+            "configured" if api_key else "MISSING",
+        )
+
     def get_client(self, backend: str | None = None) -> Any:
         """Get client for a backend (defaults to default_backend)."""
         name = backend or self._default
@@ -186,6 +239,10 @@ class BackendRegistry:
     @property
     def default_backend(self) -> str:
         return self._default
+
+    @property
+    def backend_preference(self) -> list[str]:
+        return self._backend_preference
 
     @property
     def available_backends(self) -> list[str]:

@@ -40,8 +40,9 @@
 
         <!-- LLM -->
         {% set local = llm.get('local', {}) %}
-        {% set cloud_cfg = llm.get('cloud', {}) %}
+        {% set remote_cfg = llm.get('remote', {}) %}
         {% set deepseek = llm.get('deepseek', {}) %}
+        {% set dashscope = llm.get('dashscope', {}) %}
         <div class="review-section">
             <div class="review-section-title">
                 AI Engine
@@ -56,21 +57,32 @@
                 <span class="review-value">
                     {% if local.get('enabled') %}
                     <span class="badge badge-green">Local</span>
-                    <span class="mono" class="review-model-name">{{ local.get('model', 'qwen3.5:9b') }}</span>
+                    <span class="mono review-model-name">{{ local.get('model', 'qwen3.5:9b') }}</span>
                     {% endif %}
-                    {% if cloud_cfg.get('enabled') %}
-                    <span class="badge badge-green" class="review-badge-ml">Cloud</span>
-                    <span class="mono" class="review-model-name">{{ cloud_cfg.get('model', 'qwen3.5:9b') }}</span>
+                    {% if remote_cfg.get('enabled') %}
+                    <span class="badge badge-green review-badge-ml">Remote</span>
+                    <span class="mono review-model-name">{{ remote_cfg.get('model', 'qwen3.5:9b') }}</span>
+                    {% endif %}
+                    {% if dashscope.get('enabled') %}
+                    <span class="badge badge-green review-badge-ml">DashScope</span>
+                    <span class="mono review-model-name">{{ dashscope.get('model', 'qwen-plus') }}</span>
                     {% endif %}
                     {% if deepseek.get('enabled') %}
-                    <span class="badge badge-green" class="review-badge-ml">Deepseek</span>
-                    <span class="mono" class="review-model-name">{{ deepseek.get('model', 'deepseek-chat') }}</span>
+                    <span class="badge badge-green review-badge-ml">Deepseek</span>
+                    <span class="mono review-model-name">{{ deepseek.get('model', 'deepseek-chat') }}</span>
                     {% endif %}
-                    {% if not local.get('enabled') and not cloud_cfg.get('enabled') and not deepseek.get('enabled') %}
+                    {% if not local.get('enabled') and not remote_cfg.get('enabled') and not dashscope.get('enabled') and not deepseek.get('enabled') %}
                     <span class="badge badge-amber">None enabled</span>
                     {% endif %}
                 </span>
             </div>
+            {% set pref = llm.get('backend_preference', []) %}
+            {% if pref %}
+            <div class="review-item">
+                <span class="review-label">Priority</span>
+                <span class="review-value mono">{{ pref | join(' → ') }}</span>
+            </div>
+            {% endif %}
             <div class="review-item">
                 <span class="review-label">Default</span>
                 <span class="review-value">{{ llm.get('default_backend', 'local') | title }}</span>

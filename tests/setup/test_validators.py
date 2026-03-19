@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from overblick.setup.validators import (
     BackendConfig,
     CommunicationData,
+    DashScopeConfig,
     DeepseekConfig,
     LLMData,
     OpenAIConfig,
@@ -84,9 +85,11 @@ class TestLLMData:
         data = LLMData()
         assert data.gateway_url == "http://127.0.0.1:8200"
         assert data.local.enabled is True
-        assert data.cloud.enabled is False
+        assert data.remote.enabled is False
+        assert data.dashscope.enabled is False
         assert data.openai.enabled is False
         assert data.default_backend == "local"
+        assert data.backend_preference == []
         assert data.default_temperature == 0.7
         assert data.default_max_tokens == 2000
 
@@ -105,13 +108,22 @@ class TestLLMData:
         assert data.local.backend_type == "lmstudio"
         assert data.local.port == 1234
 
-    def test_cloud_backend(self):
+    def test_remote_backend(self):
         data = LLMData(
-            cloud=BackendConfig(enabled=True, host="gpu.example.com", model="qwen3:14b"),
+            remote=BackendConfig(enabled=True, host="gpu.example.com", port=1234, model="qwen3:14b"),
         )
-        assert data.cloud.enabled
-        assert data.cloud.host == "gpu.example.com"
-        assert data.cloud.model == "qwen3:14b"
+        assert data.remote.enabled
+        assert data.remote.host == "gpu.example.com"
+        assert data.remote.model == "qwen3:14b"
+
+    def test_dashscope_backend(self):
+        data = LLMData(
+            dashscope=DashScopeConfig(enabled=True, model="qwen-plus"),
+            default_backend="dashscope",
+        )
+        assert data.dashscope.enabled
+        assert data.dashscope.model == "qwen-plus"
+        assert data.default_backend == "dashscope"
 
     def test_openai_backend(self):
         data = LLMData(
@@ -137,8 +149,12 @@ class TestLLMData:
         assert data.deepseek.enabled is False
         assert data.deepseek.model == "deepseek-chat"
 
+    def test_backend_preference(self):
+        data = LLMData(backend_preference=["remote", "dashscope", "local", "deepseek"])
+        assert data.backend_preference == ["remote", "dashscope", "local", "deepseek"]
+
     def test_invalid_default_backend(self):
-        with pytest.raises(ValidationError, match="local.*cloud.*deepseek.*openai"):
+        with pytest.raises(ValidationError, match="local.*remote.*deepseek.*dashscope.*openai"):
             LLMData(default_backend="something_else")
 
     def test_temperature_bounds(self):
@@ -170,19 +186,23 @@ class TestLLMData:
         data = LLMData(
             gateway_url="http://127.0.0.1:8200",
             local=BackendConfig(enabled=True, model="qwen3.5:9b"),
-            cloud=BackendConfig(enabled=True, host="gpu.lan", port=11434, model="qwen3:14b"),
+            remote=BackendConfig(enabled=True, host="gpu.lan", port=1234, model="qwen3:14b"),
             deepseek=DeepseekConfig(enabled=True, model="deepseek-chat"),
+            dashscope=DashScopeConfig(enabled=True, model="qwen-plus"),
             openai=OpenAIConfig(enabled=False),
-            default_backend="local",
+            default_backend="remote",
+            backend_preference=["remote", "dashscope", "local", "deepseek"],
             default_temperature=0.8,
             default_max_tokens=4000,
         )
         assert data.local.enabled
-        assert data.cloud.enabled
+        assert data.remote.enabled
         assert data.deepseek.enabled
+        assert data.dashscope.enabled
         assert not data.openai.enabled
         assert data.default_temperature == 0.8
         assert data.default_max_tokens == 4000
+        assert data.backend_preference == ["remote", "dashscope", "local", "deepseek"]
 
 
 class TestCommunicationData:
