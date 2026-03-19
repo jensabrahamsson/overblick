@@ -38,7 +38,7 @@ class GatewayClient(LLMClient):
     def __init__(
         self,
         base_url: str = "http://127.0.0.1:8200",
-        model: str = "qwen3:8b",
+        model: str = "qwen3.5:9b",
         default_priority: str = "low",
         max_tokens: int = 2000,
         temperature: float = 0.7,

@@ -55,7 +55,7 @@ She bridges the gap between academic psychology and real messy human love. Can e
 ```yaml
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.8
     max_tokens: 1500
 

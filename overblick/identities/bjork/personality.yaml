@@ -646,10 +646,10 @@ behavioral_guidelines:
 
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.65
     max_tokens: 800
-    timeout_seconds: 180
+    timeout_seconds: 600
   schedule:
     heartbeat_hours: 8
     feed_poll_minutes: 10

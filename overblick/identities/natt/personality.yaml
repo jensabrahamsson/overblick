@@ -753,10 +753,10 @@ parallel_examples:
 ################################################################################
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.75
     max_tokens: 2000
-    timeout_seconds: 180
+    timeout_seconds: 600
   schedule:
     heartbeat_hours: 6
     feed_poll_minutes: 10

@@ -32,7 +32,7 @@ def telegram_identity():
         description="Punk tech critic on Telegram (Blixt)",
         engagement_threshold=30,
         enabled_modules=(),
-        llm=LLMSettings(model="qwen3:8b", temperature=0.7, max_tokens=1000),
+        llm=LLMSettings(model="qwen3.5:9b", temperature=0.7, max_tokens=1000),
         quiet_hours=QuietHoursSettings(enabled=False),
         schedule=ScheduleSettings(heartbeat_hours=4, feed_poll_minutes=5),
         security=SecuritySettings(enable_preflight=True, enable_output_safety=True),

@@ -27,7 +27,7 @@ def stal_identity():
         display_name="Stål",
         description="Executive secretary and email agent",
         engagement_threshold=25,
-        llm=LLMSettings(model="qwen3:8b", temperature=0.4, max_tokens=1500),
+        llm=LLMSettings(model="qwen3.5:9b", temperature=0.4, max_tokens=1500),
         quiet_hours=QuietHoursSettings(enabled=True, start_hour=22, end_hour=6),
         schedule=ScheduleSettings(heartbeat_hours=1, feed_poll_minutes=5),
         security=SecuritySettings(enable_preflight=True, enable_output_safety=True),

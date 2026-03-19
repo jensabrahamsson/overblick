@@ -52,7 +52,7 @@ Prisma has actual chromesthesia (sound-to-color synesthesia). A C major chord is
 ```yaml
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.85  # Higher temperature for creative unpredictability
     max_tokens: 1500
 

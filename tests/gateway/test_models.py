@@ -56,15 +56,15 @@ class TestChatRequest:
 
     def test_valid_request(self):
         request = ChatRequest(
-            model="qwen3:8b",
+            model="qwen3.5:9b",
             messages=[ChatMessage(role="user", content="Hi")],
         )
-        assert request.model == "qwen3:8b"
+        assert request.model == "qwen3.5:9b"
         assert len(request.messages) == 1
 
     def test_default_values(self):
         request = ChatRequest(messages=[ChatMessage(role="user", content="Hi")])
-        assert request.model == "qwen3:8b"
+        assert request.model == "qwen3.5:9b"
         assert request.max_tokens == 2000
         assert request.temperature == 0.7
 
@@ -112,17 +112,17 @@ class TestChatResponse:
 
     def test_from_message(self):
         response = ChatResponse.from_message(
-            model="qwen3:8b",
+            model="qwen3.5:9b",
             content="Hello!",
             usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
         )
-        assert response.model == "qwen3:8b"
+        assert response.model == "qwen3.5:9b"
         assert len(response.choices) == 1
         assert response.choices[0].message.content == "Hello!"
         assert response.usage.total_tokens == 15
 
     def test_auto_generated_fields(self):
-        response = ChatResponse.from_message("qwen3:8b", "Hi")
+        response = ChatResponse.from_message("qwen3.5:9b", "Hi")
         assert response.id.startswith("chatcmpl-")
         assert response.created > 0
         assert response.object == "chat.completion"

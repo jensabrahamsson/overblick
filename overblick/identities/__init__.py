@@ -83,11 +83,11 @@ class LLMSettings(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="ignore")
 
-    model: str = "qwen3:8b"
+    model: str = "qwen3.5:9b"
     temperature: float = 0.7
     top_p: float = 0.9
     max_tokens: int = 2000
-    timeout_seconds: int = 180
+    timeout_seconds: int = 600
 
     # Gateway URL — all agents route through this
     gateway_url: str = "http://127.0.0.1:8200"
@@ -528,6 +528,42 @@ def list_identities() -> list[str]:
 list_personalities = list_identities
 
 
+def _model_to_slug(model: str) -> str:
+    """Convert an LLM model name to a slug used for hint files.
+
+    Rules:
+    - Split by ':' into model_name and optional size suffix.
+    - Replace '.' and '-' with '_' in model_name.
+    - If size suffix exists and model_name does NOT contain '-', append '_' + size.
+    - Return the resulting slug.
+
+    Examples:
+        'qwen3.5:9b' -> 'qwen3_5_9b'
+        'llama3:8b' -> 'llama3_8b'
+        'deepseek-r1:8b' -> 'deepseek_r1' (dash in model_name → drop size)
+        'phi4' -> 'phi4'
+        'mistral' -> 'mistral'
+        'gemma2:9b' -> 'gemma2_9b'
+    """
+    if ":" in model:
+        model_name, size = model.split(":", 1)
+    else:
+        model_name, size = model, ""
+
+    # Normalize model_name
+    model_name = model_name.replace(".", "_").replace("-", "_")
+
+    # If model_name contains a dash (original dash), drop size suffix
+    # This handles deepseek-r1 where size is redundant
+    if "-" in model:
+        # Original model had a dash, drop size
+        return model_name
+    elif size:
+        return f"{model_name}_{size}"
+    else:
+        return model_name
+
+
 def load_llm_hints(identity: "Identity", model_slug: str = "") -> dict[str, Any]:
     """
     Load LLM-specific prompt hints for an identity.
@@ -535,21 +571,20 @@ def load_llm_hints(identity: "Identity", model_slug: str = "") -> dict[str, Any]
     Hints are stored in:
         overblick/identities/<name>/llm_hints/<model_slug>.yaml
 
-    The model_slug is derived from the LLM model name (e.g. 'qwen3:8b' -> 'qwen3_8b').
+    The model_slug is derived from the LLM model name (e.g. 'qwen3.5:9b' -> 'qwen3_5_9b').
     If no model_slug is given, uses the identity's configured LLM model.
 
     Args:
         identity: Loaded Identity object.
-        model_slug: Normalized model name (e.g. 'qwen3_8b'). If empty,
+        model_slug: Normalized model name (e.g. 'qwen3_5_9b'). If empty,
             derived from identity.llm.model.
 
     Returns:
         Dict of hint data, or empty dict if no hints file exists.
     """
     if not model_slug:
-        # Derive from configured model: 'qwen3:8b' -> 'qwen3_8b'
-        slug_parts = identity.llm.model.replace(":", "_").replace("-", "_").split("_")[0:2]
-        model_slug = "_".join(slug_parts) if slug_parts else "qwen3_8b"
+        # Derive from configured model using consistent slug rules
+        model_slug = _model_to_slug(identity.llm.model)
 
     ident_dir = identity.identity_dir
     hints_file = ident_dir / "llm_hints" / f"{model_slug}.yaml"
@@ -578,7 +613,7 @@ def build_system_prompt(
     Args:
         identity: Loaded Identity object
         platform: Platform name for context (e.g. "Moltbook", "Telegram")
-        model_slug: LLM model slug for model-specific hints (e.g. "qwen3_8b").
+        model_slug: LLM model slug for model-specific hints (e.g. "qwen3_5_9b").
             If empty, derived from identity.llm.model.
 
     Returns:

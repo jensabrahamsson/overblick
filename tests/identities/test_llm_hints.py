@@ -12,7 +12,12 @@ pytestmark = pytest.mark.skipif(
 )
 import yaml
 
-from overblick.identities import build_system_prompt, load_llm_hints, load_personality
+from overblick.identities import (
+    build_system_prompt,
+    load_llm_hints,
+    load_personality,
+    _model_to_slug,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -34,7 +39,7 @@ IDENTITIES = [
 ]
 
 # All supported model slugs
-MODEL_SLUGS = ["qwen3_8b", "phi4", "mistral", "llama3_8b", "deepseek_r1"]
+MODEL_SLUGS = ["qwen3_5_9b", "phi4", "mistral", "llama3_8b", "deepseek_r1"]
 
 # Required top-level fields in every hints file
 REQUIRED_FIELDS = ["voice_reinforcement", "extra_examples", "avoid", "style_notes"]
@@ -201,7 +206,7 @@ class TestModelSlugDerivation:
     @pytest.mark.parametrize(
         "model_name,expected_slug",
         [
-            ("qwen3:8b", "qwen3_8b"),
+            ("qwen3.5:9b", "qwen3_5_9b"),
             ("phi4", "phi4"),
             ("mistral", "mistral"),
             ("llama3:8b", "llama3_8b"),
@@ -211,8 +216,7 @@ class TestModelSlugDerivation:
     )
     def test_slug_derivation(self, model_name, expected_slug):
         """Verify the slug derivation algorithm produces expected results."""
-        parts = model_name.replace(":", "_").replace("-", "_").split("_")[0:2]
-        slug = "_".join(parts) if parts else "qwen3_8b"
+        slug = _model_to_slug(model_name)
         assert slug == expected_slug, f"{model_name} -> {slug}, expected {expected_slug}"
 
 
@@ -226,7 +230,7 @@ class TestLoadLlmHintsReturnsData:
             ("cherry", "mistral"),
             ("blixt", "llama3_8b"),
             ("natt", "deepseek_r1"),
-            ("smed", "qwen3_8b"),
+            ("smed", "qwen3_5_9b"),
             ("vakt", "mistral"),
             ("supervisor", "phi4"),
         ],
@@ -352,7 +356,7 @@ class TestVoiceReinforcementMentionsModelTendency:
     """Test 17: voice_reinforcement mentions model-specific tendency."""
 
     MODEL_TENDENCY_KEYWORDS = {
-        "qwen3_8b": ["qwen", "helpful", "verbose", "chatty", "tend"],
+        "qwen3_5_9b": ["qwen", "helpful", "verbose", "chatty", "tend"],
         "phi4": ["phi4", "academic", "verbose", "professor", "structured", "lecture"],
         "mistral": ["mistral", "concise", "character", "generic", "neutral", "flat"],
         "llama3_8b": ["llama", "helpful", "friendly", "chatbot", "safety", "sycophant"],

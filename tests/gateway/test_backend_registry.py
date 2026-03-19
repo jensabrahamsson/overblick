@@ -25,7 +25,7 @@ def base_config() -> GatewayConfig:
     return GatewayConfig(
         ollama_host="127.0.0.1",
         ollama_port=11434,
-        default_model="qwen3:8b",
+        default_model="qwen3.5:9b",
         request_timeout_seconds=30.0,
     )
 
@@ -36,7 +36,7 @@ def multi_backend_config() -> GatewayConfig:
     return GatewayConfig(
         ollama_host="127.0.0.1",
         ollama_port=11434,
-        default_model="qwen3:8b",
+        default_model="qwen3.5:9b",
         default_backend="local",
         request_timeout_seconds=30.0,
         backends={
@@ -45,7 +45,7 @@ def multi_backend_config() -> GatewayConfig:
                 "type": "ollama",
                 "host": "127.0.0.1",
                 "port": 11434,
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
             },
             "deepseek": {
                 "enabled": True,
@@ -69,7 +69,7 @@ def disabled_backend_config() -> GatewayConfig:
                 "type": "ollama",
                 "host": "127.0.0.1",
                 "port": 11434,
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
             },
             "cloud": {
                 "enabled": False,
@@ -245,17 +245,17 @@ class TestClientRetrieval:
 
     def test_get_model_for_backend(self, multi_backend_config):
         registry = BackendRegistry(multi_backend_config)
-        assert registry.get_model("local") == "qwen3:8b"
+        assert registry.get_model("local") == "qwen3.5:9b"
         assert registry.get_model("deepseek") == "deepseek-chat"
 
     def test_get_model_default(self, multi_backend_config):
         registry = BackendRegistry(multi_backend_config)
-        assert registry.get_model() == "qwen3:8b"
+        assert registry.get_model() == "qwen3.5:9b"
 
     def test_get_model_unknown_backend_returns_default(self, base_config):
         registry = BackendRegistry(base_config)
         # Fallback backend won't have a BackendConfig entry
-        assert registry.get_model("local") == "qwen3:8b"
+        assert registry.get_model("local") == "qwen3.5:9b"
 
 
 class TestProperties:

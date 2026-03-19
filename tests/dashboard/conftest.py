@@ -64,7 +64,7 @@ def mock_identity_service():
             "plugins": ["moltbook"],
             "capability_names": ["psychology", "knowledge"],
             "llm": {
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": 0.7,
                 "max_tokens": 2000,
                 "provider": "ollama",
@@ -87,7 +87,7 @@ def mock_identity_service():
             "plugins": ["telegram"],
             "capability_names": ["social", "engagement"],
             "llm": {
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": 0.9,
                 "max_tokens": 2000,
                 "provider": "ollama",

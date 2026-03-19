@@ -556,7 +556,7 @@ example_conversations:
       3. Log directory: logs/analytiker/ created ✓
       4. Secrets: config/analytiker/secrets.yaml initialized (empty) ✓
       5. Plugin assignments: verified against capability registry ✓
-      6. LLM configuration: model qwen3:8b, temperature 0.5, gateway mode ✓
+      6. LLM configuration: model qwen3.5:9b, temperature 0.5, gateway mode ✓
       7. Quiet hours: configured (22:00-06:00 Europe/Stockholm) ✓
       8. Security: preflight enabled, output safety enabled ✓
 
@@ -637,10 +637,10 @@ parallel_examples:
 ################################################################################
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.3          # Very low — decisions must be consistent
     max_tokens: 2000
-    timeout_seconds: 180
+    timeout_seconds: 600
 
   schedule:
     heartbeat_hours: 1        # Frequent monitoring

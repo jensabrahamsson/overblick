@@ -2,7 +2,7 @@
 Personality LLM scenario tests.
 
 These tests validate that personality prompts produce in-character responses
-using the REAL local Ollama LLM (qwen3:8b). They are integration tests for
+using the REAL local Ollama LLM (qwen3.5:9b). They are integration tests for
 prompt engineering — not unit tests.
 
 Run with:

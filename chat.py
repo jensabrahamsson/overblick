@@ -8,7 +8,7 @@ Streams responses token-by-token. Thinking mode is disabled for fast responses.
 Usage:
     python chat.py                  # Pick from a menu
     python chat.py natt             # Chat directly with Natt
-    python chat.py bjork --model qwen3:8b
+    python chat.py bjork --model qwen3.5:9b
     python chat.py --list           # List available personalities
 
 Commands during chat:
@@ -323,8 +323,8 @@ def main() -> None:
     parser.add_argument(
         "--model",
         "-m",
-        default="qwen3:8b",
-        help="Ollama model name (default: qwen3:8b)",
+        default="qwen3.5:9b",
+        help="Ollama model name (default: qwen3.5:9b)",
     )
     parser.add_argument(
         "--url",

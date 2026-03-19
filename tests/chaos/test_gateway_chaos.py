@@ -30,7 +30,7 @@ from overblick.gateway.router import RequestRouter
 def _make_response(content: str = "OK") -> ChatResponse:
     return ChatResponse(
         id="test",
-        model="qwen3:8b",
+        model="qwen3.5:9b",
         choices=[ChatResponseChoice(message=ChatMessage(role="assistant", content=content))],
         usage=ChatResponseUsage(prompt_tokens=5, completion_tokens=5, total_tokens=10),
     )
@@ -38,7 +38,7 @@ def _make_response(content: str = "OK") -> ChatResponse:
 
 def _make_request(content: str = "Hello") -> ChatRequest:
     return ChatRequest(
-        model="qwen3:8b",
+        model="qwen3.5:9b",
         messages=[ChatMessage(role="user", content=content)],
         max_tokens=100,
         temperature=0.7,
@@ -250,7 +250,7 @@ class TestCorruptData:
     def test_empty_messages_request(self):
         """Request with empty messages list."""
         req = ChatRequest(
-            model="qwen3:8b",
+            model="qwen3.5:9b",
             messages=[],
             max_tokens=100,
             temperature=0.7,

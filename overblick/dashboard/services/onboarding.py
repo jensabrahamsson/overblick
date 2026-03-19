@@ -98,7 +98,7 @@ class OnboardingService:
         if llm:
             provider = llm.get("provider", "ollama")
             config["llm"] = {
-                "model": llm.get("model", "qwen3:8b"),
+                "model": llm.get("model", "qwen3.5:9b"),
                 "temperature": llm.get("temperature", 0.7),
                 "max_tokens": llm.get("max_tokens", 2000),
                 "provider": provider,
@@ -142,7 +142,7 @@ class OnboardingService:
 
             import aiohttp
 
-            model = llm_config.get("model", "qwen3:8b")
+            model = llm_config.get("model", "qwen3.5:9b")
             provider = llm_config.get("provider", "ollama")
 
             if provider == "gateway":

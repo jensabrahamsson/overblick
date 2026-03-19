@@ -50,7 +50,7 @@ class TestConfigToWizardState:
     def test_maps_old_ollama_provider(self):
         """Legacy ollama provider migrates to backends format."""
         cfg = {
-            "llm": {"provider": "ollama", "host": "127.0.0.1", "port": 11434, "model": "qwen3:8b"},
+            "llm": {"provider": "ollama", "host": "127.0.0.1", "port": 11434, "model": "qwen3.5:9b"},
         }
         state = _config_to_wizard_state(cfg)
         assert state["llm"]["local"]["enabled"] is True
@@ -135,7 +135,7 @@ class TestLoadExistingConfig:
             yaml.dump(
                 {
                     "framework": {"name": "Överblick"},
-                    "llm": {"provider": "ollama", "model": "qwen3:8b"},
+                    "llm": {"provider": "ollama", "model": "qwen3.5:9b"},
                 }
             )
         )
@@ -180,7 +180,7 @@ class TestPrePopulationInWizard:
         (config_dir / "overblick.yaml").write_text(
             yaml.dump(
                 {
-                    "llm": {"provider": "ollama", "model": "qwen3:8b"},
+                    "llm": {"provider": "ollama", "model": "qwen3.5:9b"},
                     "principal": {"timezone": "Europe/Stockholm"},
                 }
             )
@@ -263,7 +263,7 @@ class TestPrePopulationInWizard:
         (config_dir / "overblick.yaml").write_text(
             yaml.dump(
                 {
-                    "llm": {"provider": "ollama", "model": "qwen3:8b"},
+                    "llm": {"provider": "ollama", "model": "qwen3.5:9b"},
                     "principal": {"name": "Original", "timezone": "Europe/Stockholm"},
                 }
             )
@@ -287,7 +287,7 @@ class TestPrePopulationInWizard:
         (config_dir / "overblick.yaml").write_text(
             yaml.dump(
                 {
-                    "llm": {"provider": "ollama", "model": "qwen3:8b"},
+                    "llm": {"provider": "ollama", "model": "qwen3.5:9b"},
                     "principal": {"name": "Updated", "timezone": "Europe/Stockholm"},
                 }
             )

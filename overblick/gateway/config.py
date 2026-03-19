@@ -39,11 +39,11 @@ class GatewayConfig(BaseModel):
     ollama_port: int = 11434
 
     # Default model
-    default_model: str = "qwen3:8b"
+    default_model: str = "qwen3.5:9b"
 
     # Queue settings
     max_queue_size: int = 100
-    request_timeout_seconds: float = 300.0
+    request_timeout_seconds: float = 600.0
 
     # Worker settings
     max_concurrent_requests: int = 1
@@ -83,7 +83,7 @@ class GatewayConfig(BaseModel):
         config = cls(
             ollama_host=_get_env("OLLAMA_HOST", "127.0.0.1"),
             ollama_port=_get_env_int("OLLAMA_PORT", 11434),
-            default_model=_get_env("DEFAULT_MODEL", "qwen3:8b"),
+            default_model=_get_env("DEFAULT_MODEL", "qwen3.5:9b"),
             max_queue_size=_get_env_int("MAX_QUEUE_SIZE", 100),
             request_timeout_seconds=_get_env_float("REQUEST_TIMEOUT", 300.0),
             max_concurrent_requests=_get_env_int("MAX_CONCURRENT", 1),

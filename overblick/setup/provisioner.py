@@ -212,14 +212,14 @@ def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
                 "type": local.get("backend_type", "ollama"),
                 "host": local.get("host", "127.0.0.1"),
                 "port": local.get("port", 11434),
-                "model": local.get("model", "qwen3:8b"),
+                "model": local.get("model", "qwen3.5:9b"),
             },
             "cloud": {
                 "enabled": cloud.get("enabled", False),
                 "type": cloud.get("backend_type", "ollama"),
                 "host": cloud.get("host", ""),
                 "port": cloud.get("port", 11434),
-                "model": cloud.get("model", "qwen3:8b"),
+                "model": cloud.get("model", "qwen3.5:9b"),
             },
             "deepseek": {
                 "enabled": deepseek.get("enabled", False),
@@ -252,14 +252,14 @@ def _build_llm_config_legacy(llm: dict[str, Any]) -> dict[str, Any]:
                 "type": provider if provider in ("ollama", "lmstudio") else "ollama",
                 "host": llm.get("ollama_host", "127.0.0.1"),
                 "port": llm.get("ollama_port", 11434),
-                "model": llm.get("model", "qwen3:8b"),
+                "model": llm.get("model", "qwen3.5:9b"),
             },
             "cloud": {
                 "enabled": False,
                 "type": "ollama",
                 "host": "",
                 "port": 11434,
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
             },
             "deepseek": {
                 "enabled": False,

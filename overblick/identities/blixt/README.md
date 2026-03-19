@@ -51,7 +51,7 @@ Most tech critics are polite. They write measured essays and nod thoughtfully on
 ```yaml
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.75
     max_tokens: 1500
 

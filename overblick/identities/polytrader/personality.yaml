@@ -238,13 +238,17 @@ operational:
     min_probability_edge: 0.03        # 3% minimum edge
     min_volume_usd: 1000              # $1,000 minimum 24h volume
     max_position_size_percent: 5      # Max 5% position size
-    simulation_mode: true             # Start in simulation mode
+    enable_real_api: true             # Use real Polymarket API (read-only)
+    # Neo4j GraphStore configuration for trading knowledge
+    neo4j:
+      uri: "bolt://localhost:7687"    # Neo4j bolt connection
+      user: "neo4j"                   # Neo4j username
+      password: "polytrader2024!"     # Neo4j password
   
   whallet_trader:
-    simulation_mode: true             # Start in simulation mode
+    paper_trading: true               # PAPER TRADING - log trades but dont execute
     max_position_size_percent: 5      # Max 5% of portfolio per trade
     daily_loss_limit_percent: 2       # Stop trading after 2% daily loss
-    gas_price_multiplier: 1.1         # 10% above market gas price
     check_interval_seconds: 60        # Check for new signals every minute
   
   # Content and reporting
@@ -276,6 +280,7 @@ plugin_capabilities:
     network_outbound: true
     filesystem_write: true    # For market data cache
     secrets_access: false
+    database_write: true      # For Neo4j graph database
     
   whallet_trader:
     network_outbound: true
@@ -296,15 +301,20 @@ system_prompt_overrides:
   response_length: "detailed_technical"
   creativity_level: "low"  # Trading requires precision, not creativity
   temperature: 0.6
-  max_tokens: 2048
+  max_tokens: 4000
 
 ################################################################################
 # NOTES & MAINTENANCE
 ################################################################################
 _notes: |
-  This agent is designed for Polymarket prediction market trading.
-  Start with small amounts and test thoroughly before scaling.
-  Always use testnet for initial development.
+  This agent runs in PAPER TRADING mode - it monitors real Polymarket markets
+  and simulates trades, but NEVER executes real transactions.
+  
+  To enable REAL trading (NOT RECOMMENDED without testing):
+  1. Create account at polymarket.com
+  2. Get Ethereum wallet (MetaMask)
+  3. Fund with USDC on Polygon network
+  4. Add secrets to config/secrets/polytrader.yaml
   
   Required plugins:
   1. polymarket_monitor - Market monitoring and opportunity detection

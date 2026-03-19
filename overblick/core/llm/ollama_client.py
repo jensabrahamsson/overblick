@@ -41,11 +41,11 @@ class OllamaClient(LLMClient):
     def __init__(
         self,
         base_url: str = "http://localhost:11434/v1",
-        model: str = "qwen3:8b",
+        model: str = "qwen3.5:9b",
         max_tokens: int = 2000,
         temperature: float = 0.7,
         top_p: float = 0.9,
-        timeout_seconds: int = 180,
+        timeout_seconds: int = 600,
     ):
         # Security: prevent plugins from instantiating LLM clients directly
         self._check_instantiation_allowed()

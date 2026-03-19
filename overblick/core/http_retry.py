@@ -18,15 +18,16 @@ Usage:
 """
 
 import asyncio
-import random
 import logging
+import random
+from collections.abc import Callable, Sequence
 from functools import wraps
-from typing import Type, Callable, Any, Optional, Union, Sequence
+from typing import Any, Optional, Type, Union
 
 logger = logging.getLogger(__name__)
 
 # Default exceptions that trigger a retry (network errors, timeouts)
-_DEFAULT_RETRY_EXCEPTIONS: tuple[Type[Exception], ...] = (
+_DEFAULT_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     ConnectionError,
     TimeoutError,
     asyncio.TimeoutError,
@@ -39,7 +40,7 @@ def retry_http(
     base_delay: float = 1.0,
     max_delay: float = 30.0,
     jitter: float = 0.1,
-    retry_exceptions: Optional[Sequence[Type[Exception]]] = None,
+    retry_exceptions: Sequence[type[Exception]] | None = None,
 ) -> Callable:
     """
     Decorator for retrying HTTP calls with exponential backoff and jitter.
@@ -108,7 +109,7 @@ async def with_retry(
     base_delay: float = 1.0,
     max_delay: float = 30.0,
     jitter: float = 0.1,
-    retry_exceptions: Optional[Sequence[Type[Exception]]] = None,
+    retry_exceptions: Sequence[type[Exception]] | None = None,
 ) -> Any:
     """
     Retry a coroutine function with exponential backoff.

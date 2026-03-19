@@ -578,7 +578,7 @@ def register_routes(app: FastAPI) -> None:
         llm_provider: str = Form("ollama"),
         ollama_host: str = Form("127.0.0.1"),
         ollama_port: int = Form(11434),
-        model: str = Form("qwen3:8b"),
+        model: str = Form("qwen3.5:9b"),
         gateway_url: str = Form("http://127.0.0.1:8200"),
         default_temperature: float = Form(0.7),
         default_max_tokens: int = Form(2000),
@@ -829,7 +829,7 @@ def register_routes(app: FastAPI) -> None:
                     )
                 return HTMLResponse(
                     '<span class="badge badge-green">Connected</span>'
-                    '<span class="test-detail">No models found. Pull one with: ollama pull qwen3:8b</span>'
+                    '<span class="test-detail">No models found. Pull one with: ollama pull qwen3.5:9b</span>'
                 )
         except Exception as e:
             return HTMLResponse(

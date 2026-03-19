@@ -51,7 +51,7 @@ def _build_mock_identity_service():
             "plugins": ["moltbook"],
             "capability_names": ["psychology", "knowledge", "social", "engagement"],
             "llm": {
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": 0.7,
                 "max_tokens": 2000,
                 "provider": "ollama",
@@ -74,7 +74,7 @@ def _build_mock_identity_service():
             "plugins": ["moltbook"],
             "capability_names": ["psychology", "knowledge", "social", "engagement"],
             "llm": {
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": 0.8,
                 "max_tokens": 1500,
                 "provider": "ollama",
@@ -97,7 +97,7 @@ def _build_mock_identity_service():
             "plugins": ["moltbook"],
             "capability_names": ["social", "engagement"],
             "llm": {
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "temperature": 0.75,
                 "max_tokens": 1800,
                 "provider": "ollama",
@@ -175,7 +175,7 @@ def _build_mock_audit_service():
             "category": "llm",
             "identity": "anomal",
             "plugin": "moltbook",
-            "details": {"model": "qwen3:8b", "tokens": 150},
+            "details": {"model": "qwen3.5:9b", "tokens": 150},
             "success": True,
             "duration_ms": 2340.0,
             "error": None,
@@ -350,7 +350,7 @@ def _build_mock_llm_service():
     """Create a mock LLM service."""
     svc = MagicMock()
     svc.get_models.return_value = [
-        {"name": "qwen3:8b", "size": "4.9 GB", "modified": "2025-12-01"},
+        {"name": "qwen3.5:9b", "size": "4.9 GB", "modified": "2025-12-01"},
     ]
     svc.get_stats.return_value = {
         "total_requests": 1234,
@@ -360,7 +360,7 @@ def _build_mock_llm_service():
     }
     svc.get_gateway_health.return_value = {
         "status": "healthy",
-        "model": "qwen3:8b",
+        "model": "qwen3.5:9b",
         "uptime": 86400,
         "queue_depth": 0,
     }

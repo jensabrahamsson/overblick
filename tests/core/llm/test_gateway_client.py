@@ -22,6 +22,13 @@ import pytest
 from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
 from overblick.core.llm.gateway_client import GatewayClient
 
+
+@pytest.fixture(autouse=True)
+def _allow_direct_llm(monkeypatch):
+    """Allow direct LLM client instantiation in tests."""
+    monkeypatch.setenv("OVERBLICK_ALLOW_DIRECT_LLM", "1")
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -41,7 +48,7 @@ def _make_mock_session(
     if response_json is None:
         response_json = {
             "choices": [{"message": {"content": "Test response"}, "finish_reason": "stop"}],
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "usage": {"total_tokens": 42},
         }
 
@@ -63,7 +70,7 @@ def _make_mock_session(
         # Default GET response for health check
         health_response = AsyncMock()
         health_response.status = 200
-        health_response.json = AsyncMock(return_value={"status": "ok", "model": "qwen3:8b"})
+        health_response.json = AsyncMock(return_value={"status": "ok", "model": "qwen3.5:9b"})
         health_response.__aenter__ = AsyncMock(return_value=health_response)
         health_response.__aexit__ = AsyncMock(return_value=False)
         session.get = MagicMock(return_value=health_response)
@@ -77,7 +84,7 @@ def _make_client(session=None, **kwargs):
     """Create a GatewayClient with optional pre-injected session."""
     defaults = {
         "base_url": "http://127.0.0.1:8200",
-        "model": "qwen3:8b",
+        "model": "qwen3.5:9b",
         "default_priority": "low",
     }
     defaults.update(kwargs)
@@ -101,7 +108,7 @@ class TestGatewayClientInit:
 
     def test_should_use_exact_default_model(self):
         client = GatewayClient()
-        assert client.model == "qwen3:8b"
+        assert client.model == "qwen3.5:9b"
 
     def test_should_use_exact_default_priority(self):
         client = GatewayClient()
@@ -268,7 +275,7 @@ class TestGatewayClientChat:
         session = _make_mock_session(
             response_json={
                 "choices": [{"message": {"content": "Hello human!"}, "finish_reason": "stop"}],
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "usage": {"total_tokens": 42},
             }
         )
@@ -280,7 +287,7 @@ class TestGatewayClientChat:
 
         assert result is not None
         assert result["content"] == "Hello human!"
-        assert result["model"] == "qwen3:8b"
+        assert result["model"] == "qwen3.5:9b"
         assert result["tokens_used"] == 42
         assert result["finish_reason"] == "stop"
         # Verify exactly 4 keys (or 4+reasoning when present)
@@ -299,7 +306,7 @@ class TestGatewayClientChat:
 
         call_kwargs = session.post.call_args
         payload = call_kwargs[1]["json"]
-        assert payload["model"] == "qwen3:8b"
+        assert payload["model"] == "qwen3.5:9b"
         assert payload["temperature"] == 0.5
         assert payload["max_tokens"] == 1000
         assert payload["top_p"] == 0.85
@@ -344,7 +351,7 @@ class TestGatewayClientChat:
         session = _make_mock_session(
             response_json={
                 "choices": [],
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "usage": {},
             }
         )
@@ -360,7 +367,7 @@ class TestGatewayClientChat:
         session = _make_mock_session(
             response_json={
                 "choices": [{"message": {"content": "Response"}, "finish_reason": "stop"}],
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
             }
         )
         client = _make_client(session)
@@ -386,7 +393,7 @@ class TestGatewayClientChat:
         )
 
         assert result is not None
-        assert result["model"] == "qwen3:8b"
+        assert result["model"] == "qwen3.5:9b"
 
     async def test_should_construct_correct_url_with_base_url_and_priority(self):
         session = _make_mock_session()

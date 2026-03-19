@@ -21,10 +21,10 @@ class TestPolymarketRoute:
         )
         assert resp.status_code == 200
         assert "Polymarket Trading" in resp.text
-        # Should show empty states
+        # Should show empty/default states
         assert (
-            "No markets monitored yet" in resp.text
-            or "No trading opportunities detected" in resp.text
+            "Waiting for system events" in resp.text
+            or "Live Activity Feed" in resp.text
         )
 
     @pytest.mark.asyncio
@@ -135,10 +135,9 @@ class TestPolymarketRoute:
             )
             assert resp.status_code == 200
             assert "Polymarket Trading" in resp.text
-            assert "ETH" in resp.text  # market question
-            assert "Crypto" in resp.text
-            assert "BUY YES" in resp.text
-            assert "45.00" in resp.text  # P&L
+            assert "ETH" in resp.text  # market question in opportunities
+            assert "BUY YES" in resp.text  # recommended outcome badge
+            assert "45.00" in resp.text  # P&L value
         finally:
             polymarket_mod._load_polymarket_data = original
 

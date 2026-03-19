@@ -49,7 +49,7 @@ def research_request_msg():
 def mock_personality():
     """Mock Anomal personality."""
     p = MagicMock()
-    p.llm.model = "qwen3:8b"
+    p.llm.model = "qwen3.5:9b"
     p.llm.temperature = 0.7
     p.llm.max_tokens = 2000
     p.llm.timeout_seconds = 180

@@ -1,0 +1,342 @@
+/* Polymarket Trading Dashboard Styles — Refined for Överblick Consistency */
+
+:root {
+    /* Trading-specific semantic colors (aligned with dashboard.css where possible) */
+    --positive-color: #3fb950; /* var(--green) */
+    --positive-bg: rgba(63, 185, 80, 0.1);
+    --negative-color: #f97583; /* var(--red) */
+    --negative-bg: rgba(249, 117, 131, 0.1);
+    --warning-color: #d29922; /* var(--amber) */
+    --warning-bg: rgba(210, 153, 34, 0.1);
+    --info-color: #58a6ff;    /* var(--accent) */
+    --info-bg: rgba(88, 166, 255, 0.1);
+}
+
+.page-header {
+    margin-bottom: var(--space-xl);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--space-lg);
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: var(--space-xs);
+    color: var(--text-primary);
+}
+
+.page-subtitle {
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+/* Dashboard Grid Layout */
+.trading-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-lg);
+    margin-bottom: var(--space-xl);
+}
+
+.trading-dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xl);
+    margin-bottom: var(--space-xl);
+}
+
+@media (max-width: 1200px) {
+    .trading-dashboard {
+        grid-template-columns: 1fr;
+    }
+}
+
+.trading-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+}
+
+/* Refined Cards */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    border-color: var(--border-focus);
+    box-shadow: var(--shadow-hover);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border);
+}
+
+.card-header h2, .card h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+
+/* Stats Typography */
+.stat-value {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: var(--space-sm) 0;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+}
+
+.stat-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-sm);
+    font-size: 0.85rem;
+    padding-top: var(--space-xs);
+    border-top: 1px dashed var(--border);
+}
+
+.stat-label {
+    color: var(--text-muted);
+}
+
+.stat-number {
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+.stat-icon {
+    font-size: 1.2rem;
+    opacity: 0.7;
+}
+
+/* Semantic Colors */
+.positive { color: var(--positive-color) !important; }
+.negative { color: var(--negative-color) !important; }
+.warning { color: var(--warning-color) !important; }
+
+/* Tables (aligned with audit-table) */
+.table-container {
+    overflow-x: auto;
+    border-radius: var(--radius-sm);
+    margin-top: var(--space-sm);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.table th {
+    text-align: left;
+    padding: var(--space-sm);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+
+.table td {
+    padding: var(--space-md) var(--space-sm);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    color: var(--text-secondary);
+}
+
+.table tr:hover td {
+    background: var(--bg-secondary);
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-success { background: var(--positive-bg); color: var(--positive-color); }
+.badge-danger { background: var(--negative-bg); color: var(--negative-color); }
+.badge-warning { background: var(--warning-bg); color: var(--warning-color); }
+.badge-info { background: var(--info-bg); color: var(--info-color); }
+.badge-secondary { background: var(--bg-tertiary); color: var(--text-muted); }
+
+/* Confidence Bars */
+.confidence-bar {
+    position: relative;
+    height: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    overflow: hidden;
+    min-width: 80px;
+    border: 1px solid var(--border);
+}
+
+.confidence-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.6s ease-out;
+}
+
+.confidence-bar span {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    z-index: 1;
+}
+
+/* Price Badge */
+.price-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+/* Identity Badge */
+.identity-badge {
+    font-size: 0.65rem;
+    padding: 1px 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin-left: var(--space-xs);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+/* Controls */
+.control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-md);
+}
+
+.btn-icon {
+    margin-right: var(--space-sm);
+}
+
+/* htmx transitions */
+#polymarket-container {
+    transition: opacity 0.2s ease-in-out;
+}
+.htmx-request #polymarket-container {
+    opacity: 0.6;
+}
+
+/* Live Activity Feed & Status */
+.live-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.live-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--positive-color);
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--positive-color);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--positive-color);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.terminal-feed {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    padding: var(--space-md);
+    height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.terminal-line {
+    display: flex;
+    gap: 8px;
+    line-height: 1.4;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    padding: 2px 0;
+}
+
+.terminal-time { color: var(--text-muted); flex-shrink: 0; }
+.terminal-id { color: var(--accent); font-weight: 600; flex-shrink: 0; }
+.terminal-msg { color: var(--text-secondary); }
+.terminal-msg.trade { color: var(--text-primary); }
+.terminal-msg.opportunity { color: var(--purple); }
+.terminal-msg.alert { color: var(--warning-color); }
+
+/* Reasoning Card */
+.reasoning-box {
+    background: rgba(88, 166, 255, 0.03);
+    border-left: 3px solid var(--accent);
+    padding: var(--space-md);
+    font-style: italic;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}

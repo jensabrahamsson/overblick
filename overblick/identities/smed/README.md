@@ -117,4 +117,4 @@ operational:
 **Built by:** @jensabrahamsson
 **Plugin:** Dev Agent (`overblick/plugins/dev_agent/`)
 **Framework:** Överblick Agent Framework
-**Model:** Devstral 2 (via opencode) + qwen3:8b (via Ollama)
+**Model:** Devstral 2 (via opencode) + qwen3.5:9b (via Ollama)

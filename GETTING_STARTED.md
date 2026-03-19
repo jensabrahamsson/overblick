@@ -15,7 +15,7 @@ A system where:
 ## Prerequisites
 
 - **Python 3.13+**
-- **Ollama** with the `qwen3:8b` model installed
+- **Ollama** with the `qwen3.5:9b` model installed
 - **SMTP service** (we use Brevo — free 300 emails/day)
 - **macOS, Linux, or Windows** (macOS/Linux use Keychain/keyring for secrets; Windows uses the system credential store via the `keyring` library)
 
@@ -59,7 +59,7 @@ Available identities:
 ollama serve
 
 # Pull the Qwen3 8B model
-ollama pull qwen3:8b
+ollama pull qwen3.5:9b
 ```
 
 #### Cloud LLM Alternative
@@ -140,7 +140,7 @@ gmail:
 
 # LLM settings
 llm:
-  model: "qwen3:8b"
+  model: "qwen3.5:9b"
   temperature: 0.7
   max_tokens: 2000
   provider: "ollama"
@@ -246,7 +246,7 @@ This runs the full AI Digest workflow:
 
 **Example:**
 - **Anomal personality**: Intellectual humanist, James May voice, philosophical
-- **Anomal identity**: Uses ai_digest + gmail, qwen3:8b, sends at 07:00
+- **Anomal identity**: Uses ai_digest + gmail, qwen3.5:9b, sends at 07:00
 
 ### Psychological Frameworks (Optional)
 
@@ -411,7 +411,7 @@ tail -f ~/.ollama/logs/server.log
 
 Try:
 1. Restart Ollama: `pkill ollama && ollama serve`
-2. Test manually: `ollama run qwen3:8b "hello"`
+2. Test manually: `ollama run qwen3.5:9b "hello"`
 3. Check reasoning: AI Digest uses reasoning ON (slower but better)
 
 ### Email not sending

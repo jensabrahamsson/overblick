@@ -97,12 +97,12 @@
     <!-- Common LLM settings -->
     <div class="form-group">
         <label class="form-label" for="model">Model</label>
-        <span class="form-hint" id="model_hint">The LLM model to use (e.g. qwen3:8b, llama3:8b)</span>
+        <span class="form-hint" id="model_hint">The LLM model to use (e.g. qwen3.5:9b, llama3:8b)</span>
         <input type="text" class="form-input" id="model" name="model"
-               value="{{ llm.get('model', 'qwen3:8b') }}" list="model-suggestions"
+               value="{{ llm.get('model', 'qwen3.5:9b') }}" list="model-suggestions"
                aria-describedby="model_hint">
         <datalist id="model-suggestions">
-            <option value="qwen3:8b">
+            <option value="qwen3.5:9b">
             <option value="qwen3:14b">
             <option value="llama3:8b">
             <option value="mistral:7b">

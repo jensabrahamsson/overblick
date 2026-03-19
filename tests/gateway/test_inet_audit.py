@@ -54,7 +54,7 @@ class TestInetAuditLog:
                 source_ip="1.2.3.4",
                 method="POST",
                 path="/v1/chat/completions",
-                model="qwen3:8b",
+                model="qwen3.5:9b",
                 status_code=200,
                 request_tokens=100,
                 response_tokens=50,
@@ -85,7 +85,7 @@ class TestInetAuditLog:
             assert row_dict["source_ip"] == "1.2.3.4"
             assert row_dict["method"] == "POST"
             assert row_dict["path"] == "/v1/chat/completions"
-            assert row_dict["model"] == "qwen3:8b"
+            assert row_dict["model"] == "qwen3.5:9b"
             assert row_dict["status_code"] == 200
             assert row_dict["request_tokens"] == 100
             assert row_dict["response_tokens"] == 50
@@ -140,7 +140,7 @@ class TestInetAuditLog:
                     source_ip=f"1.2.3.{i}",
                     method="POST",
                     path="/v1/chat/completions",
-                    model="qwen3:8b",
+                    model="qwen3.5:9b",
                     status_code=200,
                     request_tokens=100 + i,
                     response_tokens=50 + i,
@@ -214,7 +214,7 @@ class TestInetAuditLog:
                     source_ip="1.2.3.4",
                     method="POST",
                     path="/v1/chat/completions",
-                    model="qwen3:8b",
+                    model="qwen3.5:9b",
                     status_code=200,
                     request_tokens=100,
                     response_tokens=50,
@@ -322,7 +322,7 @@ class TestInetAuditLog:
                     source_ip=f"10.0.0.{i}",
                     method="POST",
                     path="/v1/chat/completions",
-                    model="qwen3:8b",
+                    model="qwen3.5:9b",
                     status_code=200,
                     request_tokens=100,
                     response_tokens=50,

@@ -202,6 +202,14 @@ async def test_tick_skips_when_not_run_time(plugin):
 | `ctx.build_system_prompt(identity)` | str | Build LLM system prompt |
 | `ctx.send_to_agent(target, type, payload)` | dict/None | IPC to other agents |
 | `ctx.collect_messages()` | list[dict] | Receive IPC messages |
+| `ctx.runtime` | RuntimeServices | Runtime services bundle (scheduler, event_bus, heartbeat) |
+| `ctx.security` | SecurityServices | Security services bundle (audit_log, policy_gate, secrets) |
+| `ctx.llm` | LLMServices | LLM services bundle (llm_pipeline, learning_store) |
+| `ctx.data` | DataServices | Data services bundle (db_backend, data_dir, cache) |
+| `ctx.identity_services` | IdentityServices | Identity services bundle (identity, identity_dir) |
+| `ctx.communication` | CommunicationServices | Communication services bundle (ipc_client, supervisor_client) |
+
+*Note: Capability bundles are optional and populated automatically. Plugins can use `ctx.runtime.scheduler` as a cleaner alternative to `ctx.scheduler`, with full backward compatibility.*
 
 ## Agentic Plugins
 

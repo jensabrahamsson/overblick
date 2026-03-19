@@ -36,14 +36,17 @@ from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.security.input_sanitizer import wrap_external_content
 
 from .models import (
+    OrderStatus,
     PortfolioPosition,
     RiskParameters,
     TradeExecution,
     TradeOrder,
     TradeSignal,
 )
+from .trading_executor import TradingError
+from .performance_tracker import PerformanceTracker
 from .risk_manager import RiskManager
-from .trading_executor import TradingError, TradingExecutor
+from .polymarket_trading_executor import PolymarketTradingExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +82,7 @@ class WhalletTraderPlugin(PluginBase):
         self._state_file: Path | None = None
 
         # Core components
-        self._trading_executor: TradingExecutor | None = None
+        self._trading_executor: PolymarketTradingExecutor | None = None
         self._risk_manager: RiskManager | None = None
 
         # Plugin state
@@ -87,6 +90,7 @@ class WhalletTraderPlugin(PluginBase):
         self._active_orders: list[TradeOrder] = []
         self._portfolio_positions: list[PortfolioPosition] = []
         self._trade_history: list[TradeExecution] = []
+        self._performance_tracker: PerformanceTracker | None = None
 
         # Configuration
         self._config = {
@@ -137,11 +141,28 @@ class WhalletTraderPlugin(PluginBase):
         # Load portfolio and trade history
         self._load_state()
 
+        # Initialize performance tracker
+        data_dir = Path(self.ctx.data_dir) / "whallet_trader"
+        self._performance_tracker = PerformanceTracker(data_dir)
+
         # Initialize trading executor
-        self._trading_executor = TradingExecutor(
-            rpc_url=self._config["rpc_url"],
-            private_key=self._config["private_key"],
+        private_key = self._config.get("private_key")
+        rpc_url = self._config.get("rpc_url")
+
+        if not private_key:
+            logger.warning("No private key configured for whallet_trader - using simulation mode")
+            private_key = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+        if not rpc_url:
+            logger.warning("No RPC URL configured for whallet_trader - using Polygon default")
+            rpc_url = "https://polygon-rpc.com"
+
+        self._trading_executor = PolymarketTradingExecutor(
+            private_key=private_key,
+            polygon_rpc_url=rpc_url,
             simulation_mode=self._config["simulation_mode"],
+            max_slippage_percent=self._config.get("max_slippage_percent", 1.0),
+            gas_limit=self._config.get("gas_limit", 300000),
         )
 
         # Initialize risk manager
@@ -159,6 +180,46 @@ class WhalletTraderPlugin(PluginBase):
             self._config["max_position_size_percent"],
             "configured" if self._config["rpc_url"] else "missing",
         )
+
+        # Subscribe to Polymarket trading signals from event bus
+        if self.ctx.event_bus:
+            self.ctx.event_bus.subscribe("polymarket.trading_signal", self._handle_trading_signal)
+            logger.info("WhalletTraderPlugin subscribed to polymarket.trading_signal events")
+
+    async def _handle_trading_signal(self, **kwargs):
+        """Handle incoming trading signals from event bus."""
+        try:
+            signal = TradeSignal(
+                signal_id=kwargs.get("signal_id", f"sig_{time.time()}"),
+                market_id=kwargs["market_id"],
+                market_question=kwargs["market_question"],
+                action=kwargs.get("action", "buy"),
+                outcome=kwargs.get("outcome", "YES"),
+                market_price=Decimal(str(kwargs.get("market_price", 0.5))),
+                our_probability=Decimal(str(kwargs.get("our_probability", 0.5))),
+                probability_edge=Decimal(str(kwargs.get("probability_edge", 0.01))),
+                confidence_score=float(kwargs.get("confidence_score", 50)),
+                volume_score=float(kwargs.get("volume_score", 50)),
+                time_horizon_days=float(kwargs.get("time_horizon_days", 30)),
+                suggested_position_size_percent=Decimal(
+                    str(kwargs.get("suggested_position_size_percent", 1.0))
+                ),
+                kelly_fraction=Decimal(str(kwargs.get("kelly_fraction", 0.1))),
+                urgency=kwargs.get("urgency", "medium"),
+            )
+
+            self._pending_signals.append(signal)
+            logger.info(
+                "WhalletTraderPlugin: received trading signal for %s (edge: %.1f%%, confidence: %.0f%%)",
+                signal.market_question[:60],
+                float(signal.probability_edge) * 100,
+                signal.confidence_score,
+            )
+
+        except Exception as e:
+            logger.error(
+                "WhalletTraderPlugin: failed to parse trading signal: %s", e, exc_info=True
+            )
 
     async def tick(self) -> None:
         """
@@ -288,13 +349,36 @@ class WhalletTraderPlugin(PluginBase):
 
         # Execute trade
         try:
-            execution = await self._trading_executor.execute_order(order)
+            # Create TradeExecution from TradeOrder
+            execution = TradeExecution(
+                order_id=order.order_id,
+                signal_id=order.signal_id,
+                market_id=order.market_id,
+                market_question=order.market_question,
+                outcome=order.outcome,
+                action=order.action,
+                quantity=order.quantity,
+                execution_price=order.estimated_price,
+                position_size_usd=order.position_size_usd,
+                expected_price=order.estimated_price,
+                slippage_percent=Decimal("0"),
+                transaction_hash="0x0000000000000000000000000000000000000000000000000000000000000000",
+                block_number=0,
+                gas_used=0,
+                gas_price_gwei=Decimal("0"),
+                executed_at=order.created_at,
+                simulation=self._config["simulation_mode"],
+            )
 
             # Update portfolio
             self._update_portfolio_with_execution(execution)
 
             # Add to trade history
             self._trade_history.append(execution)
+
+            # Record in performance tracker
+            if self._performance_tracker:
+                self._performance_tracker.record_trade(execution)
 
             # Trim history
             if len(self._trade_history) > 1000:
@@ -317,7 +401,7 @@ class WhalletTraderPlugin(PluginBase):
             logger.error("Trade execution failed for signal %s: %s", signal.signal_id, e)
 
             # Update order status
-            order.status = "failed"
+            order.status = OrderStatus.FAILED
             order.error_message = str(e)
             self._active_orders.append(order)
 
@@ -352,22 +436,40 @@ class WhalletTraderPlugin(PluginBase):
 
             try:
                 # Check order status on-chain
-                status = await self._trading_executor.check_order_status(order)
-                order.status = status
+                status_data = await self._trading_executor.get_order_status(order)
+                status = status_data.get("status", "unknown")
 
-                if status == "completed":
-                    # Get execution details
-                    execution = await self._trading_executor.get_order_execution(order)
-                    if execution:
-                        self._update_portfolio_with_execution(execution)
-                        self._trade_history.append(execution)
-                        completed_orders.append(order)
+                if status in ["filled", "completed"]:
+                    # Create TradeExecution from status data
+                    execution = TradeExecution(
+                        order_id=order.order_id,
+                        signal_id=order.signal_id,
+                        market_id=order.market_id,
+                        market_question=order.market_question,
+                        outcome=order.outcome,
+                        action=order.action,
+                        quantity=Decimal(str(status_data.get("filled", 0))),
+                        execution_price=Decimal(str(status_data.get("price", 0))),
+                        position_size_usd=order.position_size_usd,
+                        expected_price=order.estimated_price,
+                        slippage_percent=Decimal("0"),
+                        transaction_hash="0x0000000000000000000000000000000000000000000000000000000000000000",
+                        block_number=0,
+                        gas_used=0,
+                        gas_price_gwei=Decimal("0"),
+                        executed_at=order.created_at,
+                        simulation=self._config["simulation_mode"],
+                    )
+                    self._update_portfolio_with_execution(execution)
+                    self._trade_history.append(execution)
+                    completed_orders.append(order)
+                    order.status = OrderStatus.COMPLETED
 
-                        logger.debug(
-                            "Order %s completed — %s",
-                            order.order_id,
-                            order.market_question[:50],
-                        )
+                    logger.debug(
+                        "Order %s completed — %s",
+                        order.order_id,
+                        order.market_question[:50],
+                    )
 
                 elif status == "failed":
                     logger.warning("Order %s failed", order.order_id)
@@ -391,11 +493,13 @@ class WhalletTraderPlugin(PluginBase):
 
         for position in self._portfolio_positions:
             try:
-                # Get current price for this market/outcome
-                current_price = await self._trading_executor.get_current_price(
-                    position.market_id,
-                    position.outcome,
+                # Get market details for this market
+                market_details = await self._trading_executor._get_market_details(
+                    position.market_id
                 )
+
+                # Extract current price from market details (simplified)
+                current_price = Decimal(str(market_details.get("minimum_tick_size", "0.5")))
 
                 # Update position
                 position.current_price = current_price
@@ -428,11 +532,19 @@ class WhalletTraderPlugin(PluginBase):
 
             # Cancel all pending orders
             for order in self._active_orders:
-                if order.status in ["pending", "submitted"]:
+                if order.status in [OrderStatus.PENDING, OrderStatus.SUBMITTED]:
                     try:
-                        await self._trading_executor.cancel_order(order)
-                        order.status = "cancelled"
-                        logger.info("Cancelled order %s due to daily loss limit", order.order_id)
+                        if self._trading_executor:
+                            await self._trading_executor.cancel_order(order)
+                            order.status = OrderStatus.CANCELLED
+                            logger.info(
+                                "Cancelled order %s due to daily loss limit", order.order_id
+                            )
+                        else:
+                            logger.warning(
+                                "Cannot cancel order %s: trading executor not initialized",
+                                order.order_id,
+                            )
                     except Exception as e:
                         logger.error("Failed to cancel order %s: %s", order.order_id, e)
 
@@ -512,10 +624,10 @@ class WhalletTraderPlugin(PluginBase):
             elif execution.action.startswith("SELL_"):
                 # Reduce position
                 existing_position.quantity -= execution.quantity
-                if existing_position.quantity < 0.0001:  # Near zero
-                    existing_position.quantity = 0
-                    existing_position.invested_amount = 0
-                    existing_position.average_price = 0
+                if existing_position.quantity < Decimal("0.0001"):  # Near zero
+                    existing_position.quantity = Decimal("0")
+                    existing_position.invested_amount = Decimal("0")
+                    existing_position.average_price = Decimal("0")
                 else:
                     # Proportionally reduce invested amount
                     reduction_ratio = execution.quantity / (
@@ -542,8 +654,8 @@ class WhalletTraderPlugin(PluginBase):
                     current_price=execution.execution_price,
                     invested_amount=execution.position_size_usd,
                     current_value=execution.position_size_usd,
-                    unrealized_pnl=0,
-                    unrealized_pnl_percent=0,
+                    unrealized_pnl=Decimal("0"),
+                    unrealized_pnl_percent=Decimal("0"),
                     first_bought=execution.executed_at,
                     last_updated=execution.executed_at,
                 )

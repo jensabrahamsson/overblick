@@ -42,7 +42,7 @@ class BackendConfig(BaseModel):
     backend_type: str = "ollama"  # "ollama" | "lmstudio"
     host: str = "127.0.0.1"
     port: int = 11434
-    model: str = "qwen3:8b"
+    model: str = "qwen3.5:9b"
 
     @field_validator("backend_type")
     @classmethod

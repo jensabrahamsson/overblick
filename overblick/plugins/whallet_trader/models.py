@@ -24,6 +24,12 @@ class TradeAction(str, Enum):
     CLOSE_POSITION = "CLOSE_POSITION"
 
 
+class TradingError(Exception):
+    """Base exception for trading errors."""
+
+    pass
+
+
 class OrderStatus(str, Enum):
     """Status of a trade order."""
 

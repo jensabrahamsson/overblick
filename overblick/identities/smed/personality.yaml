@@ -425,10 +425,10 @@ example_conversations:
 ################################################################################
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.3          # Low — precision over creativity
     max_tokens: 2000
-    timeout_seconds: 180
+    timeout_seconds: 600
 
   schedule:
     heartbeat_hours: 1

@@ -44,7 +44,7 @@ async def test_full_digest():
         name="anomal",
         display_name="Anomal",
         description="The intellectual humanist",
-        llm=LLMSettings(model="qwen3:8b", temperature=0.7, max_tokens=2000),
+        llm=LLMSettings(model="qwen3.5:9b", temperature=0.7, max_tokens=2000),
         raw_config=personality_data,  # Include full config with ai_digest settings
     )
 
