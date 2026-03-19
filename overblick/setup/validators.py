@@ -60,6 +60,14 @@ class DeepseekConfig(BaseModel):
     model: str = "deepseek-chat"
 
 
+class DashScopeConfig(BaseModel):
+    """Configuration for DashScope (Alibaba Qwen) API backend."""
+
+    enabled: bool = False
+    api_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    model: str = "qwen-plus"
+
+
 class OpenAIConfig(BaseModel):
     """Configuration for OpenAI backend (coming soon)."""
 
@@ -71,24 +79,28 @@ class OpenAIConfig(BaseModel):
 class LLMData(BaseModel):
     """Step 3: LLM configuration with gateway-as-router architecture.
 
-    Gateway is always-on infrastructure. Backends (local, cloud, deepseek, openai)
-    are the actual inference targets that the gateway routes to.
+    Gateway is always-on infrastructure. Backends (local, remote, dashscope,
+    deepseek) are the actual inference targets that the gateway routes to.
     """
 
     gateway_url: str = "http://127.0.0.1:8200"
     local: BackendConfig = BackendConfig(enabled=True)
-    cloud: BackendConfig = BackendConfig(enabled=False, host="", port=11434)
+    remote: BackendConfig = BackendConfig(enabled=False, host="", port=1234)
     deepseek: DeepseekConfig = DeepseekConfig(enabled=False)
+    dashscope: DashScopeConfig = DashScopeConfig(enabled=False)
     openai: OpenAIConfig = OpenAIConfig(enabled=False)
     default_backend: str = "local"
+    backend_preference: list[str] = []
     default_temperature: float = 0.7
     default_max_tokens: int = 2000
 
     @field_validator("default_backend")
     @classmethod
     def valid_default(cls, v: str) -> str:
-        if v not in ("local", "cloud", "deepseek", "openai"):
-            raise ValueError("Default backend must be 'local', 'cloud', 'deepseek', or 'openai'")
+        if v not in ("local", "remote", "deepseek", "dashscope", "openai"):
+            raise ValueError(
+                "Default backend must be 'local', 'remote', 'deepseek', 'dashscope', or 'openai'"
+            )
         return v
 
     @field_validator("default_temperature")

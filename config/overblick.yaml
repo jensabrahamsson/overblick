@@ -6,31 +6,28 @@ principal:
   language: en
 llm:
   gateway_url: http://127.0.0.1:8200
-  default_backend: local
+  default_backend: remote
+  backend_preference: [remote, dashscope, local, deepseek]
   temperature: 0.7
   max_tokens: 2000
   backends:
+    remote:
+      enabled: true
+      type: ollama
+      host: '10.8.0.24'
+      port: 1234
+      model: qwen3.5:9b
     local:
       enabled: true
       type: ollama
       host: 127.0.0.1
       port: 11434
       model: qwen3.5:9b
-    cloud:
-      enabled: false
-      type: openai
-      host: '10.8.0.24'
-      port: 1234
-      model: qwen/qwen3.5-35b-a3b
     deepseek:
-      enabled: false
+      enabled: true
       type: deepseek
       api_url: https://api.deepseek.com/v1
       model: deepseek-chat
-    openai:
-      enabled: false
-      api_url: https://api.openai.com/v1
-      model: gpt-4o
 local_plugins:
   stal: []
 dashboard:
