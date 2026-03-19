@@ -36,6 +36,7 @@ from overblick.setup.validators import (
     AgentConfig,
     BackendConfig,
     CommunicationData,
+    DashScopeConfig,
     DeepseekConfig,
     LLMData,
     OpenAIConfig,
@@ -393,9 +394,16 @@ def _parse_new_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
     """Parse new backends-format LLM config into wizard state."""
     backends = llm.get("backends", {})
     local = backends.get("local", {})
-    cloud = backends.get("cloud", {})
+    # Support both "remote" (new) and "cloud" (legacy) backend names
+    remote = backends.get("remote", backends.get("cloud", {}))
     deepseek = backends.get("deepseek", {})
+    dashscope = backends.get("dashscope", {})
     openai = backends.get("openai", {})
+
+    # Migrate legacy default_backend "cloud" → "remote"
+    default_backend = llm.get("default_backend", "local")
+    if default_backend == "cloud":
+        default_backend = "remote"
 
     return {
         "gateway_url": llm.get("gateway_url", "http://127.0.0.1:8200"),
@@ -406,24 +414,33 @@ def _parse_new_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
             "port": local.get("port", 11434),
             "model": local.get("model", "qwen3.5:9b"),
         },
-        "cloud": {
-            "enabled": cloud.get("enabled", False),
-            "backend_type": cloud.get("type", "ollama"),
-            "host": cloud.get("host", ""),
-            "port": cloud.get("port", 11434),
-            "model": cloud.get("model", "qwen3.5:9b"),
+        "remote": {
+            "enabled": remote.get("enabled", False),
+            "backend_type": remote.get("type", "ollama"),
+            "host": remote.get("host", ""),
+            "port": remote.get("port", 1234),
+            "model": remote.get("model", "qwen3.5:9b"),
         },
         "deepseek": {
             "enabled": deepseek.get("enabled", False),
             "api_url": deepseek.get("api_url", "https://api.deepseek.com/v1"),
             "model": deepseek.get("model", "deepseek-chat"),
         },
+        "dashscope": {
+            "enabled": dashscope.get("enabled", False),
+            "api_url": dashscope.get(
+                "api_url",
+                "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+            ),
+            "model": dashscope.get("model", "qwen-plus"),
+        },
         "openai": {
             "enabled": openai.get("enabled", False),
             "api_url": openai.get("api_url", "https://api.openai.com/v1"),
             "model": openai.get("model", "gpt-4o"),
         },
-        "default_backend": llm.get("default_backend", "local"),
+        "default_backend": default_backend,
+        "backend_preference": llm.get("backend_preference", []),
         "default_temperature": llm.get("temperature", 0.7),
         "default_max_tokens": llm.get("max_tokens", 2000),
     }
@@ -445,11 +462,11 @@ def _migrate_old_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
             "port": port,
             "model": model,
         },
-        "cloud": {
+        "remote": {
             "enabled": False,
             "backend_type": "ollama",
             "host": "",
-            "port": 11434,
+            "port": 1234,
             "model": "qwen3.5:9b",
         },
         "deepseek": {
@@ -457,12 +474,18 @@ def _migrate_old_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
             "api_url": "https://api.deepseek.com/v1",
             "model": "deepseek-chat",
         },
+        "dashscope": {
+            "enabled": False,
+            "api_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+            "model": "qwen-plus",
+        },
         "openai": {
             "enabled": provider in ("cloud", "openai"),
             "api_url": llm.get("cloud_api_url", "https://api.openai.com/v1"),
             "model": llm.get("cloud_model", "gpt-4o"),
         },
         "default_backend": "openai" if provider in ("cloud", "openai") else "local",
+        "backend_preference": [],
         "default_temperature": llm.get("temperature", 0.7),
         "default_max_tokens": llm.get("max_tokens", 2000),
     }
@@ -631,12 +654,17 @@ async def step3_post(request: Request):
         local_port = form.get("local_port", "11434")
         local_model = form.get("local_model", "qwen3.5:9b")
 
-        # Cloud remote backend
-        cloud_enabled = form.get("cloud_enabled", "off") == "on"
-        cloud_type = form.get("cloud_type", "ollama")
-        cloud_host = form.get("cloud_host", "")
-        cloud_port = form.get("cloud_port", "11434")
-        cloud_model = form.get("cloud_model", "qwen3.5:9b")
+        # Remote backend (Ollama/LM Studio on remote server)
+        remote_enabled = form.get("remote_enabled", "off") == "on"
+        remote_type = form.get("remote_type", "ollama")
+        remote_host = form.get("remote_host", "")
+        remote_port = form.get("remote_port", "1234")
+        remote_model = form.get("remote_model", "qwen3.5:9b")
+
+        # DashScope backend (Alibaba Qwen cloud)
+        dashscope_enabled = form.get("dashscope_enabled", "off") == "on"
+        dashscope_model = form.get("dashscope_model", "qwen-plus")
+        dashscope_api_key = form.get("dashscope_api_key", "")
 
         # Deepseek backend
         deepseek_enabled = form.get("deepseek_enabled", "off") == "on"
@@ -650,6 +678,12 @@ async def step3_post(request: Request):
 
         default_backend = form.get("default_backend", "local")
 
+        # Backend preference (comma-separated ordering from hidden input)
+        preference_str = form.get("backend_preference", "")
+        backend_preference = [
+            b.strip() for b in preference_str.split(",") if b.strip()
+        ]
+
         data = LLMData(
             gateway_url=gateway_url,
             local=BackendConfig(
@@ -659,16 +693,20 @@ async def step3_post(request: Request):
                 port=int(local_port),
                 model=local_model,
             ),
-            cloud=BackendConfig(
-                enabled=cloud_enabled,
-                backend_type=cloud_type,
-                host=cloud_host,
-                port=int(cloud_port),
-                model=cloud_model,
+            remote=BackendConfig(
+                enabled=remote_enabled,
+                backend_type=remote_type,
+                host=remote_host,
+                port=int(remote_port),
+                model=remote_model,
             ),
             deepseek=DeepseekConfig(
                 enabled=deepseek_enabled,
                 model=deepseek_model,
+            ),
+            dashscope=DashScopeConfig(
+                enabled=dashscope_enabled,
+                model=dashscope_model,
             ),
             openai=OpenAIConfig(
                 enabled=openai_enabled,
@@ -676,14 +714,17 @@ async def step3_post(request: Request):
                 model=openai_model,
             ),
             default_backend=default_backend,
+            backend_preference=backend_preference,
             default_temperature=float(form.get("default_temperature", "0.7")),
             default_max_tokens=int(form.get("default_max_tokens", "2000")),
         )
         state["llm"] = data.model_dump()
 
-        # Store deepseek API key for provisioner (secret, not in config)
+        # Store API keys for provisioner (secret, not in config)
         if deepseek_api_key:
             state["_deepseek_api_key"] = deepseek_api_key
+        if dashscope_api_key:
+            state["_dashscope_api_key"] = dashscope_api_key
 
         _save_wizard_state(state)
         return RedirectResponse("/settings/step/4", status_code=303)
@@ -1129,6 +1170,40 @@ async def test_deepseek(request: Request):
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 "https://api.deepseek.com/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                models = [m.get("id", "?") for m in data.get("data", [])]
+                model_list = html.escape(", ".join(models[:5])) if models else "API reachable"
+                return HTMLResponse(
+                    f'<span class="badge badge-green">Connected</span>'
+                    f'<span class="test-detail">{model_list}</span>'
+                )
+            elif resp.status_code == 401:
+                return HTMLResponse('<span class="badge badge-red">Invalid API key</span>')
+            else:
+                return HTMLResponse(f'<span class="badge badge-red">HTTP {resp.status_code}</span>')
+    except Exception as e:
+        return HTMLResponse(
+            f'<span class="badge badge-red">Not reachable</span>'
+            f'<span class="test-detail">{html.escape(str(e))}</span>'
+        )
+
+
+@router.post("/test/dashscope", response_class=HTMLResponse)
+async def test_dashscope(request: Request):
+    """Test DashScope API connection by listing available models."""
+    form = await request.form()
+    api_key = form.get("dashscope_api_key", "")
+    if not api_key:
+        return HTMLResponse('<span class="badge badge-amber">Enter API key first</span>')
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models",
                 headers={"Authorization": f"Bearer {api_key}"},
             )
             if resp.status_code == 200:

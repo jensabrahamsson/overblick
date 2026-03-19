@@ -7,7 +7,7 @@
         <h1 class="detail-name">Step 3 — AI Engine</h1>
         <p class="detail-description">
             Configure your LLM backends. Enable one or more inference targets — the gateway
-            routes requests based on priority and complexity.
+            routes requests based on priority, complexity, and your preferred fallback order.
         </p>
     </div>
 
@@ -16,8 +16,9 @@
         <form method="post" action="/settings/step/3" hx-boost="true">
             {% set llm = state.llm or {} %}
             {% set local = llm.get('local', {}) %}
-            {% set cloud = llm.get('cloud', {}) %}
+            {% set remote = llm.get('remote', {}) %}
             {% set deepseek = llm.get('deepseek', {}) %}
+            {% set dashscope = llm.get('dashscope', {}) %}
             {% set openai = llm.get('openai', {}) %}
 
             <!-- Gateway (always visible — infrastructure) -->
@@ -50,7 +51,7 @@
                     <input type="checkbox" name="local_enabled" value="on"
                            {{ 'checked' if local.get('enabled', true) else '' }}>
                     <strong>Local Inference</strong>
-                    <span class="form-hint form-hint-inline">(Ollama / LM Studio)</span>
+                    <span class="form-hint form-hint-inline">(Ollama / LM Studio on this machine)</span>
                 </label>
 
                 <div id="local-config" class="settings-config-body" style="display: {{ 'block' if local.get('enabled', true) else 'none' }};">
@@ -97,48 +98,83 @@
                 </div>
             </div>
 
-            <!-- Cloud Remote -->
+            <!-- Remote Inference -->
             <div class="form-group settings-backend-panel">
                 <label class="settings-checkbox-label">
-                    <input type="checkbox" name="cloud_enabled" value="on"
-                           {{ 'checked' if cloud.get('enabled', false) else '' }}>
-                    <strong>Cloud Remote</strong>
+                    <input type="checkbox" name="remote_enabled" value="on"
+                           {{ 'checked' if remote.get('enabled', false) else '' }}>
+                    <strong>Remote Inference</strong>
                     <span class="form-hint form-hint-inline">(Ollama / LM Studio on remote server)</span>
                 </label>
 
-                <div id="cloud-config" class="settings-config-body" style="display: {{ 'block' if cloud.get('enabled', false) else 'none' }};">
+                <div id="remote-config" class="settings-config-body" style="display: {{ 'block' if remote.get('enabled', false) else 'none' }};">
                     <div class="settings-grid-4col">
                         <div>
                             <label class="form-label">Type</label>
-                            <select class="form-select" name="cloud_type">
-                                <option value="ollama" {{ 'selected' if cloud.get('backend_type', 'ollama') == 'ollama' else '' }}>Ollama</option>
-                                <option value="lmstudio" {{ 'selected' if cloud.get('backend_type') == 'lmstudio' else '' }}>LM Studio</option>
+                            <select class="form-select" name="remote_type">
+                                <option value="ollama" {{ 'selected' if remote.get('backend_type', 'ollama') == 'ollama' else '' }}>Ollama</option>
+                                <option value="lmstudio" {{ 'selected' if remote.get('backend_type') == 'lmstudio' else '' }}>LM Studio</option>
                             </select>
                         </div>
                         <div>
                             <label class="form-label">Host</label>
-                            <input type="text" class="form-input" name="cloud_host" id="cloud_host"
-                                   value="{{ cloud.get('host', '') }}" placeholder="gpu.example.com">
+                            <input type="text" class="form-input" name="remote_host" id="remote_host"
+                                   value="{{ remote.get('host', '') }}" placeholder="gpu.example.com">
                         </div>
                         <div>
                             <label class="form-label">Port</label>
-                            <input type="number" class="form-input" name="cloud_port" id="cloud_port"
-                                   value="{{ cloud.get('port', 11434) }}">
+                            <input type="number" class="form-input" name="remote_port" id="remote_port"
+                                   value="{{ remote.get('port', 1234) }}">
                         </div>
                         <div>
                             <label class="form-label">Model</label>
-                            <input type="text" class="form-input" name="cloud_model"
-                                   value="{{ cloud.get('model', 'qwen3.5:9b') }}">
+                            <input type="text" class="form-input" name="remote_model"
+                                   value="{{ remote.get('model', 'qwen3.5:9b') }}">
                         </div>
                     </div>
                     <div class="settings-test-row">
                         <button type="button" class="btn btn-secondary btn-sm"
                                 hx-post="/settings/test/ollama"
-                                hx-include="#cloud_host, #cloud_port"
-                                hx-target="#cloud-status">
+                                hx-include="#remote_host, #remote_port"
+                                hx-target="#remote-status">
                             Test Connection
                         </button>
-                        <span id="cloud-status" class="test-result"></span>
+                        <span id="remote-status" class="test-result"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DashScope (Alibaba Qwen) -->
+            <div class="form-group settings-backend-panel">
+                <label class="settings-checkbox-label">
+                    <input type="checkbox" name="dashscope_enabled" value="on"
+                           {{ 'checked' if dashscope.get('enabled', false) else '' }}>
+                    <strong>DashScope</strong>
+                    <span class="form-hint form-hint-inline">(Alibaba Qwen Plus — cloud API)</span>
+                </label>
+
+                <div id="dashscope-config" class="settings-config-body" style="display: {{ 'block' if dashscope.get('enabled', false) else 'none' }};">
+                    <div class="settings-grid-2col">
+                        <div>
+                            <label class="form-label">API Key</label>
+                            <input type="password" class="form-input" name="dashscope_api_key" id="dashscope_api_key"
+                                   placeholder="{{ '••••••••' if state.get('_has_dashscope_api_key') else 'sk-...' }}"
+                                   autocomplete="off">
+                        </div>
+                        <div>
+                            <label class="form-label">Model</label>
+                            <input type="text" class="form-input" name="dashscope_model"
+                                   value="{{ dashscope.get('model', 'qwen-plus') }}">
+                        </div>
+                    </div>
+                    <div class="settings-test-row">
+                        <button type="button" class="btn btn-secondary btn-sm"
+                                hx-post="/settings/test/dashscope"
+                                hx-include="#dashscope_api_key"
+                                hx-target="#dashscope-status">
+                            Test Connection
+                        </button>
+                        <span id="dashscope-status" class="test-result"></span>
                     </div>
                 </div>
             </div>
@@ -189,6 +225,63 @@
                 <input type="hidden" name="openai_model" value="{{ openai.get('model', 'gpt-4o') }}">
             </div>
 
+            <!-- Routing Preference -->
+            <p class="form-hint form-separator-lg">── Routing Priority ─────────────────────────────</p>
+
+            <div class="form-group">
+                <span class="form-hint" id="pref_hint">
+                    When no routing rule applies, backends are tried in this order.
+                    Use the arrows to reorder. Only enabled backends are listed.
+                </span>
+                <ul id="preference-list" class="preference-list" aria-describedby="pref_hint">
+                    {% set pref = llm.get('backend_preference', []) %}
+                    {# Build ordered list: start from saved preference, add any enabled backends not yet listed #}
+                    {% set all_backends = [] %}
+                    {% if pref %}
+                        {% for b in pref %}
+                            {% if b == 'local' and local.get('enabled', true) %}
+                                {% if all_backends.append(('local', 'Local')) %}{% endif %}
+                            {% elif b == 'remote' and remote.get('enabled', false) %}
+                                {% if all_backends.append(('remote', 'Remote')) %}{% endif %}
+                            {% elif b == 'dashscope' and dashscope.get('enabled', false) %}
+                                {% if all_backends.append(('dashscope', 'DashScope')) %}{% endif %}
+                            {% elif b == 'deepseek' and deepseek.get('enabled', false) %}
+                                {% if all_backends.append(('deepseek', 'Deepseek')) %}{% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    {# Add any enabled backends not in pref list #}
+                    {% set seen = all_backends | map(attribute='0') | list %}
+                    {% if remote.get('enabled', false) and 'remote' not in seen %}
+                        {% if all_backends.append(('remote', 'Remote')) %}{% endif %}
+                    {% endif %}
+                    {% if dashscope.get('enabled', false) and 'dashscope' not in seen %}
+                        {% if all_backends.append(('dashscope', 'DashScope')) %}{% endif %}
+                    {% endif %}
+                    {% if local.get('enabled', true) and 'local' not in seen %}
+                        {% if all_backends.append(('local', 'Local')) %}{% endif %}
+                    {% endif %}
+                    {% if deepseek.get('enabled', false) and 'deepseek' not in seen %}
+                        {% if all_backends.append(('deepseek', 'Deepseek')) %}{% endif %}
+                    {% endif %}
+                    {% for key, label in all_backends %}
+                    <li class="preference-item" data-backend="{{ key }}">
+                        <span class="preference-rank">{{ loop.index }}</span>
+                        <span class="preference-name">{{ label }}</span>
+                        <button type="button" class="btn-icon pref-up" aria-label="Move up" {{ 'disabled' if loop.first else '' }}>&#x25B2;</button>
+                        <button type="button" class="btn-icon pref-down" aria-label="Move down" {{ 'disabled' if loop.last else '' }}>&#x25BC;</button>
+                    </li>
+                    {% endfor %}
+                    {% if not all_backends %}
+                    <li class="preference-item preference-item--empty">
+                        <span class="form-hint">Enable at least one backend above</span>
+                    </li>
+                    {% endif %}
+                </ul>
+                <input type="hidden" name="backend_preference" id="backend_preference"
+                       value="{{ all_backends | map(attribute='0') | join(',') }}">
+            </div>
+
             <!-- Common Settings -->
             <p class="form-hint form-separator-lg">── Common Settings ──────────────────────────────</p>
 
@@ -196,10 +289,11 @@
                 <label class="form-label" for="default_backend">Default Backend</label>
                 <select class="form-select" name="default_backend" id="default_backend">
                     <option value="local" {{ 'selected' if llm.get('default_backend', 'local') == 'local' else '' }}>Local</option>
-                    <option value="cloud" {{ 'selected' if llm.get('default_backend') == 'cloud' else '' }}>Cloud Remote</option>
+                    <option value="remote" {{ 'selected' if llm.get('default_backend') == 'remote' else '' }}>Remote</option>
+                    <option value="dashscope" {{ 'selected' if llm.get('default_backend') == 'dashscope' else '' }}>DashScope</option>
                     <option value="deepseek" {{ 'selected' if llm.get('default_backend') == 'deepseek' else '' }}>Deepseek</option>
                 </select>
-                <span class="form-hint">Used when no routing rule applies. Complexity-based routing may override this.</span>
+                <span class="form-hint">Last-resort fallback if no backend in the preference list is available.</span>
             </div>
 
             <div class="form-group">

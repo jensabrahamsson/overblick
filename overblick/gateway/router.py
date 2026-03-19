@@ -5,11 +5,11 @@ Routes requests to the best available backend based on:
 1. Explicit backend override (?backend=)
 2. Complexity level:
    - einstein → deepseek only (uses deepseek-reasoner model, no fallback)
-   - ultra → deepseek/cloud (best available)
-   - high → cloud/deepseek (prefer cloud)
+   - ultra → deepseek/dashscope/remote (best available)
+   - high → remote/dashscope/deepseek (prefer remote)
    - low → local
-3. Priority level (high + cloud available → cloud)
-4. Default backend from configuration
+3. Priority level (high → first non-local in backend_preference)
+4. Default → first available in backend_preference chain
 
 The router never fails — it always falls back to the default backend.
 """
@@ -42,11 +42,11 @@ class RequestRouter:
         Precedence:
         1. explicit_backend — user override, highest priority
         2a-i. complexity=einstein → deepseek only (reasoner model, no fallback)
-        2a-ii. complexity=ultra → deepseek > cloud > local
-        2b. complexity=high → cloud > deepseek > local
+        2a-ii. complexity=ultra → deepseek > dashscope > remote > local
+        2b. complexity=high → remote > dashscope > deepseek > local
         3. complexity=low → local
-        4. priority=high + cloud available → cloud (backward compat)
-        5. Default → registry.default_backend
+        4. priority=high → first non-local in backend_preference
+        5. Default → first available in backend_preference chain
 
         Args:
             priority: Request priority ("high" or "low")
@@ -95,21 +95,20 @@ class RequestRouter:
 
         # 2a-ii. Ultra: prefer deepseek for precision tasks (math, challenges)
         if complexity == "ultra":
-            for candidate in ("deepseek", "cloud"):
+            for candidate in ("deepseek", "dashscope", "remote"):
                 if candidate in available:
                     logger.debug("Router: complexity=ultra → '%s'", candidate)
                     return candidate
-            logger.debug("Router: complexity=ultra but no deepseek/cloud, using default")
+            logger.debug("Router: complexity=ultra but no deepseek/dashscope/remote, using default")
             return self._registry.default_backend
 
-        # 2b. High: prefer cloud for complex tasks
+        # 2b. High: prefer remote for complex tasks
         if complexity == "high":
-            # Prefer cloud > deepseek > local
-            for candidate in ("cloud", "deepseek"):
+            for candidate in ("remote", "dashscope", "deepseek"):
                 if candidate in available:
                     logger.debug("Router: complexity=high → '%s'", candidate)
                     return candidate
-            logger.debug("Router: complexity=high but no cloud/deepseek, using default")
+            logger.debug("Router: complexity=high but no remote/dashscope/deepseek, using default")
             return self._registry.default_backend
 
         if complexity == "low":
@@ -119,9 +118,15 @@ class RequestRouter:
             return self._registry.default_backend
 
         # 3. Priority-based routing (backward compatible, no complexity specified)
-        if priority == "high" and "cloud" in available:
-            logger.debug("Router: priority=high + cloud available → 'cloud'")
-            return "cloud"
+        if priority == "high":
+            for candidate in self._registry.backend_preference:
+                if candidate in available and candidate != "local":
+                    logger.debug("Router: priority=high → '%s' (from preference)", candidate)
+                    return candidate
 
-        # 4. Default
+        # 4. Default: try backends in preferred order
+        for candidate in self._registry.backend_preference:
+            if candidate in available:
+                logger.debug("Router: default → '%s' (from preference)", candidate)
+                return candidate
         return self._registry.default_backend
