@@ -25,7 +25,7 @@ def wizard_state() -> dict:
             "llm_provider": "ollama",
             "ollama_host": "127.0.0.1",
             "ollama_port": 11434,
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "default_temperature": 0.7,
             "default_max_tokens": 2000,
         },
@@ -81,7 +81,7 @@ class TestProvisioner:
             config = yaml.safe_load(f)
         # New backends format: local backend with ollama type
         assert config["llm"]["backends"]["local"]["type"] == "ollama"
-        assert config["llm"]["backends"]["local"]["model"] == "qwen3:8b"
+        assert config["llm"]["backends"]["local"]["model"] == "qwen3.5:9b"
         assert config["llm"]["default_backend"] == "local"
         # Normalize path separators for cross-platform compatibility
         created = [f.replace("\\", "/") for f in result["created_files"]]

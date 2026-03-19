@@ -320,10 +320,19 @@ The sole framework interface. Provides controlled access to everything a plugin 
 | `quiet_hours_checker` | `QuietHoursChecker` | Bedroom mode check |
 | `identity` | `Identity` | Read-only identity config |
 | `permissions` | `PermissionChecker` | Action authorization |
+| `policy_gate` | `PolicyGate` | Centralized security decision point (permissions, capabilities, preflight, output safety, rate limiting) |
 | `capabilities` | `dict[str, CapabilityBase]` | Shared capabilities |
 | `get_secret(key)` | method | Fernet-encrypted secrets |
 | `preflight_checker` | `PreflightChecker` | Pre-posting checks |
 | `output_safety` | `OutputSafety` | Post-generation filter |
+| `runtime` | `RuntimeServices` | Bundle: `event_bus`, `scheduler`, `audit_log`, `quiet_hours_checker`, `ipc_client`, `capabilities` |
+| `security` | `SecurityServices` | Bundle: `preflight_checker`, `output_safety`, `permissions`, `policy_gate` |
+| `llm` | `LLMServices` | Bundle: `llm_pipeline`, `llm_client`, `response_router` |
+| `data` | `DataServices` | Bundle: `data_dir`, `log_dir`, `learning_store`, `engagement_db` |
+| `identity_services` | `IdentityServices` | Bundle: `identity_name`, `identity`, `get_secret`, `load_identity`, `build_system_prompt` |
+| `communication` | `CommunicationServices` | Bundle: `identity_name`, `ipc_client`, `send_to_agent`, `send_ipc_message`, `collect_messages` |
+
+**Capability Bundles**: The PluginContext is now organized into logical capability bundles (`runtime`, `security`, `llm`, `data`, `identity_services`, `communication`) for better maintainability and clear separation of concerns. Plugins can continue to access individual fields directly (backward compatibility) or use the bundles for grouped functionality.
 
 ### Plugin Registry
 
@@ -685,7 +694,7 @@ class LLMClient(ABC):
 
 **File:** `overblick/core/llm/ollama_client.py`
 
-Local LLM via Ollama HTTP API. Default model: `qwen3:8b`.
+Local LLM via Ollama HTTP API. Default model: `qwen3.5:9b`.
 
 - Configurable temperature, top_p, max_tokens, timeout
 - Health check via `/api/tags` endpoint
@@ -1122,7 +1131,7 @@ connectors: [moltbook]
 capabilities: [psychology, engagement, conversation]
 
 llm:
-  model: "qwen3:8b"
+  model: "qwen3.5:9b"
   temperature: 0.7
   max_tokens: 2000
 
@@ -1204,7 +1213,7 @@ example_conversations:
 # All unit + scenario tests (excludes LLM)
 pytest tests/ -v -m "not llm"
 
-# LLM personality tests (requires Ollama + qwen3:8b)
+# LLM personality tests (requires Ollama + qwen3.5:9b)
 pytest tests/ -v -s -m llm --timeout=300
 
 # All tests

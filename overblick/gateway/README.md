@@ -6,7 +6,7 @@ Multi-backend priority queue server that routes LLM requests from multiple agent
 
 ```
 Agent (Cherry)  ──┐
-Agent (Anomal)  ──┤                    ┌─ local   (Ollama, qwen3:8b)
+Agent (Anomal)  ──┤                    ┌─ local   (Ollama, qwen3.5:9b)
 Agent (Natt)    ──┼─→ Gateway ─→ Router ─┼─ cloud   (LM Studio, devstral-2-123b-iq5)
 Agent (Stal)    ──┤    ↓               └─ deepseek (Deepseek API, deepseek-chat / deepseek-reasoner)
 Challenge solver ─┘  Priority Queue
@@ -41,7 +41,7 @@ OpenAI-compatible chat completions endpoint.
 curl -X POST "http://localhost:8200/v1/chat/completions?priority=high&complexity=ultra" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3:8b",
+    "model": "qwen3.5:9b",
     "messages": [
       {"role": "system", "content": "You are a helpful assistant."},
       {"role": "user", "content": "What is 2+2?"}
@@ -64,7 +64,7 @@ curl -X POST "http://localhost:8200/v1/chat/completions?priority=high&complexity
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `model` | string | `qwen3:8b` | Model name |
+| `model` | string | `qwen3.5:9b` | Model name |
 | `messages` | array | required | Chat messages (`role` + `content`) |
 | `max_tokens` | int | 2000 | Max tokens to generate (1–8192) |
 | `temperature` | float | 0.7 | Sampling temperature (0.0–2.0) |
@@ -76,7 +76,7 @@ curl -X POST "http://localhost:8200/v1/chat/completions?priority=high&complexity
 {
   "id": "chatcmpl-abc123",
   "object": "chat.completion",
-  "model": "qwen3:8b",
+  "model": "qwen3.5:9b",
   "choices": [{
     "index": 0,
     "message": {"role": "assistant", "content": "4"},
@@ -114,7 +114,7 @@ curl -X POST "http://localhost:8200/v1/embeddings?text=Hello+world&model=nomic-e
   "status": "healthy",
   "gateway": "running",
   "backends": {
-    "local": {"status": "connected", "type": "ollama", "model": "qwen3:8b", "default": true},
+    "local": {"status": "connected", "type": "ollama", "model": "qwen3.5:9b", "default": true},
     "deepseek": {"status": "cloud_configured", "type": "deepseek", "model": "deepseek-chat", "default": false}
   },
   "default_backend": "local",
@@ -278,7 +278,7 @@ llm:
       type: "ollama"
       host: "127.0.0.1"
       port: 11434
-      model: "qwen3:8b"
+      model: "qwen3.5:9b"
 
     cloud:
       enabled: true
@@ -313,7 +313,7 @@ All overridable with `OVERBLICK_GW_*` prefix:
 | `OVERBLICK_GW_API_HOST` | Gateway listen address | `127.0.0.1` |
 | `OVERBLICK_GW_OLLAMA_HOST` | Ollama host | 127.0.0.1 |
 | `OVERBLICK_GW_OLLAMA_PORT` | Ollama port | 11434 |
-| `OVERBLICK_GW_DEFAULT_MODEL` | Default model | qwen3:8b |
+| `OVERBLICK_GW_DEFAULT_MODEL` | Default model | qwen3.5:9b |
 | `OVERBLICK_GW_MAX_QUEUE_SIZE` | Max queued requests | 100 |
 | `OVERBLICK_GW_REQUEST_TIMEOUT` | Per-request timeout (seconds) | 300 |
 | `OVERBLICK_GW_MAX_CONCURRENT` | Max concurrent GPU requests | 1 |
@@ -331,7 +331,7 @@ from overblick.core.llm.gateway_client import GatewayClient
 
 client = GatewayClient(
     base_url="http://127.0.0.1:8200",
-    model="qwen3:8b",
+    model="qwen3.5:9b",
     default_priority="low",
     max_tokens=2000,
     temperature=0.7,
@@ -344,7 +344,7 @@ response = await client.chat(
     priority="high",
     complexity="ultra",
 )
-# response = {"content": "...", "model": "qwen3:8b", "tokens_used": 200, ...}
+# response = {"content": "...", "model": "qwen3.5:9b", "tokens_used": 200, ...}
 
 # Einstein mode (deep reasoning)
 response = await client.chat(
@@ -365,7 +365,7 @@ Identity YAML configures the client automatically:
 ```yaml
 llm:
   provider: "gateway"
-  model: "qwen3:8b"
+  model: "qwen3.5:9b"
   gateway_url: "http://127.0.0.1:8200"
 ```
 
@@ -515,7 +515,7 @@ curl -k https://your-server:8201/health
 
 curl -k -H "Authorization: Bearer sk-ob-..." \
   -H "Content-Type: application/json" \
-  -d '{"model":"qwen3:8b","messages":[{"role":"user","content":"hello"}]}' \
+  -d '{"model":"qwen3.5:9b","messages":[{"role":"user","content":"hello"}]}' \
   https://your-server:8201/v1/chat/completions
 
 # Dev mode (localhost only, no TLS)
@@ -526,7 +526,7 @@ python -m overblick internet-gateway --no-tls
 
 ```bash
 python -m overblick api-keys list
-python -m overblick api-keys create --name "phone" --rpm 10 --models "qwen3:8b"
+python -m overblick api-keys create --name "phone" --rpm 10 --models "qwen3.5:9b"
 python -m overblick api-keys revoke <key-id>
 python -m overblick api-keys rotate <key-id>
 ```

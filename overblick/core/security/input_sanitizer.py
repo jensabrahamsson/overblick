@@ -99,8 +99,12 @@ def wrap_external_content(content: str, source: str = "external") -> str:
     # Normalize homoglyphs (e.g., fullwidth angle brackets) to ASCII
     safe = normalize_homoglyphs(safe)
 
-    # Iteratively strip boundary marker fragments to prevent nesting attacks.
-    # A single pass fails if attacker nests: <<<EXTER<<<EXTERNAL_NAL_... → <<<EXTERNAL_...
+    # Escape any existing bracket-style boundary markers to prevent injection
+    safe = safe.replace("[BEGIN_EXTERNAL", "[_BEGIN_EXTERNAL")
+    safe = safe.replace("[END_EXTERNAL", "[_END_EXTERNAL")
+
+    # Iteratively strip angle-bracket boundary marker fragments to prevent nesting attacks.
+    # A single pass fails if attacker nests: <<<EXTER<<<EXTERNAL_NAL_... -> <<<EXTERNAL_...
     prev = None
     while prev != safe:
         prev = safe

@@ -23,7 +23,7 @@ def vakt_identity():
         display_name="Vakt",
         description="Log monitoring and alerting agent",
         engagement_threshold=25,
-        llm=LLMSettings(model="qwen3:8b", temperature=0.2, max_tokens=1500),
+        llm=LLMSettings(model="qwen3.5:9b", temperature=0.2, max_tokens=1500),
         quiet_hours=QuietHoursSettings(enabled=True, start_hour=1, end_hour=4),
         schedule=ScheduleSettings(heartbeat_hours=1, feed_poll_minutes=5),
         security=SecuritySettings(enable_preflight=True, enable_output_safety=True),

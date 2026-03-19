@@ -30,7 +30,7 @@ Usage:
 import logging
 from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import yaml
 
@@ -70,6 +70,7 @@ class SecretsManager:
     def __init__(self, secrets_dir: Path):
         self._secrets_dir = secrets_dir
         self._secrets_dir.mkdir(parents=True, exist_ok=True)
+        self._secrets_dir.chmod(0o700)
 
         # Key rotation support
         self._keys: dict[str, Fernet] = {}  # key_id -> Fernet instance
@@ -204,10 +205,10 @@ class SecretsManager:
             logger.info("Master key stored in system keyring")
         except Exception:
             # Fallback to file - create with atomic write and restrictive permissions
-            from overblick.shared.platform import enforce_restrictive_permissions
-
             # Atomic write with 0o600 permissions using os.open
             import os
+
+            from overblick.shared.platform import enforce_restrictive_permissions
 
             fd = os.open(str(key_file), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             try:
@@ -282,10 +283,17 @@ class SecretsManager:
             # Create keys directory and save new key
             keys_dir = self._secrets_dir / "keys"
             keys_dir.mkdir(exist_ok=True)
+            keys_dir.chmod(0o700)
 
             key_file = keys_dir / f"{new_key_id}.txt"
-            with open(key_file, "wb") as f:
-                f.write(new_key)
+            import os as _os
+            fd = _os.open(str(key_file), _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
+            try:
+                with _os.fdopen(fd, "wb") as f:
+                    f.write(new_key)
+            except Exception:
+                _os.close(fd)
+                raise
 
             # Set restrictive permissions on new key file
             from overblick.shared.platform import set_restrictive_permissions
@@ -342,9 +350,15 @@ class SecretsManager:
             self._keys[new_key_id] = new_fernet
             self._active_key_id = new_key_id
 
-            # Save current key ID for status tracking
-            with open(self._secrets_dir / "current_key.txt", "w") as f:
-                f.write(new_key_id)
+            # Save current key ID for status tracking (atomic permissions)
+            current_key_path = self._secrets_dir / "current_key.txt"
+            fd = _os.open(str(current_key_path), _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
+            try:
+                with _os.fdopen(fd, "w") as f:
+                    f.write(new_key_id)
+            except Exception:
+                _os.close(fd)
+                raise
 
             logger.info(
                 "Key rotation completed: %d secrets rotated, %d failures",

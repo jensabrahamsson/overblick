@@ -20,7 +20,7 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -e ".[dashboard]"
 
 # Pull an LLM model
-ollama pull qwen3:8b
+ollama pull qwen3.5:9b
 
 # Run the setup wizard
 python -m overblick setup

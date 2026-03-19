@@ -17,25 +17,149 @@
 {% endif %}
 
 {% if digests %}
-<div class="detail-grid">
-    {% for digest in digests %}
-    <div class="card">
-        <div class="card-header">
-            <h3>{{ digest.identity }}</h3>
+<div class="detail-grid" style="grid-template-columns: 1fr 2fr;">
+    <!-- Left column: Summary cards -->
+    <div class="sidebar">
+        {% for digest in digests %}
+        <div class="card digest-card" data-identity="{{ digest.identity }}">
+            <div class="digest-summary">
+                <h3>{{ digest.identity }}</h3>
+                <div class="digest-meta">
+                    {% if digest.last_digest_date != "Never" %}
+                    <p><strong>Last digest:</strong> {{ digest.last_digest_date }}</p>
+                    {% else %}
+                    <p class="text-muted"><em>No digests yet</em></p>
+                    {% endif %}
+                    {% if digest.feed_count %}<p><strong>Feeds:</strong> {{ digest.feed_count }}</p>{% endif %}
+                    {% if digest.article_count %}<p><strong>Articles:</strong> {{ digest.article_count }}</p>{% endif %}
+                </div>
+            </div>
         </div>
-        <div class="digest-info">
-            <p><strong>Last digest:</strong> {{ digest.last_digest_date }}</p>
-            {% if digest.feed_count %}<p><strong>Feeds monitored:</strong> {{ digest.feed_count }}</p>{% endif %}
-            {% if digest.article_count %}<p><strong>Articles in last digest:</strong> {{ digest.article_count }}</p>{% endif %}
-        </div>
+        {% endfor %}
     </div>
-    {% endfor %}
+
+    <!-- Right column: Latest digest content -->
+    <div class="main-content">
+        {% for digest in digests[:1] %}
+        <div class="card">
+            <div class="card-header">
+                <h2>Latest Digest Content</h2>
+                <span class="badge badge-info">{{ digest.identity }}</span>
+            </div>
+            
+            <div class="digest-content">
+                {% if digest.latest_digest_content and "No digest" not in digest.latest_digest_content %}
+                {{ digest.latest_digest_content|safe }}
+                {% elif digest.article_count > 0 %}
+                <p><strong>Digest from {{ digest.last_digest_date }}:</strong></p>
+                <div class="digest-body">
+                    <p><em>Full digest content will be shown here once available.</em></p>
+                    <p>Previous digest included {{ digest.article_count }} articles from {{ digest.feed_count }} feeds.</p>
+                </div>
+                {% else %}
+                <p class="text-muted">No digest content available yet. The ai_digest plugin will generate digests daily and display them here.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Additional info section -->
+        <div class="card" style="margin-top: 1rem;">
+            <h3>About AI Digest</h3>
+            <ul style="line-height: 1.8;">
+                <li><strong>Purpose:</strong> Daily summary of AI news from multiple RSS feeds</li>
+                <li><strong>Schedule:</strong> Runs once per day (default 07:00 CET)</li>
+                <li><strong>Feeds monitored:</strong> {{ digest.feed_count }} configured RSS feeds</li>
+                <li><strong>Processing:</strong> Articles are ranked by relevance and summarized using LLM</li>
+                <li><strong>Delivery:</strong> Sent via email to configured recipient</li>
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
 </div>
+
+<style>
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.digest-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-left: 3px solid #4a5568;
+}
+
+.digest-card:hover {
+    border-left-color: #3b82f6;
+    transform: translateX(4px);
+}
+
+.digest-summary h3 {
+    margin-bottom: 0.5rem;
+}
+
+.digest-meta p {
+    font-size: 0.9rem;
+    margin: 0.25rem 0;
+}
+
+.main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.digest-content {
+    padding: 1rem;
+    background: #1a202c;
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.digest-body {
+    line-height: 1.8;
+    color: #e2e8f0;
+}
+
+.digest-body strong {
+    color: #3b82f6;
+}
+
+/* Preformatted content styling */
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #e2e8f0;
+}
+
+pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+}
+</style>
+
+<script>
+// Optional: Add interactivity to click on digest cards to show content
+document.querySelectorAll('.digest-card').forEach(card => {
+    card.addEventListener('click', () => {
+        const identity = card.dataset.identity;
+        // Could add AJAX call to load specific digest content here
+        console.log('Selected digest:', identity);
+    });
+});
+</script>
+
 {% else %}
 <div class="card">
     <div class="empty-state">
         <p>No digest data available yet.</p>
         <p class="text-muted">Digests will appear here once the ai_digest plugin runs its daily feed analysis.</p>
+        <button class="btn btn-primary" style="margin-top: 1rem;" onclick="location.reload()">Refresh</button>
     </div>
 </div>
 {% endif %}

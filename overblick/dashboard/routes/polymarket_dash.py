@@ -25,42 +25,13 @@ async def polymarket_page(request: Request):
     """Render the Polymarket Trading dashboard page."""
     templates = request.app.state.templates
 
+    # Load initial data for the first render
     try:
         data = await asyncio.to_thread(_load_polymarket_data, request)
         data_errors: list[str] = []
     except Exception as e:
         logger.error("Failed to load polymarket data: %s", e, exc_info=True)
-        # Use same defaults as _load_polymarket_data
-        from decimal import Decimal
-
-        data = {
-            "stats": {
-                "total_markets": 0,
-                "active_markets": 0,
-                "total_opportunities": 0,
-                "high_confidence_opportunities": 0,
-                "total_trades": 0,
-                "winning_trades": 0,
-                "losing_trades": 0,
-                "total_pnl_usd": 0.0,
-                "portfolio_value_usd": 0.0,
-                "daily_pnl_usd": 0.0,
-            },
-            "markets": [],
-            "opportunities": [],
-            "positions": [],
-            "trades": [],
-            "risk_metrics": {
-                "max_drawdown_percent": 0.0,
-                "sharpe_ratio": 0.0,
-                "win_rate_percent": 0.0,
-                "profit_factor": 0.0,
-                "avg_position_size_usd": 0.0,
-                "current_exposure_percent": 0.0,
-                "daily_loss_used_percent": 0.0,
-            },
-            "alerts": [],
-        }
+        data = _get_default_data()
         data_errors = [f"Failed to load polymarket data: {e}"]
 
     return templates.TemplateResponse(
@@ -75,9 +46,73 @@ async def polymarket_page(request: Request):
             "trades": data["trades"],
             "risk_metrics": data["risk_metrics"],
             "alerts": data["alerts"],
+            "activity_feed": data.get("activity_feed", []),
+            "latest_reasoning": data.get("latest_reasoning", ""),
             "data_errors": data_errors,
         },
     )
+
+
+@router.get("/partials/polymarket-content", response_class=HTMLResponse)
+async def polymarket_content(request: Request):
+    """Render only the Polymarket content partial for htmx refresh."""
+    templates = request.app.state.templates
+
+    try:
+        data = await asyncio.to_thread(_load_polymarket_data, request)
+    except Exception as e:
+        logger.error("Failed to refresh polymarket data: %s", e)
+        data = _get_default_data()
+
+    return templates.TemplateResponse(
+        "partials/polymarket_content.html",
+        {
+            "request": request,
+            "stats": data["stats"],
+            "markets": data["markets"],
+            "opportunities": data["opportunities"],
+            "positions": data["positions"],
+            "trades": data["trades"],
+            "risk_metrics": data["risk_metrics"],
+            "alerts": data["alerts"],
+            "activity_feed": data.get("activity_feed", []),
+            "latest_reasoning": data.get("latest_reasoning", ""),
+        },
+    )
+
+
+def _get_default_data() -> dict:
+    """Return default empty data structure."""
+    return {
+        "stats": {
+            "total_markets": 0,
+            "active_markets": 0,
+            "total_opportunities": 0,
+            "high_confidence_opportunities": 0,
+            "total_trades": 0,
+            "winning_trades": 0,
+            "losing_trades": 0,
+            "total_pnl_usd": 0.0,
+            "portfolio_value_usd": 0.0,
+            "daily_pnl_usd": 0.0,
+        },
+        "markets": [],
+        "opportunities": [],
+        "positions": [],
+        "trades": [],
+        "risk_metrics": {
+            "max_drawdown_percent": 0.0,
+            "sharpe_ratio": 0.0,
+            "win_rate_percent": 0.0,
+            "profit_factor": 0.0,
+            "avg_position_size_usd": 0.0,
+            "current_exposure_percent": 0.0,
+            "daily_loss_used_percent": 0.0,
+        },
+        "alerts": [],
+        "activity_feed": [],
+        "latest_reasoning": "",
+    }
 
 
 def has_data() -> bool:
@@ -97,6 +132,8 @@ def _load_polymarket_data(request: Request) -> dict:
     positions: list[dict] = []
     trades: list[dict] = []
     alerts: list[dict] = []
+    activity_feed: list[dict] = []
+    latest_reasoning = ""
 
     stats = {
         "total_markets": 0,
@@ -130,6 +167,8 @@ def _load_polymarket_data(request: Request) -> dict:
             "trades": trades,
             "risk_metrics": risk_metrics,
             "alerts": alerts,
+            "activity_feed": [],
+            "latest_reasoning": "",
         }
 
     for identity_dir in data_root.iterdir():
@@ -169,14 +208,33 @@ def _load_polymarket_data(request: Request) -> dict:
                         opp["identity"] = identity_name
                         opportunities.append(opp)
                         stats["total_opportunities"] += 1
+                        
+                        # Use reasoning from latest opportunity
+                        if "reasoning" in opp:
+                            latest_reasoning = opp["reasoning"]
 
                         if opp.get("confidence_score", 0) >= 70:
                             stats["high_confidence_opportunities"] += 1
+                        
+                        # Add to activity feed
+                        activity_feed.append({
+                            "time": opp.get("detected_at", ""),
+                            "identity": identity_name,
+                            "type": "opportunity",
+                            "msg": f"SIGNAL: {opp.get('recommended_outcome')} ({opp.get('probability_edge', 0)*100:.1f}% edge) for '{opp.get('market_question', '')[:40]}...'"
+                        })
 
                 if "alerts" in monitor_state:
                     for alert in monitor_state["alerts"]:
                         alert["identity"] = identity_name
                         alerts.append(alert)
+                        # Add to activity feed
+                        activity_feed.append({
+                            "time": alert.get("triggered_at", ""),
+                            "identity": identity_name,
+                            "type": "alert",
+                            "msg": f"ALERT: {alert.get('condition', {}).get('name', 'Triggered')} - {alert.get('message', '')[:60]}"
+                        })
 
             except Exception as e:
                 logger.warning(
@@ -210,6 +268,14 @@ def _load_polymarket_data(request: Request) -> dict:
                         trade["identity"] = identity_name
                         trades.append(trade)
                         stats["total_trades"] += 1
+                        
+                        # Add to activity feed
+                        activity_feed.append({
+                            "time": trade.get("executed_at", ""),
+                            "identity": identity_name,
+                            "type": "trade",
+                            "msg": f"TRADE: {trade.get('action')} {trade.get('position_size_usd', 0):.0f}$ at {trade.get('execution_price', 0):.3f}"
+                        })
 
                         # Calculate P&L
                         if "realized_pnl_usd" in trade:
@@ -252,6 +318,7 @@ def _load_polymarket_data(request: Request) -> dict:
     positions.sort(key=lambda x: x.get("unrealized_pnl_usd", 0), reverse=True)
     trades.sort(key=lambda x: x.get("executed_at", ""), reverse=True)
     alerts.sort(key=lambda x: x.get("triggered_at", ""), reverse=True)
+    activity_feed.sort(key=lambda x: x.get("time", ""), reverse=True)
 
     # Convert Decimal to float for JSON serialization
     stats_serializable = {}
@@ -276,4 +343,6 @@ def _load_polymarket_data(request: Request) -> dict:
         "trades": trades[:50],
         "risk_metrics": risk_metrics_serializable,
         "alerts": alerts[:20],
+        "activity_feed": activity_feed[:100],
+        "latest_reasoning": latest_reasoning,
     }

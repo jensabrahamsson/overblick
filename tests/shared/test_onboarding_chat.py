@@ -61,7 +61,7 @@ class TestChatWithIdentity:
         mock_llm.return_value = "Hello from Anomal!"
 
         result = await chat_with_identity(
-            "anomal", "Hi there!", {"model": "qwen3:8b", "temperature": 0.7}
+            "anomal", "Hi there!", {"model": "qwen3.5:9b", "temperature": 0.7}
         )
 
         assert result["success"] is True
@@ -117,7 +117,7 @@ class TestChatWithIdentity:
 
         # Should have called with default model
         call_args = mock_llm.call_args
-        assert call_args[0][1] == "qwen3:8b"  # default model
+        assert call_args[0][1] == "qwen3.5:9b"  # default model
         assert call_args[0][2] == 0.7  # default temperature
 
 
@@ -130,7 +130,7 @@ class TestCheckLLMConnection:
         """Returns success when LLM responds."""
         mock_llm.return_value = "Hello!"
 
-        result = await check_llm_connection({"model": "qwen3:8b"})
+        result = await check_llm_connection({"model": "qwen3.5:9b"})
 
         assert result["success"] is True
         assert result["provider"] == "llm"
@@ -141,7 +141,7 @@ class TestCheckLLMConnection:
         """Returns error when LLM is unreachable."""
         mock_llm.side_effect = ConnectionError("Cannot connect")
 
-        result = await check_llm_connection({"model": "qwen3:8b"})
+        result = await check_llm_connection({"model": "qwen3.5:9b"})
 
         assert result["success"] is False
         assert "Cannot connect" in result["error"]
@@ -152,7 +152,7 @@ class TestCheckLLMConnection:
         """Returns error when LLM returns empty."""
         mock_llm.return_value = None
 
-        result = await check_llm_connection({"model": "qwen3:8b"})
+        result = await check_llm_connection({"model": "qwen3.5:9b"})
 
         assert result["success"] is False
         assert "No LLM backend" in result["error"]

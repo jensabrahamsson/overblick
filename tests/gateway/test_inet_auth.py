@@ -41,13 +41,13 @@ class TestAPIKeyManager:
     def test_create_key_with_permissions(self, key_manager: APIKeyManager):
         _raw_key, record = key_manager.create_key(
             name="restricted",
-            allowed_models=["qwen3:8b"],
+            allowed_models=["qwen3.5:9b"],
             allowed_backends=["local"],
             max_tokens_cap=2048,
             requests_per_minute=10,
         )
 
-        assert record.allowed_models == ["qwen3:8b"]
+        assert record.allowed_models == ["qwen3.5:9b"]
         assert record.allowed_backends == ["local"]
         assert record.max_tokens_cap == 2048
         assert record.requests_per_minute == 10
@@ -110,7 +110,7 @@ class TestAPIKeyManager:
     def test_rotate_key(self, key_manager: APIKeyManager):
         raw_key_1, record_1 = key_manager.create_key(
             name="rotatable",
-            allowed_models=["qwen3:8b"],
+            allowed_models=["qwen3.5:9b"],
             requests_per_minute=15,
         )
 
@@ -124,7 +124,7 @@ class TestAPIKeyManager:
         verified = key_manager.verify_key(raw_key_2)
         assert verified is not None
         assert verified.name == "rotatable"
-        assert verified.allowed_models == ["qwen3:8b"]
+        assert verified.allowed_models == ["qwen3.5:9b"]
         assert verified.requests_per_minute == 15
 
         # Old key is revoked

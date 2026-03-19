@@ -36,11 +36,23 @@
     }
 
     // ── htmx error handler ──────────────────────────────────────────────
-    document.body.addEventListener("htmx:responseError", function () {
+    document.body.addEventListener("htmx:responseError", function (event) {
+        console.error("Server error:", event.detail.xhr.status);
         var flash = document.createElement("div");
         flash.className = "flash flash-error";
         flash.setAttribute("role", "alert");
         flash.textContent = "Request failed. Please try again.";
+        var main = document.getElementById("main-content");
+        if (main) main.prepend(flash);
+        setTimeout(function () { flash.remove(); }, 5000);
+    });
+
+    document.body.addEventListener("htmx:sendError", function () {
+        console.error("Network error");
+        var flash = document.createElement("div");
+        flash.className = "flash flash-error";
+        flash.setAttribute("role", "alert");
+        flash.textContent = "Network error. Check your connection.";
         var main = document.getElementById("main-content");
         if (main) main.prepend(flash);
         setTimeout(function () { flash.remove(); }, 5000);

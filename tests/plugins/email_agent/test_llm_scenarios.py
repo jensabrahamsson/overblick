@@ -2,7 +2,7 @@
 Real LLM scenario tests for Stål's multilingual email handling.
 
 These tests validate that Stål's prompt engineering produces correct
-multilingual responses using the REAL local Ollama LLM (qwen3:8b) through
+multilingual responses using the REAL local Ollama LLM (qwen3.5:9b) through
 the LLM Gateway. They test language detection, mirroring, sign-off format,
 formality, and spam classification.
 
@@ -61,7 +61,7 @@ async def gateway_client():
 
     client = GatewayClient(
         base_url="http://127.0.0.1:8200",
-        model="qwen3:8b",
+        model="qwen3.5:9b",
         default_priority="low",
         temperature=0.4,
         max_tokens=800,

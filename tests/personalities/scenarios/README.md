@@ -9,7 +9,7 @@ with tuned assertion thresholds and expectations.
 
 ```
 scenarios/
-    qwen3_8b/              # Tuned for Qwen3:8b (Ollama)
+    qwen3_5_9b/              # Tuned for Qwen3:8b (Ollama)
         anomal.yaml        # Single-turn scenarios
         blixt.yaml
         bjork.yaml
@@ -40,7 +40,7 @@ Set the `OVERBLICK_TEST_MODEL` environment variable:
 pytest tests/personalities/ -v -s -m llm
 
 # Explicit model selection
-OVERBLICK_TEST_MODEL=qwen3_8b pytest tests/personalities/ -v -s -m llm
+OVERBLICK_TEST_MODEL=qwen3_5_9b pytest tests/personalities/ -v -s -m llm
 
 # Future: different model
 OVERBLICK_TEST_MODEL=mistral_7b pytest tests/personalities/ -v -s -m llm
@@ -50,13 +50,13 @@ OVERBLICK_TEST_MODEL=mistral_7b pytest tests/personalities/ -v -s -m llm
 
 1. **Create the scenario directory:**
    ```bash
-   cp -r tests/personalities/scenarios/qwen3_8b tests/personalities/scenarios/your_model
+   cp -r tests/personalities/scenarios/qwen3_5_9b tests/personalities/scenarios/your_model
    ```
 
 2. **Create LLM hints for each personality:**
    ```bash
    # For each identity in overblick/identities/*/llm_hints/
-   cp overblick/identities/blixt/llm_hints/qwen3_8b.yaml \
+   cp overblick/identities/blixt/llm_hints/qwen3_5_9b.yaml \
       overblick/identities/blixt/llm_hints/your_model.yaml
    ```
 

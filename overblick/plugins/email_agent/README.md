@@ -86,7 +86,7 @@ The plugin is designed around the **Stål** personality — an experienced execu
 1. **Gmail IMAP/SMTP**: Configure Gmail credentials in secrets
 2. **Telegram Bot**: Create a bot via @BotFather for notifications
 3. **Supervisor** (optional): Required for ASK_BOSS and research capabilities
-4. **LLM**: Requires Ollama with `qwen3:8b` (or equivalent model)
+4. **LLM**: Requires Ollama with `qwen3.5:9b` (or equivalent model)
 
 ### Secrets
 
@@ -314,7 +314,7 @@ All internal agent-to-agent communication uses English:
 
 1. Check confidence threshold (default: 0.7)
 2. Review recent learnings — conflicting feedback can reduce confidence
-3. Check LLM model availability (requires `qwen3:8b`)
+3. Check LLM model availability (requires `qwen3.5:9b`)
 4. Review classification prompt in `prompts.py`
 
 ### Notifications Not Arriving

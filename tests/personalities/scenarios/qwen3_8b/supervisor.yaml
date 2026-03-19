@@ -1,5 +1,5 @@
 ################################################################################
-# Supervisor — LLM Scenario Tests (qwen3:8b)
+# Supervisor — LLM Scenario Tests (qwen3.5:9b)
 #
 # Tests system monitoring responses, agent management decisions, escalation
 # patterns, and permission evaluation.

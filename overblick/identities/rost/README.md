@@ -51,7 +51,7 @@ Rost is not angry at crypto. Rost is angry at himself. Had every warning sign. I
 ```yaml
 operational:
   llm:
-    model: "qwen3:8b"
+    model: "qwen3.5:9b"
     temperature: 0.75
     max_tokens: 1800
 

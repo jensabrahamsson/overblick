@@ -33,7 +33,7 @@ class TestOllamaClient:
     @pytest.fixture
     def sample_request(self):
         return ChatRequest(
-            model="qwen3:8b",
+            model="qwen3.5:9b",
             messages=[ChatMessage(role="user", content="Hello")],
         )
 
@@ -62,7 +62,7 @@ class TestOllamaClient:
     async def test_list_models(self, client):
         mock_response_data = {
             "data": [
-                {"id": "qwen3:8b"},
+                {"id": "qwen3.5:9b"},
                 {"id": "llama3:8b"},
             ]
         }
@@ -78,12 +78,12 @@ class TestOllamaClient:
 
             models = await client.list_models()
 
-            assert models == ["qwen3:8b", "llama3:8b"]
+            assert models == ["qwen3.5:9b", "llama3:8b"]
 
     async def test_chat_completion_success(self, client, sample_request):
         mock_response_data = {
             "id": "chatcmpl-123",
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "choices": [
                 {
                     "index": 0,
@@ -108,7 +108,7 @@ class TestOllamaClient:
 
             response = await client.chat_completion(sample_request)
 
-            assert response.model == "qwen3:8b"
+            assert response.model == "qwen3.5:9b"
             assert len(response.choices) == 1
             assert response.choices[0].message.content == "Hi there!"
             assert response.usage.total_tokens == 15

@@ -404,14 +404,14 @@ def _parse_new_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
             "backend_type": local.get("type", "ollama"),
             "host": local.get("host", "127.0.0.1"),
             "port": local.get("port", 11434),
-            "model": local.get("model", "qwen3:8b"),
+            "model": local.get("model", "qwen3.5:9b"),
         },
         "cloud": {
             "enabled": cloud.get("enabled", False),
             "backend_type": cloud.get("type", "ollama"),
             "host": cloud.get("host", ""),
             "port": cloud.get("port", 11434),
-            "model": cloud.get("model", "qwen3:8b"),
+            "model": cloud.get("model", "qwen3.5:9b"),
         },
         "deepseek": {
             "enabled": deepseek.get("enabled", False),
@@ -434,7 +434,7 @@ def _migrate_old_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
     provider = llm.get("provider", "ollama")
     host = llm.get("host", "127.0.0.1")
     port = llm.get("port", 11434)
-    model = llm.get("model", "qwen3:8b")
+    model = llm.get("model", "qwen3.5:9b")
 
     state = {
         "gateway_url": llm.get("gateway_url", "http://127.0.0.1:8200"),
@@ -450,7 +450,7 @@ def _migrate_old_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
             "backend_type": "ollama",
             "host": "",
             "port": 11434,
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
         },
         "deepseek": {
             "enabled": False,
@@ -629,14 +629,14 @@ async def step3_post(request: Request):
         local_type = form.get("local_type", "ollama")
         local_host = form.get("local_host", "127.0.0.1")
         local_port = form.get("local_port", "11434")
-        local_model = form.get("local_model", "qwen3:8b")
+        local_model = form.get("local_model", "qwen3.5:9b")
 
         # Cloud remote backend
         cloud_enabled = form.get("cloud_enabled", "off") == "on"
         cloud_type = form.get("cloud_type", "ollama")
         cloud_host = form.get("cloud_host", "")
         cloud_port = form.get("cloud_port", "11434")
-        cloud_model = form.get("cloud_model", "qwen3:8b")
+        cloud_model = form.get("cloud_model", "qwen3.5:9b")
 
         # Deepseek backend
         deepseek_enabled = form.get("deepseek_enabled", "off") == "on"
@@ -1022,7 +1022,7 @@ async def test_ollama(request: Request):
                 )
             return HTMLResponse(
                 '<span class="badge badge-green">Connected</span>'
-                '<span class="test-detail">No models found. Pull one with: ollama pull qwen3:8b</span>'
+                '<span class="test-detail">No models found. Pull one with: ollama pull qwen3.5:9b</span>'
             )
     except Exception as e:
         return HTMLResponse(

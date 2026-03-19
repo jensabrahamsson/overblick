@@ -23,8 +23,8 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Orchestrator                             │
-│  Identity loading │ Plugin lifecycle │ Scheduler │ Event bus    │
+│                   Modular Orchestrator                          │
+│  Bootstrap │ Runtime Loop │ Shutdown │ Policy Gate              │
 ├─────────────┬─────────────┬───────────┬─────────────────────────┤
 │  Identity   │   Plugin    │ Scheduler │      Event Bus          │
 │   System    │  Registry   │ (cron)    │ (pub/sub, async emit)   │
@@ -32,8 +32,23 @@
 │                     Plugin Context                               │
 │  The ONLY interface plugins use to access framework services     │
 │  (identity, llm_pipeline, audit_log, event_bus, data_dir, etc.) │
+│  + Capability bundles (RuntimeServices, SecurityServices, etc.) │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+## Policy Gate & Capability Bundles
+
+**Policy Gate**: Centralized security policy enforcement across all plugins. Governs capability grants, resource access, and permission checks.
+
+**Capability Bundles**: PluginContext provides typed service bundles for cleaner plugin development:
+- `RuntimeServices`: scheduler, event_bus, heartbeat
+- `SecurityServices`: audit_log, policy_gate, secrets
+- `LLMServices`: llm_pipeline, learning_store
+- `DataServices`: db_backend, data_dir, cache
+- `IdentityServices`: identity, identity_dir
+- `CommunicationServices`: ipc_client, supervisor_client
+
+Plugins can access services via `ctx.runtime`, `ctx.security`, etc., while maintaining full backward compatibility with direct attribute access.
 
 ## Security Pipeline
 
@@ -95,6 +110,7 @@ Blocked at any stage → fail-closed (no LLM output)
 │    .event_bus            │
 │    .data_dir             │
 │    .get_secret(key)      │
+│    + capability bundles  │
 └──────────────────────────┘
 ```
 

@@ -25,7 +25,7 @@ from overblick.identities import (
 class TestLLMSettings:
     def test_defaults(self):
         s = LLMSettings()
-        assert s.model == "qwen3:8b"
+        assert s.model == "qwen3.5:9b"
         assert s.temperature == 0.7
         assert s.max_tokens == 2000
 
@@ -42,13 +42,13 @@ class TestLLMSettings:
         """Legacy YAML fields (provider, use_gateway, cloud_*) are ignored."""
         s = LLMSettings.model_validate(
             {
-                "model": "qwen3:8b",
+                "model": "qwen3.5:9b",
                 "provider": "ollama",
                 "use_gateway": True,
                 "cloud_api_url": "https://api.openai.com/v1",
             }
         )
-        assert s.model == "qwen3:8b"
+        assert s.model == "qwen3.5:9b"
 
 
 class TestQuietHoursSettings:
@@ -126,7 +126,7 @@ class TestModelValidate:
 
     def test_empty_dict(self):
         result = LLMSettings.model_validate({})
-        assert result.model == "qwen3:8b"
+        assert result.model == "qwen3.5:9b"
 
 
 class TestLoadYaml:

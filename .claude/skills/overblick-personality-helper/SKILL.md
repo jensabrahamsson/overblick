@@ -131,7 +131,7 @@ Add to the test parametrize lists in `tests/personalities/test_personality_llm.p
 # Run personality tests (no LLM needed)
 ./venv/bin/python3 -m pytest tests/core/test_personality.py -v
 
-# Run LLM personality tests (requires Ollama + qwen3:8b)
+# Run LLM personality tests (requires Ollama + qwen3.5:9b)
 ./venv/bin/python3 -m pytest tests/personalities/test_personality_llm.py -v -s -m llm --timeout=300
 ```
 

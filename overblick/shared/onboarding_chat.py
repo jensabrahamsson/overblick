@@ -32,7 +32,7 @@ async def chat_with_identity(
     if not llm_config:
         llm_config = {}
 
-    model = llm_config.get("model", "qwen3:8b")
+    model = llm_config.get("model", "qwen3.5:9b")
     temperature = float(llm_config.get("temperature", 0.7))
     max_tokens = int(llm_config.get("max_tokens", 500))
 
@@ -91,7 +91,7 @@ async def test_llm_connection(llm_config: dict[str, Any]) -> dict[str, Any]:
         {"role": "user", "content": "Say hello."},
     ]
 
-    model = llm_config.get("model", "qwen3:8b")
+    model = llm_config.get("model", "qwen3.5:9b")
 
     try:
         result = await _call_llm(messages, model, 0.5, 100, llm_config)

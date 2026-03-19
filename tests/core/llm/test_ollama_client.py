@@ -22,6 +22,13 @@ import pytest
 from overblick.core.exceptions import LLMConnectionError, LLMTimeoutError
 from overblick.core.llm.ollama_client import OllamaClient
 
+
+@pytest.fixture(autouse=True)
+def _allow_direct_llm(monkeypatch):
+    """Allow direct LLM client instantiation in tests."""
+    monkeypatch.setenv("OVERBLICK_ALLOW_DIRECT_LLM", "1")
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -41,7 +48,7 @@ def _make_mock_session(
     if response_json is None:
         response_json = {
             "choices": [{"message": {"content": "Test response"}, "finish_reason": "stop"}],
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "usage": {"total_tokens": 42},
         }
 
@@ -78,7 +85,7 @@ class TestOllamaClientInit:
 
     def test_should_use_exact_default_model(self):
         client = OllamaClient()
-        assert client.model == "qwen3:8b"
+        assert client.model == "qwen3.5:9b"
 
     def test_should_use_exact_default_max_tokens(self):
         client = OllamaClient()
@@ -94,7 +101,7 @@ class TestOllamaClientInit:
 
     def test_should_use_exact_default_timeout_seconds(self):
         client = OllamaClient()
-        assert client.timeout_seconds == 180
+        assert client.timeout_seconds == 600
 
     def test_should_have_none_session_at_init(self):
         client = OllamaClient()
@@ -152,7 +159,7 @@ class TestOllamaClientChat:
 
         assert result is not None
         assert result["content"] == "Test response"
-        assert result["model"] == "qwen3:8b"
+        assert result["model"] == "qwen3.5:9b"
         assert result["tokens_used"] == 42
         assert result["finish_reason"] == "stop"
         assert set(result.keys()) == {"content", "model", "tokens_used", "finish_reason"}
@@ -171,7 +178,7 @@ class TestOllamaClientChat:
         assert payload["max_tokens"] == 1000
         assert payload["top_p"] == 0.85
         assert payload["stream"] is False
-        assert payload["model"] == "qwen3:8b"
+        assert payload["model"] == "qwen3.5:9b"
         assert set(payload.keys()) == {"model", "messages", "temperature", "max_tokens", "top_p", "stream"}
 
     @pytest.mark.asyncio
@@ -461,7 +468,7 @@ class TestThinkTokenStripping:
                     "finish_reason": "stop",
                 }
             ],
-            "model": "qwen3:8b",
+            "model": "qwen3.5:9b",
             "usage": {"total_tokens": 50},
         }
         client = OllamaClient()
@@ -526,11 +533,11 @@ class TestOllamaClientHealth:
     async def test_should_return_true_when_model_found(self):
         health_response = {
             "models": [
-                {"name": "qwen3:8b"},
+                {"name": "qwen3.5:9b"},
                 {"name": "llama3:8b"},
             ]
         }
-        client = OllamaClient(model="qwen3:8b")
+        client = OllamaClient(model="qwen3.5:9b")
         client._session = _make_mock_session(response_json=health_response)
 
         result = await client.health_check()
@@ -543,7 +550,7 @@ class TestOllamaClientHealth:
                 {"name": "llama3:8b"},
             ]
         }
-        client = OllamaClient(model="qwen3:8b")
+        client = OllamaClient(model="qwen3.5:9b")
         client._session = _make_mock_session(response_json=health_response)
 
         result = await client.health_check()
@@ -554,10 +561,10 @@ class TestOllamaClientHealth:
         """Model base name matches even with different tag."""
         health_response = {
             "models": [
-                {"name": "qwen3:latest"},
+                {"name": "qwen3.5:latest"},
             ]
         }
-        client = OllamaClient(model="qwen3:8b")
+        client = OllamaClient(model="qwen3.5:9b")
         client._session = _make_mock_session(response_json=health_response)
 
         result = await client.health_check()
@@ -616,7 +623,7 @@ class TestOllamaClientHealth:
     async def test_should_construct_correct_health_url(self):
         """Health check uses /api/tags endpoint (strips /v1)."""
         client = OllamaClient(base_url="http://myhost:11434/v1")
-        mock_session = _make_mock_session(response_json={"models": [{"name": "qwen3:8b"}]})
+        mock_session = _make_mock_session(response_json={"models": [{"name": "qwen3.5:9b"}]})
         client._session = mock_session
 
         await client.health_check()

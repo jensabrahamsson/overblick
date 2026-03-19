@@ -26,7 +26,7 @@ def natt_identity():
         display_name="Natt",
         description="Uncanny philosopher and paradox collector",
         engagement_threshold=25,
-        llm=LLMSettings(model="qwen3:8b", temperature=0.75, max_tokens=2000),
+        llm=LLMSettings(model="qwen3.5:9b", temperature=0.75, max_tokens=2000),
         quiet_hours=QuietHoursSettings(enabled=True, start_hour=5, end_hour=10),
         schedule=ScheduleSettings(heartbeat_hours=6, feed_poll_minutes=10),
         security=SecuritySettings(enable_preflight=True, enable_output_safety=True),
