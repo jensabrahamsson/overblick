@@ -27,6 +27,7 @@ def _make_ctx(tmp_path):
     ctx.audit_log = MagicMock()
     ctx.audit_log.log = MagicMock()
     ctx.llm_pipeline = None
+    ctx.event_bus = None
     return ctx
 
 
@@ -282,34 +283,22 @@ class TestPerformMarketScan:
 
 class TestInitClient:
     @pytest.mark.asyncio
-    async def test_should_skip_in_simulation_mode(self, tmp_path):
+    async def test_should_create_client(self, tmp_path):
         ctx = _make_ctx(tmp_path)
         plugin = PolymarketMonitorPlugin(ctx)
         await plugin.setup()
+
         await plugin._init_client()
-        assert plugin._client is None
-
-    @pytest.mark.asyncio
-    async def test_should_create_client_in_real_mode(self, tmp_path):
-        ctx = _make_ctx(tmp_path)
-        plugin = PolymarketMonitorPlugin(ctx)
-        await plugin.setup()
-        plugin._config["simulation_mode"] = False
-
-        import sys
-        mock_aiohttp = MagicMock()
-        mock_session = MagicMock()
-        mock_aiohttp.ClientSession.return_value = mock_session
-        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
-            await plugin._init_client()
         assert plugin._client is not None
+        assert plugin._session is not None
+        # Cleanup
+        await plugin._session.close()
 
     @pytest.mark.asyncio
     async def test_should_raise_on_missing_aiohttp(self, tmp_path):
         ctx = _make_ctx(tmp_path)
         plugin = PolymarketMonitorPlugin(ctx)
         await plugin.setup()
-        plugin._config["simulation_mode"] = False
 
         import builtins
         original_import = builtins.__import__
@@ -326,19 +315,11 @@ class TestInitClient:
 
 class TestFetchMarkets:
     @pytest.mark.asyncio
-    async def test_should_return_empty_in_simulation(self, tmp_path):
-        ctx = _make_ctx(tmp_path)
-        plugin = PolymarketMonitorPlugin(ctx)
-        await plugin.setup()
-        markets = await plugin._fetch_markets()
-        assert markets == []
-
-    @pytest.mark.asyncio
     async def test_should_return_empty_when_no_client(self, tmp_path):
         ctx = _make_ctx(tmp_path)
         plugin = PolymarketMonitorPlugin(ctx)
         await plugin.setup()
-        plugin._config["simulation_mode"] = False
+        # Client is None after setup (not initialized until first scan)
         markets = await plugin._fetch_markets()
         assert markets == []
 
@@ -349,7 +330,6 @@ class TestFetchMarkets:
         ctx = _make_ctx(tmp_path)
         plugin = PolymarketMonitorPlugin(ctx)
         await plugin.setup()
-        plugin._config["simulation_mode"] = False
 
         mock_client = MagicMock(spec=PolymarketClient)
         market = _make_market()
@@ -369,7 +349,6 @@ class TestFetchMarkets:
         ctx = _make_ctx(tmp_path)
         plugin = PolymarketMonitorPlugin(ctx)
         await plugin.setup()
-        plugin._config["simulation_mode"] = False
 
         mock_client = MagicMock(spec=PolymarketClient)
         mock_client.get_all_markets = AsyncMock(side_effect=PolymarketAPIError("err"))

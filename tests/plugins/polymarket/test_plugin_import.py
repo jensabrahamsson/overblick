@@ -8,6 +8,14 @@ requiring external dependencies (APIs, blockchain, etc.).
 import sys
 from unittest.mock import Mock
 
+import pytest
+
+try:
+    import py_clob_client  # noqa: F401
+    HAS_CLOB = True
+except ImportError:
+    HAS_CLOB = False
+
 
 def test_polymarket_monitor_import():
     """Test that polymarket_monitor plugin can be imported."""
@@ -70,6 +78,7 @@ def test_polymarket_client_import():
     assert RateLimitExceeded is not None
 
 
+@pytest.mark.skipif(not HAS_CLOB, reason="py_clob_client not installed")
 def test_whallet_trader_import():
     """Test that whallet_trader plugin can be imported."""
     from overblick.core.plugin_base import PluginContext
@@ -91,6 +100,7 @@ def test_whallet_trader_import():
     assert plugin.ctx == ctx
 
 
+@pytest.mark.skipif(not HAS_CLOB, reason="py_clob_client not installed")
 def test_whallet_trader_models_import():
     """Test that whallet_trader models can be imported."""
     from decimal import Decimal
@@ -127,6 +137,7 @@ def test_whallet_trader_models_import():
     assert signal.action == TradeAction.BUY_YES
 
 
+@pytest.mark.skipif(not HAS_CLOB, reason="py_clob_client not installed")
 def test_whallet_trader_executor_import():
     """Test that trading_executor can be imported."""
     from overblick.plugins.whallet_trader.trading_executor import (
@@ -143,6 +154,7 @@ def test_whallet_trader_executor_import():
     assert TransactionFailed is not None
 
 
+@pytest.mark.skipif(not HAS_CLOB, reason="py_clob_client not installed")
 def test_whallet_trader_risk_manager_import():
     """Test that risk_manager can be imported."""
     from overblick.plugins.whallet_trader.risk_manager import RiskManager

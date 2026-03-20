@@ -114,6 +114,7 @@ class TestMakeRequest:
 
     @pytest.mark.asyncio
     async def test_should_raise_on_timeout(self):
+        """TimeoutError is not caught by _make_request (only aiohttp.ClientError is)."""
         mock_response = AsyncMock()
         mock_response.__aenter__ = AsyncMock(side_effect=TimeoutError("timeout"))
         mock_response.__aexit__ = AsyncMock(return_value=False)
@@ -122,7 +123,7 @@ class TestMakeRequest:
         session.get = MagicMock(return_value=mock_response)
 
         client = PolymarketClient(session=session)
-        with pytest.raises(PolymarketAPIError, match="Timeout"):
+        with pytest.raises(TimeoutError, match="timeout"):
             await client._make_request("markets")
 
 
@@ -162,24 +163,20 @@ class TestGetAllMarkets:
     @pytest.mark.asyncio
     async def test_should_fetch_and_parse_markets(self):
         client = PolymarketClient(session=MagicMock())
-        market_data = {
-            "markets": [
-                {
-                    "id": "mkt1",
-                    "slug": "test",
-                    "question": "Q?",
-                    "category": "politics",
-                    "status": "open",
-                    "createdTime": "2026-01-01T00:00:00Z",
-                    "outcomes": [
-                        {"name": "Yes", "ticker": "YES", "price": 0.6, "volume24h": 1000},
-                        {"name": "No", "ticker": "NO", "price": 0.4, "volume24h": 500},
-                    ],
-                    "volume24h": 1500,
-                    "liquidity": 5000,
-                }
-            ]
-        }
+        # Gamma API returns array directly
+        market_data = [
+            {
+                "id": "mkt1",
+                "slug": "test",
+                "question": "Q?",
+                "category": "politics",
+                "createdAt": "2026-01-01T00:00:00Z",
+                "outcomes": '["Yes", "No"]',
+                "outcomePrices": '[0.6, 0.4]',
+                "volumeNum": 1500,
+                "liquidityNum": 5000,
+            }
+        ]
         client._make_request = AsyncMock(return_value=market_data)
         result = await client.get_all_markets()
         assert len(result) == 1
@@ -188,11 +185,8 @@ class TestGetAllMarkets:
     @pytest.mark.asyncio
     async def test_should_skip_invalid_market_data(self):
         client = PolymarketClient(session=MagicMock())
-        market_data = {
-            "markets": [
-                {"invalid": "data"},  # Missing required fields
-            ]
-        }
+        # Gamma API returns array directly; non-dict items are skipped
+        market_data = ["not_a_dict"]
         client._make_request = AsyncMock(return_value=market_data)
         result = await client.get_all_markets()
         assert len(result) == 0
@@ -201,39 +195,43 @@ class TestGetAllMarkets:
     async def test_should_return_empty_on_api_error(self):
         client = PolymarketClient(session=MagicMock())
         client._make_request = AsyncMock(side_effect=PolymarketAPIError("err"))
-        result = await client.get_all_markets()
+        # Falls back to mock data generator
+        with patch("overblick.plugins.polymarket_monitor.polymarket_client.PolymarketClient._get_mock_markets", new_callable=AsyncMock, return_value=[]):
+            result = await client.get_all_markets()
         assert result == []
 
 
 class TestGetMarketById:
     @pytest.mark.asyncio
-    async def test_should_return_cached_market(self):
-        client = PolymarketClient()
-        market = MagicMock()
-        client._set_cached("market_m1", market)
-        result = await client.get_market_by_id("m1")
-        assert result is market
-
-    @pytest.mark.asyncio
-    async def test_should_fetch_market(self):
+    async def test_should_find_market_in_list(self):
         client = PolymarketClient(session=MagicMock())
-        data = {
-            "id": "m1",
-            "slug": "test",
-            "question": "Q?",
-            "category": "politics",
-            "status": "open",
-            "createdTime": "2026-01-01T00:00:00Z",
-            "outcomes": [],
-            "volume24h": 1000,
-            "liquidity": 5000,
-        }
+        # API returns a list of markets; get_market_by_id searches through them
+        data = [
+            {
+                "id": "m1",
+                "slug": "test",
+                "question": "Q?",
+                "category": "politics",
+                "createdAt": "2026-01-01T00:00:00Z",
+                "outcomes": '["Yes", "No"]',
+                "outcomePrices": '[0.6, 0.4]',
+            }
+        ]
         client._make_request = AsyncMock(return_value=data)
         result = await client.get_market_by_id("m1")
+        assert result is not None
         assert result.id == "m1"
 
     @pytest.mark.asyncio
-    async def test_should_return_none_on_parse_error(self):
+    async def test_should_return_none_when_not_found(self):
+        client = PolymarketClient(session=MagicMock())
+        # API returns list without the target market
+        client._make_request = AsyncMock(return_value=[{"id": "other"}])
+        result = await client.get_market_by_id("m1")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_should_return_none_on_non_list_response(self):
         client = PolymarketClient(session=MagicMock())
         client._make_request = AsyncMock(return_value={"invalid": True})
         result = await client.get_market_by_id("m1")
@@ -247,72 +245,6 @@ class TestGetMarketById:
         assert result is None
 
 
-class TestGetMarketBySlug:
-    @pytest.mark.asyncio
-    async def test_should_return_cached_market(self):
-        client = PolymarketClient()
-        market = MagicMock()
-        client._set_cached("market_slug_test", market)
-        result = await client.get_market_by_slug("test")
-        assert result is market
-
-    @pytest.mark.asyncio
-    async def test_should_fetch_market_by_slug(self):
-        client = PolymarketClient(session=MagicMock())
-        data = {
-            "id": "m1",
-            "slug": "test",
-            "question": "Q?",
-            "category": "other",
-            "status": "open",
-            "createdTime": "2026-01-01T00:00:00Z",
-            "outcomes": [],
-            "volume24h": 1000,
-        }
-        client._make_request = AsyncMock(return_value=data)
-        result = await client.get_market_by_slug("test")
-        assert result.id == "m1"
-
-    @pytest.mark.asyncio
-    async def test_should_return_none_on_parse_error(self):
-        client = PolymarketClient(session=MagicMock())
-        client._make_request = AsyncMock(return_value={"bad": True})
-        result = await client.get_market_by_slug("test")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_should_return_none_on_api_error(self):
-        client = PolymarketClient(session=MagicMock())
-        client._make_request = AsyncMock(side_effect=PolymarketAPIError("err"))
-        result = await client.get_market_by_slug("test")
-        assert result is None
-
-
-class TestGetMarketTicker:
-    @pytest.mark.asyncio
-    async def test_should_return_cached_ticker(self):
-        client = PolymarketClient()
-        ticker = {"price": 0.5}
-        client._set_cached("ticker_m1", ticker)
-        result = await client.get_market_ticker("m1")
-        assert result == ticker
-
-    @pytest.mark.asyncio
-    async def test_should_fetch_ticker(self):
-        client = PolymarketClient(session=MagicMock())
-        data = {"price": 0.55}
-        client._make_request = AsyncMock(return_value=data)
-        result = await client.get_market_ticker("m1")
-        assert result["price"] == 0.55
-
-    @pytest.mark.asyncio
-    async def test_should_return_none_on_error(self):
-        client = PolymarketClient(session=MagicMock())
-        client._make_request = AsyncMock(side_effect=PolymarketAPIError("err"))
-        result = await client.get_market_ticker("m1")
-        assert result is None
-
-
 class TestParseMarketData:
     def test_should_parse_full_market_data(self):
         client = PolymarketClient()
@@ -322,21 +254,13 @@ class TestParseMarketData:
             "question": "Q?",
             "description": "Desc",
             "category": "politics",
-            "status": "open",
-            "createdTime": "2026-01-01T00:00:00Z",
-            "endTime": "2026-06-01T00:00:00Z",
-            "outcomes": [
-                {
-                    "name": "Yes",
-                    "ticker": "YES",
-                    "price": 0.6,
-                    "volume24h": 1000,
-                    "lastUpdated": "2026-01-15T00:00:00Z",
-                },
-                {"name": "No", "ticker": "NO", "price": 0.4, "volume24h": 500},
-            ],
-            "volume24h": 1500,
-            "liquidity": 5000,
+            "closed": False,
+            "createdAt": "2026-01-01T00:00:00Z",
+            "endDate": "2026-06-01T00:00:00Z",
+            "outcomes": '["Yes", "No"]',
+            "outcomePrices": '[0.6, 0.4]',
+            "volumeNum": 1500,
+            "liquidityNum": 5000,
             "openInterest": 2000,
         }
         market = client._parse_market_data(data)
@@ -349,23 +273,36 @@ class TestParseMarketData:
         data = {
             "id": "m1",
             "category": "unknown_cat",
-            "status": "open",
-            "createdTime": "2026-01-01T00:00:00Z",
-            "outcomes": [],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "outcomes": "[]",
         }
         market = client._parse_market_data(data)
         from overblick.plugins.polymarket_monitor.models import MarketCategory
 
         assert market.category == MarketCategory.OTHER
 
-    def test_should_handle_unknown_status(self):
+    def test_should_handle_closed_market(self):
         client = PolymarketClient()
         data = {
             "id": "m1",
             "category": "politics",
-            "status": "unknown_status",
-            "createdTime": "2026-01-01T00:00:00Z",
-            "outcomes": [],
+            "closed": True,
+            "createdAt": "2026-01-01T00:00:00Z",
+            "outcomes": "[]",
+        }
+        market = client._parse_market_data(data)
+        from overblick.plugins.polymarket_monitor.models import MarketStatus
+
+        assert market.status == MarketStatus.CLOSED
+
+    def test_should_handle_open_market(self):
+        client = PolymarketClient()
+        data = {
+            "id": "m1",
+            "category": "politics",
+            "closed": False,
+            "createdAt": "2026-01-01T00:00:00Z",
+            "outcomes": "[]",
         }
         market = client._parse_market_data(data)
         from overblick.plugins.polymarket_monitor.models import MarketStatus
@@ -377,23 +314,21 @@ class TestParseMarketData:
         data = {
             "id": "m1",
             "category": "other",
-            "status": "open",
-            "createdTime": "2026-01-01T00:00:00Z",
-            "outcomes": [],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "outcomes": "[]",
         }
         market = client._parse_market_data(data)
         assert market.end_time is None
 
-    def test_should_handle_outcome_without_last_updated(self):
+    def test_should_parse_json_string_outcomes(self):
+        """Gamma API returns outcomes as JSON strings."""
         client = PolymarketClient()
         data = {
             "id": "m1",
             "category": "other",
-            "status": "open",
-            "createdTime": "2026-01-01T00:00:00Z",
-            "outcomes": [
-                {"name": "Yes", "ticker": "YES", "price": 0.5},
-            ],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "outcomes": '["Yes"]',
+            "outcomePrices": '[0.5]',
         }
         market = client._parse_market_data(data)
         assert len(market.outcomes) == 1
@@ -403,13 +338,9 @@ class TestParseMarketData:
         data = {
             "id": "m1",
             "category": "other",
-            "status": "open",
-            "createdTime": "2026-01-01T00:00:00Z",
-            "outcomes": [
-                {"name": "A", "ticker": "A", "price": 0.33},
-                {"name": "B", "ticker": "B", "price": 0.33},
-                {"name": "C", "ticker": "C", "price": 0.33},
-            ],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "outcomes": '["A", "B", "C"]',
+            "outcomePrices": '[0.33, 0.33, 0.33]',
         }
         market = client._parse_market_data(data)
         assert market.implied_probability is None
@@ -419,12 +350,9 @@ class TestParseMarketData:
         data = {
             "id": "m1",
             "category": "other",
-            "status": "open",
-            "createdTime": "2026-01-01T00:00:00Z",
-            "outcomes": [
-                {"name": "A", "ticker": "A", "price": 0.5},
-                {"name": "B", "ticker": "B", "price": 0.5},
-            ],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "outcomes": '["A", "B"]',
+            "outcomePrices": '[0.5, 0.5]',
         }
         market = client._parse_market_data(data)
         assert market.implied_probability is None

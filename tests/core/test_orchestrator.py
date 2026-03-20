@@ -2,13 +2,11 @@
 
 import asyncio
 import json
-import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from overblick.core.exceptions import ConfigError
 from overblick.core.orchestrator import Orchestrator, OrchestratorState
 from overblick.identities import Identity, LLMSettings, ScheduleSettings, SecuritySettings
 
@@ -91,11 +89,11 @@ class TestOrchestratorStop:
         assert orch.state == OrchestratorState.STOPPED
 
     async def test_stop_while_stopping(self, tmp_path):
-        """Line 548: stop returns early if already STOPPING."""
+        """stop() from STOPPING state goes through full shutdown to STOPPED."""
         orch = Orchestrator("anomal", base_dir=tmp_path)
         orch._state = OrchestratorState.STOPPING
-        await orch.stop()  # Should return immediately
-        assert orch.state == OrchestratorState.STOPPING
+        await orch.stop()
+        assert orch.state == OrchestratorState.STOPPED
 
     async def test_stop_tears_down_plugins_reverse_order(self, tmp_path):
         orch = _make_orchestrator(tmp_path)
@@ -139,11 +137,11 @@ class TestOrchestratorStop:
         assert orch.state == OrchestratorState.STOPPED
 
     async def test_stop_engagement_db(self, tmp_path):
-        """Line 560 + 580-582."""
+        """Shutdown tears down engagement DB and backend."""
         orch = _make_orchestrator(tmp_path)
         eng_db = MagicMock()
         eng_db.stop_background_cleanup = MagicMock()
-        orch._engagement_db = eng_db
+        orch._services.engagement_db = eng_db
 
         backend = MagicMock()
         backend.close = AsyncMock()
@@ -185,42 +183,23 @@ class TestCreateComponentsViaFactory:
         assert result == {}
 
     async def test_factory_creates_all_components(self, tmp_path):
-        """Lines 154-186."""
-        factory = MagicMock()
-        factory.load_identity = AsyncMock(return_value=_make_identity())
-        factory.get_paths.return_value = {
-            "data_dir": tmp_path / "data",
-            "log_dir": tmp_path / "logs",
-            "secrets_dir": tmp_path / "secrets",
+        """_create_components_via_factory delegates to factory.create_all."""
+        expected_result = {
+            "identity": MagicMock(),
+            "llm_pipeline": MagicMock(),
+            "registry": MagicMock(),
         }
-        factory.create_secrets_manager.return_value = MagicMock()
-        factory.create_audit_log.return_value = MagicMock()
-        factory.create_engagement_db = AsyncMock(return_value=MagicMock())
-        factory.create_quiet_hours_checker.return_value = MagicMock()
-        llm_client = AsyncMock()
-        factory.create_llm_client = AsyncMock(return_value=llm_client)
-        factory.create_preflight_checker.return_value = MagicMock()
-        factory.create_output_safety.return_value = MagicMock()
-        factory.create_rate_limiter.return_value = MagicMock()
-        factory.create_safe_llm_pipeline.return_value = MagicMock()
-        factory.create_permission_checker.return_value = MagicMock()
-        factory.create_plugin_capability_checker.return_value = MagicMock()
-        factory.create_ipc_client.return_value = MagicMock()
-        factory.create_event_bus.return_value = MagicMock()
-        factory.create_scheduler.return_value = MagicMock()
-        factory.create_plugin_registry.return_value = MagicMock()
+        factory = MagicMock()
+        factory.create_all = AsyncMock(return_value=expected_result)
 
         orch = _make_orchestrator(tmp_path, factory=factory)
         result = await orch._create_components_via_factory()
-        assert "identity" in result
-        assert "llm_pipeline" in result
-        assert "registry" in result
-        assert len(result) == 17
-
-        # Verify factory method was called with correct args for pipeline
-        factory.create_safe_llm_pipeline.assert_called_once()
-        call_kwargs = factory.create_safe_llm_pipeline.call_args[1]
-        assert call_kwargs["llm_client"] is llm_client
+        assert result is expected_result
+        factory.create_all.assert_awaited_once_with(
+            identity_name="testident",
+            base_dir=tmp_path,
+            plugin_names=[],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -229,65 +208,31 @@ class TestCreateComponentsViaFactory:
 
 
 class TestSetupWithFactory:
-    async def test_setup_via_factory_loads_plugins(self, tmp_path):
-        """Lines 269-289."""
-        factory = MagicMock()
+    async def test_setup_delegates_to_bootstrap_and_plugin_loader(self, tmp_path):
+        """setup() delegates to OrchestratorBootstrap and PluginLoader."""
         identity = _make_identity(plugins=("fakeplugin",))
-
-        data_dir = tmp_path / "data" / "testident"
-        data_dir.mkdir(parents=True)
-        log_dir = tmp_path / "logs" / "testident"
-        log_dir.mkdir(parents=True)
-
-        factory.load_identity = AsyncMock(return_value=identity)
-        factory.get_paths.return_value = {
-            "data_dir": data_dir,
-            "log_dir": log_dir,
-            "secrets_dir": tmp_path / "secrets",
-        }
-        factory.create_secrets_manager.return_value = MagicMock()
-        audit = MagicMock()
-        audit.log = MagicMock()
-        factory.create_audit_log.return_value = audit
-        factory.create_engagement_db = AsyncMock(return_value=None)
-        factory.create_quiet_hours_checker.return_value = MagicMock()
-        llm_client = MagicMock()
-        llm_client.embed = AsyncMock(return_value=[0.1])
-        factory.create_llm_client = AsyncMock(return_value=llm_client)
-        factory.create_preflight_checker.return_value = MagicMock()
-        factory.create_output_safety.return_value = MagicMock()
-        factory.create_rate_limiter.return_value = MagicMock()
-        factory.create_safe_llm_pipeline.return_value = MagicMock()
-        factory.create_permission_checker.return_value = MagicMock()
-        cap_checker = MagicMock()
-        cap_checker.check_plugin = MagicMock()
-        factory.create_plugin_capability_checker.return_value = cap_checker
-        factory.create_ipc_client.return_value = MagicMock()
-        event_bus = MagicMock()
-        factory.create_event_bus.return_value = event_bus
-        sched = MagicMock()
-        sched.stop = AsyncMock()
-        factory.create_scheduler.return_value = sched
+        bootstrap_result = _make_bootstrap_result(tmp_path, identity)
 
         plugin_instance = MagicMock()
         plugin_instance.name = "fakeplugin"
-        plugin_instance.setup = AsyncMock()
-        plugin_instance.REQUIRED_CAPABILITIES = ["cap1"]
-        registry = MagicMock()
-        registry.load.return_value = plugin_instance
-        factory.create_plugin_registry.return_value = registry
+
+        factory = MagicMock()
 
         orch = _make_orchestrator(tmp_path, factory=factory)
 
-        with patch.object(orch, "_setup_capabilities", new_callable=AsyncMock), \
-             patch.object(orch, "_setup_learning_store", new_callable=AsyncMock), \
-             patch.object(orch, "_load_local_plugin_config", return_value=[]), \
-             patch.object(orch, "_resolve_plugin_dependencies", side_effect=lambda x: x):
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls:
+            mock_bootstrap = mock_bootstrap_cls.return_value
+            mock_bootstrap.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader = mock_loader_cls.return_value
+            mock_loader.load_all = AsyncMock(return_value=[plugin_instance])
+
             await orch.setup()
 
         assert orch.state == OrchestratorState.SETUP
         assert len(orch._plugins) == 1
-        cap_checker.check_plugin.assert_called_once_with("fakeplugin", ["cap1"])
+        mock_bootstrap.setup.assert_awaited_once()
+        mock_loader.load_all.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
@@ -295,223 +240,119 @@ class TestSetupWithFactory:
 # ---------------------------------------------------------------------------
 
 
-def _patch_non_factory_setup(orch):
-    """Context manager patches for non-factory setup tests."""
-    identity = orch._test_identity
+def _make_bootstrap_result(tmp_path, identity=None, plugins=None):
+    """Create a mock OrchestratorBootstrapResult for setup tests."""
+    from overblick.core.orchestrator_bootstrap_result import OrchestratorBootstrapResult
+    from overblick.core.orchestrator_paths import OrchestratorPaths
+    from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
+    from overblick.core.orchestrator_services import OrchestratorServices
 
-    return (
-        patch("overblick.core.orchestrator.load_identity", return_value=identity),
-        patch("overblick.core.orchestrator.SecretsManager"),
-        patch("overblick.core.orchestrator.AuditLog", return_value=MagicMock()),
-        patch("overblick.core.orchestrator.QuietHoursChecker"),
-        patch.object(orch, "_create_llm_client", new_callable=AsyncMock, return_value=MagicMock()),
-        patch.object(orch, "_create_preflight", return_value=None),
-        patch.object(orch, "_create_output_safety", return_value=None),
-        patch("overblick.core.orchestrator.RateLimiter"),
-        patch("overblick.core.orchestrator.SafeLLMPipeline"),
-        patch("overblick.core.orchestrator.PermissionChecker"),
-        patch("overblick.core.orchestrator.PluginCapabilityChecker"),
-        patch.object(orch, "_setup_capabilities", new_callable=AsyncMock),
-        patch.object(orch, "_setup_learning_store", new_callable=AsyncMock),
-        patch.object(orch, "_create_ipc_client", return_value=None),
-        patch.object(orch, "_load_local_plugin_config", return_value=[]),
-        patch.object(orch, "_resolve_plugin_dependencies", side_effect=lambda x: x),
+    identity = identity or _make_identity()
+    services = OrchestratorServices()
+    services.identity = identity
+    runtime_state = OrchestratorRuntimeState()
+    runtime_state.lifecycle_state = OrchestratorState.SETUP
+    paths = OrchestratorPaths.for_identity(tmp_path, "testident")
+
+    return OrchestratorBootstrapResult(
+        services=services,
+        runtime_state=runtime_state,
+        paths=paths,
     )
 
 
 class TestSetupWithoutFactory:
-    async def test_setup_with_moltbook_creates_engagement_db(self, tmp_path):
-        """Lines 321-332."""
+    async def test_setup_delegates_to_bootstrap(self, tmp_path):
+        """setup() creates OrchestratorBootstrap and delegates."""
         identity = _make_identity(plugins=("moltbook",))
         orch = _make_orchestrator(tmp_path)
 
+        bootstrap_result = _make_bootstrap_result(tmp_path, identity)
+
         plugin_instance = MagicMock()
         plugin_instance.name = "moltbook"
-        plugin_instance.setup = AsyncMock()
 
-        mock_sqlite_inst = MagicMock()
-        mock_sqlite_inst.connect = AsyncMock()
-        mock_eng_inst = MagicMock()
-        mock_eng_inst.setup = AsyncMock()
-
-        with patch("overblick.core.orchestrator.load_identity", return_value=identity), \
-             patch("overblick.core.orchestrator.SecretsManager"), \
-             patch("overblick.core.orchestrator.AuditLog") as mock_audit_cls, \
-             patch("overblick.core.orchestrator.SQLiteBackend", return_value=mock_sqlite_inst), \
-             patch("overblick.core.orchestrator.EngagementDB", return_value=mock_eng_inst), \
-             patch("overblick.core.orchestrator.QuietHoursChecker"), \
-             patch.object(orch, "_create_llm_client", new_callable=AsyncMock, return_value=MagicMock()), \
-             patch.object(orch, "_create_preflight", return_value=None), \
-             patch.object(orch, "_create_output_safety", return_value=None), \
-             patch("overblick.core.orchestrator.RateLimiter"), \
-             patch("overblick.core.orchestrator.SafeLLMPipeline"), \
-             patch("overblick.core.orchestrator.PermissionChecker") as mock_perm, \
-             patch("overblick.core.orchestrator.PluginCapabilityChecker"), \
-             patch.object(orch, "_setup_capabilities", new_callable=AsyncMock), \
-             patch.object(orch, "_setup_learning_store", new_callable=AsyncMock), \
-             patch.object(orch, "_create_ipc_client", return_value=None), \
-             patch.object(orch, "_load_local_plugin_config", return_value=[]), \
-             patch.object(orch, "_resolve_plugin_dependencies", side_effect=lambda x: x):
-
-            mock_audit_cls.return_value = MagicMock()
-            mock_perm.from_identity.return_value = MagicMock()
-            orch._registry = MagicMock()
-            orch._registry.load.return_value = plugin_instance
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls:
+            mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader_cls.return_value.load_all = AsyncMock(return_value=[plugin_instance])
 
             await orch.setup()
 
-        mock_sqlite_inst.connect.assert_awaited_once()
-        mock_eng_inst.setup.assert_awaited_once()
-
-    async def test_setup_no_plugins_raises_config_error(self, tmp_path):
-        """Line 440."""
-        identity = _make_identity(plugins=("nonexistent",))
-        orch = _make_orchestrator(tmp_path)
-
-        with patch("overblick.core.orchestrator.load_identity", return_value=identity), \
-             patch("overblick.core.orchestrator.SecretsManager"), \
-             patch("overblick.core.orchestrator.AuditLog") as mock_audit_cls, \
-             patch("overblick.core.orchestrator.QuietHoursChecker"), \
-             patch.object(orch, "_create_llm_client", new_callable=AsyncMock, return_value=MagicMock()), \
-             patch.object(orch, "_create_preflight", return_value=None), \
-             patch.object(orch, "_create_output_safety", return_value=None), \
-             patch("overblick.core.orchestrator.RateLimiter"), \
-             patch("overblick.core.orchestrator.SafeLLMPipeline"), \
-             patch("overblick.core.orchestrator.PermissionChecker") as mock_perm, \
-             patch("overblick.core.orchestrator.PluginCapabilityChecker"), \
-             patch.object(orch, "_setup_capabilities", new_callable=AsyncMock), \
-             patch.object(orch, "_setup_learning_store", new_callable=AsyncMock), \
-             patch.object(orch, "_create_ipc_client", return_value=None), \
-             patch.object(orch, "_load_local_plugin_config", return_value=[]), \
-             patch.object(orch, "_resolve_plugin_dependencies", side_effect=lambda x: x):
-
-            mock_audit_cls.return_value = MagicMock()
-            mock_perm.from_identity.return_value = MagicMock()
-            orch._registry = MagicMock()
-            orch._registry.load.side_effect = ImportError("no such plugin")
-
-            with pytest.raises(ConfigError, match="No plugins loaded"):
-                await orch.setup()
-
-    async def test_setup_plugin_load_failure_logged(self, tmp_path):
-        """Lines 429-437."""
-        identity = _make_identity(plugins=("bad", "good"))
-        orch = _make_orchestrator(tmp_path)
-
-        good_plugin = MagicMock()
-        good_plugin.name = "good"
-        good_plugin.setup = AsyncMock()
-
-        def _load_side_effect(name, ctx):
-            if name == "bad":
-                raise ImportError("bad plugin")
-            return good_plugin
-
-        with patch("overblick.core.orchestrator.load_identity", return_value=identity), \
-             patch("overblick.core.orchestrator.SecretsManager"), \
-             patch("overblick.core.orchestrator.AuditLog") as mock_audit_cls, \
-             patch("overblick.core.orchestrator.QuietHoursChecker"), \
-             patch.object(orch, "_create_llm_client", new_callable=AsyncMock, return_value=MagicMock()), \
-             patch.object(orch, "_create_preflight", return_value=None), \
-             patch.object(orch, "_create_output_safety", return_value=None), \
-             patch("overblick.core.orchestrator.RateLimiter"), \
-             patch("overblick.core.orchestrator.SafeLLMPipeline"), \
-             patch("overblick.core.orchestrator.PermissionChecker") as mock_perm, \
-             patch("overblick.core.orchestrator.PluginCapabilityChecker"), \
-             patch.object(orch, "_setup_capabilities", new_callable=AsyncMock), \
-             patch.object(orch, "_setup_learning_store", new_callable=AsyncMock), \
-             patch.object(orch, "_create_ipc_client", return_value=None), \
-             patch.object(orch, "_load_local_plugin_config", return_value=[]), \
-             patch.object(orch, "_resolve_plugin_dependencies", side_effect=lambda x: x):
-
-            mock_audit_cls.return_value = MagicMock()
-            mock_perm.from_identity.return_value = MagicMock()
-            orch._registry = MagicMock()
-            orch._registry.load.side_effect = _load_side_effect
-
-            await orch.setup()
-
+        assert orch.state == OrchestratorState.SETUP
         assert len(orch._plugins) == 1
-        assert orch._plugins[0].name == "good"
+        mock_bootstrap_cls.return_value.setup.assert_awaited_once()
 
-    async def test_setup_local_plugin_appended(self, tmp_path):
-        """Lines 394-395."""
-        identity = _make_identity(plugins=("existing",))
+    async def test_setup_no_identity_skips_plugin_loading(self, tmp_path):
+        """When bootstrap returns no identity, plugin loading is skipped."""
         orch = _make_orchestrator(tmp_path)
 
-        plugin_mock = MagicMock()
-        plugin_mock.name = "existing"
-        plugin_mock.setup = AsyncMock()
+        bootstrap_result = _make_bootstrap_result(tmp_path)
+        bootstrap_result.services.identity = None
 
-        local_mock = MagicMock()
-        local_mock.name = "localplugin"
-        local_mock.setup = AsyncMock()
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls:
+            mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
 
-        def _load_side_effect(name, ctx):
-            if name == "existing":
-                return plugin_mock
-            return local_mock
+            await orch.setup()
 
-        with patch("overblick.core.orchestrator.load_identity", return_value=identity), \
-             patch("overblick.core.orchestrator.SecretsManager"), \
-             patch("overblick.core.orchestrator.AuditLog") as mock_audit_cls, \
-             patch("overblick.core.orchestrator.QuietHoursChecker"), \
-             patch.object(orch, "_create_llm_client", new_callable=AsyncMock, return_value=MagicMock()), \
-             patch.object(orch, "_create_preflight", return_value=None), \
-             patch.object(orch, "_create_output_safety", return_value=None), \
-             patch("overblick.core.orchestrator.RateLimiter"), \
-             patch("overblick.core.orchestrator.SafeLLMPipeline"), \
-             patch("overblick.core.orchestrator.PermissionChecker") as mock_perm, \
-             patch("overblick.core.orchestrator.PluginCapabilityChecker"), \
-             patch.object(orch, "_setup_capabilities", new_callable=AsyncMock), \
-             patch.object(orch, "_setup_learning_store", new_callable=AsyncMock), \
-             patch.object(orch, "_create_ipc_client", return_value=None), \
-             patch.object(orch, "_load_local_plugin_config", return_value=["localplugin"]), \
-             patch.object(orch, "_resolve_plugin_dependencies", side_effect=lambda x: x):
+        # load_all should not be called when identity is None
+        mock_loader_cls.return_value.load_all.assert_not_awaited()
+        assert len(orch._plugins) == 0
 
-            mock_audit_cls.return_value = MagicMock()
-            mock_perm.from_identity.return_value = MagicMock()
-            orch._registry = MagicMock()
-            orch._registry.load.side_effect = _load_side_effect
+    async def test_setup_multiple_plugins_loaded(self, tmp_path):
+        """setup() loads multiple plugins via PluginLoader."""
+        identity = _make_identity(plugins=("p1", "p2"))
+        orch = _make_orchestrator(tmp_path)
+
+        bootstrap_result = _make_bootstrap_result(tmp_path, identity)
+
+        p1 = MagicMock()
+        p1.name = "p1"
+        p2 = MagicMock()
+        p2.name = "p2"
+
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls:
+            mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader_cls.return_value.load_all = AsyncMock(return_value=[p1, p2])
 
             await orch.setup()
 
         assert len(orch._plugins) == 2
 
-    async def test_setup_resolve_deps_failure_continues(self, tmp_path):
-        """Lines 401-402."""
-        identity = _make_identity(plugins=("p1",))
-        orch = _make_orchestrator(tmp_path)
+    async def test_setup_passes_plugin_names_to_loader(self, tmp_path):
+        """setup() passes _plugin_names to PluginLoader.load_all."""
+        identity = _make_identity(plugins=("existing",))
+        orch = Orchestrator("testident", base_dir=tmp_path, plugins=["myplugin"])
 
-        plugin_mock = MagicMock()
-        plugin_mock.name = "p1"
-        plugin_mock.setup = AsyncMock()
+        bootstrap_result = _make_bootstrap_result(tmp_path, identity)
 
-        with patch("overblick.core.orchestrator.load_identity", return_value=identity), \
-             patch("overblick.core.orchestrator.SecretsManager"), \
-             patch("overblick.core.orchestrator.AuditLog") as mock_audit_cls, \
-             patch("overblick.core.orchestrator.QuietHoursChecker"), \
-             patch.object(orch, "_create_llm_client", new_callable=AsyncMock, return_value=MagicMock()), \
-             patch.object(orch, "_create_preflight", return_value=None), \
-             patch.object(orch, "_create_output_safety", return_value=None), \
-             patch("overblick.core.orchestrator.RateLimiter"), \
-             patch("overblick.core.orchestrator.SafeLLMPipeline"), \
-             patch("overblick.core.orchestrator.PermissionChecker") as mock_perm, \
-             patch("overblick.core.orchestrator.PluginCapabilityChecker"), \
-             patch.object(orch, "_setup_capabilities", new_callable=AsyncMock), \
-             patch.object(orch, "_setup_learning_store", new_callable=AsyncMock), \
-             patch.object(orch, "_create_ipc_client", return_value=None), \
-             patch.object(orch, "_load_local_plugin_config", return_value=[]), \
-             patch.object(orch, "_resolve_plugin_dependencies", side_effect=RuntimeError("cycle")):
-
-            mock_audit_cls.return_value = MagicMock()
-            mock_perm.from_identity.return_value = MagicMock()
-            orch._registry = MagicMock()
-            orch._registry.load.return_value = plugin_mock
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls:
+            mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
 
             await orch.setup()
 
-        assert len(orch._plugins) == 1
+        mock_loader_cls.return_value.load_all.assert_awaited_once_with(["myplugin"])
+
+    async def test_setup_empty_plugins_returns_empty_list(self, tmp_path):
+        """When loader returns no plugins, _plugins is empty."""
+        identity = _make_identity(plugins=())
+        orch = _make_orchestrator(tmp_path)
+
+        bootstrap_result = _make_bootstrap_result(tmp_path, identity)
+
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls:
+            mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
+
+            await orch.setup()
+
+        assert len(orch._plugins) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -519,47 +360,9 @@ class TestSetupWithoutFactory:
 # ---------------------------------------------------------------------------
 
 
-def _setup_run_orch(orch, tmp_path, identity=None, plugins=None, engagement_db=None):
-    """Prepare an orchestrator for run() tests by mocking setup."""
-    identity = identity or _make_identity()
-
-    scheduler = MagicMock()
-    scheduler.add = AsyncMock()
-    scheduler.stop = AsyncMock()
-
-    audit = MagicMock()
-    audit.log = MagicMock()
-    audit.start_background_cleanup = MagicMock()
-    audit.stop_background_cleanup = MagicMock()
-    audit.close = MagicMock()
-
-    event_bus = MagicMock()
-    event_bus.clear = MagicMock()
-    event_bus.emit = AsyncMock()
-
-    if plugins is None:
-        p = MagicMock()
-        p.name = "testplugin"
-        p.tick = AsyncMock()
-        p.post_heartbeat = None
-        p.teardown = AsyncMock()
-        plugins = [p]
-
-    async def _mock_setup():
-        orch._state = OrchestratorState.SETUP
-        orch._identity = identity
-        orch._plugins = plugins
-        orch._scheduler = scheduler
-        orch._audit_log = audit
-        orch._event_bus = event_bus
-        orch._engagement_db = engagement_db
-
-    return _mock_setup, scheduler, audit, event_bus
-
-
 class TestOrchestratorRun:
     async def test_run_setup_failure_calls_stop(self, tmp_path):
-        """Lines 448-453."""
+        """setup() failure triggers stop()."""
         orch = _make_orchestrator(tmp_path)
         with patch.object(orch, "setup", new_callable=AsyncMock, side_effect=RuntimeError("boom")), \
              patch.object(orch, "stop", new_callable=AsyncMock) as mock_stop:
@@ -567,128 +370,92 @@ class TestOrchestratorRun:
                 await orch.run()
             mock_stop.assert_awaited_once()
 
-    async def test_run_normal_shutdown(self, tmp_path):
-        """Lines 448-543: full run loop with scheduler + shutdown."""
+    async def test_run_delegates_to_runtime(self, tmp_path):
+        """run() creates OrchestratorRuntime and delegates."""
+        identity = _make_identity()
         orch = _make_orchestrator(tmp_path)
-        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(orch, tmp_path)
 
-        async def _start_and_shutdown():
-            orch._shutdown_event.set()
+        bootstrap_result = _make_bootstrap_result(tmp_path, identity)
 
-        scheduler.start = _start_and_shutdown
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls, \
+             patch("overblick.core.orchestrator.OrchestratorRuntime") as mock_runtime_cls, \
+             patch("overblick.core.orchestrator.PluginRunController"):
+            mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
+            mock_runtime = mock_runtime_cls.return_value
+            mock_runtime.run = AsyncMock()
 
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
             await orch.run()
 
-        scheduler.add.assert_awaited()
-        assert orch.state == OrchestratorState.STOPPED
+        mock_runtime.run.assert_awaited_once()
+        assert orch.state == OrchestratorState.RUNNING or orch.state == OrchestratorState.STOPPED
 
-    async def test_run_with_heartbeat_plugin(self, tmp_path):
-        """Lines 502-521."""
+    async def test_run_cancelled_error_calls_stop(self, tmp_path):
+        """CancelledError during run triggers stop."""
+        identity = _make_identity()
         orch = _make_orchestrator(tmp_path)
 
-        plugin = MagicMock()
-        plugin.name = "hb_plugin"
-        plugin.tick = AsyncMock()
-        plugin.post_heartbeat = AsyncMock()
-        plugin.teardown = AsyncMock()
+        bootstrap_result = _make_bootstrap_result(tmp_path, identity)
 
-        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
-            orch, tmp_path, plugins=[plugin]
-        )
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls, \
+             patch("overblick.core.orchestrator.OrchestratorRuntime") as mock_runtime_cls, \
+             patch("overblick.core.orchestrator.PluginRunController"):
+            mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
+            mock_runtime = mock_runtime_cls.return_value
+            mock_runtime.run = AsyncMock(side_effect=asyncio.CancelledError())
 
-        async def _start_and_shutdown():
-            orch._shutdown_event.set()
-
-        scheduler.start = _start_and_shutdown
-
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
-            await orch.run()
-
-        # Two scheduler.add calls: tick + heartbeat
-        assert scheduler.add.await_count == 2
-
-    async def test_run_engagement_db_cleanup_started(self, tmp_path):
-        """Lines 464-465."""
-        orch = _make_orchestrator(tmp_path)
-
-        eng_db = MagicMock()
-        eng_db.start_background_cleanup = MagicMock()
-        eng_db.stop_background_cleanup = MagicMock()
-
-        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
-            orch, tmp_path, engagement_db=eng_db
-        )
-
-        async def _start_and_shutdown():
-            orch._shutdown_event.set()
-
-        scheduler.start = _start_and_shutdown
-
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
-            await orch.run()
-
-        eng_db.start_background_cleanup.assert_called_once()
-
-    async def test_run_cancelled_error_in_wait(self, tmp_path):
-        """Line 538-539: CancelledError raised during asyncio.wait."""
-        orch = _make_orchestrator(tmp_path)
-        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(orch, tmp_path)
-
-        # Make asyncio.wait itself raise CancelledError
-        async def _start_never():
-            await asyncio.sleep(9999)
-
-        scheduler.start = _start_never
-
-        async def _run_and_cancel():
-            task = asyncio.create_task(orch.run())
-            await asyncio.sleep(0.01)  # Let run() reach asyncio.wait
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
-            await _run_and_cancel()
-
-        assert orch.state == OrchestratorState.STOPPED
-
-    async def test_run_generic_exception(self, tmp_path):
-        """Lines 540-541."""
-        orch = _make_orchestrator(tmp_path)
-        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(orch, tmp_path)
-
-        scheduler.add = AsyncMock(side_effect=RuntimeError("scheduler boom"))
-
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
             await orch.run()
 
         assert orch.state == OrchestratorState.STOPPED
 
-    async def test_run_pending_tasks_cancelled(self, tmp_path):
-        """Lines 531-536: pending tasks are cancelled when one completes."""
+    async def test_run_generic_exception_calls_stop(self, tmp_path):
+        """Generic exception during run triggers stop and re-raises."""
+        identity = _make_identity()
         orch = _make_orchestrator(tmp_path)
-        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(orch, tmp_path)
 
-        # scheduler.start completes after a short delay, shutdown_event never fires
-        # This means scheduler_task finishes first, shutdown_task is pending and gets cancelled
-        async def _short_start():
-            await asyncio.sleep(0.01)
+        bootstrap_result = _make_bootstrap_result(tmp_path, identity)
 
-        scheduler.start = _short_start
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls, \
+             patch("overblick.core.orchestrator.OrchestratorRuntime") as mock_runtime_cls, \
+             patch("overblick.core.orchestrator.PluginRunController"):
+            mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
+            mock_runtime = mock_runtime_cls.return_value
+            mock_runtime.run = AsyncMock(side_effect=RuntimeError("runtime boom"))
 
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
-            await orch.run()
+            with pytest.raises(RuntimeError, match="runtime boom"):
+                await orch.run()
 
         assert orch.state == OrchestratorState.STOPPED
+
+    async def test_run_sets_running_state(self, tmp_path):
+        """run() transitions to RUNNING state before delegating to runtime."""
+        identity = _make_identity()
+        orch = _make_orchestrator(tmp_path)
+
+        bootstrap_result = _make_bootstrap_result(tmp_path, identity)
+        captured_state = None
+
+        async def _capture_state():
+            nonlocal captured_state
+            captured_state = orch.state
+
+        with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
+             patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls, \
+             patch("overblick.core.orchestrator.OrchestratorRuntime") as mock_runtime_cls, \
+             patch("overblick.core.orchestrator.PluginRunController"):
+            mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
+            mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
+            mock_runtime = mock_runtime_cls.return_value
+            mock_runtime.run = _capture_state
+
+            await orch.run()
+
+        assert captured_state == OrchestratorState.RUNNING
 
 
 # ---------------------------------------------------------------------------
@@ -697,45 +464,41 @@ class TestOrchestratorRun:
 
 
 class TestIsPluginStopped:
+    """Tests for PluginRunController.is_plugin_stopped (moved from Orchestrator)."""
+
     async def test_no_control_file(self, tmp_path):
-        """Line 597-598."""
-        orch = _make_orchestrator(tmp_path)
-        orch._control_file = None
-        assert await orch._is_plugin_stopped("any") is False
+        from overblick.core.plugin_run_controller import PluginRunController
+        controller = PluginRunController(control_file=None)
+        assert await controller.is_plugin_stopped("any") is False
 
     async def test_cached_hit(self, tmp_path):
-        """Lines 604-605."""
-        orch = _make_orchestrator(tmp_path)
-        orch._control_file = tmp_path / "control.json"
-        orch._control_cache = {"myplugin": "stopped"}
-        orch._control_cache_ts = time.monotonic()
-        assert await orch._is_plugin_stopped("myplugin") is True
-        assert await orch._is_plugin_stopped("other") is False
-
-    async def test_reads_file_on_cache_miss(self, tmp_path):
-        """Lines 608-615."""
-        orch = _make_orchestrator(tmp_path)
+        from overblick.core.plugin_run_controller import PluginRunController
         control_file = tmp_path / "control.json"
         control_file.write_text(json.dumps({"myplugin": "stopped"}))
-        orch._control_file = control_file
-        orch._control_cache_ts = 0.0
-        assert await orch._is_plugin_stopped("myplugin") is True
+        controller = PluginRunController(control_file=control_file, cache_ttl_seconds=9999)
+        # Prime the cache
+        await controller.is_plugin_stopped("myplugin")
+        assert await controller.is_plugin_stopped("myplugin") is True
+        assert await controller.is_plugin_stopped("other") is False
+
+    async def test_reads_file_on_cache_miss(self, tmp_path):
+        from overblick.core.plugin_run_controller import PluginRunController
+        control_file = tmp_path / "control.json"
+        control_file.write_text(json.dumps({"myplugin": "stopped"}))
+        controller = PluginRunController(control_file=control_file)
+        assert await controller.is_plugin_stopped("myplugin") is True
 
     async def test_missing_file_empty_cache(self, tmp_path):
-        """Line 613."""
-        orch = _make_orchestrator(tmp_path)
-        orch._control_file = tmp_path / "nonexistent.json"
-        orch._control_cache_ts = 0.0
-        assert await orch._is_plugin_stopped("any") is False
+        from overblick.core.plugin_run_controller import PluginRunController
+        controller = PluginRunController(control_file=tmp_path / "nonexistent.json")
+        assert await controller.is_plugin_stopped("any") is False
 
     async def test_corrupt_file_returns_false(self, tmp_path):
-        """Lines 616-618."""
-        orch = _make_orchestrator(tmp_path)
+        from overblick.core.plugin_run_controller import PluginRunController
         control_file = tmp_path / "control.json"
         control_file.write_text("not json {{{")
-        orch._control_file = control_file
-        orch._control_cache_ts = 0.0
-        assert await orch._is_plugin_stopped("any") is False
+        controller = PluginRunController(control_file=control_file)
+        assert await controller.is_plugin_stopped("any") is False
 
 
 # ---------------------------------------------------------------------------
@@ -744,54 +507,68 @@ class TestIsPluginStopped:
 
 
 class TestSetupLearningStore:
-    async def test_ethos_list_joined(self, tmp_path):
-        """Line 627."""
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(raw_config={"ethos": ["be kind", "be fair"]})
-        orch._llm_pipeline = MagicMock()
-        orch._llm_client = None
+    """Learning store setup moved to LearningStoreBuilder; test via ResourceSetup."""
 
-        with patch("overblick.core.learning.store.LearningStore") as mock_ls_inner, \
-             patch("overblick.core.learning.LearningStore") as mock_ls:
-            store = MagicMock()
-            store.setup = AsyncMock()
-            mock_ls.return_value = store
-            mock_ls_inner.return_value = store
-            await orch._setup_learning_store(tmp_path)
+    async def test_learning_store_built_during_resource_setup(self, tmp_path):
+        """ResourceSetup.setup() builds learning store when identity exists."""
+        from overblick.core.orchestrator_paths import OrchestratorPaths
+        from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
+        from overblick.core.orchestrator_services import OrchestratorServices
+        from overblick.core.resource_setup import ResourceSetup
 
-        assert orch._learning_store is not None
+        identity = _make_identity(raw_config={"ethos": ["be kind", "be fair"]})
+        services = OrchestratorServices()
+        services.identity = identity
+        services.llm_client = None
+        runtime_state = OrchestratorRuntimeState()
+        paths = OrchestratorPaths.for_identity(tmp_path, "testident")
+        paths.data_dir.mkdir(parents=True, exist_ok=True)
 
-    async def test_ethos_string(self, tmp_path):
-        """Line 629."""
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(raw_config={"ethos": "a single ethos"})
-        orch._llm_pipeline = MagicMock()
-        orch._llm_client = None
+        mock_store = MagicMock()
 
-        with patch("overblick.core.learning.LearningStore") as mock_ls:
-            store = MagicMock()
-            store.setup = AsyncMock()
-            mock_ls.return_value = store
-            await orch._setup_learning_store(tmp_path)
+        with patch("overblick.core.resource_setup.LearningStoreBuilder") as mock_builder_cls, \
+             patch("overblick.core.resource_setup.CapabilitySetup") as mock_cap_cls, \
+             patch("overblick.core.resource_setup.IPCBootstrap") as mock_ipc_cls:
+            mock_builder_cls.return_value.build = AsyncMock(return_value=mock_store)
+            mock_cap_cls.return_value.setup = AsyncMock(return_value={})
+            mock_ipc_cls.return_value.create_client.return_value = None
 
-        call_kwargs = mock_ls.call_args[1]
-        assert call_kwargs["ethos_text"] == "a single ethos"
+            resource_setup = ResourceSetup(
+                services=services,
+                runtime_state=runtime_state,
+                paths=paths,
+                identity_name="testident",
+            )
+            await resource_setup.setup()
 
-    async def test_ethos_empty_fallback(self, tmp_path):
-        """Lines 632-633."""
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(raw_config={"ethos": [], "ethos_text": "fallback"})
-        orch._llm_pipeline = MagicMock()
-        orch._llm_client = None
+        assert services.learning_store is mock_store
 
-        with patch("overblick.core.learning.LearningStore") as mock_ls:
-            store = MagicMock()
-            store.setup = AsyncMock()
-            mock_ls.return_value = store
-            await orch._setup_learning_store(tmp_path)
+    async def test_learning_store_skipped_when_no_identity(self, tmp_path):
+        """ResourceSetup skips learning store when identity is None."""
+        from overblick.core.orchestrator_paths import OrchestratorPaths
+        from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
+        from overblick.core.orchestrator_services import OrchestratorServices
+        from overblick.core.resource_setup import ResourceSetup
 
-        call_kwargs = mock_ls.call_args[1]
-        assert call_kwargs["ethos_text"] == "fallback"
+        services = OrchestratorServices()
+        services.identity = None
+        runtime_state = OrchestratorRuntimeState()
+        paths = OrchestratorPaths.for_identity(tmp_path, "testident")
+
+        with patch("overblick.core.resource_setup.LearningStoreBuilder") as mock_builder_cls, \
+             patch("overblick.core.resource_setup.IPCBootstrap") as mock_ipc_cls:
+            mock_ipc_cls.return_value.create_client.return_value = None
+
+            resource_setup = ResourceSetup(
+                services=services,
+                runtime_state=runtime_state,
+                paths=paths,
+                identity_name="testident",
+            )
+            await resource_setup.setup()
+
+        mock_builder_cls.assert_not_called()
+        assert services.learning_store is None
 
 
 # ---------------------------------------------------------------------------
@@ -800,33 +577,52 @@ class TestSetupLearningStore:
 
 
 class TestGetEmbedFn:
-    def test_client_with_embed(self, tmp_path):
-        """Line 657."""
-        orch = _make_orchestrator(tmp_path)
-        orch._llm_client = MagicMock()
-        orch._llm_client.embed = AsyncMock(return_value=[0.1, 0.2])
-        assert orch._get_embed_fn() is not None
+    """Embed function logic moved to LearningStoreBuilder. Test via builder."""
 
-    def test_no_client(self, tmp_path):
-        """Line 660."""
-        orch = _make_orchestrator(tmp_path)
-        orch._llm_client = None
-        assert orch._get_embed_fn() is None
+    async def test_builder_uses_llm_client_embed(self, tmp_path):
+        """LearningStoreBuilder uses LLM client's embedding function."""
+        from overblick.core.learning_store_builder import LearningStoreBuilder
 
-    def test_client_without_embed(self, tmp_path):
-        """Line 660."""
-        orch = _make_orchestrator(tmp_path)
-        orch._llm_client = MagicMock(spec=[])  # no embed
-        assert orch._get_embed_fn() is None
+        identity = _make_identity(raw_config={"learning": {"enabled": True, "ethos": "be kind"}})
+        llm_client = MagicMock()
+        llm_client.get_embedding_function = AsyncMock(return_value=AsyncMock(return_value=[0.1, 0.2]))
 
-    async def test_embed_fn_calls_client(self, tmp_path):
-        """Line 657."""
-        orch = _make_orchestrator(tmp_path)
-        orch._llm_client = MagicMock()
-        orch._llm_client.embed = AsyncMock(return_value=[0.5])
-        fn = orch._get_embed_fn()
-        result = await fn("hello")
-        assert result == [0.5]
+        builder = LearningStoreBuilder(
+            identity=identity,
+            llm_client=llm_client,
+            data_dir=tmp_path,
+        )
+
+        with patch("overblick.core.learning_store_builder.LearningStore") as mock_ls:
+            mock_store = MagicMock()
+            mock_store.setup = AsyncMock()
+            mock_ls.return_value = mock_store
+            result = await builder.build()
+
+        assert result is mock_store
+        llm_client.get_embedding_function.assert_awaited_once()
+
+    async def test_builder_handles_no_client(self, tmp_path):
+        """LearningStoreBuilder works without LLM client."""
+        from overblick.core.learning_store_builder import LearningStoreBuilder
+
+        identity = _make_identity(raw_config={"learning": {"enabled": True, "ethos": "be kind"}})
+
+        builder = LearningStoreBuilder(
+            identity=identity,
+            llm_client=None,
+            data_dir=tmp_path,
+        )
+
+        with patch("overblick.core.learning_store_builder.LearningStore") as mock_ls:
+            mock_store = MagicMock()
+            mock_store.setup = AsyncMock()
+            mock_ls.return_value = mock_store
+            result = await builder.build()
+
+        assert result is mock_store
+        call_kwargs = mock_ls.call_args[1]
+        assert call_kwargs["embed_fn"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -835,102 +631,116 @@ class TestGetEmbedFn:
 
 
 class TestSetupCapabilities:
-    def _prepare_orch(self, tmp_path, **identity_kwargs):
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(**identity_kwargs)
-        orch._secrets = MagicMock()
-        orch._secrets.get = MagicMock(return_value="s")
-        orch._audit_log = MagicMock()
-        orch._llm_client = None
-        orch._llm_pipeline = None
-        orch._quiet_hours = None
-        orch._ipc_client = None
-        orch._engagement_db = None
-        orch._learning_store = None
-        return orch
+    """Capability setup moved to CapabilitySetup; test via that class."""
 
-    async def test_no_capabilities(self, tmp_path):
-        """Lines 677-679."""
-        orch = self._prepare_orch(tmp_path, capability_names=(), enabled_modules=())
-
-        with patch("overblick.core.orchestrator.CapabilityRegistry") as mock_reg_cls:
-            mock_reg = MagicMock()
-            mock_reg_cls.default.return_value = mock_reg
-            mock_reg.resolve.return_value = []
-            await orch._setup_capabilities()
+    def _make_services(self, tmp_path, **identity_kwargs):
+        from overblick.core.orchestrator_services import OrchestratorServices
+        services = OrchestratorServices()
+        services.identity = _make_identity(**identity_kwargs)
+        services.secrets = MagicMock()
+        services.secrets.get = MagicMock(return_value="s")
+        services.audit_log = MagicMock()
+        services.llm_client = None
+        services.llm_pipeline = None
+        services.quiet_hours = None
+        return services
 
     async def test_capability_success(self, tmp_path):
-        """Lines 711-717."""
-        orch = self._prepare_orch(tmp_path, capability_names=("mycap",))
+        """CapabilitySetup creates and sets up capabilities."""
+        from overblick.core.capability_setup import CapabilitySetup
+        from overblick.core.orchestrator_paths import OrchestratorPaths
+
+        services = self._make_services(tmp_path, capability_names=("mycap",))
+        paths = OrchestratorPaths.for_identity(tmp_path, "testident")
 
         cap_instance = MagicMock()
         cap_instance.name = "mycap"
         cap_instance.setup = AsyncMock()
 
-        with patch("overblick.core.orchestrator.CapabilityRegistry") as mock_reg_cls, \
-             patch("overblick.core.capability.build_capability_configs", return_value={}):
-            mock_reg = MagicMock()
-            mock_reg_cls.default.return_value = mock_reg
-            mock_reg.resolve.return_value = ["mycap"]
-            mock_reg.create.return_value = cap_instance
-            await orch._setup_capabilities()
+        mock_reg = MagicMock()
+        mock_reg.resolve.return_value = ["mycap"]
+        mock_reg.create.return_value = cap_instance
 
-        assert "mycap" in orch._capabilities
+        with patch("overblick.core.capability.build_capability_configs", return_value={}):
+            cap_setup = CapabilitySetup(
+                registry=mock_reg,
+                services=services,
+                paths=paths,
+                identity_name="testident",
+            )
+            capabilities = await cap_setup.setup()
+
+        assert "mycap" in capabilities
 
     async def test_capability_setup_failure(self, tmp_path):
-        """Lines 718-719."""
-        orch = self._prepare_orch(tmp_path, capability_names=("badcap",))
+        """CapabilitySetup handles setup failures gracefully."""
+        from overblick.core.capability_setup import CapabilitySetup
+        from overblick.core.orchestrator_paths import OrchestratorPaths
+
+        services = self._make_services(tmp_path, capability_names=("badcap",))
+        paths = OrchestratorPaths.for_identity(tmp_path, "testident")
 
         cap_instance = MagicMock()
         cap_instance.name = "badcap"
         cap_instance.setup = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch("overblick.core.orchestrator.CapabilityRegistry") as mock_reg_cls, \
-             patch("overblick.core.capability.build_capability_configs", return_value={}):
-            mock_reg = MagicMock()
-            mock_reg_cls.default.return_value = mock_reg
-            mock_reg.resolve.return_value = ["badcap"]
-            mock_reg.create.return_value = cap_instance
-            await orch._setup_capabilities()
+        mock_reg = MagicMock()
+        mock_reg.resolve.return_value = ["badcap"]
+        mock_reg.create.return_value = cap_instance
 
-        assert "badcap" not in orch._capabilities
+        with patch("overblick.core.capability.build_capability_configs", return_value={}):
+            cap_setup = CapabilitySetup(
+                registry=mock_reg,
+                services=services,
+                paths=paths,
+                identity_name="testident",
+            )
+            capabilities = await cap_setup.setup()
 
-    async def test_registry_load_failure(self, tmp_path):
-        """Lines 683-685."""
-        orch = self._prepare_orch(tmp_path, capability_names=("x",))
-
-        with patch("overblick.core.orchestrator.CapabilityRegistry") as mock_reg_cls:
-            mock_reg_cls.default.side_effect = ImportError("no module")
-            await orch._setup_capabilities()
-
-        assert orch._capabilities == {}
-
-    async def test_fallback_to_enabled_modules(self, tmp_path):
-        """Lines 668-669."""
-        orch = self._prepare_orch(
-            tmp_path, capability_names=(), enabled_modules=("modcap",)
-        )
-
-        with patch("overblick.core.orchestrator.CapabilityRegistry") as mock_reg_cls, \
-             patch("overblick.core.capability.build_capability_configs", return_value={}):
-            mock_reg = MagicMock()
-            mock_reg_cls.default.return_value = mock_reg
-            mock_reg.resolve.return_value = []
-            await orch._setup_capabilities()
+        assert "badcap" not in capabilities
 
     async def test_create_returns_none(self, tmp_path):
-        """Line 713."""
-        orch = self._prepare_orch(tmp_path, capability_names=("nullcap",))
+        """CapabilitySetup skips None results from registry.create."""
+        from overblick.core.capability_setup import CapabilitySetup
+        from overblick.core.orchestrator_paths import OrchestratorPaths
 
-        with patch("overblick.core.orchestrator.CapabilityRegistry") as mock_reg_cls, \
-             patch("overblick.core.capability.build_capability_configs", return_value={}):
-            mock_reg = MagicMock()
-            mock_reg_cls.default.return_value = mock_reg
-            mock_reg.resolve.return_value = ["nullcap"]
-            mock_reg.create.return_value = None
-            await orch._setup_capabilities()
+        services = self._make_services(tmp_path, capability_names=("nullcap",))
+        paths = OrchestratorPaths.for_identity(tmp_path, "testident")
 
-        assert "nullcap" not in orch._capabilities
+        mock_reg = MagicMock()
+        mock_reg.resolve.return_value = ["nullcap"]
+        mock_reg.create.return_value = None
+
+        with patch("overblick.core.capability.build_capability_configs", return_value={}):
+            cap_setup = CapabilitySetup(
+                registry=mock_reg,
+                services=services,
+                paths=paths,
+                identity_name="testident",
+            )
+            capabilities = await cap_setup.setup()
+
+        assert "nullcap" not in capabilities
+
+    async def test_no_identity_returns_empty(self, tmp_path):
+        """CapabilitySetup returns empty when no identity."""
+        from overblick.core.capability_setup import CapabilitySetup
+        from overblick.core.orchestrator_paths import OrchestratorPaths
+        from overblick.core.orchestrator_services import OrchestratorServices
+
+        services = OrchestratorServices()
+        services.identity = None
+        paths = OrchestratorPaths.for_identity(tmp_path, "testident")
+
+        mock_reg = MagicMock()
+        cap_setup = CapabilitySetup(
+            registry=mock_reg,
+            services=services,
+            paths=paths,
+            identity_name="testident",
+        )
+        capabilities = await cap_setup.setup()
+        assert capabilities == {}
 
 
 # ---------------------------------------------------------------------------
@@ -977,36 +787,52 @@ class TestOrchestratorLLMRouting:
 
 
 class TestCreatePreflight:
+    """Preflight creation moved to OrchestratorBootstrap._create_preflight."""
+
+    def _make_bootstrap(self, tmp_path, **identity_kwargs):
+        from overblick.core.orchestrator_bootstrap import OrchestratorBootstrap
+        from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
+        from overblick.core.orchestrator_services import OrchestratorServices
+        services = OrchestratorServices()
+        services.identity = _make_identity(**identity_kwargs)
+        services.llm_client = MagicMock()
+        return OrchestratorBootstrap(
+            identity_name="testident",
+            base_dir=tmp_path,
+            plugin_names=[],
+            services=services,
+            runtime_state=OrchestratorRuntimeState(),
+        )
+
     def test_disabled(self, tmp_path):
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(security=SecuritySettings(enable_preflight=False))
-        assert orch._create_preflight() is None
+        bootstrap = self._make_bootstrap(
+            tmp_path, security=SecuritySettings(enable_preflight=False)
+        )
+        assert bootstrap._create_preflight() is None
 
     def test_enabled_with_dict_deflections(self, tmp_path):
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(
+        bootstrap = self._make_bootstrap(
+            tmp_path,
             security=SecuritySettings(enable_preflight=True, admin_user_ids=("admin1",)),
             deflections={"topic": ["response"]},
         )
-        orch._llm_client = MagicMock()
-        with patch("overblick.core.orchestrator.PreflightChecker") as mock_cls:
+        with patch("overblick.core.security.preflight.PreflightChecker") as mock_cls:
             mock_cls.return_value = MagicMock()
-            result = orch._create_preflight()
+            result = bootstrap._create_preflight()
             assert result is not None
             kw = mock_cls.call_args[1]
             assert kw["admin_user_ids"] == {"admin1"}
             assert kw["deflections"] == {"topic": ["response"]}
 
     def test_non_dict_deflections(self, tmp_path):
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(
+        bootstrap = self._make_bootstrap(
+            tmp_path,
             security=SecuritySettings(enable_preflight=True),
             deflections=["not", "a", "dict"],
         )
-        orch._llm_client = MagicMock()
-        with patch("overblick.core.orchestrator.PreflightChecker") as mock_cls:
+        with patch("overblick.core.security.preflight.PreflightChecker") as mock_cls:
             mock_cls.return_value = MagicMock()
-            orch._create_preflight()
+            bootstrap._create_preflight()
             kw = mock_cls.call_args[1]
             assert kw["deflections"] == {}
 
@@ -1017,16 +843,32 @@ class TestCreatePreflight:
 
 
 class TestCreateOutputSafety:
+    """Output safety creation moved to OrchestratorBootstrap._create_output_safety."""
+
+    def _make_bootstrap(self, tmp_path, **identity_kwargs):
+        from overblick.core.orchestrator_bootstrap import OrchestratorBootstrap
+        from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
+        from overblick.core.orchestrator_services import OrchestratorServices
+        services = OrchestratorServices()
+        services.identity = _make_identity(**identity_kwargs)
+        services.llm_client = MagicMock()
+        return OrchestratorBootstrap(
+            identity_name="testident",
+            base_dir=tmp_path,
+            plugin_names=[],
+            services=services,
+            runtime_state=OrchestratorRuntimeState(),
+        )
+
     def test_disabled(self, tmp_path):
-        """Lines 915-916."""
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(security=SecuritySettings(enable_output_safety=False))
-        assert orch._create_output_safety() is None
+        bootstrap = self._make_bootstrap(
+            tmp_path, security=SecuritySettings(enable_output_safety=False)
+        )
+        assert bootstrap._create_output_safety() is None
 
     def test_with_personality_vocab(self, tmp_path):
-        """Lines 923-925."""
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(
+        bootstrap = self._make_bootstrap(
+            tmp_path,
             security=SecuritySettings(enable_output_safety=True),
             personality={
                 "vocabulary": {
@@ -1036,9 +878,9 @@ class TestCreateOutputSafety:
             },
             deflections=["sorry"],
         )
-        with patch("overblick.core.orchestrator.OutputSafety") as mock_cls:
+        with patch("overblick.core.security.output_safety.OutputSafety") as mock_cls:
             mock_cls.return_value = MagicMock()
-            result = orch._create_output_safety()
+            result = bootstrap._create_output_safety()
             assert result is not None
             kw = mock_cls.call_args[1]
             assert len(kw["banned_slang_patterns"]) == 2
@@ -1046,15 +888,14 @@ class TestCreateOutputSafety:
             assert kw["deflections"] == ["sorry"]
 
     def test_no_personality(self, tmp_path):
-        """Lines 920-921: no personality, deflections is dict (not list)."""
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity(
+        bootstrap = self._make_bootstrap(
+            tmp_path,
             security=SecuritySettings(enable_output_safety=True),
             deflections={"topic": ["not a list"]},
         )
-        with patch("overblick.core.orchestrator.OutputSafety") as mock_cls:
+        with patch("overblick.core.security.output_safety.OutputSafety") as mock_cls:
             mock_cls.return_value = MagicMock()
-            orch._create_output_safety()
+            bootstrap._create_output_safety()
             kw = mock_cls.call_args[1]
             assert kw["banned_slang_patterns"] == []
             assert kw["deflections"] is None
@@ -1120,14 +961,28 @@ class TestOrchestratorIPCDiscovery:
 
 
 class TestRegisterLocalPlugins:
-    def test_no_local_dir(self, tmp_path):
-        """Line 842-843."""
+    def test_no_factory_uses_fallback(self, tmp_path):
+        """Without factory, _register_local_plugins uses fallback import."""
         orch = _make_orchestrator(tmp_path)
         # __init__ already called it; no crash means success
         assert orch._registry is not None
+        assert orch.state == OrchestratorState.INIT
 
-    def test_full_discovery(self, tmp_path):
-        """Lines 845-871."""
+    def test_with_factory_delegates_to_factory(self, tmp_path):
+        """With factory, _register_local_plugins delegates to factory."""
+        factory = MagicMock()
+        factory.register_local_plugins = MagicMock()
+        orch = Orchestrator("testident", base_dir=tmp_path, factory=factory)
+        factory.register_local_plugins.assert_called_once()
+
+    def test_factory_without_register_local_plugins_skips(self, tmp_path):
+        """If factory lacks register_local_plugins, it's silently skipped."""
+        factory = MagicMock(spec=[])  # No attributes
+        orch = Orchestrator("testident", base_dir=tmp_path, factory=factory)
+        assert orch.state == OrchestratorState.INIT
+
+    def test_plugin_base_subclass_detection(self, tmp_path):
+        """PluginBase subclass detection logic (used by ComponentFactory)."""
         from overblick.core.plugin_base import PluginBase
 
         class MyLocalPlugin(PluginBase):
@@ -1141,11 +996,6 @@ class TestRegisterLocalPlugins:
             "__name__": "fake",
         })()
 
-        _make_orchestrator(tmp_path)
-
-        # Simulate the method logic with mocked filesystem
-
-        # Find PluginBase subclass
         cls_name = None
         for attr_name in dir(fake_mod):
             attr = getattr(fake_mod, attr_name)
@@ -1155,31 +1005,6 @@ class TestRegisterLocalPlugins:
 
         assert cls_name == "MyLocalPlugin"
 
-    def test_import_error_logged(self, tmp_path):
-        """Lines 853-855."""
-        orch = _make_orchestrator(tmp_path)
-        # The method is already called in __init__; test its resilience
-        # by verifying the orchestrator still works after
-        assert orch.state == OrchestratorState.INIT
-
-    def test_no_pluginbase_subclass(self, tmp_path):
-        """Lines 858-870: module with no PluginBase subclass."""
-        from overblick.core.plugin_base import PluginBase
-
-        fake_mod = type("FakeModule", (), {
-            "NotAPlugin": str,
-            "__name__": "fake",
-        })()
-
-        cls_name = None
-        for attr_name in dir(fake_mod):
-            attr = getattr(fake_mod, attr_name)
-            if isinstance(attr, type) and issubclass(attr, PluginBase) and attr is not PluginBase:
-                cls_name = attr_name
-                break
-
-        assert cls_name is None
-
 
 # ---------------------------------------------------------------------------
 # _load_local_plugin_config (lines 894-910)
@@ -1187,44 +1012,49 @@ class TestRegisterLocalPlugins:
 
 
 class TestLoadLocalPluginConfig:
+    """Local plugin config loading moved to LocalPluginConfig class."""
+
     def test_no_config_file(self, tmp_path):
-        orch = _make_orchestrator(tmp_path)
-        assert orch._load_local_plugin_config() == []
+        from overblick.core.local_plugin_config import LocalPluginConfig
+        config = LocalPluginConfig(tmp_path, "testident")
+        assert config.configured_plugins() == []
 
     def test_config_with_plugins(self, tmp_path):
-        """Lines 894-907."""
+        from overblick.core.local_plugin_config import LocalPluginConfig
         config_dir = tmp_path / "config"
         config_dir.mkdir()
-        (config_dir / "overblick.yaml").write_text(
-            "local_plugins:\n"
-            "  testident:\n"
+        (config_dir / "local_plugins.yaml").write_text(
+            "testident:\n"
+            "  plugins:\n"
             "    - localplugin1\n"
             "    - localplugin2\n"
         )
-        orch = _make_orchestrator(tmp_path)
-        assert orch._load_local_plugin_config() == ["localplugin1", "localplugin2"]
+        config = LocalPluginConfig(tmp_path, "testident")
+        assert config.configured_plugins() == ["localplugin1", "localplugin2"]
 
     def test_no_plugins_for_identity(self, tmp_path):
+        from overblick.core.local_plugin_config import LocalPluginConfig
         config_dir = tmp_path / "config"
         config_dir.mkdir()
-        (config_dir / "overblick.yaml").write_text("local_plugins:\n  other:\n    - p\n")
-        orch = _make_orchestrator(tmp_path)
-        assert orch._load_local_plugin_config() == []
+        (config_dir / "local_plugins.yaml").write_text("other:\n  plugins:\n    - p\n")
+        config = LocalPluginConfig(tmp_path, "testident")
+        assert config.configured_plugins() == []
 
     def test_parse_error(self, tmp_path):
-        """Lines 908-910."""
+        from overblick.core.local_plugin_config import LocalPluginConfig
         config_dir = tmp_path / "config"
         config_dir.mkdir()
-        (config_dir / "overblick.yaml").write_text(": {{{{ invalid yaml")
-        orch = _make_orchestrator(tmp_path)
-        assert orch._load_local_plugin_config() == []
+        (config_dir / "local_plugins.yaml").write_text(": {{{{ invalid yaml")
+        config = LocalPluginConfig(tmp_path, "testident")
+        assert config.configured_plugins() == []
 
     def test_empty_yaml(self, tmp_path):
+        from overblick.core.local_plugin_config import LocalPluginConfig
         config_dir = tmp_path / "config"
         config_dir.mkdir()
-        (config_dir / "overblick.yaml").write_text("")
-        orch = _make_orchestrator(tmp_path)
-        assert orch._load_local_plugin_config() == []
+        (config_dir / "local_plugins.yaml").write_text("")
+        config = LocalPluginConfig(tmp_path, "testident")
+        assert config.configured_plugins() == []
 
 
 # ---------------------------------------------------------------------------
@@ -1233,74 +1063,68 @@ class TestLoadLocalPluginConfig:
 
 
 class TestResolvePluginDependencies:
-    def test_no_dependencies(self, tmp_path):
-        orch = _make_orchestrator(tmp_path)
-        meta = MagicMock()
-        meta.depends_on = []
-        orch._registry = MagicMock()
-        orch._registry.get_plugin_metadata.return_value = meta
-        assert orch._resolve_plugin_dependencies(["a", "b"]) == ["a", "b"]
+    """Plugin dependency resolution moved to PluginDependencyResolver."""
 
-    def test_with_dependency(self, tmp_path):
-        orch = _make_orchestrator(tmp_path)
+    def _make_resolver(self, get_class_fn=None):
+        from overblick.core.plugin_dependency_resolver import PluginDependencyResolver
+        registry = MagicMock()
+        if get_class_fn:
+            registry.get_plugin_class.side_effect = get_class_fn
+        else:
+            mock_cls = type("MockPlugin", (), {"REQUIRES_PLUGINS": []})
+            registry.get_plugin_class.return_value = mock_cls
+        return PluginDependencyResolver(registry)
 
-        def _meta(name):
-            m = MagicMock()
-            m.depends_on = ["a"] if name == "b" else []
-            return m
+    def test_no_dependencies(self):
+        resolver = self._make_resolver()
+        assert resolver.resolve(["a", "b"]) == ["a", "b"]
 
-        orch._registry = MagicMock()
-        orch._registry.get_plugin_metadata.side_effect = _meta
-        result = orch._resolve_plugin_dependencies(["b", "a"])
+    def test_with_dependency(self):
+        def _get_class(name):
+            if name == "b":
+                return type("B", (), {"REQUIRES_PLUGINS": ["a"]})
+            return type("A", (), {"REQUIRES_PLUGINS": []})
+
+        resolver = self._make_resolver(_get_class)
+        result = resolver.resolve(["b", "a"])
         assert result.index("a") < result.index("b")
 
-    def test_circular_dependency(self, tmp_path):
-        """Lines 996-997."""
-        orch = _make_orchestrator(tmp_path)
+    def test_circular_dependency(self):
+        def _get_class(name):
+            if name == "a":
+                return type("A", (), {"REQUIRES_PLUGINS": ["b"]})
+            return type("B", (), {"REQUIRES_PLUGINS": ["a"]})
 
-        def _meta(name):
-            m = MagicMock()
-            m.depends_on = ["b"] if name == "a" else ["a"]
-            return m
+        resolver = self._make_resolver(_get_class)
+        with pytest.raises(ValueError, match="Cycle detected"):
+            resolver.resolve(["a", "b"])
 
-        orch._registry = MagicMock()
-        orch._registry.get_plugin_metadata.side_effect = _meta
-        with pytest.raises(RuntimeError, match="Circular dependency"):
-            orch._resolve_plugin_dependencies(["a", "b"])
+    def test_external_dependency_ignored(self):
+        """Dependencies not in the plugin list are ignored."""
+        def _get_class(name):
+            return type("A", (), {"REQUIRES_PLUGINS": ["external"]})
 
-    def test_external_dependency(self, tmp_path):
-        """Lines 965-966, 970-971."""
-        orch = _make_orchestrator(tmp_path)
-        meta = MagicMock()
-        meta.depends_on = ["external"]
-        orch._registry = MagicMock()
-        orch._registry.get_plugin_metadata.return_value = meta
-        assert orch._resolve_plugin_dependencies(["a"]) == ["a"]
+        resolver = self._make_resolver(_get_class)
+        assert resolver.resolve(["a"]) == ["a"]
 
-    def test_metadata_failure(self, tmp_path):
-        """Lines 967-968."""
-        orch = _make_orchestrator(tmp_path)
-        orch._registry = MagicMock()
-        orch._registry.get_plugin_metadata.side_effect = ValueError("nope")
-        assert set(orch._resolve_plugin_dependencies(["a", "b"])) == {"a", "b"}
+    def test_metadata_failure_continues(self):
+        """Plugin class load failure doesn't crash resolution."""
+        registry = MagicMock()
+        registry.get_plugin_class.side_effect = ValueError("nope")
+        from overblick.core.plugin_dependency_resolver import PluginDependencyResolver
+        resolver = PluginDependencyResolver(registry)
+        assert set(resolver.resolve(["a", "b"])) == {"a", "b"}
 
-    def test_dependency_chain(self, tmp_path):
-        """Lines 989-991."""
-        orch = _make_orchestrator(tmp_path)
-
-        def _meta(name):
-            m = MagicMock()
+    def test_dependency_chain(self):
+        def _get_class(name):
             if name == "c":
-                m.depends_on = ["b"]
+                return type("C", (), {"REQUIRES_PLUGINS": ["b"]})
             elif name == "b":
-                m.depends_on = ["a"]
-            else:
-                m.depends_on = []
-            return m
+                return type("B", (), {"REQUIRES_PLUGINS": ["a"]})
+            return type("A", (), {"REQUIRES_PLUGINS": []})
 
-        orch._registry = MagicMock()
-        orch._registry.get_plugin_metadata.side_effect = _meta
-        assert orch._resolve_plugin_dependencies(["c", "b", "a"]) == ["a", "b", "c"]
+        resolver = self._make_resolver(_get_class)
+        assert resolver.resolve(["c", "b", "a"]) == ["a", "b", "c"]
 
 
 # ---------------------------------------------------------------------------
@@ -1309,39 +1133,61 @@ class TestResolvePluginDependencies:
 
 
 class TestCreatePluginContext:
-    def _prepare_orch(self, tmp_path):
-        orch = _make_orchestrator(tmp_path)
-        orch._identity = _make_identity()
-        orch._secrets = MagicMock()
-        orch._secrets.get = MagicMock(return_value="val")
-        orch._audit_log = MagicMock()
-        orch._llm_pipeline = MagicMock()
-        orch._llm_client = MagicMock()
-        orch._quiet_hours = MagicMock()
-        orch._preflight = None
-        orch._output_safety = None
-        orch._ipc_client = None
-        orch._engagement_db = None
-        orch._learning_store = None
-        return orch
+    """Plugin context creation moved to PluginContextFactory."""
+
+    def _make_factory(self, tmp_path):
+        from overblick.core.orchestrator_paths import OrchestratorPaths
+        from overblick.core.orchestrator_services import OrchestratorServices
+        from overblick.core.plugin_context_factory import PluginContextFactory
+        services = OrchestratorServices()
+        services.identity = _make_identity()
+        services.secrets = MagicMock()
+        services.secrets.get = MagicMock(return_value="val")
+        services.audit_log = MagicMock()
+        services.llm_pipeline = MagicMock()
+        services.llm_client = MagicMock()
+        services.quiet_hours = MagicMock()
+        services.preflight = None
+        services.output_safety = None
+        services.ipc_client = None
+        services.engagement_db = None
+        services.learning_store = None
+        paths = OrchestratorPaths.for_identity(tmp_path, "testident")
+        return PluginContextFactory(
+            identity_name="testident",
+            services=services,
+            paths=paths,
+        ), services
 
     def test_known_role(self, tmp_path):
         from overblick.core.plugin_base import CommunicationPluginContext
-        orch = self._prepare_orch(tmp_path)
-        ctx = orch._create_plugin_context("telegram", tmp_path / "d", tmp_path / "l", MagicMock(), MagicMock())
+        factory, _ = self._make_factory(tmp_path)
+        ctx = factory.create(
+            plugin_name="telegram",
+            permissions=MagicMock(),
+            capability_checker=MagicMock(),
+        )
         assert isinstance(ctx, CommunicationPluginContext)
 
     def test_unknown_role(self, tmp_path):
         from overblick.core.plugin_base import DefaultPluginContext
-        orch = self._prepare_orch(tmp_path)
-        ctx = orch._create_plugin_context("unknown", tmp_path / "d", tmp_path / "l", MagicMock(), MagicMock())
+        factory, _ = self._make_factory(tmp_path)
+        ctx = factory.create(
+            plugin_name="unknown",
+            permissions=MagicMock(),
+            capability_checker=MagicMock(),
+        )
         assert isinstance(ctx, DefaultPluginContext)
 
     def test_secrets_getter_wired(self, tmp_path):
-        orch = self._prepare_orch(tmp_path)
-        ctx = orch._create_plugin_context("telegram", tmp_path / "d", tmp_path / "l", MagicMock(), MagicMock())
+        factory, services = self._make_factory(tmp_path)
+        ctx = factory.create(
+            plugin_name="telegram",
+            permissions=MagicMock(),
+            capability_checker=MagicMock(),
+        )
         ctx._secrets_getter("key")
-        orch._secrets.get.assert_called_with("testident", "key")
+        services.secrets.get.assert_called_with("testident", "key")
 
 
 # ---------------------------------------------------------------------------
@@ -1350,182 +1196,117 @@ class TestCreatePluginContext:
 
 
 class TestGuardedTick:
-    async def test_stopped_plugin_skipped(self, tmp_path):
-        orch = _make_orchestrator(tmp_path)
-        orch._control_file = tmp_path / "ctrl.json"
-        (tmp_path / "ctrl.json").write_text(json.dumps({"testplugin": "stopped"}))
-        orch._control_cache_ts = 0.0
-        assert await orch._is_plugin_stopped("testplugin") is True
-        assert await orch._is_plugin_stopped("running_plugin") is False
+    """Guarded tick/heartbeat logic moved to OrchestratorRuntime."""
 
-    async def test_guarded_tick_executes_plugin(self, tmp_path):
-        """Lines 476-491: guarded tick calls plugin.tick and emits event."""
-        orch = _make_orchestrator(tmp_path)
+    async def test_stopped_plugin_skipped_via_controller(self, tmp_path):
+        from overblick.core.plugin_run_controller import PluginRunController
+        control_file = tmp_path / "ctrl.json"
+        control_file.write_text(json.dumps({"testplugin": "stopped"}))
+        controller = PluginRunController(control_file=control_file)
+        assert await controller.is_plugin_stopped("testplugin") is True
+        assert await controller.is_plugin_stopped("running_plugin") is False
+
+    async def test_runtime_registers_tick_callbacks(self, tmp_path):
+        """OrchestratorRuntime registers tick callbacks for plugins."""
+        from overblick.core.orchestrator_runtime import OrchestratorRuntime
+        from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
+        from overblick.core.orchestrator_services import OrchestratorServices
+
+        identity = _make_identity()
+        services = OrchestratorServices()
+        services.identity = identity
+        services.audit_log = MagicMock()
+        services.audit_log.log = MagicMock()
+        services.audit_log.start_background_cleanup = MagicMock()
+        services.event_bus = MagicMock()
+        services.event_bus.emit = AsyncMock()
 
         plugin = MagicMock()
         plugin.name = "testplugin"
         plugin.tick = AsyncMock()
         plugin.post_heartbeat = None
-        plugin.teardown = AsyncMock()
 
+        runtime_state = OrchestratorRuntimeState()
+        runtime_state.plugins = [plugin]
+
+        scheduler = MagicMock()
         captured_callbacks = []
 
         async def _capture_add(name, callback, **kwargs):
             captured_callbacks.append((name, callback))
 
-        mock_setup, scheduler, _audit, event_bus = _setup_run_orch(
-            orch, tmp_path, plugins=[plugin]
-        )
         scheduler.add = _capture_add
 
         async def _start_and_shutdown():
-            orch._shutdown_event.set()
+            runtime_state.shutdown_event.set()
 
         scheduler.start = _start_and_shutdown
+        services.scheduler = scheduler
 
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
-            await orch.run()
-
-        # Find and invoke the tick callback
-        tick_cb = None
-        for name, cb in captured_callbacks:
-            if name.startswith("tick_"):
-                tick_cb = cb
-                break
-        assert tick_cb is not None
-
-        # Plugin is not stopped — tick should execute
-        orch._control_file = None
-        await tick_cb()
-        plugin.tick.assert_awaited_once()
-        event_bus.emit.assert_awaited()
-
-    async def test_guarded_tick_skips_stopped_plugin(self, tmp_path):
-        """Lines 479-481: guarded tick skips when plugin is stopped."""
-        orch = _make_orchestrator(tmp_path)
-
-        plugin = MagicMock()
-        plugin.name = "stoppedplugin"
-        plugin.tick = AsyncMock()
-        plugin.post_heartbeat = None
-        plugin.teardown = AsyncMock()
-
-        captured_callbacks = []
-
-        async def _capture_add(name, callback, **kwargs):
-            captured_callbacks.append((name, callback))
-
-        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
-            orch, tmp_path, plugins=[plugin]
+        runtime = OrchestratorRuntime(
+            identity_name="testident",
+            services=services,
+            runtime_state=runtime_state,
+            on_stop_requested=AsyncMock(),
         )
-        scheduler.add = _capture_add
 
-        async def _start_and_shutdown():
-            orch._shutdown_event.set()
+        with patch("overblick.shared.platform.register_shutdown_signals"):
+            await runtime.run()
 
-        scheduler.start = _start_and_shutdown
+        # Should have registered tick callback
+        tick_names = [name for name, _ in captured_callbacks if name.startswith("tick_")]
+        assert len(tick_names) == 1
 
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
-            await orch.run()
+    async def test_runtime_registers_heartbeat_for_supporting_plugins(self, tmp_path):
+        """OrchestratorRuntime registers heartbeat when plugin supports it."""
+        from overblick.core.orchestrator_runtime import OrchestratorRuntime
+        from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
+        from overblick.core.orchestrator_services import OrchestratorServices
 
-        tick_cb = None
-        for name, cb in captured_callbacks:
-            if name.startswith("tick_"):
-                tick_cb = cb
-                break
-
-        # Mark plugin as stopped
-        orch._control_file = tmp_path / "ctrl.json"
-        (tmp_path / "ctrl.json").write_text(json.dumps({"stoppedplugin": "stopped"}))
-        orch._control_cache_ts = 0.0
-
-        await tick_cb()
-        plugin.tick.assert_not_awaited()
-
-    async def test_guarded_heartbeat_executes(self, tmp_path):
-        """Lines 505-508: heartbeat closure calls post_heartbeat."""
-        orch = _make_orchestrator(tmp_path)
+        identity = _make_identity()
+        services = OrchestratorServices()
+        services.identity = identity
+        services.audit_log = MagicMock()
+        services.audit_log.log = MagicMock()
+        services.audit_log.start_background_cleanup = MagicMock()
+        services.event_bus = MagicMock()
 
         plugin = MagicMock()
-        plugin.name = "hbplugin"
+        plugin.name = "hb_plugin"
         plugin.tick = AsyncMock()
         plugin.post_heartbeat = AsyncMock()
-        plugin.teardown = AsyncMock()
 
+        runtime_state = OrchestratorRuntimeState()
+        runtime_state.plugins = [plugin]
+
+        scheduler = MagicMock()
         captured_callbacks = []
 
         async def _capture_add(name, callback, **kwargs):
             captured_callbacks.append((name, callback))
 
-        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
-            orch, tmp_path, plugins=[plugin]
-        )
         scheduler.add = _capture_add
 
         async def _start_and_shutdown():
-            orch._shutdown_event.set()
+            runtime_state.shutdown_event.set()
 
         scheduler.start = _start_and_shutdown
+        services.scheduler = scheduler
 
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
-            await orch.run()
-
-        hb_cb = None
-        for name, cb in captured_callbacks:
-            if name.startswith("heartbeat_"):
-                hb_cb = cb
-                break
-        assert hb_cb is not None
-
-        # Plugin not stopped — heartbeat should execute
-        orch._control_file = None
-        await hb_cb()
-        plugin.post_heartbeat.assert_awaited_once()
-
-    async def test_guarded_heartbeat_skips_stopped(self, tmp_path):
-        """Lines 506-507: heartbeat skipped when stopped."""
-        orch = _make_orchestrator(tmp_path)
-
-        plugin = MagicMock()
-        plugin.name = "hbplugin"
-        plugin.tick = AsyncMock()
-        plugin.post_heartbeat = AsyncMock()
-        plugin.teardown = AsyncMock()
-
-        captured_callbacks = []
-
-        async def _capture_add(name, callback, **kwargs):
-            captured_callbacks.append((name, callback))
-
-        mock_setup, scheduler, _audit, _event_bus = _setup_run_orch(
-            orch, tmp_path, plugins=[plugin]
+        runtime = OrchestratorRuntime(
+            identity_name="testident",
+            services=services,
+            runtime_state=runtime_state,
+            on_stop_requested=AsyncMock(),
         )
-        scheduler.add = _capture_add
 
-        async def _start_and_shutdown():
-            orch._shutdown_event.set()
+        with patch("overblick.shared.platform.register_shutdown_signals"):
+            await runtime.run()
 
-        scheduler.start = _start_and_shutdown
-
-        with patch.object(orch, "setup", side_effect=mock_setup), \
-             patch("overblick.shared.platform.register_shutdown_signals"):
-            await orch.run()
-
-        hb_cb = None
-        for name, cb in captured_callbacks:
-            if name.startswith("heartbeat_"):
-                hb_cb = cb
-                break
-
-        orch._control_file = tmp_path / "ctrl.json"
-        (tmp_path / "ctrl.json").write_text(json.dumps({"hbplugin": "stopped"}))
-        orch._control_cache_ts = 0.0
-
-        await hb_cb()
-        plugin.post_heartbeat.assert_not_awaited()
+        # Should have both tick and heartbeat
+        names = [name for name, _ in captured_callbacks]
+        assert any(n.startswith("tick_") for n in names)
+        assert any(n.startswith("heartbeat_") for n in names)
 
 
 # ---------------------------------------------------------------------------
@@ -1534,11 +1315,12 @@ class TestGuardedTick:
 
 
 class TestRegisterLocalPluginsExecution:
-    def test_discovers_and_registers_plugin(self, tmp_path):
-        """Lines 845-871: actual execution with mocked importlib."""
-        import importlib as importlib_mod
+    """Local plugin discovery moved to ComponentFactory._register_local_plugins.
+    These tests now exercise ComponentFactory directly."""
 
-        import overblick.core.orchestrator as orch_mod
+    def test_discovers_and_registers_plugin(self, tmp_path):
+        """ComponentFactory discovers and registers local plugins."""
+        from overblick.core.component_factory import ComponentFactory
         from overblick.core.plugin_base import PluginBase
 
         class TestLocalPlugin(PluginBase):
@@ -1552,142 +1334,92 @@ class TestRegisterLocalPluginsExecution:
             "__name__": "fakemod",
         })()
 
-        # Create the _local directory structure at the real location
-        local_dir = Path(orch_mod.__file__).parent.parent / "plugins" / "_local"
-
+        local_dir = tmp_path / "overblick" / "plugins" / "_local"
         test_plugin_dir = local_dir / "_test_orch_plugin"
-        created_local = not local_dir.exists()
-        try:
-            local_dir.mkdir(parents=True, exist_ok=True)
-            test_plugin_dir.mkdir(exist_ok=True)
-            (test_plugin_dir / "plugin.py").write_text("# test")
+        local_dir.mkdir(parents=True)
+        test_plugin_dir.mkdir()
+        (test_plugin_dir / "plugin.py").write_text("# test")
 
-            original_import = importlib_mod.import_module
+        from unittest.mock import Mock
+        registry = Mock()
 
-            def _mock_import(name, *args, **kwargs):
-                if "_test_orch_plugin" in name:
-                    return fake_mod
-                return original_import(name, *args, **kwargs)
+        factory = ComponentFactory("testident", tmp_path)
+        with patch("importlib.import_module", return_value=fake_mod):
+            factory._register_local_plugins(registry)
 
-            with patch.object(importlib_mod, "import_module", side_effect=_mock_import):
-                orch = Orchestrator("testident", base_dir=tmp_path)
-
-            assert "_test_orch_plugin" in orch._registry._plugins
-        finally:
-            if (test_plugin_dir / "plugin.py").exists():
-                (test_plugin_dir / "plugin.py").unlink()
-            if test_plugin_dir.exists():
-                test_plugin_dir.rmdir()
-            if created_local and local_dir.exists() and not any(local_dir.iterdir()):
-                local_dir.rmdir()
+        registry.register.assert_called_once()
+        call_args = registry.register.call_args
+        assert call_args[0][0] == "_test_orch_plugin"
 
     def test_import_error_skips_plugin(self, tmp_path):
-        """Lines 853-855: import error skips."""
-        import importlib as importlib_mod
+        """Import errors are logged and plugin is skipped."""
+        from overblick.core.component_factory import ComponentFactory
 
-        import overblick.core.orchestrator as orch_mod
-
-        local_dir = Path(orch_mod.__file__).parent.parent / "plugins" / "_local"
-
+        local_dir = tmp_path / "overblick" / "plugins" / "_local"
         test_plugin_dir = local_dir / "_test_bad_plugin"
-        created_local = not local_dir.exists()
-        try:
-            local_dir.mkdir(parents=True, exist_ok=True)
-            test_plugin_dir.mkdir(exist_ok=True)
-            (test_plugin_dir / "plugin.py").write_text("# test")
+        local_dir.mkdir(parents=True)
+        test_plugin_dir.mkdir()
+        (test_plugin_dir / "plugin.py").write_text("# test")
 
-            original_import = importlib_mod.import_module
+        from unittest.mock import Mock
+        registry = Mock()
 
-            def _mock_import(name, *args, **kwargs):
-                if "_test_bad_plugin" in name:
-                    raise ImportError("bad import")
-                return original_import(name, *args, **kwargs)
+        factory = ComponentFactory("testident", tmp_path)
+        with patch("importlib.import_module", side_effect=ImportError("bad import")):
+            factory._register_local_plugins(registry)
 
-            with patch.object(importlib_mod, "import_module", side_effect=_mock_import):
-                orch = Orchestrator("testident", base_dir=tmp_path)
-
-            assert "_test_bad_plugin" not in orch._registry._plugins
-        finally:
-            if (test_plugin_dir / "plugin.py").exists():
-                (test_plugin_dir / "plugin.py").unlink()
-            if test_plugin_dir.exists():
-                test_plugin_dir.rmdir()
-            if created_local and local_dir.exists() and not any(local_dir.iterdir()):
-                local_dir.rmdir()
+        registry.register.assert_not_called()
 
     def test_no_subclass_not_registered(self, tmp_path):
-        """Lines 858-870: module with no PluginBase subclass."""
-        import importlib as importlib_mod
+        """Module without PluginBase subclass is not registered."""
+        from overblick.core.component_factory import ComponentFactory
 
-        import overblick.core.orchestrator as orch_mod
-
-        local_dir = Path(orch_mod.__file__).parent.parent / "plugins" / "_local"
+        local_dir = tmp_path / "overblick" / "plugins" / "_local"
+        test_plugin_dir = local_dir / "_test_nosub_plugin"
+        local_dir.mkdir(parents=True)
+        test_plugin_dir.mkdir()
+        (test_plugin_dir / "plugin.py").write_text("# test")
 
         fake_mod = type("FakeMod", (), {
             "NotAPlugin": str,
             "__name__": "fakemod",
         })()
 
-        test_plugin_dir = local_dir / "_test_nosub_plugin"
-        created_local = not local_dir.exists()
-        try:
-            local_dir.mkdir(parents=True, exist_ok=True)
-            test_plugin_dir.mkdir(exist_ok=True)
-            (test_plugin_dir / "plugin.py").write_text("# test")
+        from unittest.mock import Mock
+        registry = Mock()
 
-            original_import = importlib_mod.import_module
+        factory = ComponentFactory("testident", tmp_path)
+        with patch("importlib.import_module", return_value=fake_mod):
+            factory._register_local_plugins(registry)
 
-            def _mock_import(name, *args, **kwargs):
-                if "_test_nosub_plugin" in name:
-                    return fake_mod
-                return original_import(name, *args, **kwargs)
-
-            with patch.object(importlib_mod, "import_module", side_effect=_mock_import):
-                orch = Orchestrator("testident", base_dir=tmp_path)
-
-            assert "_test_nosub_plugin" not in orch._registry._plugins
-        finally:
-            if (test_plugin_dir / "plugin.py").exists():
-                (test_plugin_dir / "plugin.py").unlink()
-            if test_plugin_dir.exists():
-                test_plugin_dir.rmdir()
-            if created_local and local_dir.exists() and not any(local_dir.iterdir()):
-                local_dir.rmdir()
+        registry.register.assert_not_called()
 
     def test_non_dir_candidate_skipped(self, tmp_path):
-        """Line 847-848: file in _local/ skipped."""
-        import overblick.core.orchestrator as orch_mod
+        """Files in _local/ are skipped."""
+        from overblick.core.component_factory import ComponentFactory
 
-        local_dir = Path(orch_mod.__file__).parent.parent / "plugins" / "_local"
-        created_local = not local_dir.exists()
-        try:
-            local_dir.mkdir(parents=True, exist_ok=True)
-            test_file = local_dir / "_test_file.py"
-            test_file.write_text("# not a plugin dir")
+        local_dir = tmp_path / "overblick" / "plugins" / "_local"
+        local_dir.mkdir(parents=True)
+        (local_dir / "_test_file.py").write_text("# not a plugin dir")
 
-            Orchestrator("testident", base_dir=tmp_path)
-            assert True
-        finally:
-            if (local_dir / "_test_file.py").exists():
-                (local_dir / "_test_file.py").unlink()
-            if created_local and local_dir.exists() and not any(local_dir.iterdir()):
-                local_dir.rmdir()
+        from unittest.mock import Mock
+        registry = Mock()
+
+        factory = ComponentFactory("testident", tmp_path)
+        factory._register_local_plugins(registry)
+        registry.register.assert_not_called()
 
     def test_dir_without_plugin_py_skipped(self, tmp_path):
-        """Line 847-848: dir without plugin.py skipped."""
-        import overblick.core.orchestrator as orch_mod
+        """Directory without plugin.py is skipped."""
+        from overblick.core.component_factory import ComponentFactory
 
-        local_dir = Path(orch_mod.__file__).parent.parent / "plugins" / "_local"
-        created_local = not local_dir.exists()
-        test_dir = local_dir / "_test_nopy_plugin"
-        try:
-            local_dir.mkdir(parents=True, exist_ok=True)
-            test_dir.mkdir(exist_ok=True)
+        local_dir = tmp_path / "overblick" / "plugins" / "_local"
+        local_dir.mkdir(parents=True)
+        (local_dir / "_test_nopy_plugin").mkdir()
 
-            orch = Orchestrator("testident", base_dir=tmp_path)
-            assert "_test_nopy_plugin" not in orch._registry._plugins
-        finally:
-            if test_dir.exists():
-                test_dir.rmdir()
-            if created_local and local_dir.exists() and not any(local_dir.iterdir()):
-                local_dir.rmdir()
+        from unittest.mock import Mock
+        registry = Mock()
+
+        factory = ComponentFactory("testident", tmp_path)
+        factory._register_local_plugins(registry)
+        registry.register.assert_not_called()

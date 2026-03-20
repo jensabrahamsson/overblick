@@ -12,6 +12,14 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
+try:
+    import py_clob_client  # noqa: F401
+    HAS_CLOB = True
+except ImportError:
+    HAS_CLOB = False
+
 from overblick.core.plugin_base import PluginContext
 from overblick.core.plugin_registry import PluginRegistry
 from overblick.identities import Identity
@@ -45,6 +53,7 @@ async def test_plugins_registration():
     print("✓ Plugins registered in plugin registry")
 
 
+@pytest.mark.skipif(not HAS_CLOB, reason="py_clob_client not installed")
 async def test_plugin_initialization_simulation():
     """Test that plugins can be initialized in simulation mode."""
     # Create temporary data directory
@@ -108,6 +117,7 @@ async def test_plugin_initialization_simulation():
             shutil.rmtree(temp_dir)
 
 
+@pytest.mark.skipif(not HAS_CLOB, reason="py_clob_client not installed")
 async def test_trading_signal_flow():
     """Test the trading signal flow from monitor to trader."""
     # Create temporary data directory
@@ -181,6 +191,7 @@ async def test_trading_signal_flow():
             shutil.rmtree(temp_dir)
 
 
+@pytest.mark.skipif(not HAS_CLOB, reason="py_clob_client not installed")
 async def test_risk_management():
     """Test basic risk management functionality."""
     from decimal import Decimal
