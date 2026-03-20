@@ -442,11 +442,14 @@ class TestCreateIPCClient:
         monkeypatch.setenv("OVERBLICK_IPC_DIR", str(ipc_dir))
 
         factory = ComponentFactory("anomal", tmp_path)
-        with patch("overblick.supervisor.ipc.IPCClient") as mock_cls:
+        with patch("overblick.supervisor.ipc.read_ipc_token", return_value="secret") as mock_read, \
+             patch("overblick.supervisor.ipc.IPCClient") as mock_cls:
             result = factory.create_ipc_client()
+            mock_read.assert_called_once_with(socket_dir=ipc_dir)
             mock_cls.assert_called_once_with(
-                token_path=ipc_dir / "overblick-supervisor.token",
-                identity="anomal",
+                target="supervisor",
+                socket_dir=ipc_dir,
+                auth_token="secret",
             )
             assert result is mock_cls.return_value
 
@@ -457,7 +460,8 @@ class TestCreateIPCClient:
         (ipc_dir / "overblick-supervisor.token").write_text("secret")
 
         factory = ComponentFactory("anomal", tmp_path)
-        with patch("overblick.supervisor.ipc.IPCClient") as mock_cls:
+        with patch("overblick.supervisor.ipc.read_ipc_token", return_value="secret"), \
+             patch("overblick.supervisor.ipc.IPCClient") as mock_cls:
             result = factory.create_ipc_client()
             mock_cls.assert_called_once()
             assert result is mock_cls.return_value
@@ -471,7 +475,8 @@ class TestCreateIPCClient:
             (temp_ipc / "overblick-supervisor.token").write_text("secret")
 
             factory = ComponentFactory("anomal", tmp_path)
-            with patch("overblick.supervisor.ipc.IPCClient") as mock_cls:
+            with patch("overblick.supervisor.ipc.read_ipc_token", return_value="secret"), \
+                 patch("overblick.supervisor.ipc.IPCClient") as mock_cls:
                 result = factory.create_ipc_client()
                 mock_cls.assert_called_once()
                 assert result is mock_cls.return_value
@@ -489,10 +494,11 @@ class TestCreateIPCClient:
         monkeypatch.setenv("OVERBLICK_IPC_DIR", str(env_dir))
 
         factory = ComponentFactory("anomal", tmp_path)
-        with patch("overblick.supervisor.ipc.IPCClient") as mock_cls:
+        with patch("overblick.supervisor.ipc.read_ipc_token", return_value="env-secret"), \
+             patch("overblick.supervisor.ipc.IPCClient") as mock_cls:
             factory.create_ipc_client()
             call_kwargs = mock_cls.call_args.kwargs
-            assert call_kwargs["token_path"] == env_dir / "overblick-supervisor.token"
+            assert call_kwargs["socket_dir"] == env_dir
 
 
 class TestCreateEventBus:
@@ -540,45 +546,85 @@ class TestRegisterLocalPlugins:
         factory = ComponentFactory("anomal", tmp_path)
         registry = Mock()
         factory._register_local_plugins(registry)
-        registry.register_local.assert_not_called()
+        registry.register.assert_not_called()
 
-    def test_should_register_plugin_dirs(self, tmp_path):
+    def test_should_register_plugin_dirs_with_plugin_py(self, tmp_path):
         local_dir = tmp_path / "overblick" / "plugins" / "_local"
         local_dir.mkdir(parents=True)
         (local_dir / "my_plugin").mkdir()
+        (local_dir / "my_plugin" / "plugin.py").write_text("# plugin")
         (local_dir / "another_plugin").mkdir()
+        (local_dir / "another_plugin" / "plugin.py").write_text("# plugin")
 
         factory = ComponentFactory("anomal", tmp_path)
         registry = Mock()
-        factory._register_local_plugins(registry)
 
-        assert registry.register_local.call_count == 2
-        call_args_list = [c.args for c in registry.register_local.call_args_list]
-        assert ("my_plugin", "overblick.plugins._local.my_plugin.plugin") in call_args_list
-        assert ("another_plugin", "overblick.plugins._local.another_plugin.plugin") in call_args_list
+        from overblick.core.plugin_base import PluginBase
+
+        class FakePlugin(PluginBase):
+            name = "fake"
+            async def setup(self): pass
+            async def tick(self): pass
+            async def teardown(self): pass
+
+        fake_mod = type("FakeMod", (), {
+            "FakePlugin": FakePlugin,
+            "__name__": "fake",
+        })()
+
+        with patch("importlib.import_module", return_value=fake_mod):
+            factory._register_local_plugins(registry)
+
+        assert registry.register.call_count == 2
 
     def test_should_skip_non_directory_entries(self, tmp_path):
         local_dir = tmp_path / "overblick" / "plugins" / "_local"
         local_dir.mkdir(parents=True)
         (local_dir / "not_a_dir.txt").write_text("file")
         (local_dir / "real_plugin").mkdir()
+        (local_dir / "real_plugin" / "plugin.py").write_text("# plugin")
+
+        factory = ComponentFactory("anomal", tmp_path)
+        registry = Mock()
+
+        from overblick.core.plugin_base import PluginBase
+
+        class FakePlugin(PluginBase):
+            name = "fake"
+            async def setup(self): pass
+            async def tick(self): pass
+            async def teardown(self): pass
+
+        fake_mod = type("FakeMod", (), {
+            "FakePlugin": FakePlugin,
+            "__name__": "fake",
+        })()
+
+        with patch("importlib.import_module", return_value=fake_mod):
+            factory._register_local_plugins(registry)
+
+        registry.register.assert_called_once()
+
+    def test_should_skip_dir_without_plugin_py(self, tmp_path):
+        local_dir = tmp_path / "overblick" / "plugins" / "_local"
+        local_dir.mkdir(parents=True)
+        (local_dir / "no_plugin_file").mkdir()
 
         factory = ComponentFactory("anomal", tmp_path)
         registry = Mock()
         factory._register_local_plugins(registry)
+        registry.register.assert_not_called()
 
-        registry.register_local.assert_called_once_with(
-            "real_plugin", "overblick.plugins._local.real_plugin.plugin"
-        )
-
-    def test_should_handle_registration_failure(self, tmp_path):
+    def test_should_handle_import_failure(self, tmp_path):
         local_dir = tmp_path / "overblick" / "plugins" / "_local"
         local_dir.mkdir(parents=True)
         (local_dir / "bad_plugin").mkdir()
+        (local_dir / "bad_plugin" / "plugin.py").write_text("# plugin")
 
         factory = ComponentFactory("anomal", tmp_path)
         registry = Mock()
-        registry.register_local.side_effect = Exception("Import failed")
-        factory._register_local_plugins(registry)
+
+        with patch("importlib.import_module", side_effect=ImportError("bad import")):
+            factory._register_local_plugins(registry)
         # Should not raise — just log warning
-        registry.register_local.assert_called_once()
+        registry.register.assert_not_called()

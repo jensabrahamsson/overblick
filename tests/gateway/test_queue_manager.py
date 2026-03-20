@@ -379,7 +379,7 @@ class TestQueueManager:
 
         try:
             response = await qm.submit(sample_request, Priority.LOW)
-            assert response.model == "qwen3:8b"
+            assert response.model == "qwen3.5:9b"
             mock_client.chat_completion.assert_called_once()
         finally:
             await qm.stop()

@@ -1,16 +1,35 @@
 """Pytest fixtures for LLM Gateway tests."""
 
 import asyncio
+import sys
 from collections.abc import AsyncGenerator, Generator
-from unittest.mock import AsyncMock
+from types import ModuleType
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
+
+# Stub the missing dashscope_client module before any gateway imports.
+# The production code in backend_registry.py imports DashScopeClient from it,
+# but the module has not been created yet.  A fake module with a MagicMock
+# class lets the import succeed so tests can run.
+if "overblick.gateway.dashscope_client" not in sys.modules:
+    _ds_mod = ModuleType("overblick.gateway.dashscope_client")
+    _ds_mod.DashScopeClient = MagicMock(name="DashScopeClient")  # type: ignore[attr-defined]
+    sys.modules["overblick.gateway.dashscope_client"] = _ds_mod
+
+from contextlib import asynccontextmanager
 
 from overblick.gateway.config import GatewayConfig, reset_config
 from overblick.gateway.models import ChatMessage, ChatRequest, ChatResponse, Priority
 from overblick.gateway.ollama_client import OllamaClient
 from overblick.gateway.queue_manager import QueueManager
+
+
+@asynccontextmanager
+async def noop_lifespan(app):
+    """No-op lifespan for tests that mock globals directly."""
+    yield
 
 
 @pytest.fixture

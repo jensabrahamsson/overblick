@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.gateway.conftest import noop_lifespan
+
 from overblick.gateway.deepseek_client import (
     DeepseekConnectionError,
     DeepseekError,
@@ -85,6 +87,7 @@ class TestFastAPIApp:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 yield client
 
@@ -283,6 +286,7 @@ class TestOriginMiddleware:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 yield client
 
@@ -405,6 +409,7 @@ class TestHealthStarvationRisk:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 return client.get("/health").json()
 
@@ -447,6 +452,7 @@ class TestDeepseekBackendHealth:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 data = client.get("/health").json()
 
@@ -500,6 +506,7 @@ class TestAPIKeyVerification:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 yield client
 
@@ -543,6 +550,7 @@ class TestListBackends:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 response = client.get("/backends")
 
@@ -566,6 +574,7 @@ class TestListModelsErrors:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 yield client
 
@@ -658,6 +667,7 @@ class TestChatCompletionAdvanced:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 # Override globals AFTER lifespan has run
                 app_module._router = mock_router
@@ -853,6 +863,7 @@ class TestEmbeddingsEndpoint:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 yield client, mock_client
 
@@ -887,6 +898,7 @@ class TestEmbeddingsEndpoint:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 response = client.post("/v1/embeddings?text=hello")
                 assert response.status_code == 501
@@ -932,6 +944,7 @@ class TestGenericExceptionHandler:
         ):
             from overblick.gateway.app import app
 
+            app.router.lifespan_context = noop_lifespan
             with TestClient(app, raise_server_exceptions=False) as client:
                 payload = {
                     "model": "qwen3:8b",
