@@ -18,7 +18,7 @@ jobs:
           python3.13 -m venv /tmp/venv-${{ github.run_id }}
           . /tmp/venv-${{ github.run_id }}/bin/activate
           python -m pip install --upgrade pip
-          pip install -e ".[gateway,dashboard,dev]" pytest-timeout
+          pip install -e ".[gateway,dashboard,dev]" pytest-timeout tzdata
 
       - name: Lint with ruff and black
         continue-on-error: true
