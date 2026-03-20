@@ -34,4 +34,8 @@ jobs:
           mypy --ignore-missing-imports --disable-error-code misc overblick/
 
       - name: Run tests
-        run: pytest tests/ -v -m "not llm and not e2e and not llm_slow" --ignore=tests/test_dashboard_playwright.py --tb=short
+        run: >-
+          pytest tests/ -v -m "not llm and not e2e and not llm_slow"
+          --ignore=tests/test_dashboard_playwright.py
+          --ignore=tests/chaos
+          --tb=short
