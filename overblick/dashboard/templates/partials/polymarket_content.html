@@ -13,6 +13,67 @@
     </div>
 </div>
 
+<!-- Signals, Positions, Activity — TOP of page -->
+<div class="pm-trading-grid">
+    <div class="pm-panel">
+        <div class="pm-panel-header">
+            <h3>Signals</h3>
+            <span class="badge badge-info">{{ opportunities|length }}</span>
+        </div>
+        {% for opp in opportunities %}
+        <div class="pm-signal">
+            <div class="pm-signal-q">{{ opp.market_question|truncate(55) }}</div>
+            <div class="pm-signal-row">
+                <span class="badge {% if opp.probability_edge|float >= 0.05 %}badge-success{% elif opp.probability_edge|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format(opp.probability_edge * 100) }}%</span>
+                <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}% conf</span>
+                {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
+                {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% if not opportunities %}
+        <div class="pm-panel-empty">No signals yet</div>
+        {% endif %}
+    </div>
+
+    <div class="pm-panel">
+        <div class="pm-panel-header">
+            <h3>Positions</h3>
+            <span class="badge badge-info">{{ positions|length }}</span>
+        </div>
+        {% for pos in positions %}
+        <div class="pm-position">
+            <div class="pm-pos-q">{{ pos.market_id }}</div>
+            <div class="pm-pos-row">
+                {% if pos.outcome == "YES" %}<span class="badge badge-success">YES</span>{% else %}<span class="badge badge-danger">NO</span>{% endif %}
+                <span class="{% if pos.unrealized_pnl_usd|default(0) > 0 %}positive{% elif pos.unrealized_pnl_usd|default(0) < 0 %}negative{% endif %} mono">${{ "%.2f"|format(pos.unrealized_pnl_usd|default(0)) }}</span>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not positions %}
+        <div class="pm-panel-empty">No positions</div>
+        {% endif %}
+    </div>
+
+    <div class="pm-panel">
+        <div class="pm-panel-header">
+            <h3>Activity</h3>
+            <span class="badge badge-success">Live</span>
+        </div>
+        <div class="pm-activity-feed">
+            {% for entry in activity_feed %}
+            <div class="pm-feed-line">
+                <span class="pm-feed-time">[{{ entry.time[11:19] }}]</span>
+                <span class="pm-feed-msg {{ entry.type }}">{{ entry.msg }}</span>
+            </div>
+            {% endfor %}
+            {% if not activity_feed %}
+            <div class="pm-panel-empty">Waiting for events...</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 <!-- Category Tabs + Search -->
 <div class="pm-toolbar">
     <div class="pm-categories" id="pm-categories">
@@ -83,68 +144,4 @@
     <span id="pm-visible-count">{{ markets|length }}</span> / {{ markets|length }} markets
 </div>
 
-<!-- Signals & Trading -->
-{% if opportunities or positions or trades or activity_feed %}
-<div class="pm-trading-grid">
-    <!-- Signals -->
-    <div class="pm-panel">
-        <div class="pm-panel-header">
-            <h3>Signals</h3>
-            <span class="badge badge-info">{{ opportunities|length }}</span>
-        </div>
-        {% for opp in opportunities %}
-        <div class="pm-signal">
-            <div class="pm-signal-q">{{ opp.market_question|truncate(55) }}</div>
-            <div class="pm-signal-row">
-                <span class="badge {% if opp.probability_edge|float >= 0.05 %}badge-success{% elif opp.probability_edge|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format(opp.probability_edge * 100) }}%</span>
-                <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}% conf</span>
-                {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
-                {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
-            </div>
-        </div>
-        {% endfor %}
-        {% if not opportunities %}
-        <div class="pm-panel-empty">No signals yet</div>
-        {% endif %}
-    </div>
-
-    <!-- Positions -->
-    <div class="pm-panel">
-        <div class="pm-panel-header">
-            <h3>Positions</h3>
-            <span class="badge badge-info">{{ positions|length }}</span>
-        </div>
-        {% for pos in positions %}
-        <div class="pm-position">
-            <div class="pm-pos-q">{{ pos.market_id }}</div>
-            <div class="pm-pos-row">
-                {% if pos.outcome == "YES" %}<span class="badge badge-success">YES</span>{% else %}<span class="badge badge-danger">NO</span>{% endif %}
-                <span class="{% if pos.unrealized_pnl_usd|default(0) > 0 %}positive{% elif pos.unrealized_pnl_usd|default(0) < 0 %}negative{% endif %} mono">${{ "%.2f"|format(pos.unrealized_pnl_usd|default(0)) }}</span>
-            </div>
-        </div>
-        {% endfor %}
-        {% if not positions %}
-        <div class="pm-panel-empty">No positions</div>
-        {% endif %}
-    </div>
-
-    <!-- Activity -->
-    <div class="pm-panel">
-        <div class="pm-panel-header">
-            <h3>Activity</h3>
-            <span class="badge badge-success">Live</span>
-        </div>
-        <div class="pm-activity-feed">
-            {% for entry in activity_feed %}
-            <div class="pm-feed-line">
-                <span class="pm-feed-time">[{{ entry.time[11:19] }}]</span>
-                <span class="pm-feed-msg {{ entry.type }}">{{ entry.msg }}</span>
-            </div>
-            {% endfor %}
-            {% if not activity_feed %}
-            <div class="pm-panel-empty">Waiting for events...</div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-{% endif %}
+<!-- (trading grid moved to top) -->
