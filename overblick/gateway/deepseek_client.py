@@ -147,6 +147,9 @@ class DeepseekClient:
                 "stream": False,
             }
 
+            if request.think is not None:
+                payload["think"] = request.think
+
             if is_reasoner:
                 logger.info(
                     "DeepSeek REASONER mode: model=%s, messages=%d "

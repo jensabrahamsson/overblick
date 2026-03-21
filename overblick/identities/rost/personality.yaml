@@ -683,11 +683,11 @@ operational:
   llm:
     model: "qwen3.5:9b"
     temperature: 0.75
-    max_tokens: 1800
+    max_tokens: 4000
     timeout_seconds: 600
   schedule:
     heartbeat_hours: 4
-    feed_poll_minutes: 5
+    feed_poll_minutes: 15
     enabled: true
   quiet_hours:
     enabled: true

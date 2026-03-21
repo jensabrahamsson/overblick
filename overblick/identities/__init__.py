@@ -86,7 +86,7 @@ class LLMSettings(BaseModel):
     model: str = "qwen3.5:9b"
     temperature: float = 0.7
     top_p: float = 0.9
-    max_tokens: int = 2000
+    max_tokens: int = 4000
     timeout_seconds: int = 600
 
     # Gateway URL — all agents route through this
@@ -111,7 +111,7 @@ class ScheduleSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     heartbeat_hours: int = 4
-    feed_poll_minutes: int = 5
+    feed_poll_minutes: int = 15
     enabled: bool = True
 
 

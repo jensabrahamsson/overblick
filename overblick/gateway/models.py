@@ -58,6 +58,10 @@ class ChatRequest(BaseModel):
     max_tokens: int = Field(default=2000, ge=1, le=8192, description="Max tokens to generate")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
     top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Nucleus sampling threshold")
+    think: bool | None = Field(
+        default=None,
+        description="Enable/disable Qwen3 reasoning mode. None=model default, False=fast mode.",
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -143,3 +147,42 @@ class GatewayStats(BaseModel):
     avg_response_time_ms: float = Field(default=0.0, description="Average response time in ms")
     is_processing: bool = Field(default=False, description="Whether worker is busy")
     uptime_seconds: float = Field(default=0.0, description="Gateway uptime")
+
+
+class QueueItemInfo(BaseModel):
+    """A snapshot of a queued request (for debugging)."""
+
+    request_id: str
+    priority: str
+    age_seconds: float
+    backend: str | None = None
+    model: str = ""
+    identity_hint: str = ""
+
+
+class ActiveRequestInfo(BaseModel):
+    """Info about a currently processing request."""
+
+    model: str = ""
+    backend: str = ""
+    elapsed_seconds: float = 0.0
+
+
+class DetailedStats(BaseModel):
+    """Extended gateway statistics with per-backend and per-priority breakdowns."""
+
+    # Basic stats (same as GatewayStats)
+    queue_size: int = 0
+    requests_processed: int = 0
+    requests_high_priority: int = 0
+    requests_low_priority: int = 0
+    avg_response_time_ms: float = 0.0
+    is_processing: bool = False
+    uptime_seconds: float = 0.0
+
+    # Extended stats
+    per_backend_counts: dict[str, int] = Field(default_factory=dict)
+    per_backend_avg_ms: dict[str, float] = Field(default_factory=dict)
+    per_priority_avg_ms: dict[str, float] = Field(default_factory=dict)
+    active_requests: list[ActiveRequestInfo] = Field(default_factory=list)
+    recent_response_times_ms: list[float] = Field(default_factory=list)

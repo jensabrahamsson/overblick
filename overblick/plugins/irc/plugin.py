@@ -536,6 +536,7 @@ class IRCPlugin(PluginBase):
                 user_id=speaker_name,
                 audit_action="irc_conversation",
                 skip_preflight=True,  # Internal prompt, not external content
+                think=False,  # Fast mode for real-time IRC chat
             )
             if result.blocked:
                 logger.warning("IRC: Turn blocked for %s: %s", speaker_name, result.block_reason)

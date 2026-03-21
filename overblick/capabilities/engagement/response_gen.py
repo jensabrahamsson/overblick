@@ -52,6 +52,7 @@ class ResponseGenerator:
         priority: str = "low",
         complexity: str | None = None,
         skip_preflight: bool = False,
+        think: bool | None = None,
     ) -> str:
         """
         Generate a response in the identity's voice.
@@ -92,6 +93,7 @@ class ResponseGenerator:
             priority=priority,
             complexity=complexity,
             skip_preflight=skip_preflight,
+            think=think,
         )
 
         if result.blocked:

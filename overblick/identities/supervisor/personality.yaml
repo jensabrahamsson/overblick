@@ -639,12 +639,12 @@ operational:
   llm:
     model: "qwen3.5:9b"
     temperature: 0.3          # Very low — decisions must be consistent
-    max_tokens: 2000
+    max_tokens: 3000
     timeout_seconds: 600
 
   schedule:
     heartbeat_hours: 1        # Frequent monitoring
-    feed_poll_minutes: 5
+    feed_poll_minutes: 10
     enabled: true
 
   quiet_hours:

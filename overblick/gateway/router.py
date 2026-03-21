@@ -5,8 +5,8 @@ Routes requests to the best available backend based on:
 1. Explicit backend override (?backend=)
 2. Complexity level:
    - einstein → deepseek only (uses deepseek-reasoner model, no fallback)
-   - ultra → deepseek/dashscope/remote (best available)
-   - high → remote/dashscope/deepseek (prefer remote)
+   - ultra → deepseek/remote (best available)
+   - high → remote/deepseek (prefer remote)
    - low → local
 3. Priority level (high → first non-local in backend_preference)
 4. Default → first available in backend_preference chain
@@ -42,8 +42,8 @@ class RequestRouter:
         Precedence:
         1. explicit_backend — user override, highest priority
         2a-i. complexity=einstein → deepseek only (reasoner model, no fallback)
-        2a-ii. complexity=ultra → deepseek > dashscope > remote > local
-        2b. complexity=high → remote > dashscope > deepseek > local
+        2a-ii. complexity=ultra → deepseek > remote > local
+        2b. complexity=high → remote > deepseek > local
         3. complexity=low → local
         4. priority=high → first non-local in backend_preference
         5. Default → first available in backend_preference chain
@@ -95,20 +95,20 @@ class RequestRouter:
 
         # 2a-ii. Ultra: prefer deepseek for precision tasks (math, challenges)
         if complexity == "ultra":
-            for candidate in ("deepseek", "dashscope", "remote"):
+            for candidate in ("deepseek", "remote"):
                 if candidate in available:
                     logger.debug("Router: complexity=ultra → '%s'", candidate)
                     return candidate
-            logger.debug("Router: complexity=ultra but no deepseek/dashscope/remote, using default")
+            logger.debug("Router: complexity=ultra but no deepseek/remote, using default")
             return self._registry.default_backend
 
         # 2b. High: prefer remote for complex tasks
         if complexity == "high":
-            for candidate in ("remote", "dashscope", "deepseek"):
+            for candidate in ("remote", "deepseek"):
                 if candidate in available:
                     logger.debug("Router: complexity=high → '%s'", candidate)
                     return candidate
-            logger.debug("Router: complexity=high but no remote/dashscope/deepseek, using default")
+            logger.debug("Router: complexity=high but no remote/deepseek, using default")
             return self._registry.default_backend
 
         if complexity == "low":

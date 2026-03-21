@@ -430,12 +430,12 @@ operational:
   llm:
     model: "qwen3.5:9b"
     temperature: 0.2          # Very low — analysis must be precise
-    max_tokens: 1500
+    max_tokens: 3000
     timeout_seconds: 600
 
   schedule:
     heartbeat_hours: 1
-    feed_poll_minutes: 5        # Fast scan interval
+    feed_poll_minutes: 10       # Log scan interval
     enabled: true
 
   quiet_hours:

@@ -27,7 +27,7 @@ class TestLLMSettings:
         s = LLMSettings()
         assert s.model == "qwen3.5:9b"
         assert s.temperature == 0.7
-        assert s.max_tokens == 2000
+        assert s.max_tokens == 4000
 
     def test_frozen(self):
         s = LLMSettings()
@@ -95,7 +95,7 @@ class TestLoadIdentity:
         assert identity.name == "cherry"
         assert identity.display_name == "Cherry"
         assert identity.llm.temperature == 0.8
-        assert identity.llm.max_tokens == 1500
+        assert identity.llm.max_tokens == 4000
         assert identity.quiet_hours.start_hour == 23
         assert identity.engagement_threshold == 25
 

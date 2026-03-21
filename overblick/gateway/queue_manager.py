@@ -15,7 +15,16 @@ from collections import deque
 from typing import TYPE_CHECKING, Any, Optional
 
 from .config import GatewayConfig, get_config
-from .models import ChatRequest, ChatResponse, GatewayStats, Priority, QueuedRequest
+from .models import (
+    ActiveRequestInfo,
+    ChatRequest,
+    ChatResponse,
+    DetailedStats,
+    GatewayStats,
+    Priority,
+    QueueItemInfo,
+    QueuedRequest,
+)
 from .ollama_client import OllamaClient
 
 if TYPE_CHECKING:
@@ -67,6 +76,20 @@ class QueueManager:
 
         # Recent response times for averaging (last 100)
         self._response_times: deque[float] = deque(maxlen=100)
+
+        # Per-backend and per-priority tracking for detailed stats
+        self._per_backend_counts: dict[str, int] = {}
+        self._per_backend_times: dict[str, deque[float]] = {}
+        self._per_priority_times: dict[str, deque[float]] = {
+            "HIGH": deque(maxlen=50),
+            "LOW": deque(maxlen=50),
+        }
+
+        # Track active requests for /stats/detailed
+        self._active_requests: dict[str, dict[str, Any]] = {}
+
+        # Track submitted requests for cancel support
+        self._pending_requests: dict[str, QueuedRequest] = {}
 
     async def start(self) -> None:
         """Start the queue worker."""
@@ -145,6 +168,7 @@ class QueueManager:
 
         try:
             self._queue.put_nowait(queued)
+            self._pending_requests[str(queued.request_id)] = queued
         except asyncio.QueueFull:
             logger.warning("Queue full, rejecting request %s", queued.request_id)
             raise
@@ -173,7 +197,7 @@ class QueueManager:
                 except TimeoutError:
                     continue
 
-                await self._process_request(queued)
+                asyncio.create_task(self._process_request(queued))
 
             except asyncio.CancelledError:
                 logger.info("Worker loop cancelled")
@@ -186,13 +210,16 @@ class QueueManager:
 
     async def _process_request(self, queued: QueuedRequest) -> None:
         """Process a single queued request."""
+        req_id = str(queued.request_id)
         if queued.future.cancelled():
             logger.info("Skipping cancelled request %s", queued.request_id)
+            self._pending_requests.pop(req_id, None)
             self._queue.task_done()
             return
 
         start_time = time.time()
         self._processing_count += 1
+        backend_name = queued.backend or "default"
 
         try:
             async with self._semaphore:
@@ -208,8 +235,15 @@ class QueueManager:
                     queued.request_id,
                     queued.priority.name,
                     queued.request.model,
-                    queued.backend or "default",
+                    backend_name,
                 )
+
+                # Track active request
+                self._active_requests[req_id] = {
+                    "model": queued.request.model if queued.request else "",
+                    "backend": backend_name,
+                    "start_time": start_time,
+                }
 
                 response = await client.chat_completion(queued.request)
 
@@ -217,7 +251,7 @@ class QueueManager:
                     queued.future.set_result(response)
 
                 elapsed_ms = (time.time() - start_time) * 1000
-                self._update_stats(queued.priority, elapsed_ms)
+                self._update_stats(queued.priority, elapsed_ms, backend_name)
 
                 logger.info("Completed request %s in %.0fms", queued.request_id, elapsed_ms)
 
@@ -228,6 +262,8 @@ class QueueManager:
 
         finally:
             self._processing_count -= 1
+            self._active_requests.pop(req_id, None)
+            self._pending_requests.pop(req_id, None)
             self._queue.task_done()
 
     def _get_client_for_request(self, queued: QueuedRequest) -> Any:
@@ -238,7 +274,9 @@ class QueueManager:
             return self._registry.get_client()  # default backend
         return self.client  # legacy single client
 
-    def _update_stats(self, priority: Priority, elapsed_ms: float) -> None:
+    def _update_stats(
+        self, priority: Priority, elapsed_ms: float, backend: str = "default"
+    ) -> None:
         """Update statistics after processing a request."""
         self._stats["requests_processed"] += 1
         self._stats["total_response_time_ms"] += elapsed_ms
@@ -248,6 +286,16 @@ class QueueManager:
             self._stats["requests_high"] += 1
         else:
             self._stats["requests_low"] += 1
+
+        # Per-backend tracking
+        self._per_backend_counts[backend] = self._per_backend_counts.get(backend, 0) + 1
+        if backend not in self._per_backend_times:
+            self._per_backend_times[backend] = deque(maxlen=50)
+        self._per_backend_times[backend].append(elapsed_ms)
+
+        # Per-priority tracking
+        prio_key = priority.name
+        self._per_priority_times[prio_key].append(elapsed_ms)
 
     def get_stats(self) -> GatewayStats:
         """Get current gateway statistics."""
@@ -274,3 +322,94 @@ class QueueManager:
     def is_running(self) -> bool:
         """Check if queue manager is running."""
         return self._running
+
+    def get_queue_snapshot(self) -> list[QueueItemInfo]:
+        """Peek at queued requests without dequeuing (for debugging)."""
+        now = time.time()
+        items: list[QueueItemInfo] = []
+
+        for req_id, queued in self._pending_requests.items():
+            # Only include items not yet being processed
+            if req_id in self._active_requests:
+                continue
+            identity_hint = ""
+            model = ""
+            if queued.request:
+                model = queued.request.model
+                # Extract identity hint from system prompt
+                for msg in queued.request.messages:
+                    if msg.role == "system" and msg.content:
+                        # Take first 60 chars as hint
+                        identity_hint = msg.content[:60].replace("\n", " ")
+                        break
+
+            items.append(
+                QueueItemInfo(
+                    request_id=req_id,
+                    priority=queued.priority.name,
+                    age_seconds=round(now - queued.timestamp, 1),
+                    backend=queued.backend,
+                    model=model,
+                    identity_hint=identity_hint,
+                )
+            )
+
+        return sorted(items, key=lambda x: x.age_seconds, reverse=True)
+
+    def cancel_request(self, request_id: str) -> bool:
+        """Cancel a queued request by ID. Returns True if cancelled."""
+        queued = self._pending_requests.get(request_id)
+        if queued is None:
+            return False
+        if queued.future and not queued.future.done():
+            queued.future.cancel()
+            self._pending_requests.pop(request_id, None)
+            logger.info("Cancelled request %s", request_id)
+            return True
+        return False
+
+    def get_detailed_stats(self) -> DetailedStats:
+        """Get extended statistics with per-backend and per-priority breakdowns."""
+        basic = self.get_stats()
+        now = time.time()
+
+        # Per-backend averages
+        per_backend_avg: dict[str, float] = {}
+        for backend, times in self._per_backend_times.items():
+            if times:
+                per_backend_avg[backend] = round(sum(times) / len(times), 1)
+
+        # Per-priority averages
+        per_priority_avg: dict[str, float] = {}
+        for prio, times in self._per_priority_times.items():
+            if times:
+                per_priority_avg[prio] = round(sum(times) / len(times), 1)
+
+        # Active request info
+        active = []
+        for req_id, info in self._active_requests.items():
+            active.append(
+                ActiveRequestInfo(
+                    model=info.get("model", ""),
+                    backend=info.get("backend", ""),
+                    elapsed_seconds=round(now - info.get("start_time", now), 1),
+                )
+            )
+
+        # Last 10 response times
+        recent = list(self._response_times)[-10:]
+
+        return DetailedStats(
+            queue_size=basic.queue_size,
+            requests_processed=basic.requests_processed,
+            requests_high_priority=basic.requests_high_priority,
+            requests_low_priority=basic.requests_low_priority,
+            avg_response_time_ms=basic.avg_response_time_ms,
+            is_processing=basic.is_processing,
+            uptime_seconds=basic.uptime_seconds,
+            per_backend_counts=dict(self._per_backend_counts),
+            per_backend_avg_ms=per_backend_avg,
+            per_priority_avg_ms=per_priority_avg,
+            active_requests=active,
+            recent_response_times_ms=[round(t, 1) for t in recent],
+        )

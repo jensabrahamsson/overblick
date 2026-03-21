@@ -18,7 +18,6 @@
             {% set local = llm.get('local', {}) %}
             {% set remote = llm.get('remote', {}) %}
             {% set deepseek = llm.get('deepseek', {}) %}
-            {% set dashscope = llm.get('dashscope', {}) %}
             {% set openai = llm.get('openai', {}) %}
 
             <!-- Gateway (always visible — infrastructure) -->
@@ -144,41 +143,6 @@
                 </div>
             </div>
 
-            <!-- DashScope (Alibaba Qwen) -->
-            <div class="form-group settings-backend-panel">
-                <label class="settings-checkbox-label">
-                    <input type="checkbox" name="dashscope_enabled" value="on"
-                           {{ 'checked' if dashscope.get('enabled', false) else '' }}>
-                    <strong>DashScope</strong>
-                    <span class="form-hint form-hint-inline">(Alibaba Qwen Plus — cloud API)</span>
-                </label>
-
-                <div id="dashscope-config" class="settings-config-body" style="display: {{ 'block' if dashscope.get('enabled', false) else 'none' }};">
-                    <div class="settings-grid-2col">
-                        <div>
-                            <label class="form-label">API Key</label>
-                            <input type="password" class="form-input" name="dashscope_api_key" id="dashscope_api_key"
-                                   placeholder="{{ '••••••••' if state.get('_has_dashscope_api_key') else 'sk-...' }}"
-                                   autocomplete="off">
-                        </div>
-                        <div>
-                            <label class="form-label">Model</label>
-                            <input type="text" class="form-input" name="dashscope_model"
-                                   value="{{ dashscope.get('model', 'qwen-plus') }}">
-                        </div>
-                    </div>
-                    <div class="settings-test-row">
-                        <button type="button" class="btn btn-secondary btn-sm"
-                                hx-post="/settings/test/dashscope"
-                                hx-include="#dashscope_api_key"
-                                hx-target="#dashscope-status">
-                            Test Connection
-                        </button>
-                        <span id="dashscope-status" class="test-result"></span>
-                    </div>
-                </div>
-            </div>
-
             <!-- Deepseek -->
             <div class="form-group settings-backend-panel">
                 <label class="settings-checkbox-label">
@@ -243,8 +207,6 @@
                                 {% if all_backends.append(('local', 'Local')) %}{% endif %}
                             {% elif b == 'remote' and remote.get('enabled', false) %}
                                 {% if all_backends.append(('remote', 'Remote')) %}{% endif %}
-                            {% elif b == 'dashscope' and dashscope.get('enabled', false) %}
-                                {% if all_backends.append(('dashscope', 'DashScope')) %}{% endif %}
                             {% elif b == 'deepseek' and deepseek.get('enabled', false) %}
                                 {% if all_backends.append(('deepseek', 'Deepseek')) %}{% endif %}
                             {% endif %}
@@ -254,9 +216,6 @@
                     {% set seen = all_backends | map(attribute='0') | list %}
                     {% if remote.get('enabled', false) and 'remote' not in seen %}
                         {% if all_backends.append(('remote', 'Remote')) %}{% endif %}
-                    {% endif %}
-                    {% if dashscope.get('enabled', false) and 'dashscope' not in seen %}
-                        {% if all_backends.append(('dashscope', 'DashScope')) %}{% endif %}
                     {% endif %}
                     {% if local.get('enabled', true) and 'local' not in seen %}
                         {% if all_backends.append(('local', 'Local')) %}{% endif %}
@@ -290,7 +249,6 @@
                 <select class="form-select" name="default_backend" id="default_backend">
                     <option value="local" {{ 'selected' if llm.get('default_backend', 'local') == 'local' else '' }}>Local</option>
                     <option value="remote" {{ 'selected' if llm.get('default_backend') == 'remote' else '' }}>Remote</option>
-                    <option value="dashscope" {{ 'selected' if llm.get('default_backend') == 'dashscope' else '' }}>DashScope</option>
                     <option value="deepseek" {{ 'selected' if llm.get('default_backend') == 'deepseek' else '' }}>Deepseek</option>
                 </select>
                 <span class="form-hint">Last-resort fallback if no backend in the preference list is available.</span>
