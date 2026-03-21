@@ -64,8 +64,10 @@ class OrchestratorRuntime:
 
         try:
             # Register plugin ticks in scheduler (guarded by control file)
+            default_interval = self._services.identity.schedule.feed_poll_minutes * 60
             for plugin in self._runtime_state.plugins:
-                interval = self._services.identity.schedule.feed_poll_minutes * 60
+                # Use plugin-specific tick interval if available
+                interval = getattr(plugin, "_check_interval_seconds", default_interval)
 
                 async def _guarded_tick(p=plugin):
                     import time as _time
