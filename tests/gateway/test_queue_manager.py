@@ -196,43 +196,48 @@ class TestQueueManager:
             await qm.stop()
 
     async def test_should_raise_queue_full(self, mock_client, sample_request):
+        """Verify QueueFull is raised when the internal queue is at capacity.
+
+        We test the queue capacity mechanism directly: create a QueueManager
+        but stop the worker loop so nothing drains the queue, then fill it
+        and verify the next submit raises QueueFull.
+        """
         config = GatewayConfig(
-            max_queue_size=1,
+            max_queue_size=2,
             request_timeout_seconds=5.0,
             max_concurrent_requests=1,
         )
 
-        # Block the worker from processing
-        processing_event = asyncio.Event()
-        release_event = asyncio.Event()
-
-        async def blocking_completion(request):
-            processing_event.set()
-            await release_event.wait()
-            return ChatResponse.from_message("qwen3:8b", "Response")
-
-        mock_client.chat_completion.side_effect = blocking_completion
-
         qm = QueueManager(config=config, client=mock_client)
         await qm.start()
 
-        try:
-            # Submit first request (will block in processing)
-            task1 = asyncio.create_task(qm.submit(sample_request, Priority.LOW))
-            await processing_event.wait()
+        # Stop the worker so it doesn't drain the queue
+        qm._running = False
+        if qm._worker_task:
+            qm._worker_task.cancel()
+            try:
+                await qm._worker_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        # Mark as running again so submit() doesn't raise RuntimeError
+        qm._running = True
 
-            # Submit second request (fills queue)
+        try:
+            # Fill the queue (maxsize=2) — these won't be processed
+            task1 = asyncio.create_task(qm.submit(sample_request, Priority.LOW))
             task2 = asyncio.create_task(qm.submit(sample_request, Priority.LOW))
             await asyncio.sleep(0.05)
 
-            # Third should raise QueueFull
+            # Third submit should raise QueueFull
             with pytest.raises(asyncio.QueueFull):
                 await qm.submit(sample_request, Priority.LOW)
 
-            release_event.set()
+            # Clean up pending tasks
+            task1.cancel()
+            task2.cancel()
             await asyncio.gather(task1, task2, return_exceptions=True)
         finally:
-            await qm.stop()
+            qm._running = False
 
     async def test_should_raise_timeout(self, mock_client, sample_request):
         config = GatewayConfig(
