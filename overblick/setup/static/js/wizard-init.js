@@ -455,6 +455,26 @@ function wizardInit() {
         toggleNetwork(networkToggle.checked);
     }
 
+    // CSP-safe: Provider radio buttons (step 3)
+    document.querySelectorAll('[data-switch-provider]').forEach(function(el) {
+        _bindOnce(el, 'change', function() {
+            switchProvider(el.getAttribute('data-switch-provider'));
+        });
+    });
+
+    // CSP-safe: Range display sync (step 3 + 6)
+    document.querySelectorAll('[data-range-display]').forEach(function(el) {
+        _bindOnce(el, 'input', function() {
+            var target = document.getElementById(el.getAttribute('data-range-display'));
+            if (target) target.textContent = el.value;
+        });
+    });
+
+    // CSP-safe: Hide image on error (step 1 + 8)
+    document.querySelectorAll('[data-hide-on-error]').forEach(function(el) {
+        _bindOnce(el, 'error', function() { el.style.display = 'none'; });
+    });
+
     // Step 4: Toggle section headers (CSP-safe delegation)
     document.querySelectorAll('[data-toggle-section]').forEach(function(el) {
         _bindOnce(el, 'click', function() {

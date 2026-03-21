@@ -260,7 +260,7 @@ def _load_polymarket_data(request: Request) -> dict:
                                 stats["portfolio_value_usd"] += Decimal(
                                     str(position["current_value_usd"])
                                 )
-                            except:
+                            except (ValueError, TypeError, ArithmeticError):
                                 pass
 
                 if "trade_history" in trader_state:
@@ -295,7 +295,7 @@ def _load_polymarket_data(request: Request) -> dict:
                                     stats["winning_trades"] += 1
                                 elif pnl < 0:
                                     stats["losing_trades"] += 1
-                            except:
+                            except (ValueError, TypeError, ArithmeticError):
                                 pass
 
                 # Extract risk metrics

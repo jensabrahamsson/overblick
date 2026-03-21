@@ -18,21 +18,21 @@
             <label class="radio-card">
                 <input type="radio" name="llm_provider" value="ollama"
                        {{ 'checked' if provider == 'ollama' }}
-                       onchange="switchProvider('ollama')">
+                       data-switch-provider="ollama">
                 <div class="radio-card-title">Ollama (Local)</div>
                 <div class="radio-card-desc">Direct connection to Ollama. Simple, no extra setup.</div>
             </label>
             <label class="radio-card">
                 <input type="radio" name="llm_provider" value="gateway"
                        {{ 'checked' if provider == 'gateway' }}
-                       onchange="switchProvider('gateway')">
+                       data-switch-provider="gateway">
                 <div class="radio-card-title">LLM Gateway</div>
                 <div class="radio-card-desc">Priority queue for multiple agents. Better for production.</div>
             </label>
             <label class="radio-card">
                 <input type="radio" name="llm_provider" value="cloud"
                        {{ 'checked' if provider == 'cloud' }}
-                       onchange="switchProvider('cloud')">
+                       data-switch-provider="cloud">
                 <div class="radio-card-title">Cloud LLM</div>
                 <div class="radio-card-desc">Connect to a cloud provider (OpenAI, Anthropic, etc.). Requires API key.</div>
             </label>
@@ -117,7 +117,7 @@
         <span class="form-hint" id="temp_hint">Lower = more focused, Higher = more creative (0.0 - 2.0)</span>
         <input type="range" class="form-range" id="default_temperature" name="default_temperature"
                min="0" max="2" step="0.1" value="{{ llm.get('default_temperature', 0.7) }}"
-               oninput="document.getElementById('temp-value').textContent = this.value"
+               data-range-display="temp-value"
                aria-describedby="temp_hint">
     </div>
 

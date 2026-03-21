@@ -23,7 +23,7 @@
         <div class="success-agent-badge">
             <img src="/static/img/personalities/{{ name }}.svg" alt="" aria-hidden="true"
                  class="success-agent-icon"
-                 onerror="this.style.display='none'">
+                 data-hide-on-error="true">
             <span>{{ name | capitalize }}</span>
         </div>
         {% endfor %}
