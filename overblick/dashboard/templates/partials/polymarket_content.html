@@ -43,10 +43,16 @@
         </div>
         {% for pos in positions %}
         <div class="pm-position">
-            <div class="pm-pos-q">{{ pos.market_id }}</div>
+            <div class="pm-pos-q">
+                {% if pos.market_slug %}
+                <a href="https://polymarket.com/event/{{ pos.market_slug }}" target="_blank" rel="noopener" class="pm-link">{{ pos.market_question|default(pos.market_id) }}</a>
+                {% else %}
+                {{ pos.market_question|default(pos.market_id) }}
+                {% endif %}
+            </div>
             <div class="pm-pos-row">
                 {% if pos.outcome == "YES" %}<span class="badge badge-success">YES</span>{% else %}<span class="badge badge-danger">NO</span>{% endif %}
-                <span class="{% if pos.unrealized_pnl_usd|default(0) > 0 %}positive{% elif pos.unrealized_pnl_usd|default(0) < 0 %}negative{% endif %} mono">${{ "%.2f"|format(pos.unrealized_pnl_usd|default(0)) }}</span>
+                <span class="mono">${{ "%.2f"|format(pos.invested_amount|default(pos.current_value|default(0))|float) }}</span>
             </div>
         </div>
         {% endfor %}
@@ -115,7 +121,13 @@
          data-question="{{ q|lower }}">
 
         <div class="pm-row-main">
-            <div class="pm-row-question">{{ q }}</div>
+            <div class="pm-row-question">
+                {% if market.slug %}
+                <a href="https://polymarket.com/event/{{ market.slug }}" target="_blank" rel="noopener" class="pm-link">{{ q }}</a>
+                {% else %}
+                {{ q }}
+                {% endif %}
+            </div>
             <div class="pm-row-meta">
                 <span class="pm-meta-cat">{{ market.category|default("other")|capitalize }}</span>
                 <span class="pm-meta-vol">${{ "{:,.0f}".format(market.volume_24h|default(0)) }} Vol</span>

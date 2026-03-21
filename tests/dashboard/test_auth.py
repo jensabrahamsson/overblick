@@ -523,7 +523,8 @@ class TestSecureCookie:
         request.url.scheme = "http"
         request.headers = {}
         request.app.state.config = MagicMock(network_access=True)
-        assert _should_use_secure_cookie(request) is True
+        # HTTP + network_access=True → Secure=False (allows HTTP LAN access)
+        assert _should_use_secure_cookie(request) is False
 
 
 class TestVerifyPassword:

@@ -269,7 +269,7 @@ _ACRONYMS = {"ai", "llm", "rss", "api", "ipc"}
 # Plugins that are background capabilities, not standalone agent entries.
 # These should not appear as individual agent cards on the dashboard.
 # Note: telegram and email_agent ARE agents (Cherry, Stål) — keep them.
-_CAPABILITY_PLUGINS = {"host_health"}
+_CAPABILITY_PLUGINS = {"host_health", "whallet_trader"}
 
 
 # -- Plugin control file helpers (per-agent stop/start) ----------------------

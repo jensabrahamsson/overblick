@@ -160,6 +160,10 @@
 .pm-odds-label { font-size: 0.72rem; font-weight: 500; opacity: 0.8; }
 .pm-odds-pct { font-family: var(--font-mono); font-weight: 700; }
 
+/* Polymarket links */
+.pm-link { color: var(--text-primary); text-decoration: none; transition: color 0.15s; }
+.pm-link:hover { color: var(--info-color); text-decoration: underline; }
+
 /* Hidden state */
 .pm-row.pm-hidden { display: none; }
 .pm-empty { padding: 40px; text-align: center; color: var(--text-muted); background: var(--bg-card); }
