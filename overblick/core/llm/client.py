@@ -86,6 +86,7 @@ class LLMClient(ABC):
         top_p: float | None = None,
         priority: str = "low",
         complexity: str | None = None,
+        think: bool | None = None,
     ) -> dict | None:
         """
         Send a chat completion request.
@@ -99,6 +100,8 @@ class LLMClient(ABC):
                       for queue ordering. OllamaClient ignores this parameter.
             complexity: Request complexity ("high" or "low"). Used by GatewayClient
                         for backend routing. Other clients ignore this parameter.
+            think: Enable/disable Qwen3 reasoning mode. None=model default,
+                   False=fast mode (no <think> tokens).
 
         Returns:
             Dict with 'content' key containing the response, or None on error

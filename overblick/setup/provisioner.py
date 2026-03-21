@@ -199,7 +199,6 @@ def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
     local = llm.get("local", {})
     remote = llm.get("remote", llm.get("cloud", {}))
     deepseek = llm.get("deepseek", {})
-    dashscope = llm.get("dashscope", {})
     openai = llm.get("openai", {})
 
     config: dict[str, Any] = {
@@ -230,18 +229,6 @@ def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
             },
         },
     }
-
-    # Only include dashscope if enabled (auto-injected from env otherwise)
-    if dashscope.get("enabled"):
-        config["backends"]["dashscope"] = {
-            "enabled": True,
-            "type": "dashscope",
-            "api_url": dashscope.get(
-                "api_url",
-                "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-            ),
-            "model": dashscope.get("model", "qwen-plus"),
-        }
 
     # Backend preference (routing fallback order)
     backend_preference = llm.get("backend_preference", [])

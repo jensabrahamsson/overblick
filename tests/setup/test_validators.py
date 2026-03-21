@@ -9,7 +9,6 @@ from overblick.setup.validators import (
     AgentConfig,
     BackendConfig,
     CommunicationData,
-    DashScopeConfig,
     DeepseekConfig,
     LLMData,
     OpenAIConfig,
@@ -88,7 +87,6 @@ class TestLLMData:
         assert data.gateway_url == "http://127.0.0.1:8200"
         assert data.local.enabled is True
         assert data.remote.enabled is False
-        assert data.dashscope.enabled is False
         assert data.openai.enabled is False
         assert data.default_backend == "local"
         assert data.backend_preference == []
@@ -118,15 +116,6 @@ class TestLLMData:
         assert data.remote.host == "gpu.example.com"
         assert data.remote.model == "qwen3:14b"
 
-    def test_dashscope_backend(self):
-        data = LLMData(
-            dashscope=DashScopeConfig(enabled=True, model="qwen-plus"),
-            default_backend="dashscope",
-        )
-        assert data.dashscope.enabled
-        assert data.dashscope.model == "qwen-plus"
-        assert data.default_backend == "dashscope"
-
     def test_openai_backend(self):
         data = LLMData(
             openai=OpenAIConfig(enabled=True, model="gpt-4o"),
@@ -152,11 +141,11 @@ class TestLLMData:
         assert data.deepseek.model == "deepseek-chat"
 
     def test_backend_preference(self):
-        data = LLMData(backend_preference=["remote", "dashscope", "local", "deepseek"])
-        assert data.backend_preference == ["remote", "dashscope", "local", "deepseek"]
+        data = LLMData(backend_preference=["remote", "local", "deepseek"])
+        assert data.backend_preference == ["remote", "local", "deepseek"]
 
     def test_invalid_default_backend(self):
-        with pytest.raises(ValidationError, match=r"local.*remote.*deepseek.*dashscope.*openai"):
+        with pytest.raises(ValidationError, match="local.*remote.*deepseek.*openai"):
             LLMData(default_backend="something_else")
 
     def test_temperature_bounds(self):
@@ -190,21 +179,19 @@ class TestLLMData:
             local=BackendConfig(enabled=True, model="qwen3.5:9b"),
             remote=BackendConfig(enabled=True, host="gpu.lan", port=1234, model="qwen3:14b"),
             deepseek=DeepseekConfig(enabled=True, model="deepseek-chat"),
-            dashscope=DashScopeConfig(enabled=True, model="qwen-plus"),
             openai=OpenAIConfig(enabled=False),
             default_backend="remote",
-            backend_preference=["remote", "dashscope", "local", "deepseek"],
+            backend_preference=["remote", "local", "deepseek"],
             default_temperature=0.8,
             default_max_tokens=4000,
         )
         assert data.local.enabled
         assert data.remote.enabled
         assert data.deepseek.enabled
-        assert data.dashscope.enabled
         assert not data.openai.enabled
         assert data.default_temperature == 0.8
         assert data.default_max_tokens == 4000
-        assert data.backend_preference == ["remote", "dashscope", "local", "deepseek"]
+        assert data.backend_preference == ["remote", "local", "deepseek"]
 
 
 class TestCommunicationData:

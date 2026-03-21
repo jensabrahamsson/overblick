@@ -63,7 +63,9 @@ class PolymarketLLMAnalyzer:
         ]
 
         try:
-            result = await self.llm_pipeline.chat(messages, max_tokens=4000)
+            result = await self.llm_pipeline.chat(
+                messages, max_tokens=2000, think=False
+            )
 
             if result and not result.blocked and result.content:
                 return self._parse_analysis_result(result.content, market)
@@ -108,7 +110,9 @@ class PolymarketLLMAnalyzer:
         ]
 
         try:
-            result = await self.llm_pipeline.chat(messages, max_tokens=4000)
+            result = await self.llm_pipeline.chat(
+                messages, max_tokens=2000, think=False
+            )
 
             if result and not result.blocked and result.content:
                 return self._parse_trading_evaluation(
@@ -162,7 +166,9 @@ class PolymarketLLMAnalyzer:
         ]
 
         try:
-            result = await self.llm_pipeline.chat(messages, max_tokens=4000)
+            result = await self.llm_pipeline.chat(
+                messages, max_tokens=2000, think=False
+            )
 
             if result and not result.blocked and result.content:
                 return result.content
@@ -266,17 +272,13 @@ ANALYSIS FRAMEWORK:
 4. Confidence Calibration: Assess confidence level based on information quality
 5. Risk Identification: Identify potential risks and black swan events
 
-RESPONSE FORMAT:
-Return a JSON object with these fields:
-{
-  "probability_estimate": 0.65,  # Your probability estimate (0-1)
-  "confidence_score": 75,        # Confidence in estimate (0-100)
-  "reasoning": "Brief explanation of your reasoning...",
-  "factors_considered": ["Factor 1", "Factor 2", "Factor 3"],
-  "risk_assessment": "Assessment of risks and uncertainties..."
-}
+CRITICAL RULES:
+- Do NOT include any thinking, reasoning process, or explanation outside the JSON.
+- Do NOT wrap the JSON in markdown code blocks.
+- Your ENTIRE response must be a single valid JSON object and nothing else.
 
-Be analytical, quantitative, and objective. Avoid emotional language."""
+RESPONSE FORMAT (return ONLY this JSON, no other text):
+{"probability_estimate": 0.65, "confidence_score": 75, "reasoning": "Brief explanation", "factors_considered": ["Factor 1", "Factor 2"], "risk_assessment": "Assessment of risks"}"""
 
     def _get_analysis_user_prompt(self, market: PolymarketMarket, context: str) -> str:
         """Get user prompt for market analysis."""
@@ -284,7 +286,7 @@ Be analytical, quantitative, and objective. Avoid emotional language."""
 
 {context}
 
-Provide your analysis in the specified JSON format."""
+Respond with ONLY a JSON object. No explanation, no markdown, no thinking."""
 
     def _get_trading_system_prompt(self) -> str:
         """Get system prompt for trading evaluation."""
@@ -304,16 +306,13 @@ EVALUATION CRITERIA:
 - Time Horizon: How long until market resolution?
 - Risk Factors: What could go wrong?
 
-RESPONSE FORMAT:
-Return a JSON object:
-{
-  "recommended_action": "BUY_YES|BUY_NO|HOLD|AVOID",
-  "confidence_level": "high|medium|low",
-  "position_size_percent": 2.5,  # Recommended % of portfolio (0-5)
-  "expected_value_score": 75,    # 0-100 score of expected value
-  "risk_adjustment": "Explanation of risk considerations...",
-  "key_risks": ["Risk 1", "Risk 2"]
-}"""
+CRITICAL RULES:
+- Do NOT include any thinking, reasoning process, or explanation outside the JSON.
+- Do NOT wrap the JSON in markdown code blocks.
+- Your ENTIRE response must be a single valid JSON object and nothing else.
+
+RESPONSE FORMAT (return ONLY this JSON, no other text):
+{"recommended_action": "BUY_YES|BUY_NO|HOLD|AVOID", "confidence_level": "high|medium|low", "position_size_percent": 2.5, "expected_value_score": 75, "risk_adjustment": "Risk considerations", "key_risks": ["Risk 1", "Risk 2"]}"""
 
     def _get_trading_user_prompt(
         self, market: PolymarketMarket, market_price: float, our_probability: float, edge: float
@@ -336,7 +335,7 @@ MARKET METRICS:
 OUTCOMES:
 {chr(10).join(f"  - {o.name}: ${o.price:.4f}" for o in market.outcomes)}
 
-Provide your trading evaluation in the specified JSON format."""
+Respond with ONLY a JSON object. No explanation, no markdown, no thinking."""
 
     def _get_report_system_prompt(self) -> str:
         """Get system prompt for market report."""
@@ -367,11 +366,57 @@ Use Markdown with clear headings and bullet points."""
 
 Provide a comprehensive Markdown report."""
 
+    @staticmethod
+    def _extract_json(text: str) -> dict | None:
+        """Extract a JSON object from text that may contain reasoning or markdown.
+
+        Tries in order:
+        1. Parse the entire text as JSON
+        2. Strip markdown code fences and parse
+        3. Find the first {...} block via brace matching
+        """
+        import re
+
+        stripped = text.strip()
+
+        # 1. Direct parse
+        try:
+            return json.loads(stripped)
+        except json.JSONDecodeError:
+            pass
+
+        # 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
+        fenced = re.search(r"```(?:json)?\s*\n?(.*?)```", stripped, re.DOTALL)
+        if fenced:
+            try:
+                return json.loads(fenced.group(1).strip())
+            except json.JSONDecodeError:
+                pass
+
+        # 3. Find first { and match to closing } via brace counting
+        start = stripped.find("{")
+        if start == -1:
+            return None
+        depth = 0
+        for i in range(start, len(stripped)):
+            if stripped[i] == "{":
+                depth += 1
+            elif stripped[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(stripped[start : i + 1])
+                    except json.JSONDecodeError:
+                        return None
+        return None
+
     def _parse_analysis_result(self, content: str, market: PolymarketMarket) -> Dict[str, Any]:
         """Parse LLM analysis result."""
         try:
-            # Try to parse as JSON
-            result = json.loads(content.strip())
+            # Try to extract JSON from potentially mixed content
+            result = self._extract_json(content)
+            if result is None:
+                raise ValueError("No JSON object found in response")
 
             # Validate required fields
             if "probability_estimate" not in result:
@@ -448,7 +493,9 @@ Provide a comprehensive Markdown report."""
     ) -> Dict[str, Any]:
         """Parse trading evaluation result."""
         try:
-            result = json.loads(content.strip())
+            result = self._extract_json(content)
+            if result is None:
+                raise ValueError("No JSON object found in response")
 
             # Default values
             recommended_action = result.get("recommended_action", "HOLD")

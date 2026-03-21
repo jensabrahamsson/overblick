@@ -110,7 +110,51 @@ if [ "$OLLAMA_RUNNING" = true ]; then
     done
 fi
 
-# ── Step 6: Start gateway + dashboard ──
+# ── Step 6: Check Neo4j (optional — needed for PolyTrader graph store) ──
+
+info "Checking Neo4j..."
+NEO4J_RUNNING=false
+if curl -sf http://127.0.0.1:7474 >/dev/null 2>&1; then
+    NEO4J_RUNNING=true
+    ok "Neo4j is running (localhost:7687)"
+elif command -v neo4j &>/dev/null; then
+    info "Neo4j found but not running. Starting..."
+    if command -v brew &>/dev/null && brew services list 2>/dev/null | grep -q neo4j; then
+        brew services start neo4j
+        # Wait for Neo4j to become ready
+        for i in $(seq 1 15); do
+            if curl -sf http://127.0.0.1:7474 >/dev/null 2>&1; then
+                NEO4J_RUNNING=true
+                break
+            fi
+            sleep 1
+        done
+        if [ "$NEO4J_RUNNING" = true ]; then
+            ok "Neo4j started via brew services"
+        else
+            warn "Neo4j did not start within 15s — PolyTrader will run without graph store"
+        fi
+    else
+        neo4j start 2>/dev/null || true
+        sleep 3
+        if curl -sf http://127.0.0.1:7474 >/dev/null 2>&1; then
+            NEO4J_RUNNING=true
+            ok "Neo4j started"
+        else
+            warn "Could not start Neo4j — PolyTrader will run without graph store"
+        fi
+    fi
+else
+    warn "Neo4j not installed. PolyTrader will run without graph store."
+    echo ""
+    echo -e "  ${BOLD}To install Neo4j (optional):${NC}"
+    echo "    brew install neo4j         # macOS"
+    echo "    brew services start neo4j  # start as a service"
+    echo ""
+fi
+
+# ── Step 7: Start gateway + dashboard ──
+
 
 if [ "$OLLAMA_RUNNING" = true ]; then
     info "Starting Överblick (gateway + dashboard)..."
@@ -144,7 +188,7 @@ if [ "$OLLAMA_RUNNING" = true ]; then
         echo "    python -m overblick start"
     fi
 
-    # ── Step 7: Open the wizard ──
+    # ── Step 8: Open the wizard ──
 
     if [ "$HEALTHY" = true ]; then
         WIZARD_URL="http://127.0.0.1:8080/settings/"

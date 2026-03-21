@@ -107,7 +107,7 @@ class OrchestratorRuntime:
                         f"heartbeat_{plugin.name}",
                         _guarded_heartbeat,
                         interval_seconds=heartbeat_interval,
-                        run_immediately=False,
+                        run_immediately=True,
                         priority=TaskPriority.HIGH,
                     )
                     logger.info(

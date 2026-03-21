@@ -131,18 +131,6 @@ class GatewayConfig(BaseModel):
             }
             logger.info("Deepseek backend injected from OVERBLICK_DEEPSEEK_API_KEY env var")
 
-        # Inject DashScope backend from env if not already in YAML
-        dashscope_key = os.getenv("OVERBLICK_DASHSCOPE_API_KEY", "")
-        if dashscope_key and "dashscope" not in config.backends:
-            config.backends["dashscope"] = {
-                "enabled": True,
-                "type": "dashscope",
-                "api_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-                "api_key": dashscope_key,
-                "model": "qwen-plus",
-            }
-            logger.info("DashScope backend injected from OVERBLICK_DASHSCOPE_API_KEY env var")
-
         return config
 
 

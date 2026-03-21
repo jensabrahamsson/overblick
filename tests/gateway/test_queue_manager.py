@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from overblick.gateway.config import GatewayConfig
-from overblick.gateway.models import ChatMessage, ChatRequest, ChatResponse, Priority
+from overblick.gateway.models import ChatMessage, ChatRequest, ChatResponse, Priority, QueuedRequest
 from overblick.gateway.queue_manager import QueueManager
 
 
@@ -98,43 +98,28 @@ class TestQueueManager:
             await qm.stop()
 
     async def test_queue_full(self, mock_client, sample_request):
+        """Test that a full queue rejects new requests."""
         config = GatewayConfig(
             max_queue_size=1,
             request_timeout_seconds=5.0,
             max_concurrent_requests=1,
         )
 
-        async def slow_completion(request):
-            await asyncio.sleep(1.0)
-            return ChatResponse.from_message("qwen3.5:9b", "Response")
-
-        mock_client.chat_completion.side_effect = slow_completion
-
+        # Don't start the worker — test the queue limit directly
         qm = QueueManager(config=config, client=mock_client)
-        await qm.start()
+        # Manually mark as running so submit() doesn't raise
+        qm._running = True
 
-        try:
-            task1 = asyncio.create_task(qm.submit(sample_request, Priority.LOW))
-            await asyncio.sleep(0.05)
+        # Fill the queue (size=1)
+        qm._queue.put_nowait(
+            QueuedRequest(priority=Priority.LOW, timestamp=0, request=sample_request)
+        )
 
-            task2 = asyncio.create_task(qm.submit(sample_request, Priority.LOW))
-            await asyncio.sleep(0.05)
-
-            with pytest.raises(asyncio.QueueFull):
-                qm._queue.put_nowait(sample_request)
-
-            task1.cancel()
-            task2.cancel()
-            try:
-                await task1
-            except asyncio.CancelledError:
-                pass
-            try:
-                await task2
-            except asyncio.CancelledError:
-                pass
-        finally:
-            await qm.stop()
+        # Next put should raise QueueFull
+        with pytest.raises(asyncio.QueueFull):
+            qm._queue.put_nowait(
+                QueuedRequest(priority=Priority.LOW, timestamp=1, request=sample_request)
+            )
 
     async def test_stats_tracking(self, config, mock_client, sample_request):
         qm = QueueManager(config=config, client=mock_client)

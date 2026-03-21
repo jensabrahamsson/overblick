@@ -235,15 +235,16 @@ operational:
   polymarket_monitor:
     check_interval_minutes: 15        # Check markets every 15 minutes
     max_markets: 50                   # Monitor top 50 markets by volume
+    max_markets_per_scan: 10          # LLM-analyze top 10 per scan cycle
     min_probability_edge: 0.03        # 3% minimum edge
     min_volume_usd: 1000              # $1,000 minimum 24h volume
     max_position_size_percent: 5      # Max 5% position size
     enable_real_api: true             # Use real Polymarket API (read-only)
     # Neo4j GraphStore configuration for trading knowledge
     neo4j:
-      uri: "bolt://localhost:7687"    # Neo4j bolt connection
+      uri: "bolt://localhost:7687"    # Neo4j bolt connection (runs locally)
       user: "neo4j"                   # Neo4j username
-      password: "polytrader2024!"     # Neo4j password
+      # Password loaded from secrets (config/secrets/polytrader.yaml → neo4j_password)
   
   whallet_trader:
     paper_trading: true               # PAPER TRADING - log trades but dont execute
