@@ -82,6 +82,8 @@ extend-exclude = [
     ".ruff_cache",
     "venv",
     "*.pyc",
+    "whallet_key_recovery.py",
+    "whallet_proper_recovery.py",
 ]
 
 [tool.ruff.lint]
