@@ -12,7 +12,7 @@ Covers:
 """
 
 import json
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -24,8 +24,6 @@ from overblick.capabilities.psychology.dream import (
 )
 from overblick.capabilities.psychology.dream_system import (
     Dream,
-    DreamSystem,
-    DreamTone,
     DreamType,
 )
 from overblick.core.capability import CapabilityContext
@@ -332,6 +330,215 @@ class TestLoadDreamGuidance:
 
 
 # -- DreamCapability setup ---------------------------------------------------
+
+
+class TestLoadDreamGuidanceEdgeCases:
+    def test_yaml_load_error_returns_none(self, tmp_path):
+        """If YAML loading fails, returns None."""
+        with patch(
+            "overblick.capabilities.psychology.dream._IDENTITIES_DIR", tmp_path
+        ):
+            identity_dir = tmp_path / "broken"
+            identity_dir.mkdir()
+            bad_yaml = identity_dir / "dream_content.yaml"
+            bad_yaml.write_text("{{{{invalid yaml")
+
+            result = _load_dream_guidance("broken")
+            assert result is None
+
+    def test_unknown_dream_type_skipped(self, tmp_path):
+        """Unknown dream types in YAML are skipped with a warning."""
+        import yaml
+
+        with patch(
+            "overblick.capabilities.psychology.dream._IDENTITIES_DIR", tmp_path
+        ):
+            identity_dir = tmp_path / "testid"
+            identity_dir.mkdir()
+            dream_content = {
+                "dream_types": {
+                    "nonexistent_type": {
+                        "themes": ["test"],
+                        "symbols": ["test"],
+                        "weight": 1.0,
+                    }
+                }
+            }
+            (identity_dir / "dream_content.yaml").write_text(yaml.dump(dream_content))
+
+            result = _load_dream_guidance("testid")
+            # Unknown type is skipped, no valid types remain
+            assert result is None
+
+    def test_empty_guidance_returns_none(self, tmp_path):
+        """Empty dream_types section returns None."""
+        import yaml
+
+        with patch(
+            "overblick.capabilities.psychology.dream._IDENTITIES_DIR", tmp_path
+        ):
+            identity_dir = tmp_path / "emptyid"
+            identity_dir.mkdir()
+            (identity_dir / "dream_content.yaml").write_text(yaml.dump({"dream_types": {}}))
+
+            result = _load_dream_guidance("emptyid")
+            assert result is None
+
+
+class TestDreamCapabilityTickEdgeCases:
+    @pytest.mark.asyncio
+    async def test_tick_no_dream_system(self):
+        """Tick with no dream system (setup not called) is a no-op."""
+        ctx = _make_ctx()
+        cap = DreamCapability(ctx)
+        # Don't call setup — _dream_system is None
+        await cap.tick()  # Should not raise
+
+    @pytest.mark.asyncio
+    async def test_tick_zoneinfo_exception_fallback(self):
+        """When ZoneInfo fails, datetime.now() fallback is used."""
+        import builtins
+
+        pipeline = AsyncMock()
+        pipeline._chat_with_overrides = AsyncMock(
+            return_value=_mock_pipeline_result(_valid_dream_json())
+        )
+        db = AsyncMock()
+        db.get_recent_dreams = AsyncMock(return_value=[])
+        db.save_dream = AsyncMock(return_value=1)
+
+        ctx = _make_ctx(llm_pipeline=pipeline, engagement_db=db)
+        cap = DreamCapability(ctx)
+        await cap.setup()
+
+        # Remove zoneinfo from sys.modules to force re-import inside tick,
+        # and patch __import__ to make that import raise
+        import sys
+
+        original_import = builtins.__import__
+
+        def fail_zoneinfo(name, *args, **kwargs):
+            if name == "zoneinfo":
+                raise ImportError("Mocked: no zoneinfo")
+            return original_import(name, *args, **kwargs)
+
+        # Remove cached module so tick() tries to import it fresh
+        saved = sys.modules.pop("zoneinfo", None)
+        try:
+            with patch("builtins.__import__", side_effect=fail_zoneinfo):
+                mock_now = datetime(2026, 2, 23, 6, 30, 0)
+                with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
+                    mock_dt.now.return_value = mock_now
+                    await cap.tick()
+
+            db.save_dream.assert_awaited_once()
+        finally:
+            if saved is not None:
+                sys.modules["zoneinfo"] = saved
+
+    @pytest.mark.asyncio
+    async def test_tick_db_dream_load_error(self):
+        """Exception loading recent dreams from DB is handled gracefully."""
+        pipeline = AsyncMock()
+        pipeline._chat_with_overrides = AsyncMock(
+            return_value=_mock_pipeline_result(_valid_dream_json())
+        )
+        db = AsyncMock()
+        db.get_recent_dreams = AsyncMock(side_effect=RuntimeError("DB error"))
+        db.save_dream = AsyncMock(return_value=1)
+
+        ctx = _make_ctx(llm_pipeline=pipeline, engagement_db=db)
+        cap = DreamCapability(ctx)
+        await cap.setup()
+
+        mock_now = datetime(2026, 2, 23, 6, 30, 0)
+        with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_now
+            await cap.tick()
+
+        # Should still generate dream despite DB error
+        db.save_dream.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_tick_db_save_error(self):
+        """Exception saving dream to DB is handled gracefully."""
+        pipeline = AsyncMock()
+        pipeline._chat_with_overrides = AsyncMock(
+            return_value=_mock_pipeline_result(_valid_dream_json())
+        )
+        db = AsyncMock()
+        db.get_recent_dreams = AsyncMock(return_value=[])
+        db.save_dream = AsyncMock(side_effect=RuntimeError("DB write error"))
+
+        ctx = _make_ctx(llm_pipeline=pipeline, engagement_db=db)
+        cap = DreamCapability(ctx)
+        await cap.setup()
+
+        mock_now = datetime(2026, 2, 23, 6, 30, 0)
+        with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_now
+            await cap.tick()  # Should not raise
+
+        assert cap.last_dream is not None
+
+
+class TestDreamCapabilityEdgeMethods:
+    @pytest.mark.asyncio
+    async def test_get_prompt_context_no_system(self):
+        """get_prompt_context returns empty string when no system."""
+        ctx = _make_ctx()
+        cap = DreamCapability(ctx)
+        # No setup — _dream_system is None
+        assert cap.get_prompt_context() == ""
+
+    @pytest.mark.asyncio
+    async def test_generate_dream_no_system(self):
+        """generate_dream returns None when no system."""
+        ctx = _make_ctx()
+        cap = DreamCapability(ctx)
+        # No setup
+        result = await cap.generate_dream()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_generate_dream_db_error(self):
+        """generate_dream handles DB error gracefully."""
+        db = AsyncMock()
+        db.get_recent_dreams = AsyncMock(side_effect=RuntimeError("DB error"))
+
+        pipeline = AsyncMock()
+        pipeline._chat_with_overrides = AsyncMock(
+            return_value=_mock_pipeline_result(_valid_dream_json())
+        )
+
+        ctx = _make_ctx(llm_pipeline=pipeline, engagement_db=db)
+        cap = DreamCapability(ctx)
+        await cap.setup()
+
+        dream = await cap.generate_dream()
+        assert dream is not None
+
+    def test_get_dream_insights_no_system(self):
+        """get_dream_insights returns empty list when no system."""
+        ctx = _make_ctx()
+        cap = DreamCapability(ctx)
+        assert cap.get_dream_insights() == []
+
+    @pytest.mark.asyncio
+    async def test_get_dream_insights_with_dreams(self):
+        """get_dream_insights returns insights from generated dreams."""
+        ctx = _make_ctx()
+        cap = DreamCapability(ctx)
+        await cap.setup()
+
+        # Generate a fallback dream
+        mock_now = datetime(2026, 2, 23, 6, 30, 0)
+        with patch("overblick.capabilities.psychology.dream.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_now
+            await cap.tick()
+
+        insights = cap.get_dream_insights(days=7)
+        assert isinstance(insights, list)
 
 
 class TestDreamCapabilitySetup:

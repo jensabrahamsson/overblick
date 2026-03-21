@@ -15,8 +15,14 @@ produces responses that match the desired character voice.
 """
 
 import re
+import sys
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="YAML identity files contain Swedish characters; Windows default encoding causes UnicodeDecodeError",
+)
 
 from overblick.identities import build_system_prompt, list_personalities, load_personality
 from tests.personalities.conftest import MODEL_SLUG, generate_response

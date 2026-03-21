@@ -296,6 +296,97 @@ class TestSenderProfilePersistence:
 # ---------------------------------------------------------------------------
 
 
+class TestEdgeCases:
+    """Edge cases for ReputationManager."""
+
+    @pytest.mark.asyncio
+    async def test_load_sender_profile_no_profiles_dir(self):
+        """Returns default profile when profiles_dir is None."""
+        rep = ReputationManager(db=MagicMock(), profiles_dir=None, thresholds=DEFAULT_THRESHOLDS)
+        profile = await rep.load_sender_profile("test@example.com")
+        assert profile.email == "test@example.com"
+        assert profile.total_interactions == 0
+
+    @pytest.mark.asyncio
+    async def test_load_sender_profile_corrupt_json(self, tmp_path):
+        """Returns default profile when JSON is corrupt."""
+        rep = make_reputation(tmp_path)
+        safe_name = ReputationManager._safe_sender_name("bad@example.com")
+        profile_path = tmp_path / "sender_profiles" / f"{safe_name}.json"
+        profile_path.write_text("{invalid json!!!}")
+
+        profile = await rep.load_sender_profile("bad@example.com")
+        assert profile.email == "bad@example.com"
+        assert profile.total_interactions == 0
+
+    @pytest.mark.asyncio
+    async def test_save_sender_profile_no_profiles_dir(self):
+        """Save is a no-op when profiles_dir is None."""
+        rep = ReputationManager(db=MagicMock(), profiles_dir=None, thresholds=DEFAULT_THRESHOLDS)
+        profile = SenderProfile(email="test@example.com")
+        # Should not raise
+        await rep.save_sender_profile("test@example.com", profile)
+
+    @pytest.mark.asyncio
+    async def test_save_sender_profile_write_error(self, tmp_path):
+        """Save handles write errors gracefully."""
+        rep = make_reputation(tmp_path)
+        profile = SenderProfile(email="test@example.com")
+
+        # Make the profiles dir read-only to trigger write error
+
+        profiles_dir = tmp_path / "sender_profiles"
+        profiles_dir.chmod(0o444)
+        try:
+            await rep.save_sender_profile("test@example.com", profile)
+        finally:
+            profiles_dir.chmod(0o755)
+
+    @pytest.mark.asyncio
+    async def test_get_domain_reputation_zero_total(self, tmp_path):
+        """get_domain_reputation returns known=False when all counts are zero."""
+        db = MagicMock()
+        db.get_domain_stats = AsyncMock(
+            return_value={
+                "ignore_count": 0,
+                "notify_count": 0,
+                "reply_count": 0,
+                "negative_feedback_count": 0,
+                "positive_feedback_count": 0,
+                "auto_ignore": False,
+            }
+        )
+        rep = make_reputation(tmp_path, db=db)
+        result = await rep.get_domain_reputation("user@zerostats.com")
+        assert result["known"] is False
+        assert result["domain"] == "zerostats.com"
+
+    def test_should_auto_ignore_domain_unknown(self, tmp_path):
+        """should_auto_ignore_domain returns False for unknown domain."""
+        rep = make_reputation(tmp_path)
+        assert rep.should_auto_ignore_domain({"known": False}) is False
+
+    @pytest.mark.asyncio
+    async def test_get_domain_reputation_no_domain(self, tmp_path):
+        """get_domain_reputation returns known=False for no-domain sender."""
+        db = MagicMock()
+        rep = make_reputation(tmp_path, db=db)
+        result = await rep.get_domain_reputation("nodomain")
+        assert result["known"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_domain_reputation_no_db(self, tmp_path):
+        """get_domain_reputation returns known=False when DB is None."""
+        rep = ReputationManager(
+            db=None,
+            profiles_dir=tmp_path / "sender_profiles",
+            thresholds=DEFAULT_THRESHOLDS,
+        )
+        (tmp_path / "sender_profiles").mkdir(parents=True)
+        result = await rep.get_domain_reputation("user@example.com")
+        assert result["known"] is False
+
+
 class TestPenalizeSender:
     """Tests for ReputationManager.penalize_sender()."""
 

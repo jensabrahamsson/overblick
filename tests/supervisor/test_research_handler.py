@@ -61,7 +61,7 @@ def _patch_init(mock_personality, mock_pipeline):
     return (
         patch("overblick.identities.load_identity", return_value=mock_personality),
         patch("overblick.identities.build_system_prompt", return_value="system prompt"),
-        patch("overblick.core.llm.ollama_client.OllamaClient"),
+        patch("overblick.core.llm.gateway_client.GatewayClient"),
         patch("overblick.core.llm.pipeline.SafeLLMPipeline", return_value=mock_pipeline),
         patch("overblick.core.security.rate_limiter.RateLimiter"),
     )
@@ -88,11 +88,6 @@ class TestResearchHandlerInit:
             return_value=PipelineResult(content="The EUR/SEK rate is approximately 11.45.")
         )
 
-        ddg_response = {
-            "Abstract": "The exchange rate between EUR and SEK is 11.45",
-            "AbstractSource": "XE.com",
-            "RelatedTopics": [],
-        }
 
         patches = _patch_init(mock_personality, mock_pipeline)
 
@@ -285,3 +280,247 @@ class TestResearchHandlerAudit:
             call.args[0] == "research_request_error" for call in mock_audit_log.log.call_args_list
         )
         assert error_logged
+
+    @pytest.mark.asyncio
+    async def test_audit_logs_no_results(self, mock_audit_log):
+        """No-results path is audit-logged."""
+        handler = ResearchHandler(audit_log=mock_audit_log)
+        msg = IPCMessage(
+            msg_type="research_request",
+            payload={"query": "xyzzy nonexistent", "context": ""},
+            sender="stal",
+        )
+        with patch.object(handler, "_web_search", return_value=""):
+            await handler.handle(msg)
+        logged_actions = [call.args[0] for call in mock_audit_log.log.call_args_list]
+        assert "research_response_sent" in logged_actions
+
+
+class TestResearchHandlerWebSearch:
+    """Test actual web search method (mocked HTTP)."""
+
+    @pytest.mark.asyncio
+    async def test_web_search_success(self, handler):
+        """Successful web search returns extracted results."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "Abstract": "Test abstract",
+                "AbstractSource": "TestSource",
+                "Answer": "",
+                "RelatedTopics": [],
+                "Infobox": {},
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=AsyncMock())
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("aiohttp.ClientSession") as mock_cs:
+            mock_cs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_cs.return_value.__aexit__ = AsyncMock(return_value=False)
+            result = await handler._web_search("test query")
+
+        assert "Test abstract" in result
+
+    @pytest.mark.asyncio
+    async def test_web_search_non_200(self, handler):
+        """Non-200 response returns empty string."""
+        mock_response = AsyncMock()
+        mock_response.status = 500
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=AsyncMock())
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("aiohttp.ClientSession") as mock_cs:
+            mock_cs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_cs.return_value.__aexit__ = AsyncMock(return_value=False)
+            result = await handler._web_search("test query")
+
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_web_search_client_error(self, handler):
+        """aiohttp.ClientError returns empty string."""
+        import aiohttp
+
+        with patch("aiohttp.ClientSession") as mock_cs:
+            mock_cs.return_value.__aenter__ = AsyncMock(
+                side_effect=aiohttp.ClientError("Connection failed")
+            )
+            mock_cs.return_value.__aexit__ = AsyncMock(return_value=False)
+            result = await handler._web_search("test query")
+
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_web_search_unexpected_error(self, handler):
+        """Unexpected errors return empty string."""
+        with patch("aiohttp.ClientSession") as mock_cs:
+            mock_cs.return_value.__aenter__ = AsyncMock(
+                side_effect=RuntimeError("boom")
+            )
+            mock_cs.return_value.__aexit__ = AsyncMock(return_value=False)
+            result = await handler._web_search("test query")
+
+        assert result == ""
+
+
+class TestResearchHandlerInitFailure:
+    """Test initialization failure paths."""
+
+    @pytest.mark.asyncio
+    async def test_ensure_initialized_returns_true_when_already_init(self):
+        """_ensure_initialized returns True if already initialized."""
+        handler = ResearchHandler()
+        handler._initialized = True
+        result = await handler._ensure_initialized()
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_ensure_initialized_failure(self):
+        """_ensure_initialized returns False on import/init failure."""
+        handler = ResearchHandler()
+        with patch(
+            "overblick.identities.load_identity",
+            side_effect=ImportError("no module"),
+        ):
+            result = await handler._ensure_initialized()
+        assert result is False
+        assert handler._initialized is False
+
+    @pytest.mark.asyncio
+    async def test_llm_not_initialized_returns_raw_results(self, mock_audit_log):
+        """When LLM init fails, raw search results are returned."""
+        handler = ResearchHandler(audit_log=mock_audit_log)
+        msg = IPCMessage(
+            msg_type="research_request",
+            payload={"query": "test", "context": ""},
+            sender="stal",
+        )
+        with (
+            patch.object(handler, "_web_search", return_value="Raw data here" * 10),
+            patch.object(handler, "_ensure_initialized", return_value=False),
+        ):
+            response = await handler.handle(msg)
+        assert response.payload["source"] == "duckduckgo_raw"
+        assert "Raw data" in response.payload["summary"]
+
+
+class TestResearchHandlerSummarize:
+    """Test the _summarize method."""
+
+    @pytest.mark.asyncio
+    async def test_summarize_no_pipeline(self):
+        """_summarize returns None when pipeline is not set."""
+        handler = ResearchHandler()
+        result = await handler._summarize("query", "context", "results")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_summarize_with_context(self, mock_personality):
+        """_summarize includes context in the prompt."""
+        handler = ResearchHandler()
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="Summary with context")
+        )
+        handler._llm_pipeline = mock_pipeline
+        handler._system_prompt = "system"
+
+        result = await handler._summarize("query", "some context", "results")
+        assert result == "Summary with context"
+
+    @pytest.mark.asyncio
+    async def test_summarize_without_context(self, mock_personality):
+        """_summarize works without context."""
+        handler = ResearchHandler()
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="Summary no context")
+        )
+        handler._llm_pipeline = mock_pipeline
+        handler._system_prompt = "system"
+
+        result = await handler._summarize("query", "", "results")
+        assert result == "Summary no context"
+
+    @pytest.mark.asyncio
+    async def test_summarize_blocked(self, mock_personality):
+        """_summarize returns None when result is blocked."""
+        handler = ResearchHandler()
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content="", blocked=True, block_stage="output_safety", block_reason="unsafe"
+            )
+        )
+        handler._llm_pipeline = mock_pipeline
+        handler._system_prompt = "system"
+
+        result = await handler._summarize("query", "", "results")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_summarize_exception(self, mock_personality):
+        """_summarize returns None on LLM exception."""
+        handler = ResearchHandler()
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(side_effect=RuntimeError("LLM down"))
+        handler._llm_pipeline = mock_pipeline
+        handler._system_prompt = "system"
+
+        result = await handler._summarize("query", "", "results")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_handle_summary_is_none_uses_raw(self, mock_audit_log, mock_personality):
+        """When _summarize returns None, raw results are used as fallback."""
+        handler = ResearchHandler(audit_log=mock_audit_log)
+        mock_pipeline = AsyncMock()
+        mock_pipeline.chat = AsyncMock(return_value=None)
+
+        patches = _patch_init(mock_personality, mock_pipeline)
+        with (
+            patches[0],
+            patches[1],
+            patches[2],
+            patches[3],
+            patches[4],
+            patch.object(handler, "_web_search", return_value="Raw fallback data"),
+        ):
+            msg = IPCMessage(
+                msg_type="research_request",
+                payload={"query": "test", "context": ""},
+                sender="stal",
+            )
+            response = await handler.handle(msg)
+        assert response.payload["summary"] == "Raw fallback data"
+
+    @pytest.mark.asyncio
+    async def test_error_response_without_audit_log(self):
+        """_error_response works without audit log."""
+        handler = ResearchHandler(audit_log=None)
+        response = handler._error_response("test error", "sender1")
+        assert response.msg_type == "research_response"
+        assert response.payload["error"] == "test error"
+
+    @pytest.mark.asyncio
+    async def test_handle_no_audit_log(self):
+        """handle works without audit log."""
+        handler = ResearchHandler(audit_log=None)
+        msg = IPCMessage(
+            msg_type="research_request",
+            payload={"query": "test", "context": "ctx"},
+            sender="stal",
+        )
+        with (
+            patch.object(handler, "_web_search", return_value=""),
+        ):
+            response = await handler.handle(msg)
+        assert "No results found" in response.payload["summary"]

@@ -1,7 +1,6 @@
 """Tests for opencode runner (mocked subprocess)."""
 
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -136,6 +135,67 @@ class TestParseOutput:
         raw = json.dumps({"output": "ok", "files": "single.py"})
         result = runner._parse_output(raw, 1.0)
         assert result.files_changed == ["single.py"]
+
+
+class TestRunOpencodeErrors:
+    @pytest.mark.asyncio
+    async def test_timeout(self, runner, bug):
+        """Timeout kills process and returns error result."""
+        mock_proc = AsyncMock()
+        mock_proc.kill = MagicMock()
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+            with patch("asyncio.wait_for", side_effect=TimeoutError):
+                result = await runner._run_opencode("test prompt")
+
+        assert result.success is False
+        assert "Timeout" in result.error
+        mock_proc.kill.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_timeout_kill_fails(self, runner, bug):
+        """Timeout with kill failure still returns error result."""
+        mock_proc = AsyncMock()
+        mock_proc.kill = MagicMock(side_effect=ProcessLookupError("already dead"))
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+            with patch("asyncio.wait_for", side_effect=TimeoutError):
+                result = await runner._run_opencode("test prompt")
+
+        assert result.success is False
+        assert "Timeout" in result.error
+
+    @pytest.mark.asyncio
+    async def test_file_not_found(self, runner):
+        """FileNotFoundError when opencode is not in PATH."""
+        with patch(
+            "asyncio.create_subprocess_exec",
+            side_effect=FileNotFoundError("opencode not found"),
+        ):
+            result = await runner._run_opencode("test prompt")
+
+        assert result.success is False
+        assert "not found" in result.error
+
+    @pytest.mark.asyncio
+    async def test_generic_exception(self, runner):
+        """Generic exceptions are caught and returned."""
+        with patch(
+            "asyncio.create_subprocess_exec",
+            side_effect=OSError("unexpected"),
+        ):
+            result = await runner._run_opencode("test prompt")
+
+        assert result.success is False
+        assert "unexpected" in result.error
+        assert result.duration_seconds > 0
+
+    def test_parse_output_dict_in_output(self, runner):
+        """When output field is a dict, it's JSON-stringified."""
+        raw = json.dumps({"output": {"nested": "value"}, "files_changed": []})
+        result = runner._parse_output(raw, 1.0)
+        assert result.success
+        assert '"nested"' in result.output
 
 
 class TestBuildPrompts:

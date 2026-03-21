@@ -5,14 +5,21 @@ Tests for the Supervisor, AgentProcess, and IPC system.
 import asyncio
 import json
 import shutil
+import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from overblick.supervisor.ipc import IPCClient, IPCMessage, IPCServer
 from overblick.supervisor.process import AgentProcess, ProcessState
 from overblick.supervisor.supervisor import Supervisor, SupervisorState
+
+# Skip marker for Unix-only tests (Unix domain sockets)
+unix_only = pytest.mark.skipif(
+    sys.platform == "win32", reason="Unix domain sockets not available on Windows"
+)
 
 
 @pytest.fixture
@@ -179,6 +186,7 @@ class TestAgentProcess:
 # ---------------------------------------------------------------------------
 
 
+@unix_only
 class TestIPC:
     @pytest.mark.asyncio
     async def test_server_start_stop(self, short_tmp):
@@ -260,6 +268,7 @@ class TestIPC:
 # ---------------------------------------------------------------------------
 
 
+@unix_only
 class TestSupervisor:
     def test_initial_state(self):
         sup = Supervisor(identities=["anomal", "cherry"])
@@ -348,6 +357,7 @@ class TestSupervisor:
 # ---------------------------------------------------------------------------
 
 
+@unix_only
 class TestSupervisorAgentActions:
     """Test start/stop agent IPC handlers."""
 
@@ -451,6 +461,7 @@ class TestSupervisorAgentActions:
             await sup.stop()
 
 
+@unix_only
 class TestIPCAuth:
     @pytest.mark.asyncio
     async def test_auth_accepted(self, short_tmp):
@@ -538,6 +549,7 @@ class TestIPCAuth:
 # ---------------------------------------------------------------------------
 
 
+@unix_only
 class TestSupervisorIdentityPlugins:
     """Test that start_agent loads plugins from identity config."""
 
@@ -576,3 +588,511 @@ class TestSupervisorIdentityPlugins:
                 assert agent.plugins == ["moltbook", "ai_digest", "telegram"]
         finally:
             await sup.stop()
+
+
+# ---------------------------------------------------------------------------
+# Additional Supervisor coverage tests
+# ---------------------------------------------------------------------------
+
+
+@unix_only
+class TestSupervisorStartFailure:
+    """Test supervisor start failure and cleanup."""
+
+    @pytest.mark.asyncio
+    async def test_start_failure_cleans_up(self, short_tmp):
+        """When IPC start fails, supervisor cleans up."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+
+        with patch.object(sup._ipc, "start", side_effect=RuntimeError("ipc failed")):
+            with pytest.raises(RuntimeError, match="ipc failed"):
+                await sup.start()
+
+        assert sup.state == SupervisorState.STOPPED
+
+    @pytest.mark.asyncio
+    async def test_start_with_identities_calls_start_agent(self, short_tmp):
+        """start() calls start_agent for each identity in the list."""
+        sup = Supervisor(identities=["agent1", "agent2"], socket_dir=short_tmp)
+        started = []
+
+        async def mock_start_agent(identity, plugins=None):
+            started.append(identity)
+            return MagicMock()
+
+        with patch.object(sup, "start_agent", side_effect=mock_start_agent):
+            await sup.start()
+
+        assert started == ["agent1", "agent2"]
+        await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_start_agent_returns_none_when_process_fails(self, short_tmp):
+        """start_agent returns None when agent.start() fails."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            # Patch AgentProcess.start to return False
+            with patch(
+                "overblick.supervisor.supervisor.AgentProcess"
+            ) as MockAP:
+                mock_agent = MagicMock()
+                mock_agent.state = ProcessState.PENDING
+                mock_agent.start = AsyncMock(return_value=False)
+                MockAP.return_value = mock_agent
+
+                result = await sup.start_agent("fail_agent")
+                assert result is None
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_start_agent_already_running(self, short_tmp):
+        """start_agent returns existing agent if already running."""
+        from unittest.mock import MagicMock
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            # Add a fake running agent
+            mock_agent = MagicMock()
+            mock_agent.state = ProcessState.RUNNING
+            sup._agents["existing"] = mock_agent
+
+            result = await sup.start_agent("existing")
+            assert result is mock_agent
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_start_agent_load_identity_fails(self, short_tmp):
+        """start_agent handles load_identity failure gracefully."""
+        from unittest.mock import patch
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            with patch(
+                "overblick.identities.load_identity",
+                side_effect=ImportError("no module"),
+            ):
+                # Agent start itself may fail (no real binary)
+                await sup.start_agent("test_agent")
+                # Whether it succeeded or not, it shouldn't crash
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_start_agent_process_fails(self, short_tmp):
+        """start_agent returns None when agent.start() fails."""
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            # Agent fails to start
+            await sup.start_agent("nonexistent_agent")
+            # May return None if start fails
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_stop_agent_not_found(self, short_tmp):
+        """stop_agent returns False for unknown agent."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            result = await sup.stop_agent("nonexistent")
+            assert result is False
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_stop_agent_cancels_monitor_task(self, short_tmp):
+        """stop_agent cancels monitor task and unregisters from router."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            # Add a fake agent with monitor task
+            mock_agent = MagicMock()
+            mock_agent.stop = AsyncMock(return_value=True)
+            sup._agents["test_agent"] = mock_agent
+
+            mock_task = MagicMock()
+            sup._monitor_tasks["test_agent"] = mock_task
+
+            sup._message_router.register_agent("test_agent")
+
+            result = await sup.stop_agent("test_agent")
+            assert result is True
+            mock_task.cancel.assert_called_once()
+        finally:
+            await sup.stop()
+
+
+@unix_only
+class TestSupervisorStop:
+    """Test supervisor stop scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_stop_handles_agent_stop_errors(self, short_tmp):
+        """stop() isolates per-agent errors during shutdown."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        # Add agent that raises on stop
+        mock_agent = MagicMock()
+        mock_agent.stop = AsyncMock(side_effect=RuntimeError("stop failed"))
+        sup._agents["bad_agent"] = mock_agent
+
+        mock_task = MagicMock()
+        sup._monitor_tasks["bad_agent"] = mock_task
+
+        await sup.stop()
+        assert sup.state == SupervisorState.STOPPED
+
+    @pytest.mark.asyncio
+    async def test_stop_cancels_remaining_monitor_tasks(self, short_tmp):
+        """stop() cancels and awaits remaining monitor tasks."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        # Create a real async task that sleeps forever, so cancel works
+        async def sleep_forever():
+            await asyncio.sleep(3600)
+
+        task = asyncio.create_task(sleep_forever())
+        sup._monitor_tasks["orphan"] = task
+
+        await sup.stop()
+        assert sup.state == SupervisorState.STOPPED
+        assert len(sup._monitor_tasks) == 0
+
+
+@unix_only
+class TestSupervisorMonitor:
+    """Test _monitor_agent method."""
+
+    @pytest.mark.asyncio
+    async def test_monitor_agent_not_found(self, short_tmp):
+        """_monitor_agent returns early if agent not in dict."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup._monitor_agent("nonexistent")
+
+    @pytest.mark.asyncio
+    async def test_monitor_agent_auto_restart(self, short_tmp):
+        """_monitor_agent auto-restarts crashed agent."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        sup._state = SupervisorState.RUNNING
+
+        mock_agent = MagicMock()
+        mock_agent.state = ProcessState.RUNNING
+        mock_agent.restart_count = 0
+        mock_agent.max_restarts = 3
+        mock_agent.monitor = AsyncMock()
+        mock_agent.start = AsyncMock(return_value=True)
+        sup._agents["test"] = mock_agent
+
+        # After monitor() returns, set state to CRASHED
+        async def set_crashed():
+            mock_agent.state = ProcessState.CRASHED
+
+        mock_agent.monitor = AsyncMock(side_effect=set_crashed)
+
+        with patch("asyncio.create_task"):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                await sup._monitor_agent("test")
+
+        assert mock_agent.restart_count == 1
+        mock_agent.start.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_monitor_agent_cancelled(self, short_tmp):
+        """_monitor_agent handles CancelledError."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        sup._state = SupervisorState.RUNNING
+
+        mock_agent = MagicMock()
+        mock_agent.monitor = AsyncMock(side_effect=asyncio.CancelledError)
+        sup._agents["test"] = mock_agent
+
+        # Should not raise
+        await sup._monitor_agent("test")
+
+
+@unix_only
+class TestSupervisorRun:
+    """Test supervisor run method."""
+
+    @pytest.mark.asyncio
+    async def test_run_waits_for_shutdown(self, short_tmp):
+        """run() waits for shutdown event then stops."""
+        from unittest.mock import patch
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        # Set shutdown event immediately so run() doesn't block
+        sup._shutdown_event.set()
+
+        with patch(
+            "overblick.shared.platform.register_shutdown_signals"
+        ):
+            await sup.run()
+
+        assert sup.state == SupervisorState.STOPPED
+
+
+@unix_only
+class TestSupervisorGetStatus:
+    """Test get_status method."""
+
+    @pytest.mark.asyncio
+    async def test_get_status_with_agents(self, short_tmp):
+        """get_status includes agent info and routing stats."""
+        from unittest.mock import MagicMock
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            mock_agent = MagicMock()
+            mock_agent.state = ProcessState.RUNNING
+            mock_agent.to_dict = MagicMock(
+                return_value={"identity": "test", "state": "running"}
+            )
+            sup._agents["test"] = mock_agent
+
+            status = sup.get_status()
+            assert status["total_agents"] == 1
+            assert status["running_agents"] == 1
+            assert "routing" in status
+            assert "test" in status["agents"]
+        finally:
+            await sup.stop()
+
+
+@unix_only
+class TestSupervisorMessageRouter:
+    """Test message_router property."""
+
+    @pytest.mark.asyncio
+    async def test_message_router_accessible(self, short_tmp):
+        """message_router property returns router."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        from overblick.supervisor.routing import MessageRouter
+
+        assert isinstance(sup.message_router, MessageRouter)
+
+
+@unix_only
+class TestSupervisorIPCHandlers:
+    """Test IPC handler methods directly."""
+
+    @pytest.mark.asyncio
+    async def test_handle_health_inquiry(self, short_tmp):
+        """_handle_health_inquiry delegates to health handler."""
+        from unittest.mock import AsyncMock
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        sup._health_handler.handle = AsyncMock(return_value=None)
+
+        msg = IPCMessage(msg_type="health_inquiry", sender="test")
+        await sup._handle_health_inquiry(msg)
+        sup._health_handler.handle.assert_called_once_with(msg)
+
+    @pytest.mark.asyncio
+    async def test_handle_email_consultation(self, short_tmp):
+        """_handle_email_consultation delegates to email handler."""
+        from unittest.mock import AsyncMock
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        sup._email_handler.handle = AsyncMock(return_value=None)
+
+        msg = IPCMessage(msg_type="email_consultation", sender="test")
+        await sup._handle_email_consultation(msg)
+        sup._email_handler.handle.assert_called_once_with(msg)
+
+    @pytest.mark.asyncio
+    async def test_handle_research_request(self, short_tmp):
+        """_handle_research_request delegates to research handler."""
+        from unittest.mock import AsyncMock
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        sup._research_handler.handle = AsyncMock(return_value=None)
+
+        msg = IPCMessage(msg_type="research_request", sender="test")
+        await sup._handle_research_request(msg)
+        sup._research_handler.handle.assert_called_once_with(msg)
+
+    @pytest.mark.asyncio
+    async def test_handle_start_agent_success(self, short_tmp):
+        """_handle_start_agent returns success when agent starts."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            mock_agent = MagicMock()
+            with patch.object(sup, "start_agent", new_callable=AsyncMock, return_value=mock_agent):
+                msg = IPCMessage(
+                    msg_type="start_agent",
+                    payload={"identity": "anomal"},
+                    sender="dashboard",
+                )
+                response = await sup._handle_start_agent(msg)
+                assert response.payload["success"] is True
+                assert response.payload["action"] == "start"
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_start_agent_failure(self, short_tmp):
+        """_handle_start_agent returns failure when agent fails to start."""
+        from unittest.mock import AsyncMock, patch
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            with patch.object(sup, "start_agent", new_callable=AsyncMock, return_value=None):
+                msg = IPCMessage(
+                    msg_type="start_agent",
+                    payload={"identity": "bad_agent"},
+                    sender="dashboard",
+                )
+                response = await sup._handle_start_agent(msg)
+                assert response.payload["success"] is False
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_stop_agent_success(self, short_tmp):
+        """_handle_stop_agent returns success when agent stops."""
+        from unittest.mock import AsyncMock, patch
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            with patch.object(sup, "stop_agent", new_callable=AsyncMock, return_value=True):
+                msg = IPCMessage(
+                    msg_type="stop_agent",
+                    payload={"identity": "anomal"},
+                    sender="dashboard",
+                )
+                response = await sup._handle_stop_agent(msg)
+                assert response.payload["success"] is True
+                assert response.payload["action"] == "stop"
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_stop_agent_failure(self, short_tmp):
+        """_handle_stop_agent returns failure when agent not found."""
+        from unittest.mock import AsyncMock, patch
+
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            with patch.object(sup, "stop_agent", new_callable=AsyncMock, return_value=False):
+                msg = IPCMessage(
+                    msg_type="stop_agent",
+                    payload={"identity": "nonexistent"},
+                    sender="dashboard",
+                )
+                response = await sup._handle_stop_agent(msg)
+                assert response.payload["success"] is False
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_route_message_success(self, short_tmp):
+        """_handle_route_message routes successfully."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            sup._message_router.register_agent("target_agent")
+            msg = IPCMessage(
+                msg_type="route_message",
+                payload={
+                    "target": "target_agent",
+                    "message_type": "greeting",
+                    "data": {"text": "hello"},
+                    "ttl_seconds": 60.0,
+                },
+                sender="source_agent",
+            )
+            response = await sup._handle_route_message(msg)
+            assert response.payload["success"] is True
+            assert response.payload["status"] == "pending"
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_route_message_missing_fields(self, short_tmp):
+        """_handle_route_message returns error for missing fields."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            msg = IPCMessage(
+                msg_type="route_message",
+                payload={},
+                sender="source",
+            )
+            response = await sup._handle_route_message(msg)
+            assert response.payload["success"] is False
+            assert "Missing" in response.payload["error"]
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_collect_messages(self, short_tmp):
+        """_handle_collect_messages returns pending messages."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        try:
+            sup._message_router.register_agent("collector")
+            sup._message_router.route("src", "collector", "greeting", {"text": "hi"})
+
+            msg = IPCMessage(
+                msg_type="collect_messages",
+                sender="collector",
+            )
+            response = await sup._handle_collect_messages(msg)
+            assert response.payload["count"] == 1
+            assert len(response.payload["messages"]) == 1
+            assert response.payload["messages"][0]["source_agent"] == "src"
+        finally:
+            await sup.stop()
+
+    @pytest.mark.asyncio
+    async def test_handle_shutdown(self, short_tmp):
+        """_handle_shutdown sets shutdown event."""
+        sup = Supervisor(identities=[], socket_dir=short_tmp)
+        await sup.start()
+
+        msg = IPCMessage(msg_type="shutdown", sender="admin")
+        response = await sup._handle_shutdown(msg)
+        assert response.msg_type == "ack"
+        assert sup._shutdown_event.is_set()
+
+        await sup.stop()

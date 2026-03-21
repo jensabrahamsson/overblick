@@ -2,15 +2,13 @@
 Tests for AgenticPluginBase — integration tests.
 """
 
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from overblick.core.agentic.models import (
     ActionOutcome,
     AgentGoal,
-    PlannedAction,
 )
 from overblick.core.agentic.plugin_base import AgenticPluginBase
 from overblick.core.agentic.protocols import ActionHandler, Observer, PlanningPromptConfig
@@ -157,3 +155,92 @@ class TestAgenticPluginBase:
 
         sig = inspect.signature(AgenticPluginBase.setup_agentic_loop)
         assert sig.parameters["complexity"].default == "high"
+
+    def test_get_default_goals_returns_empty_list(self, plugin_ctx):
+        """Base class get_default_goals returns empty list."""
+
+        class MinimalPlugin(AgenticPluginBase):
+            name = "minimal"
+
+            async def create_observer(self) -> Observer:
+                return SampleObserver()
+
+            def get_action_handlers(self) -> dict[str, ActionHandler]:
+                return {}
+
+            def get_planning_prompt_config(self) -> PlanningPromptConfig:
+                return PlanningPromptConfig()
+
+            async def setup(self) -> None:
+                pass
+
+            async def tick(self) -> None:
+                pass
+
+        plugin = MinimalPlugin(plugin_ctx)
+        assert plugin.get_default_goals() == []
+
+    def test_get_system_prompt_fallback_on_file_not_found(self, plugin_ctx):
+        """get_system_prompt falls back when identity file is not found."""
+
+        class FallbackPlugin(AgenticPluginBase):
+            name = "fallback_agent"
+
+            async def create_observer(self) -> Observer:
+                return SampleObserver()
+
+            def get_action_handlers(self) -> dict[str, ActionHandler]:
+                return {}
+
+            def get_planning_prompt_config(self) -> PlanningPromptConfig:
+                return PlanningPromptConfig()
+
+            async def setup(self) -> None:
+                pass
+
+            async def tick(self) -> None:
+                pass
+
+        plugin = FallbackPlugin(plugin_ctx)
+        # Patch the underlying load_identity function to raise FileNotFoundError
+        with patch(
+            "overblick.identities.load_identity",
+            side_effect=FileNotFoundError("no identity"),
+        ):
+            prompt = plugin.get_system_prompt()
+        assert "autonomous agent" in prompt
+        assert "fallback_agent" in prompt
+
+    def test_get_system_prompt_success_path(self, plugin_ctx):
+        """get_system_prompt calls load_identity and build_system_prompt."""
+
+        class PromptPlugin(AgenticPluginBase):
+            name = "prompt_agent"
+
+            async def create_observer(self) -> Observer:
+                return SampleObserver()
+
+            def get_action_handlers(self) -> dict[str, ActionHandler]:
+                return {}
+
+            def get_planning_prompt_config(self) -> PlanningPromptConfig:
+                return PlanningPromptConfig()
+
+            async def setup(self) -> None:
+                pass
+
+            async def tick(self) -> None:
+                pass
+
+        plugin = PromptPlugin(plugin_ctx)
+        mock_identity = MagicMock()
+        with patch(
+            "overblick.identities.load_identity",
+            return_value=mock_identity,
+        ), patch.object(
+            type(plugin.ctx),
+            "build_system_prompt",
+            return_value="Built prompt",
+        ):
+            prompt = plugin.get_system_prompt()
+        assert prompt == "Built prompt"

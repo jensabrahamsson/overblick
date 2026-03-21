@@ -1,11 +1,10 @@
 """Unit tests for LearningStore."""
 
-import struct
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from overblick.core.learning.models import Learning, LearningStatus
+from overblick.core.learning.models import LearningStatus
 from overblick.core.learning.store import (
     LearningStore,
     _cosine_similarity,
@@ -207,6 +206,120 @@ class TestCount:
         await store.propose(content="Two")
 
         assert await store.count() == 2
+
+
+class TestEmbeddingCache:
+    @pytest.mark.asyncio
+    async def test_should_use_cache_on_second_call(self, store_with_embeddings):
+        """Embedding cache returns cached result on second call."""
+        await store_with_embeddings.propose(content="Test cache", category="factual")
+        initial_count = store_with_embeddings._embed_call_count["n"]
+
+        # Propose again with same content - should use cache
+        await store_with_embeddings.propose(content="Test cache", category="factual")
+        assert store_with_embeddings._embed_call_count["n"] == initial_count
+
+    @pytest.mark.asyncio
+    async def test_should_evict_oldest_when_cache_full(self, db_path):
+        """Cache evicts oldest entry when size exceeds 100."""
+        call_count = {"n": 0}
+
+        async def fake_embed(text):
+            call_count["n"] += 1
+            return [float(hash(text) % 1000) / 1000.0]
+
+        s = LearningStore(
+            db_path=db_path,
+            ethos_text="Be curious",
+            llm_pipeline=None,
+            embed_fn=fake_embed,
+        )
+        await s.setup()
+        s._reviewer = _mock_reviewer()
+
+        # Fill cache with 100 entries
+        for i in range(100):
+            s._embedding_cache[f"text_{i}"] = [float(i)]
+        assert len(s._embedding_cache) == 100
+
+        # Next embedding should evict oldest
+        await s.propose(content="new_text", category="factual")
+        assert len(s._embedding_cache) == 100  # still 100 (evicted one, added one)
+        assert "text_0" not in s._embedding_cache  # oldest evicted
+        assert "new_text" in s._embedding_cache
+
+    @pytest.mark.asyncio
+    async def test_should_handle_embedding_failure(self, db_path):
+        """Embedding failure returns None and logs warning."""
+
+        async def failing_embed(text):
+            raise RuntimeError("Embedding service down")
+
+        s = LearningStore(
+            db_path=db_path,
+            ethos_text="Be curious",
+            llm_pipeline=None,
+            embed_fn=failing_embed,
+        )
+        await s.setup()
+        s._reviewer = _mock_reviewer()
+
+        learning = await s.propose(content="Test fail", category="factual")
+        # Should still succeed but without embedding
+        assert learning.status == LearningStatus.APPROVED
+        assert learning.embedding is None
+
+
+class TestGetRelevantFallback:
+    @pytest.mark.asyncio
+    async def test_should_fallback_when_similarity_search_fails(self, db_path):
+        """get_relevant falls back to recency when embedding search errors."""
+
+        async def fake_embed(text):
+            return [float(hash(text) % 1000) / 1000.0 + i * 0.001 for i in range(10)]
+
+        s = LearningStore(
+            db_path=db_path,
+            ethos_text="Be curious",
+            llm_pipeline=None,
+            embed_fn=fake_embed,
+        )
+        await s.setup()
+        s._reviewer = _mock_reviewer()
+
+        await s.propose(content="Learning one")
+        await s.propose(content="Learning two")
+
+        # Patch _search_by_similarity to raise an exception
+
+        async def broken_search(*args, **kwargs):
+            raise RuntimeError("DB corrupt")
+
+        s._search_by_similarity = broken_search
+
+        results = await s.get_relevant("query text", limit=5)
+        # Should fallback to get_approved
+        assert len(results) == 2
+
+    @pytest.mark.asyncio
+    async def test_search_by_similarity_empty_rows(self, db_path):
+        """_search_by_similarity returns empty list when no rows with embeddings."""
+
+        async def fake_embed(text):
+            return [0.1, 0.2, 0.3]
+
+        s = LearningStore(
+            db_path=db_path,
+            ethos_text="Be curious",
+            llm_pipeline=None,
+            embed_fn=fake_embed,
+        )
+        await s.setup()
+        s._reviewer = _mock_reviewer()
+
+        # No learnings stored, search should return empty
+        results = await s._search_by_similarity([0.1, 0.2, 0.3], limit=5)
+        assert results == []
 
 
 class TestCosineSimilarity:

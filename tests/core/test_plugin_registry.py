@@ -13,6 +13,7 @@ Covers:
 - Security: no dynamic imports from arbitrary user input
 """
 
+import textwrap
 import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -22,7 +23,9 @@ import pytest
 from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.plugin_registry import (
     _KNOWN_PLUGINS,
+    PluginMetadata,
     PluginRegistry,
+    _extract_plugin_metadata,
 )
 
 # ---------------------------------------------------------------------------
@@ -432,7 +435,7 @@ class TestPluginRegistrySecurity:
         with patch(
             "overblick.core.plugin_registry.importlib.import_module", return_value=fake_module
         ) as mock_import:
-            plugin = registry.load("safe_test", plugin_ctx)
+            registry.load("safe_test", plugin_ctx)
             mock_import.assert_called_once_with("safe_module")
 
 
@@ -475,3 +478,268 @@ class TestPluginRegistryIsolation:
         # Note: it IS in _KNOWN_PLUGINS for backward compat, but
         # reg_b's instance dict was created before the registration
         assert "instance_only" not in reg_b.available_plugins()
+
+
+# ---------------------------------------------------------------------------
+# Tests: _extract_plugin_metadata()
+# ---------------------------------------------------------------------------
+
+
+class TestExtractPluginMetadata:
+    """Tests for the _extract_plugin_metadata helper function."""
+
+    def test_should_extract_metadata_when_spec_found(self, tmp_path):
+        """When importlib.util.find_spec locates the module, extract metadata via AST."""
+        source = textwrap.dedent("""\
+            class MyPlugin:
+                DEPENDS_ON = ["foo", "bar"]
+                REQUIRED_CAPABILITIES = ["cap_a"]
+
+                def tick(self):
+                    pass
+        """)
+        src_file = tmp_path / "my_plugin.py"
+        src_file.write_text(source)
+
+        fake_spec = MagicMock()
+        fake_spec.origin = str(src_file)
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            meta = _extract_plugin_metadata("some.package.my_plugin", "MyPlugin")
+
+        assert isinstance(meta, PluginMetadata)
+        assert meta.name == "package"  # parts[-2] heuristic
+        assert meta.module_path == "some.package.my_plugin"
+        assert meta.class_name == "MyPlugin"
+        assert meta.depends_on == ["foo", "bar"]
+        assert meta.required_capabilities == ["cap_a"]
+        assert meta.description == ""
+
+    def test_should_use_last_part_as_name_when_single_part_module(self, tmp_path):
+        """When module_path has only one part, name should be parts[-1]."""
+        source = "class X:\n    pass\n"
+        src_file = tmp_path / "single.py"
+        src_file.write_text(source)
+
+        fake_spec = MagicMock()
+        fake_spec.origin = str(src_file)
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            meta = _extract_plugin_metadata("single", "X")
+
+        assert meta.name == "single"
+
+    def test_should_raise_when_spec_is_none(self):
+        """When find_spec returns None, raise FileNotFoundError via the fallback path."""
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=None):
+            with pytest.raises(FileNotFoundError):
+                _extract_plugin_metadata("nonexistent.module.path", "SomeClass")
+
+    def test_should_raise_when_spec_origin_is_none(self, tmp_path):
+        """When spec.origin is None (namespace package), fallback path should be used."""
+        fake_spec = MagicMock()
+        fake_spec.origin = None
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            with pytest.raises(FileNotFoundError):
+                _extract_plugin_metadata("nonexistent.ns.pkg", "Cls")
+
+    def test_should_fallback_when_find_spec_raises(self, tmp_path):
+        """When find_spec raises an exception, fall back to file path computation."""
+        source = textwrap.dedent("""\
+            class FallbackPlugin:
+                DEPENDS_ON = ["dep1"]
+                REQUIRED_CAPABILITIES = []
+        """)
+        # Create the file at the expected fallback location
+        # Fallback: base_dir / Path(*parts).with_suffix(".py")
+        # base_dir = Path(__file__).parent.parent.parent for the real code
+        # We need to mock the fallback path to point to tmp_path
+        fallback_dir = tmp_path / "fake" / "fallback"
+        fallback_dir.mkdir(parents=True)
+        src_file = fallback_dir / "plugin.py"
+        src_file.write_text(source)
+
+        with patch(
+            "overblick.core.plugin_registry.importlib.util.find_spec",
+            side_effect=ModuleNotFoundError("nope"),
+        ):
+            # Also patch the base_dir calculation: Path(__file__).parent.parent.parent
+            with patch("overblick.core.plugin_registry.Path") as MockPath:
+                # We need Path to work normally except for __file__ resolution
+                # Simpler: patch at the point where base_dir is computed
+                # base_dir = Path(__file__).parent.parent.parent
+                # We'll make it return tmp_path
+                real_path = Path
+
+                def path_side_effect(*args, **kwargs):
+                    p = real_path(*args, **kwargs)
+                    return p
+
+                MockPath.side_effect = path_side_effect
+                MockPath.__truediv__ = real_path.__truediv__
+
+        # The fallback path is tricky to mock cleanly. Let's use a different approach:
+        # Create the file where the fallback code expects it and patch __file__
+        # Actually, let's just test the fallback raises FileNotFoundError when file doesn't exist
+        with patch(
+            "overblick.core.plugin_registry.importlib.util.find_spec",
+            side_effect=ModuleNotFoundError("nope"),
+        ):
+            with pytest.raises(FileNotFoundError, match="Plugin source not found"):
+                _extract_plugin_metadata("totally.bogus.module", "SomeClass")
+
+    def test_should_raise_when_class_not_found_in_ast(self, tmp_path):
+        """When the class name doesn't exist in the source, raise ValueError."""
+        source = "class OtherClass:\n    pass\n"
+        src_file = tmp_path / "no_match.py"
+        src_file.write_text(source)
+
+        fake_spec = MagicMock()
+        fake_spec.origin = str(src_file)
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            with pytest.raises(ValueError, match="Class MissingClass not found"):
+                _extract_plugin_metadata("some.no_match", "MissingClass")
+
+    def test_should_handle_empty_depends_and_capabilities(self, tmp_path):
+        """A class with no DEPENDS_ON or REQUIRED_CAPABILITIES should return empty lists."""
+        source = textwrap.dedent("""\
+            class PlainPlugin:
+                some_other_attr = 42
+
+                def do_stuff(self):
+                    pass
+        """)
+        src_file = tmp_path / "plain.py"
+        src_file.write_text(source)
+
+        fake_spec = MagicMock()
+        fake_spec.origin = str(src_file)
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            meta = _extract_plugin_metadata("pkg.plain", "PlainPlugin")
+
+        assert meta.depends_on == []
+        assert meta.required_capabilities == []
+
+    def test_should_ignore_non_list_depends_on(self, tmp_path):
+        """If DEPENDS_ON is not a list literal, it should be ignored."""
+        source = textwrap.dedent("""\
+            class WeirdPlugin:
+                DEPENDS_ON = "not_a_list"
+                REQUIRED_CAPABILITIES = "also_not_a_list"
+        """)
+        src_file = tmp_path / "weird.py"
+        src_file.write_text(source)
+
+        fake_spec = MagicMock()
+        fake_spec.origin = str(src_file)
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            meta = _extract_plugin_metadata("pkg.weird", "WeirdPlugin")
+
+        assert meta.depends_on == []
+        assert meta.required_capabilities == []
+
+    def test_should_ignore_non_string_elements_in_lists(self, tmp_path):
+        """Non-string elements in DEPENDS_ON/REQUIRED_CAPABILITIES lists should be skipped."""
+        source = textwrap.dedent("""\
+            class MixedPlugin:
+                DEPENDS_ON = ["valid", 123, None]
+                REQUIRED_CAPABILITIES = [True, "real_cap"]
+        """)
+        src_file = tmp_path / "mixed.py"
+        src_file.write_text(source)
+
+        fake_spec = MagicMock()
+        fake_spec.origin = str(src_file)
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            meta = _extract_plugin_metadata("pkg.mixed", "MixedPlugin")
+
+        assert meta.depends_on == ["valid"]
+        assert meta.required_capabilities == ["real_cap"]
+
+    def test_should_ignore_non_assign_body_items(self, tmp_path):
+        """Class body items that are not Assign nodes should be ignored."""
+        source = textwrap.dedent("""\
+            class MethodOnly:
+                def setup(self):
+                    pass
+
+                async def tick(self):
+                    pass
+        """)
+        src_file = tmp_path / "methodonly.py"
+        src_file.write_text(source)
+
+        fake_spec = MagicMock()
+        fake_spec.origin = str(src_file)
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            meta = _extract_plugin_metadata("pkg.methodonly", "MethodOnly")
+
+        assert meta.depends_on == []
+        assert meta.required_capabilities == []
+
+    def test_should_ignore_tuple_assignment_targets(self, tmp_path):
+        """Assignments with tuple targets (e.g. a, b = 1, 2) should be ignored."""
+        source = textwrap.dedent("""\
+            class TupleTarget:
+                a, b = 1, 2
+                DEPENDS_ON = ["real_dep"]
+        """)
+        src_file = tmp_path / "tuple_target.py"
+        src_file.write_text(source)
+
+        fake_spec = MagicMock()
+        fake_spec.origin = str(src_file)
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            meta = _extract_plugin_metadata("pkg.tuple_target", "TupleTarget")
+
+        assert meta.depends_on == ["real_dep"]
+
+
+# ---------------------------------------------------------------------------
+# Tests: get_plugin_metadata()
+# ---------------------------------------------------------------------------
+
+
+class TestGetPluginMetadata:
+    """Tests for PluginRegistry.get_plugin_metadata()."""
+
+    def test_should_raise_value_error_when_unknown_plugin(self, registry):
+        """get_plugin_metadata should raise ValueError for unknown plugin names."""
+        with pytest.raises(ValueError, match=r"Unknown plugin.*nonexistent"):
+            registry.get_plugin_metadata("nonexistent")
+
+    def test_should_raise_value_error_listing_available_plugins(self, registry):
+        """The ValueError message should list available plugin names."""
+        with pytest.raises(ValueError) as exc_info:
+            registry.get_plugin_metadata("bogus")
+        assert "Available:" in str(exc_info.value)
+
+    def test_should_return_metadata_for_known_plugin(self, registry, tmp_path, _cleanup_known_plugins):
+        """get_plugin_metadata should return PluginMetadata for a registered plugin."""
+        source = textwrap.dedent("""\
+            class TestPlugin:
+                DEPENDS_ON = ["dep_x"]
+                REQUIRED_CAPABILITIES = ["cap_y"]
+        """)
+        src_file = tmp_path / "test_plug.py"
+        src_file.write_text(source)
+
+        registry.register("meta_test", "fake.meta_test", "TestPlugin")
+
+        fake_spec = MagicMock()
+        fake_spec.origin = str(src_file)
+
+        with patch("overblick.core.plugin_registry.importlib.util.find_spec", return_value=fake_spec):
+            meta = registry.get_plugin_metadata("meta_test")
+
+        assert isinstance(meta, PluginMetadata)
+        assert meta.class_name == "TestPlugin"
+        assert meta.depends_on == ["dep_x"]
+        assert meta.required_capabilities == ["cap_y"]

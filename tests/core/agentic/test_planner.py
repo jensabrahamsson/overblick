@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from overblick.core.agentic.planner import ActionPlanner
-from overblick.core.agentic.protocols import PlanningPromptConfig
 from overblick.core.llm.pipeline import PipelineResult
 
 
@@ -213,3 +212,75 @@ class TestActionPlanner:
         """Extract JSON from text with surrounding content."""
         data = ActionPlanner._extract_json('Here is the result: {"key": "value"} done')
         assert data == {"key": "value"}
+
+    @pytest.mark.asyncio
+    async def test_plan_returns_empty_when_llm_raises(self):
+        """Plan returns empty ActionPlan when LLM raises an exception."""
+        mock_pipeline = AsyncMock()
+        mock_pipeline._chat_with_overrides = AsyncMock(
+            side_effect=RuntimeError("connection lost")
+        )
+
+        planner = ActionPlanner(llm_pipeline=mock_pipeline)
+        plan = await planner.plan(observations="obs", goals="goals")
+        assert len(plan.actions) == 0
+
+    def test_parse_plan_non_list_actions(self):
+        """Returns plan with reasoning but no actions when actions is not a list."""
+        planner = ActionPlanner(llm_pipeline=None)
+        raw = json.dumps({"reasoning": "some reason", "actions": "not a list"})
+        plan = planner._parse_plan(raw, max_actions=5)
+        assert plan.reasoning == "some reason"
+        assert len(plan.actions) == 0
+
+    def test_parse_plan_non_dict_action_item(self):
+        """Non-dict items in the actions list are skipped."""
+        planner = ActionPlanner(llm_pipeline=None)
+        raw = json.dumps({
+            "reasoning": "mixed",
+            "actions": [
+                "not a dict",
+                {"action_type": "skip", "target": "", "target_number": 0, "repo": "", "priority": 50},
+            ],
+        })
+        plan = planner._parse_plan(raw, max_actions=5)
+        assert len(plan.actions) == 1
+        assert plan.actions[0].action_type == "skip"
+
+    def test_parse_plan_value_error_in_action(self):
+        """Actions with invalid numeric fields are skipped (ValueError/TypeError)."""
+        planner = ActionPlanner(llm_pipeline=None)
+        raw = json.dumps({
+            "reasoning": "bad numbers",
+            "actions": [
+                {
+                    "action_type": "skip",
+                    "target": "t",
+                    "target_number": "not_a_number",
+                    "repo": "",
+                    "priority": 50,
+                },
+            ],
+        })
+        plan = planner._parse_plan(raw, max_actions=5)
+        assert len(plan.actions) == 0
+
+    def test_extract_json_invalid_json_in_markdown_fence(self):
+        """Invalid JSON inside markdown fence falls through."""
+        raw = "```json\n{invalid json}\n```"
+        data = ActionPlanner._extract_json(raw)
+        # Falls through to raw JSON extraction which also fails on the braces
+        # but finds { and } and tries to parse
+        assert data is None
+
+    def test_extract_json_invalid_json_in_raw_braces(self):
+        """Invalid JSON between { and } returns None."""
+        raw = "prefix {not: valid: json} suffix"
+        data = ActionPlanner._extract_json(raw)
+        assert data is None
+
+    def test_extract_json_valid_json_in_non_json_fence(self):
+        """Valid JSON inside plain ``` fence is extracted."""
+        raw = '```\n{"key": "val"}\n```'
+        data = ActionPlanner._extract_json(raw)
+        assert data == {"key": "val"}

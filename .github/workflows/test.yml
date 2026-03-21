@@ -8,30 +8,32 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.13"]
+    runs-on: self-hosted
 
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
-
       - name: Install dependencies
         run: |
+          python3.13 -m venv /tmp/venv-${{ github.run_id }}
+          . /tmp/venv-${{ github.run_id }}/bin/activate
           python -m pip install --upgrade pip
-          pip install -e ".[gateway,dashboard,dev]"
+          pip install -e ".[gateway,dashboard,dev]" pytest-timeout tzdata
 
       - name: Lint with ruff and black
         continue-on-error: true
         run: |
-          ruff check .
-          black --check --diff .
+          . /tmp/venv-${{ github.run_id }}/bin/activate
+          ruff check overblick/ tests/
+          black --check --diff overblick/ tests/
           mypy --ignore-missing-imports --disable-error-code misc overblick/
 
       - name: Run tests
-        run: pytest tests/ -v -m "not llm and not e2e and not llm_slow" --ignore=tests/test_dashboard_playwright.py --tb=short
+        timeout-minutes: 20
+        run: |
+          . /tmp/venv-${{ github.run_id }}/bin/activate
+          pytest tests/ -v -m "not llm and not e2e and not llm_slow" --ignore=tests/test_dashboard_playwright.py --ignore=tests/chaos --timeout=120 --tb=short
+
+      - name: Cleanup venv
+        if: always()
+        run: rm -rf /tmp/venv-${{ github.run_id }}

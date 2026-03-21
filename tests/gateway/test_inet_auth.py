@@ -32,14 +32,14 @@ class TestAPIKeyManager:
         assert record.expires_at is None
 
     def test_create_key_with_expiry(self, key_manager: APIKeyManager):
-        raw_key, record = key_manager.create_key(name="temp", expires_days=30)
+        _raw_key, record = key_manager.create_key(name="temp", expires_days=30)
 
         assert record.expires_at is not None
         assert record.expires_at > time.time()
         assert record.expires_at < time.time() + (31 * 86400)
 
     def test_create_key_with_permissions(self, key_manager: APIKeyManager):
-        raw_key, record = key_manager.create_key(
+        _raw_key, record = key_manager.create_key(
             name="restricted",
             allowed_models=["qwen3.5:9b"],
             allowed_backends=["local"],
@@ -117,7 +117,7 @@ class TestAPIKeyManager:
         result = key_manager.rotate_key(record_1.key_id)
         assert result is not None
 
-        raw_key_2, record_2 = result
+        raw_key_2, _record_2 = result
 
         # New key works
         assert raw_key_2 != raw_key_1
@@ -171,3 +171,140 @@ class TestAPIKeyManager:
 
         assert raw_1 != raw_2
         assert rec_1.key_id != rec_2.key_id
+
+    def test_should_handle_corrupted_models_json_in_verify(self, key_manager: APIKeyManager):
+        """verify_key handles malformed allowed_models JSON gracefully."""
+        raw_key, record = key_manager.create_key(name="corrupt-models")
+
+        # Corrupt the allowed_models JSON in the database
+        key_manager._get_conn().execute(
+            "UPDATE api_keys SET allowed_models = 'NOT-JSON' WHERE key_id = ?",
+            (record.key_id,),
+        )
+        key_manager._get_conn().commit()
+
+        verified = key_manager.verify_key(raw_key)
+        assert verified is not None
+        assert verified.allowed_models == []
+
+    def test_should_handle_corrupted_backends_json_in_verify(self, key_manager: APIKeyManager):
+        """verify_key handles malformed allowed_backends JSON gracefully."""
+        raw_key, record = key_manager.create_key(name="corrupt-backends")
+
+        # Corrupt the allowed_backends JSON in the database
+        key_manager._get_conn().execute(
+            "UPDATE api_keys SET allowed_backends = 'NOT-JSON' WHERE key_id = ?",
+            (record.key_id,),
+        )
+        key_manager._get_conn().commit()
+
+        verified = key_manager.verify_key(raw_key)
+        assert verified is not None
+        assert verified.allowed_backends == []
+
+    def test_should_return_none_when_bcrypt_matches_no_rows(self, key_manager: APIKeyManager):
+        """verify_key returns None when prefix matches but hash doesn't."""
+        raw_key, record = key_manager.create_key(name="match-test")
+        prefix = raw_key[:12]
+
+        # Create a fake key with same prefix but different hash
+        # by inserting directly with a known different hash
+        import bcrypt
+
+        fake_hash = bcrypt.hashpw(b"sk-ob-totally-different-key-here", bcrypt.gensalt()).decode()
+        key_manager._get_conn().execute(
+            "DELETE FROM api_keys WHERE key_id = ?", (record.key_id,)
+        )
+        key_manager._get_conn().execute(
+            """INSERT INTO api_keys
+               (key_id, name, key_hash, key_prefix, created_at, revoked,
+                allowed_models, allowed_backends, max_tokens_cap, requests_per_minute)
+            VALUES (?, ?, ?, ?, ?, 0, '[]', '[]', 4096, 30)""",
+            ("fakeid01", "fake", fake_hash, prefix, 1700000000.0),
+        )
+        key_manager._get_conn().commit()
+
+        result = key_manager.verify_key(raw_key)
+        assert result is None
+
+    def test_should_rollback_rotate_on_failure(self, key_manager: APIKeyManager):
+        """rotate_key rolls back if insert fails mid-transaction."""
+        from unittest.mock import patch
+
+        raw_key, record = key_manager.create_key(name="rollback-test")
+
+        # Get the real connection and wrap it to intercept specific calls
+        real_conn = key_manager._get_conn()
+
+        # We need to make the COMMIT fail after INSERT, which triggers rollback.
+        # The simplest approach: make the connection raise on INSERT inside transaction.
+        original_execute = real_conn.execute
+        insert_seen = False
+
+        class WrappedConn:
+            """Wrapper that fails on the INSERT inside rotate_key's transaction."""
+
+            def __getattr__(self, name):
+                return getattr(real_conn, name)
+
+            def execute(self, sql, params=None):
+                nonlocal insert_seen
+                if "INSERT INTO api_keys" in sql and insert_seen is False:
+                    # Only fail the second INSERT (rotate, not create_key which already ran)
+                    insert_seen = True
+                    if params is not None:
+                        return original_execute(sql, params)
+                if insert_seen and "COMMIT" in sql:
+                    raise RuntimeError("simulated commit failure")
+                if params is not None:
+                    return original_execute(sql, params)
+                return original_execute(sql)
+
+        wrapped = WrappedConn()
+        with patch.object(key_manager, "_get_conn", return_value=wrapped):
+            with pytest.raises(RuntimeError, match="simulated commit failure"):
+                key_manager.rotate_key(record.key_id)
+
+        # Original key should still be valid (rollback happened)
+        verified = key_manager.verify_key(raw_key)
+        assert verified is not None
+
+    def test_should_handle_corrupted_models_json_in_list(self, key_manager: APIKeyManager):
+        """list_keys handles malformed allowed_models JSON gracefully."""
+        _, record = key_manager.create_key(name="corrupt-list")
+        key_manager._get_conn().execute(
+            "UPDATE api_keys SET allowed_models = 'BAD' WHERE key_id = ?",
+            (record.key_id,),
+        )
+        key_manager._get_conn().commit()
+
+        keys = key_manager.list_keys()
+        assert len(keys) == 1
+        assert keys[0].allowed_models == []
+
+    def test_should_handle_corrupted_backends_json_in_list(self, key_manager: APIKeyManager):
+        """list_keys handles malformed allowed_backends JSON gracefully."""
+        _, record = key_manager.create_key(name="corrupt-list-backends")
+        key_manager._get_conn().execute(
+            "UPDATE api_keys SET allowed_backends = 'BAD' WHERE key_id = ?",
+            (record.key_id,),
+        )
+        key_manager._get_conn().commit()
+
+        keys = key_manager.list_keys()
+        assert len(keys) == 1
+        assert keys[0].allowed_backends == []
+
+    def test_should_handle_close_with_broken_connection(self, tmp_path: Path):
+        """close() handles exceptions from broken connections."""
+        from unittest.mock import MagicMock
+
+        manager = APIKeyManager(tmp_path / "broken_close.db")
+        manager._get_conn()  # create a connection
+
+        broken_conn = MagicMock()
+        broken_conn.close.side_effect = Exception("broken")
+        manager._connections = [broken_conn]
+
+        manager.close()  # should not raise
+        assert manager._connections == []

@@ -2,12 +2,18 @@
 
 import asyncio
 import sqlite3
+import sys
 import tempfile
 import time
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="SQLite file locking differs on Windows",
+)
 
 from overblick.gateway.inet_audit import InetAuditLog
 
@@ -376,6 +382,191 @@ class TestInetAuditLog:
             assert count == 1
 
             conn.close()
+            audit.close()
+
+    def test_count_violations(self):
+        """count_violations counts violations from IP since timestamp."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "audit.db"
+            audit = InetAuditLog(db_path)
+
+            # Add entries with violations
+            since = time.time() - 3600  # 1 hour ago
+            audit.log(
+                source_ip="1.2.3.4",
+                violation="auth_failure",
+                status_code=401,
+            )
+            audit.log(
+                source_ip="1.2.3.4",
+                violation="rate_limit",
+                status_code=429,
+            )
+            audit.log(
+                source_ip="1.2.3.4",
+                violation="",  # Not a violation
+                status_code=200,
+            )
+            audit.log(
+                source_ip="5.6.7.8",  # Different IP
+                violation="auth_failure",
+                status_code=401,
+            )
+
+            time.sleep(0.2)
+
+            count = audit.count_violations("1.2.3.4", since)
+            assert count == 2
+
+            audit.close()
+
+    def test_trim_old_entries(self):
+        """_trim_old_entries removes entries older than retention period."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "audit.db"
+            audit = InetAuditLog(db_path, retention_days=1)
+
+            # Insert old entry directly
+            conn = sqlite3.connect(str(db_path))
+            old_ts = time.time() - (2 * 86400)  # 2 days ago
+            conn.execute(
+                "INSERT INTO inet_audit (timestamp, key_id, source_ip, method, path, status_code) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (old_ts, "old-key", "1.2.3.4", "POST", "/test", 200),
+            )
+            recent_ts = time.time() - 3600  # 1 hour ago
+            conn.execute(
+                "INSERT INTO inet_audit (timestamp, key_id, source_ip, method, path, status_code) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (recent_ts, "recent-key", "5.6.7.8", "GET", "/health", 200),
+            )
+            conn.commit()
+            conn.close()
+
+            deleted = audit._trim_old_entries()
+            assert deleted >= 1
+
+            # Verify recent entry remains
+            entries = audit.query(limit=10)
+            keys = [e["key_id"] for e in entries]
+            assert "recent-key" in keys
+            assert "old-key" not in keys
+
+            audit.close()
+
+    def test_trim_no_old_entries(self):
+        """_trim_old_entries returns 0 when nothing to delete."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "audit.db"
+            audit = InetAuditLog(db_path, retention_days=90)
+
+            # Add a recent entry
+            audit.log(source_ip="1.2.3.4", status_code=200)
+            time.sleep(0.1)
+
+            deleted = audit._trim_old_entries()
+            assert deleted == 0
+
+            audit.close()
+
+    def test_query_with_since_filter(self):
+        """Query with since parameter filters by timestamp."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "audit.db"
+            audit = InetAuditLog(db_path)
+
+            # Insert old and new entries
+            conn = sqlite3.connect(str(db_path))
+            old_ts = time.time() - 7200  # 2 hours ago
+            conn.execute(
+                "INSERT INTO inet_audit (timestamp, key_id, source_ip, method, path, status_code) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (old_ts, "old", "1.2.3.4", "POST", "/test", 200),
+            )
+            new_ts = time.time()
+            conn.execute(
+                "INSERT INTO inet_audit (timestamp, key_id, source_ip, method, path, status_code) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (new_ts, "new", "1.2.3.4", "POST", "/test", 200),
+            )
+            conn.commit()
+            conn.close()
+
+            # Query since 1 hour ago
+            since = time.time() - 3600
+            entries = audit.query(since=since, limit=10)
+            assert len(entries) == 1
+            assert entries[0]["key_id"] == "new"
+
+            audit.close()
+
+    @pytest.mark.asyncio
+    async def test_start_stop_background_cleanup(self):
+        """start_background_cleanup creates task, stop cancels it."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "audit.db"
+            audit = InetAuditLog(db_path)
+
+            audit.start_background_cleanup()
+            assert audit._cleanup_task is not None
+            assert not audit._cleanup_task.done()
+
+            # Calling start again is a no-op
+            first_task = audit._cleanup_task
+            audit.start_background_cleanup()
+            assert audit._cleanup_task is first_task
+
+            # Stop cleanup
+            audit.stop_background_cleanup()
+            assert audit._cleanup_task is None
+
+            audit.close()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_loop_runs_trim(self):
+        """_cleanup_loop calls _trim_old_entries periodically."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "audit.db"
+            audit = InetAuditLog(db_path)
+
+            # Override interval to be very short
+            audit._CLEANUP_INTERVAL_SECONDS = 0.01
+
+            with patch.object(audit, "_trim_old_entries") as mock_trim:
+                audit.start_background_cleanup()
+                await asyncio.sleep(0.05)  # Let the loop run a few times
+                audit.stop_background_cleanup()
+
+                assert mock_trim.call_count >= 1
+
+            audit.close()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_loop_handles_trim_exception(self):
+        """_cleanup_loop continues running even if _trim_old_entries raises."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "audit.db"
+            audit = InetAuditLog(db_path)
+
+            audit._CLEANUP_INTERVAL_SECONDS = 0.01
+
+            call_count = 0
+
+            def failing_trim():
+                nonlocal call_count
+                call_count += 1
+                if call_count <= 1:
+                    raise RuntimeError("Trim error")
+                return 0
+
+            with patch.object(audit, "_trim_old_entries", side_effect=failing_trim):
+                audit.start_background_cleanup()
+                await asyncio.sleep(0.05)
+                audit.stop_background_cleanup()
+
+            # Should have been called at least twice (first fails, second succeeds)
+            assert call_count >= 2
+
             audit.close()
 
     def test_parent_directory_creation(self):

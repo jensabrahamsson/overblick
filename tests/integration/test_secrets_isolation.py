@@ -8,12 +8,13 @@ Tests that the SecretsManager correctly:
 - Handles missing secrets gracefully
 """
 
-from pathlib import Path
+import sys
 
 import pytest
 import yaml
 from cryptography.fernet import Fernet
 
+from overblick.core.exceptions import SecurityError
 from overblick.core.security.secrets_manager import SecretsManager
 from overblick.core.exceptions import SecurityError
 
@@ -58,6 +59,7 @@ class TestSecretsEncryption:
         # Fernet tokens start with 'gAAAAA' (base64 of version byte 0x80)
         assert data["api_key"].startswith("gAAAAA")
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix file permissions not available on Windows")
     def test_file_permissions_restricted(self, secrets_mgr, secrets_dir):
         """Secret files should have restricted permissions (0o600)."""
         secrets_mgr.set("anomal", "telegram_token", "bot123:secret")

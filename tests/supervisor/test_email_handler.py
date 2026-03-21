@@ -62,7 +62,7 @@ def _patch_init(mock_personality, mock_pipeline):
     return (
         patch("overblick.identities.load_identity", return_value=mock_personality),
         patch("overblick.identities.build_system_prompt", return_value="system prompt"),
-        patch("overblick.core.llm.ollama_client.OllamaClient"),
+        patch("overblick.core.llm.gateway_client.GatewayClient"),
         patch("overblick.core.llm.pipeline.SafeLLMPipeline", return_value=mock_pipeline),
         patch("overblick.core.security.rate_limiter.RateLimiter"),
     )
@@ -361,11 +361,11 @@ class TestEmailHandlerAudit:
             assert "email_consultation_received" in audit_calls
 
             # Check that consultation details are logged
-            received_call = [
+            received_call = next(
                 call
                 for call in mock_audit_log.log.call_args_list
                 if call.args[0] == "email_consultation_received"
-            ][0]
+            )
             details = received_call.kwargs["details"]
             assert details["sender"] == "stal"
             assert details["email_from"] == "vendor@example.com"
@@ -395,11 +395,11 @@ class TestEmailHandlerAudit:
             assert "email_consultation_response" in audit_calls
 
             # Check that response details are logged
-            response_call = [
+            response_call = next(
                 call
                 for call in mock_audit_log.log.call_args_list
                 if call.args[0] == "email_consultation_response"
-            ][0]
+            )
             details = response_call.kwargs["details"]
             assert details["advised_action"] == "reply"
             assert "inquiry" in details["reasoning"].lower()
@@ -423,11 +423,11 @@ class TestEmailHandlerAudit:
         with patches[0], patches[1], patches[2], patches[3], patches[4]:
             await handler.handle(email_consultation_msg)
 
-            response_call = [
+            response_call = next(
                 call
                 for call in mock_audit_log.log.call_args_list
                 if call.args[0] == "email_consultation_response"
-            ][0]
+            )
 
             assert "duration_ms" in response_call.kwargs
             assert response_call.kwargs["duration_ms"] >= 0

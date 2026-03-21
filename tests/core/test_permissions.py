@@ -1,9 +1,6 @@
 """Tests for permission system."""
 
-import time
 from unittest.mock import MagicMock
-
-import pytest
 
 from overblick.core.permissions import (
     PermissionAction,
@@ -175,6 +172,32 @@ class TestPermissionChecker:
         stats = pc.get_stats()
         assert stats["comment"]["actions_this_hour"] == 2
         assert stats["comment"]["max_per_hour"] == 10
+
+
+    def test_denial_reason_default_deny_no_rule(self):
+        """denial_reason returns reason for undefined action under default deny."""
+        ps = PermissionSet(default_allowed=False)
+        pc = PermissionChecker(ps)
+        reason = pc.denial_reason("unknown_action")
+        assert reason is not None
+        assert "default policy" in reason.lower()
+
+    def test_denial_reason_returns_none_when_default_allowed(self):
+        """denial_reason returns None for undefined action under default allow."""
+        ps = PermissionSet(default_allowed=True)
+        pc = PermissionChecker(ps)
+        reason = pc.denial_reason("unknown_action")
+        assert reason is None
+
+    def test_denial_reason_cooldown(self):
+        """denial_reason returns cooldown message when on cooldown."""
+        ps = PermissionSet.from_dict({"post": {"allowed": True, "cooldown_seconds": 3600}})
+        pc = PermissionChecker(ps)
+        pc.record_action("post")
+        reason = pc.denial_reason("post")
+        assert reason is not None
+        assert "cooldown" in reason.lower()
+        assert "remaining" in reason.lower()
 
 
 class TestPermissionAction:

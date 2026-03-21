@@ -1,5 +1,6 @@
 """Tests for quiet hours checker."""
 
+import sys
 from datetime import datetime
 from unittest.mock import patch
 
@@ -7,6 +8,11 @@ import pytest
 
 from overblick.core.quiet_hours import QuietHoursChecker
 from overblick.identities import QuietHoursSettings
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="ZoneInfo('Europe/Stockholm') requires tzdata package on Windows",
+)
 
 
 class TestQuietHoursChecker:
@@ -93,3 +99,49 @@ class TestQuietHoursChecker:
             mock_dt.now.return_value = datetime(2026, 1, 1, 12, 0)
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert checker.time_until_active() is None
+
+    def test_can_use_llm_returns_true_outside_quiet_hours(self):
+        settings = QuietHoursSettings(enabled=True, start_hour=22, end_hour=7)
+        checker = QuietHoursChecker(settings)
+
+        with patch("overblick.core.quiet_hours.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 1, 1, 12, 0)
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+            assert checker.can_use_llm() is True
+
+    def test_can_use_llm_returns_false_during_quiet_hours(self):
+        settings = QuietHoursSettings(enabled=True, start_hour=22, end_hour=7)
+        checker = QuietHoursChecker(settings)
+
+        with patch("overblick.core.quiet_hours.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 1, 1, 23, 0)
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+            assert checker.can_use_llm() is False
+
+    def test_get_status_during_quiet_hours(self):
+        settings = QuietHoursSettings(enabled=True, start_hour=22, end_hour=7, mode="silent")
+        checker = QuietHoursChecker(settings)
+
+        with patch("overblick.core.quiet_hours.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 1, 1, 23, 30)
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+            status = checker.get_status()
+            assert status["enabled"] is True
+            assert status["is_quiet_hours"] is True
+            assert status["current_time"] == "23:30"
+            assert status["quiet_window"] == "22:00-7:00"
+            assert status["mode"] == "silent"
+            assert status["can_use_llm"] is False
+            assert status["seconds_until_active"] is not None
+
+    def test_get_status_outside_quiet_hours(self):
+        settings = QuietHoursSettings(enabled=True, start_hour=22, end_hour=7)
+        checker = QuietHoursChecker(settings)
+
+        with patch("overblick.core.quiet_hours.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 1, 1, 12, 0)
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+            status = checker.get_status()
+            assert status["is_quiet_hours"] is False
+            assert status["can_use_llm"] is True
+            assert status["seconds_until_active"] is None

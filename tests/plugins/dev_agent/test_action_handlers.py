@@ -16,9 +16,6 @@ from overblick.plugins.dev_agent.action_handlers import (
     build_dev_agent_handlers,
 )
 from overblick.plugins.dev_agent.models import (
-    BugReport,
-    BugSource,
-    BugStatus,
     DevAgentObservation,
     FixAttempt,
     OpencodeResult,
@@ -269,6 +266,130 @@ class TestSkipHandler:
         result = await handler.handle(action, None)
         assert result.success is True
         assert "No bugs to fix" in result.result
+
+
+class TestFindBugEdgeCases:
+    """Tests for _find_bug helper function."""
+
+    @pytest.mark.asyncio
+    async def test_should_return_none_when_observation_has_no_bugs_attr(self, mock_db):
+        from overblick.plugins.dev_agent.action_handlers import _find_bug
+
+        action = PlannedAction(action_type="analyze_bug", target_number=1)
+        result = _find_bug(action, "not an observation")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_should_return_none_when_observation_is_none(self, mock_db):
+        from overblick.plugins.dev_agent.action_handlers import _find_bug
+
+        action = PlannedAction(action_type="analyze_bug", target_number=1)
+        result = _find_bug(action, None)
+        assert result is None
+
+
+class TestFixBugHandlerMissingLines:
+    @pytest.mark.asyncio
+    async def test_should_fail_when_bug_not_found(self, mock_db):
+        workspace = AsyncMock()
+        opencode = AsyncMock()
+        test_runner = AsyncMock()
+        handler = FixBugHandler(mock_db, workspace, opencode, test_runner)
+        action = PlannedAction(action_type="fix_bug", target_number=999)
+        obs = DevAgentObservation()
+        result = await handler.handle(action, obs)
+        assert result.success is False
+        assert "not found" in result.error
+
+    @pytest.mark.asyncio
+    async def test_should_fail_when_bug_not_retriable(self, mock_db, sample_bug_failed):
+        workspace = AsyncMock()
+        opencode = AsyncMock()
+        test_runner = AsyncMock()
+        handler = FixBugHandler(mock_db, workspace, opencode, test_runner)
+        action = PlannedAction(action_type="fix_bug", target_number=2)
+        obs = DevAgentObservation(bugs=[sample_bug_failed])
+        result = await handler.handle(action, obs)
+        assert result.success is False
+        assert "not retriable" in result.error
+
+    @pytest.mark.asyncio
+    async def test_should_fail_on_branch_creation_failure(self, mock_db, sample_bug, sample_observation):
+        workspace = AsyncMock()
+        workspace.ensure_cloned = AsyncMock(return_value=True)
+        workspace.create_branch = AsyncMock(return_value=False)
+        opencode = AsyncMock()
+        test_runner = AsyncMock()
+        handler = FixBugHandler(mock_db, workspace, opencode, test_runner)
+        action = PlannedAction(action_type="fix_bug", target_number=1)
+        result = await handler.handle(action, sample_observation)
+        assert result.success is False
+        assert "branch" in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_should_fail_on_opencode_fix_failure(self, mock_db, sample_bug, sample_observation):
+        workspace = AsyncMock()
+        workspace.ensure_cloned = AsyncMock(return_value=True)
+        workspace.create_branch = AsyncMock(return_value=True)
+        opencode = AsyncMock()
+        opencode.fix_bug = AsyncMock(return_value=OpencodeResult(success=False, error="opencode crash"))
+        test_runner = AsyncMock()
+        handler = FixBugHandler(mock_db, workspace, opencode, test_runner)
+        action = PlannedAction(action_type="fix_bug", target_number=1)
+        result = await handler.handle(action, sample_observation)
+        assert result.success is False
+        assert "opencode fix failed" in result.error
+
+    @pytest.mark.asyncio
+    async def test_should_succeed_without_commit(self, mock_db, sample_bug, sample_observation):
+        """Tests pass but commit_and_push returns False (dry_run/no changes)."""
+        workspace = AsyncMock()
+        workspace.ensure_cloned = AsyncMock(return_value=True)
+        workspace.create_branch = AsyncMock(return_value=True)
+        workspace.commit_and_push = AsyncMock(return_value=False)
+        opencode = AsyncMock()
+        opencode.fix_bug = AsyncMock(return_value=OpencodeResult(success=True, files_changed=["a.py"]))
+        test_runner = AsyncMock()
+        test_runner.run_tests = AsyncMock(return_value=TestRunResult(passed=True, total=5, output="ok"))
+        handler = FixBugHandler(mock_db, workspace, opencode, test_runner)
+        action = PlannedAction(action_type="fix_bug", target_number=1)
+        result = await handler.handle(action, sample_observation)
+        assert result.success is True
+        assert "dry_run" in result.result.lower() or "no changes" in result.result.lower()
+
+
+class TestCreatePRHandlerMissingLines:
+    @pytest.mark.asyncio
+    async def test_should_fail_when_bug_not_found(self, mock_db):
+        handler = CreatePRHandler(mock_db, AsyncMock())
+        action = PlannedAction(action_type="create_pr", target_number=999)
+        obs = DevAgentObservation()
+        result = await handler.handle(action, obs)
+        assert result.success is False
+        assert "not found" in result.error
+
+    @pytest.mark.asyncio
+    async def test_should_fail_when_pr_creation_returns_none(self, mock_db, sample_bug, sample_observation):
+        sample_bug.branch_name = "fix/1-test"
+        mock_db.get_fix_attempts = AsyncMock(return_value=[])
+        pr_creator = AsyncMock()
+        pr_creator.create_pr = AsyncMock(return_value=None)
+        handler = CreatePRHandler(mock_db, pr_creator)
+        action = PlannedAction(action_type="create_pr", target_number=1)
+        result = await handler.handle(action, sample_observation)
+        assert result.success is False
+        assert "Failed to create PR" in result.error
+
+
+class TestNotifyOwnerHandlerMissingLines:
+    @pytest.mark.asyncio
+    async def test_should_handle_notification_exception(self):
+        notify_fn = AsyncMock(side_effect=RuntimeError("send failed"))
+        handler = NotifyOwnerHandler(notify_fn=notify_fn, dry_run=False)
+        action = PlannedAction(action_type="notify_owner", target="Update")
+        result = await handler.handle(action, None)
+        assert result.success is False
+        assert "Notification failed" in result.error
 
 
 class TestBuildDevAgentHandlers:

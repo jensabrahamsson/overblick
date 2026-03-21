@@ -1,8 +1,6 @@
 """Tests for CompassPlugin — identity drift detector."""
 
-import json
-import time
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -241,6 +239,26 @@ class TestStateManagement:
         assert len(plugin2._alerts) == 1
 
     @pytest.mark.asyncio
+    async def test_save_and_load_drift_history(self, compass_context):
+        """Drift history persists across plugin instances."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+        plugin._drift_history.append(
+            DriftMetrics(
+                identity_name="anomal",
+                current_metrics=StyleMetrics(avg_sentence_length=12.0),
+                drift_score=1.5,
+                drifted_dimensions=["formality_score"],
+            )
+        )
+        plugin._save_state()
+
+        plugin2 = CompassPlugin(compass_context)
+        await plugin2.setup()
+        assert len(plugin2._drift_history) == 1
+        assert plugin2._drift_history[0].identity_name == "anomal"
+
+    @pytest.mark.asyncio
     async def test_handles_corrupt_state(self, compass_context):
         state_file = compass_context.data_dir / "compass_state.json"
         state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -334,6 +352,158 @@ class TestPublicAccessors:
         anomal_only = plugin.get_drift_history(identity_name="anomal")
         assert len(anomal_only) == 1
         assert anomal_only[0].identity_name == "anomal"
+
+
+class TestWindowTrimming:
+    """Test rolling window trimming."""
+
+    @pytest.mark.asyncio
+    async def test_should_trim_window_when_exceeding_double_size(self, compass_context):
+        """Window gets trimmed when it exceeds 2x window_size."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+        # window_size = 10, so trim triggers at > 20
+        text = "This is a reasonably long test output with enough words to be analyzed properly by the stylometric engine."
+        for i in range(25):
+            plugin.record_output("anomal", text)
+            await plugin.tick()
+
+        assert len(plugin._windows["anomal"]) <= plugin._window_size * 2
+
+    @pytest.mark.asyncio
+    async def test_should_skip_drift_check_when_window_too_small(self, compass_context):
+        """Drift check is skipped when window has fewer than 3 samples."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+
+        # Manually set a baseline, but give only 2 samples in window
+        plugin._baselines["anomal"] = BaselineProfile(
+            identity_name="anomal",
+            metrics=StyleMetrics(avg_sentence_length=15.0),
+            sample_count=10,
+        )
+        plugin._windows["anomal"] = [
+            StyleMetrics(avg_sentence_length=15.0, word_count=50),
+            StyleMetrics(avg_sentence_length=15.0, word_count=50),
+        ]
+
+        await plugin.tick()
+        # No drift history should be generated with < 3 samples
+        assert len(plugin._drift_history) == 0
+
+
+class TestTrimming:
+    """Test history and alerts trimming."""
+
+    @pytest.mark.asyncio
+    async def test_should_trim_drift_history_when_exceeding_max(self, compass_context):
+        """Drift history gets trimmed to _MAX_HISTORY_STORED."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+
+        # Fill drift history beyond limit
+        for i in range(510):
+            plugin._drift_history.append(
+                DriftMetrics(
+                    identity_name="anomal",
+                    current_metrics=StyleMetrics(),
+                    drift_score=0.5,
+                )
+            )
+
+        # Trigger tick to trim
+        await plugin.tick()
+        assert len(plugin._drift_history) <= 500
+
+    @pytest.mark.asyncio
+    async def test_should_trim_alerts_when_exceeding_max(self, compass_context):
+        """Alerts get trimmed to _MAX_ALERTS_STORED."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+
+        for i in range(210):
+            plugin._alerts.append(
+                DriftAlert(
+                    identity_name="anomal",
+                    drift_score=3.0,
+                    threshold=2.0,
+                )
+            )
+
+        await plugin.tick()
+        assert len(plugin._alerts) <= 200
+
+
+class TestAverageMetrics:
+    """Test _average_metrics method."""
+
+    def test_should_return_empty_metrics_when_no_samples(self, compass_context):
+        """Returns default StyleMetrics when given empty list."""
+        plugin = CompassPlugin(compass_context)
+        result = plugin._average_metrics([])
+        assert result.avg_sentence_length == 0.0
+        assert result.word_count == 0
+
+
+class TestComputeStdDevs:
+    """Test _compute_std_devs method."""
+
+    def test_should_return_empty_dict_when_single_sample(self, compass_context):
+        """Returns empty dict with fewer than 2 samples."""
+        plugin = CompassPlugin(compass_context)
+        result = plugin._compute_std_devs([StyleMetrics(avg_sentence_length=10.0)])
+        assert result == {}
+
+    def test_should_handle_statistics_error(self, compass_context):
+        """Falls back to 0.1 on StatisticsError."""
+        plugin = CompassPlugin(compass_context)
+        # All identical values should still compute fine, but let's
+        # test with a mock that raises StatisticsError
+        with patch("overblick.plugins.compass.plugin.statistics.stdev") as mock_stdev:
+            import statistics as stats_mod
+
+            mock_stdev.side_effect = stats_mod.StatisticsError("test")
+            result = plugin._compute_std_devs(
+                [
+                    StyleMetrics(avg_sentence_length=10.0, word_count=50),
+                    StyleMetrics(avg_sentence_length=10.0, word_count=50),
+                ]
+            )
+            # All dimensions should have 0.1 as fallback
+            assert all(v == 0.1 for v in result.values())
+
+
+class TestGetResults:
+    """Test public accessor edge cases."""
+
+    def test_should_return_unfiltered_drift_history(self, compass_context):
+        """get_drift_history without identity_name returns all."""
+        plugin = CompassPlugin(compass_context)
+        plugin._drift_history = [
+            DriftMetrics(identity_name="anomal", current_metrics=StyleMetrics(), drift_score=1.0),
+            DriftMetrics(identity_name="cherry", current_metrics=StyleMetrics(), drift_score=2.0),
+        ]
+        result = plugin.get_drift_history()
+        assert len(result) == 2
+
+
+class TestSaveStateError:
+    """Test _save_state exception handling."""
+
+    @pytest.mark.asyncio
+    async def test_should_handle_save_state_exception(self, compass_context):
+        """_save_state handles write errors gracefully."""
+        plugin = CompassPlugin(compass_context)
+        await plugin.setup()
+
+        # Make state_file point to an unwritable location
+        plugin._state_file = MagicMock()
+        plugin._state_file.parent = MagicMock()
+        plugin._state_file.parent.mkdir = MagicMock()
+        plugin._state_file.write_text = MagicMock(side_effect=OSError("disk full"))
+
+        # Should not raise
+        plugin._save_state()
 
 
 class TestTeardown:

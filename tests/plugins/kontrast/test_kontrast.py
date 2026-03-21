@@ -142,7 +142,7 @@ class TestExtractTopic:
         await plugin.setup()
 
         articles = [{"title": "Fallback Title", "summary": "Fallback summary"}]
-        topic, summary = await plugin._extract_topic(articles)
+        topic, _summary = await plugin._extract_topic(articles)
         assert topic == "Fallback Title"
 
     @pytest.mark.asyncio
@@ -155,7 +155,7 @@ class TestExtractTopic:
         await plugin.setup()
 
         articles = [{"title": "Fallback", "summary": "Sum"}]
-        topic, summary = await plugin._extract_topic(articles)
+        topic, _summary = await plugin._extract_topic(articles)
         assert topic == "Fallback"
 
 
@@ -228,6 +228,490 @@ class TestStateManagement:
         await plugin.setup()
         # Should not crash, just use defaults
         assert plugin._last_run == 0.0
+
+
+class TestSetupDefaultIdentities:
+    """Test setup with default identity discovery."""
+
+    @pytest.mark.asyncio
+    async def test_should_use_list_identities_when_none_configured(self, kontrast_context):
+        """Uses list_identities when no identities configured."""
+        kontrast_context.identity.raw_config["kontrast"]["identities"] = []
+        plugin = KontrastPlugin(kontrast_context)
+        with patch("overblick.plugins.kontrast.plugin.list_identities", return_value=["anomal", "cherry"]):
+            await plugin.setup()
+        assert plugin._identity_names == ["anomal", "cherry"]
+
+
+class TestTickFullPipeline:
+    """Test the full tick pipeline execution."""
+
+    @pytest.mark.asyncio
+    async def test_should_generate_piece_on_tick(self, kontrast_context):
+        """Full tick generates a Kontrast piece."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+        plugin._last_run = 0.0  # Force run
+
+        mock_ident = MagicMock()
+        mock_ident.name = "anomal"
+        mock_ident.display_name = "Anomal"
+        mock_ident.llm = MagicMock()
+        mock_ident.llm.temperature = 0.7
+
+        # Mock feed fetching
+        with (
+            patch.object(plugin, "_fetch_feeds", new_callable=AsyncMock) as mock_feeds,
+            patch("overblick.core.plugin_base.PluginContext.load_identity", return_value=mock_ident),
+            patch("overblick.core.plugin_base.PluginContext.build_system_prompt", return_value="System"),
+        ):
+            mock_feeds.return_value = [
+                {"title": "AI News 1", "summary": "Big AI news"},
+                {"title": "AI News 2", "summary": "More AI news"},
+                {"title": "AI News 3", "summary": "Even more AI news"},
+            ]
+            # pipeline.chat returns topic extraction then perspectives
+            kontrast_context.llm_pipeline.chat = AsyncMock(
+                side_effect=[
+                    PipelineResult(content='{"topic": "AI Breakthrough", "summary": "Major AI stuff"}'),
+                    PipelineResult(content="Anomal's take on AI"),
+                    PipelineResult(content="Cherry's take on AI"),
+                ]
+            )
+            await plugin.tick()
+
+        assert len(plugin._pieces) == 1
+        assert plugin._pieces[0].topic == "AI Breakthrough"
+        kontrast_context.event_bus.emit.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_should_skip_when_too_few_articles(self, kontrast_context):
+        """Skips when fewer articles than min_articles."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+        plugin._last_run = 0.0
+
+        with patch.object(plugin, "_fetch_feeds", new_callable=AsyncMock) as mock_feeds:
+            mock_feeds.return_value = [{"title": "Only one", "summary": "Not enough"}]
+            await plugin.tick()
+
+        assert len(plugin._pieces) == 0
+
+    @pytest.mark.asyncio
+    async def test_should_skip_when_topic_extraction_fails(self, kontrast_context):
+        """Skips when topic extraction returns empty."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+        plugin._last_run = 0.0
+
+        with (
+            patch.object(plugin, "_fetch_feeds", new_callable=AsyncMock) as mock_feeds,
+            patch.object(plugin, "_extract_topic", new_callable=AsyncMock) as mock_extract,
+        ):
+            mock_feeds.return_value = [
+                {"title": "A", "summary": "S"},
+                {"title": "B", "summary": "S"},
+            ]
+            mock_extract.return_value = ("", "")
+            await plugin.tick()
+
+        assert len(plugin._pieces) == 0
+
+    @pytest.mark.asyncio
+    async def test_should_skip_duplicate_topic(self, kontrast_context):
+        """Skips when topic hash already seen."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+        plugin._last_run = 0.0
+
+        import hashlib
+
+        topic_hash = hashlib.sha256(b"ai breakthrough").hexdigest()[:16]
+        plugin._seen_topic_hashes.add(topic_hash)
+
+        with (
+            patch.object(plugin, "_fetch_feeds", new_callable=AsyncMock) as mock_feeds,
+            patch.object(plugin, "_extract_topic", new_callable=AsyncMock) as mock_extract,
+        ):
+            mock_feeds.return_value = [
+                {"title": "A", "summary": "S"},
+                {"title": "B", "summary": "S"},
+            ]
+            mock_extract.return_value = ("ai breakthrough", "summary")
+            await plugin.tick()
+
+        assert len(plugin._pieces) == 0
+
+    @pytest.mark.asyncio
+    async def test_should_trim_pieces_when_exceeding_max(self, kontrast_context):
+        """Pieces get trimmed to _MAX_PIECES_STORED."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+        plugin._last_run = 0.0
+
+        from overblick.plugins.kontrast.models import PerspectiveEntry
+
+        for i in range(50):
+            plugin._pieces.append(
+                KontrastPiece(
+                    topic=f"Topic {i}",
+                    topic_hash=f"hash_{i}",
+                    perspectives=[PerspectiveEntry(identity_name="a", content="C")],
+                )
+            )
+
+        mock_ident = MagicMock()
+        mock_ident.name = "anomal"
+        mock_ident.display_name = "Anomal"
+        mock_ident.llm = MagicMock()
+        mock_ident.llm.temperature = 0.7
+
+        with (
+            patch.object(plugin, "_fetch_feeds", new_callable=AsyncMock) as mock_feeds,
+            patch("overblick.core.plugin_base.PluginContext.load_identity", return_value=mock_ident),
+            patch("overblick.core.plugin_base.PluginContext.build_system_prompt", return_value="System"),
+        ):
+            mock_feeds.return_value = [
+                {"title": "A", "summary": "S"},
+                {"title": "B", "summary": "S"},
+            ]
+            kontrast_context.llm_pipeline.chat = AsyncMock(
+                side_effect=[
+                    PipelineResult(content='{"topic": "New Topic", "summary": "New stuff"}'),
+                    PipelineResult(content="Perspective A"),
+                    PipelineResult(content="Perspective B"),
+                ]
+            )
+            await plugin.tick()
+
+        assert len(plugin._pieces) <= 50
+
+    @pytest.mark.asyncio
+    async def test_should_handle_pipeline_error_in_tick(self, kontrast_context):
+        """Tick handles pipeline exceptions gracefully."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+        plugin._last_run = 0.0
+
+        with patch.object(plugin, "_fetch_feeds", new_callable=AsyncMock) as mock_feeds:
+            mock_feeds.side_effect = RuntimeError("feed error")
+            # Should not raise
+            await plugin.tick()
+
+
+class TestFetchFeeds:
+    """Test RSS feed fetching."""
+
+    @pytest.mark.asyncio
+    async def test_should_fetch_articles_from_feeds(self, kontrast_context):
+        """Fetches articles from RSS feeds."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        mock_entry = MagicMock()
+        mock_entry.get = MagicMock(side_effect=lambda key, default=None: {
+            "title": "Test Article",
+            "summary": "Test summary",
+            "published_parsed": None,
+        }.get(key, default))
+
+        mock_feed = MagicMock()
+        mock_feed.feed = MagicMock()
+        mock_feed.feed.get = MagicMock(return_value="Test Feed")
+        mock_feed.entries = [mock_entry]
+
+        with patch("overblick.plugins.kontrast.plugin.feedparser.parse", return_value=mock_feed):
+            articles = await plugin._fetch_feeds()
+
+        assert len(articles) >= 1
+        assert articles[0]["title"] == "Test Article"
+
+    @pytest.mark.asyncio
+    async def test_should_skip_old_articles(self, kontrast_context):
+        """Skips articles older than 24 hours."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        import time as time_mod
+
+        old_time = time_mod.localtime(time_mod.time() - 100000)
+
+        mock_entry = MagicMock()
+        mock_entry.get = MagicMock(side_effect=lambda key, default=None: {
+            "title": "Old Article",
+            "summary": "Old summary",
+            "published_parsed": old_time,
+        }.get(key, default))
+
+        mock_feed = MagicMock()
+        mock_feed.feed = MagicMock()
+        mock_feed.feed.get = MagicMock(return_value="Test Feed")
+        mock_feed.entries = [mock_entry]
+
+        with patch("overblick.plugins.kontrast.plugin.feedparser.parse", return_value=mock_feed):
+            articles = await plugin._fetch_feeds()
+
+        assert len(articles) == 0
+
+    @pytest.mark.asyncio
+    async def test_should_handle_feed_error(self, kontrast_context):
+        """Handles feed parsing errors gracefully."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        with patch("overblick.plugins.kontrast.plugin.feedparser.parse", side_effect=Exception("parse error")):
+            articles = await plugin._fetch_feeds()
+
+        assert articles == []
+
+    @pytest.mark.asyncio
+    async def test_should_skip_articles_without_title(self, kontrast_context):
+        """Skips articles with empty title."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        mock_entry = MagicMock()
+        mock_entry.get = MagicMock(side_effect=lambda key, default=None: {
+            "title": "",
+            "summary": "No title article",
+            "published_parsed": None,
+        }.get(key, default))
+
+        mock_feed = MagicMock()
+        mock_feed.feed = MagicMock()
+        mock_feed.feed.get = MagicMock(return_value="Test Feed")
+        mock_feed.entries = [mock_entry]
+
+        with patch("overblick.plugins.kontrast.plugin.feedparser.parse", return_value=mock_feed):
+            articles = await plugin._fetch_feeds()
+
+        assert len(articles) == 0
+
+    @pytest.mark.asyncio
+    async def test_should_use_feed_url_as_name_when_no_title(self, kontrast_context):
+        """Uses feed URL when feed has no title."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        mock_entry = MagicMock()
+        mock_entry.get = MagicMock(side_effect=lambda key, default=None: {
+            "title": "Article",
+            "summary": "Summary",
+            "published_parsed": None,
+        }.get(key, default))
+
+        mock_feed = MagicMock()
+        mock_feed.feed = None  # No feed metadata
+        mock_feed.entries = [mock_entry]
+
+        with patch("overblick.plugins.kontrast.plugin.feedparser.parse", return_value=mock_feed):
+            articles = await plugin._fetch_feeds()
+
+        assert len(articles) >= 1
+
+
+class TestExtractTopicEdgeCases:
+    """Test topic extraction edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_should_fallback_when_no_pipeline(self, kontrast_context):
+        """Falls back to first article when no pipeline."""
+        kontrast_context.llm_pipeline = None
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        articles = [{"title": "Fallback Title", "summary": "Summary"}]
+        topic, _summary = await plugin._extract_topic(articles)
+        assert topic == "Fallback Title"
+
+    @pytest.mark.asyncio
+    async def test_should_strip_code_fences(self, kontrast_context):
+        """Strips markdown code fences from LLM response."""
+        kontrast_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                content='```json\n{"topic": "Fenced Topic", "summary": "Fenced summary"}\n```'
+            )
+        )
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        articles = [{"title": "A", "summary": "S"}]
+        topic, _summary = await plugin._extract_topic(articles)
+        assert topic == "Fenced Topic"
+
+    @pytest.mark.asyncio
+    async def test_should_fallback_when_no_json_braces(self, kontrast_context):
+        """Falls back when response has no JSON braces."""
+        kontrast_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content="No JSON here at all")
+        )
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        articles = [{"title": "Fallback", "summary": "Sum"}]
+        topic, _summary = await plugin._extract_topic(articles)
+        assert topic == "Fallback"
+
+    @pytest.mark.asyncio
+    async def test_should_fallback_on_json_decode_error(self, kontrast_context):
+        """Falls back on malformed JSON."""
+        kontrast_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(content='{topic: malformed}')
+        )
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        articles = [{"title": "Fallback", "summary": "Sum"}]
+        topic, _summary = await plugin._extract_topic(articles)
+        assert topic == "Fallback"
+
+
+class TestGeneratePerspectives:
+    """Test perspective generation."""
+
+    @pytest.mark.asyncio
+    async def test_should_return_empty_when_no_pipeline(self, kontrast_context):
+        """Returns empty list when no pipeline."""
+        kontrast_context.llm_pipeline = None
+        plugin = KontrastPlugin(kontrast_context)
+        result = await plugin._generate_perspectives("topic", "summary")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_should_generate_perspectives_for_identities(self, kontrast_context):
+        """Generates perspectives for each configured identity."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        mock_ident = MagicMock()
+        mock_ident.name = "anomal"
+        mock_ident.display_name = "Anomal"
+        mock_ident.llm = MagicMock()
+        mock_ident.llm.temperature = 0.7
+
+        with (
+            patch("overblick.core.plugin_base.PluginContext.load_identity", return_value=mock_ident),
+            patch("overblick.core.plugin_base.PluginContext.build_system_prompt", return_value="System"),
+        ):
+            result = await plugin._generate_perspectives("AI", "AI summary")
+
+        assert len(result) == 2  # anomal and cherry
+
+    @pytest.mark.asyncio
+    async def test_should_skip_blocked_perspectives(self, kontrast_context):
+        """Skips blocked perspectives."""
+        from overblick.core.llm.pipeline import PipelineStage
+
+        kontrast_context.llm_pipeline.chat = AsyncMock(
+            return_value=PipelineResult(
+                blocked=True,
+                block_reason="safety",
+                block_stage=PipelineStage.OUTPUT_SAFETY,
+            )
+        )
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        mock_ident = MagicMock()
+        mock_ident.name = "anomal"
+        mock_ident.display_name = "Anomal"
+        mock_ident.llm = MagicMock()
+        mock_ident.llm.temperature = 0.7
+
+        with (
+            patch("overblick.core.plugin_base.PluginContext.load_identity", return_value=mock_ident),
+            patch("overblick.core.plugin_base.PluginContext.build_system_prompt", return_value="System"),
+        ):
+            result = await plugin._generate_perspectives("AI", "Summary")
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    async def test_should_skip_missing_identities(self, kontrast_context):
+        """Skips identities that raise FileNotFoundError."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        with patch("overblick.core.plugin_base.PluginContext.load_identity", side_effect=FileNotFoundError("gone")):
+            result = await plugin._generate_perspectives("AI", "Summary")
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    async def test_should_handle_generation_error(self, kontrast_context):
+        """Handles errors during perspective generation."""
+        plugin = KontrastPlugin(kontrast_context)
+        await plugin.setup()
+
+        mock_ident = MagicMock()
+        mock_ident.name = "anomal"
+        mock_ident.display_name = "Anomal"
+        mock_ident.llm = MagicMock()
+        mock_ident.llm.temperature = 0.7
+
+        with (
+            patch("overblick.core.plugin_base.PluginContext.load_identity", return_value=mock_ident),
+            patch("overblick.core.plugin_base.PluginContext.build_system_prompt", side_effect=RuntimeError("boom")),
+        ):
+            result = await plugin._generate_perspectives("AI", "Summary")
+
+        assert len(result) == 0
+
+
+class TestGetPieces:
+    """Test public accessor methods."""
+
+    def test_should_return_pieces_newest_first(self, kontrast_context):
+        """get_pieces returns in reverse order."""
+        from overblick.plugins.kontrast.models import PerspectiveEntry
+
+        plugin = KontrastPlugin(kontrast_context)
+        for i in range(3):
+            plugin._pieces.append(
+                KontrastPiece(
+                    topic=f"Topic {i}",
+                    topic_hash=f"hash_{i}",
+                    perspectives=[PerspectiveEntry(identity_name="a", content="C")],
+                )
+            )
+        result = plugin.get_pieces()
+        assert result[0].topic == "Topic 2"
+
+    def test_should_find_piece_by_hash(self, kontrast_context):
+        """get_piece_by_hash finds correct piece."""
+        from overblick.plugins.kontrast.models import PerspectiveEntry
+
+        plugin = KontrastPlugin(kontrast_context)
+        plugin._pieces = [
+            KontrastPiece(
+                topic="Found",
+                topic_hash="target_hash",
+                perspectives=[PerspectiveEntry(identity_name="a", content="C")],
+            ),
+        ]
+        result = plugin.get_piece_by_hash("target_hash")
+        assert result is not None
+        assert result.topic == "Found"
+
+    def test_should_return_none_for_unknown_hash(self, kontrast_context):
+        """get_piece_by_hash returns None for unknown hash."""
+        plugin = KontrastPlugin(kontrast_context)
+        result = plugin.get_piece_by_hash("nonexistent")
+        assert result is None
+
+
+class TestSaveStateError:
+    """Test _save_state error handling."""
+
+    def test_should_handle_save_state_exception(self, kontrast_context):
+        """_save_state handles write errors gracefully."""
+        plugin = KontrastPlugin(kontrast_context)
+        plugin._state_file = MagicMock()
+        plugin._state_file.parent = MagicMock()
+        plugin._state_file.parent.mkdir = MagicMock()
+        plugin._state_file.write_text = MagicMock(side_effect=OSError("disk full"))
+        # Should not raise
+        plugin._save_state()
 
 
 class TestTeardown:

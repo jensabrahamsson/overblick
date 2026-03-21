@@ -15,8 +15,6 @@ Tests cover:
 import time
 from unittest.mock import MagicMock
 
-import pytest
-
 from overblick.supervisor.routing import (
     AgentCapabilities,
     MessageRouter,
@@ -343,3 +341,52 @@ class TestRoutingAudit:
         router.register_agent("target")
         msg = router.route("source", "target", "hello")
         assert msg.status == RouteStatus.PENDING
+
+
+class TestCapLists:
+    """Test FIFO eviction for delivered and dead_letters lists."""
+
+    def test_cap_delivered_list(self):
+        """Delivered list is capped at MAX_DELIVERED via cleanup on 100th message."""
+        router = MessageRouter()
+        router.MAX_DELIVERED = 5  # Lower for testing
+        router.register_agent("target")
+
+        # Route and deliver more than MAX_DELIVERED messages
+        for i in range(8):
+            router.route("source", "target", "msg", {"n": i})
+        router.collect("target")
+
+        # Trigger _cap_lists
+        router._cap_lists()
+        assert len(router._delivered) <= 5
+
+    def test_cap_dead_letters_list(self):
+        """Dead letters list is capped at MAX_DEAD_LETTERS."""
+        router = MessageRouter()
+        router.MAX_DEAD_LETTERS = 3  # Lower for testing
+
+        # Generate more than MAX_DEAD_LETTERS dead letters
+        for i in range(5):
+            router.route("source", "nobody", "msg", {"n": i})
+
+        router._cap_lists()
+        assert len(router._dead_letters) <= 3
+
+    def test_cleanup_if_needed_runs_expiry_at_100th_message(self):
+        """_cleanup_if_needed triggers cleanup_expired every 100 messages."""
+        router = MessageRouter()
+        router.register_agent("target")
+
+        # Force counter to 99 so next route is the 100th
+        router._message_counter = 99
+        # Add an expired message
+        router.route("source", "target", "msg", ttl_seconds=0.0)
+        import time
+
+        time.sleep(0.01)
+
+        # The 100th message triggers cleanup_expired
+        router.route("source", "target", "msg2")
+        # The expired message should have been moved to dead_letters
+        assert any(m.status == RouteStatus.EXPIRED for m in router._dead_letters)
