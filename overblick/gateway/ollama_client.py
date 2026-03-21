@@ -117,6 +117,10 @@ class OllamaClient:
                 "stream": False,
             }
 
+            # Pass think parameter to Ollama for Qwen3 reasoning control
+            if request.think is not None:
+                payload["think"] = request.think
+
             logger.debug(
                 "Sending request to Ollama: model=%s, messages=%d",
                 request.model,

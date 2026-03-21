@@ -20,9 +20,9 @@ from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 
 from .backend_registry import BackendRegistry
-from .config import get_config
+from .config import get_config, reset_config
 from .deepseek_client import DeepseekConnectionError, DeepseekError, DeepseekTimeoutError
-from .models import ChatRequest, ChatResponse, GatewayStats, Priority
+from .models import ChatRequest, ChatResponse, DetailedStats, GatewayStats, Priority, QueueItemInfo
 from .ollama_client import OllamaConnectionError, OllamaError, OllamaTimeoutError
 from .queue_manager import QueueManager
 from .router import RequestRouter
@@ -402,6 +402,80 @@ async def chat_completion(
     except ValueError as e:
         logger.warning("Invalid request in chat: %s", e)
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/queue", dependencies=[Depends(verify_api_key)])
+async def get_queue() -> list[QueueItemInfo]:
+    """View queued requests (for debugging bottlenecks)."""
+    qm = get_queue_manager()
+    return qm.get_queue_snapshot()
+
+
+@app.get("/config", dependencies=[Depends(verify_api_key)])
+async def get_effective_config() -> dict:
+    """View effective gateway configuration (API key masked)."""
+    config = get_config()
+    return {
+        "request_timeout_seconds": config.request_timeout_seconds,
+        "max_concurrent_requests": config.max_concurrent_requests,
+        "max_queue_size": config.max_queue_size,
+        "default_model": config.default_model,
+        "default_backend": config.default_backend,
+        "api_host": config.api_host,
+        "api_port": config.api_port,
+        "api_key_configured": bool(config.api_key),
+        "backends": list(config.backends.keys()) if config.backends else [],
+    }
+
+
+@app.post("/queue/cancel/{request_id}", dependencies=[Depends(verify_api_key)])
+async def cancel_request(request_id: str) -> dict:
+    """Cancel a queued request by ID."""
+    qm = get_queue_manager()
+    cancelled = qm.cancel_request(request_id)
+    if not cancelled:
+        raise HTTPException(
+            status_code=404,
+            detail="Request not found or already completed.",
+        )
+    return {"cancelled": True, "request_id": request_id}
+
+
+@app.post("/admin/reload-config", dependencies=[Depends(verify_api_key)])
+async def reload_config() -> dict:
+    """Reload gateway configuration from env/YAML without restart."""
+    old_config = get_config()
+    old_timeout = old_config.request_timeout_seconds
+    old_concurrent = old_config.max_concurrent_requests
+
+    reset_config()
+    new_config = get_config()
+
+    changes = {}
+    if new_config.request_timeout_seconds != old_timeout:
+        changes["request_timeout_seconds"] = {
+            "old": old_timeout,
+            "new": new_config.request_timeout_seconds,
+        }
+    if new_config.max_concurrent_requests != old_concurrent:
+        changes["max_concurrent_requests"] = {
+            "old": old_concurrent,
+            "new": new_config.max_concurrent_requests,
+        }
+
+    logger.info("Config reloaded. Changes: %s", changes or "none")
+    return {"reloaded": True, "changes": changes}
+
+
+@app.get(
+    "/stats/detailed",
+    response_model=DetailedStats,
+    dependencies=[Depends(verify_api_key)],
+)
+async def get_detailed_stats() -> DetailedStats:
+    """Extended statistics with per-backend and per-priority breakdowns."""
+    qm = get_queue_manager()
+    return qm.get_detailed_stats()
 
 
 @app.post("/v1/embeddings", dependencies=[Depends(verify_api_key)])

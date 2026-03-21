@@ -93,7 +93,12 @@ class PolymarketClient:
             return cached
 
         try:
-            data = await self._make_request("markets", {"limit": limit, "active": "true"})
+            data = await self._make_request("markets", {
+                "limit": limit,
+                "active": "true",
+                "order": "volume24hr",
+                "ascending": "false",
+            })
 
             # Gamma API returns array directly
             market_list = data if isinstance(data, list) else []
@@ -116,12 +121,16 @@ class PolymarketClient:
                     logger.warning(f"Failed to parse market {market_id}: {e}")
                     continue
 
-            # Check if markets are too old (pre-2023)
+            # Check if majority of markets are too old (pre-2024)
             if use_mock_if_old and markets:
-                oldest_year = min(m.created_time.year for m in markets)
-                if oldest_year < 2023:
+                recent_count = sum(
+                    1 for m in markets if m.created_time and m.created_time.year >= 2024
+                )
+                if len(markets) > 0 and recent_count / len(markets) < 0.2:
                     logger.warning(
-                        f"API returned old markets (oldest: {oldest_year}), using mock data instead"
+                        "API returned mostly old markets (%d/%d recent), using mock data",
+                        recent_count,
+                        len(markets),
                     )
                     return await self._get_mock_markets(limit)
 

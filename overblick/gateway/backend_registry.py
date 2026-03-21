@@ -16,7 +16,6 @@ import os
 from typing import Any, Optional
 
 from .config import GatewayConfig
-from .dashscope_client import DashScopeClient
 from .deepseek_client import DeepseekClient
 from .ollama_client import OllamaClient
 
@@ -73,8 +72,6 @@ class BackendRegistry:
                 self._register_ollama_backend(name, bcfg, config)
             elif btype == "deepseek":
                 self._register_deepseek_backend(name, bcfg, config)
-            elif btype == "dashscope":
-                self._register_dashscope_backend(name, bcfg, config)
             elif btype == "openai":
                 logger.info(
                     "Backend '%s': OpenAI support coming soon, skipping",
@@ -159,55 +156,6 @@ class BackendRegistry:
         self._backend_configs[name] = bc
 
         self._clients[name] = DeepseekClient(
-            api_url=api_url,
-            api_key=api_key,
-            model=model,
-            timeout_seconds=config.request_timeout_seconds,
-        )
-        logger.info(
-            "Registered backend '%s': %s (model: %s, key: %s)",
-            name,
-            api_url,
-            model,
-            "configured" if api_key else "MISSING",
-        )
-
-    def _register_dashscope_backend(
-        self,
-        name: str,
-        bcfg: dict[str, Any],
-        config: GatewayConfig,
-    ) -> None:
-        """Register a DashScope (Alibaba Qwen) API backend."""
-        api_url = bcfg.get("api_url", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
-        model = bcfg.get("model", "qwen-plus")
-
-        if bcfg.get("api_key"):
-            logger.warning(
-                "Backend '%s': API key found in YAML config — IGNORED for security. "
-                "Set OVERBLICK_DASHSCOPE_API_KEY environment variable instead.",
-                name,
-            )
-        api_key = os.getenv("OVERBLICK_DASHSCOPE_API_KEY", "")
-
-        if not api_key:
-            logger.warning(
-                "Backend '%s': DashScope enabled but no API key configured "
-                "(set OVERBLICK_DASHSCOPE_API_KEY env var)",
-                name,
-            )
-
-        bc = BackendConfig(
-            name=name,
-            enabled=True,
-            backend_type="dashscope",
-            model=model,
-            api_url=api_url,
-            api_key=api_key,
-        )
-        self._backend_configs[name] = bc
-
-        self._clients[name] = DashScopeClient(
             api_url=api_url,
             api_key=api_key,
             model=model,

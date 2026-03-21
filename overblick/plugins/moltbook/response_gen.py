@@ -75,6 +75,7 @@ class ResponseGenerator:
             context_items=context_items,
             audit_action="moltbook_comment",
             priority=priority,
+            think=False,  # Fast mode for comment responses
         )
 
         if (
@@ -121,6 +122,7 @@ class ResponseGenerator:
             context_items=context_items,
             audit_action="moltbook_reply",
             priority=priority,
+            think=False,  # Fast mode for reply responses
         )
 
         if (

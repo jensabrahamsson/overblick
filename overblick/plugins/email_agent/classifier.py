@@ -206,6 +206,7 @@ class EmailClassifier:
             result = await self._ctx.llm_pipeline.chat(
                 messages=messages,
                 audit_action="email_classification",
+                think=False,  # Fast mode for email classification
             )
             if result and not result.blocked and result.content:
                 parsed = self._parse(result.content)
@@ -226,6 +227,7 @@ class EmailClassifier:
                 retry_result = await self._ctx.llm_pipeline.chat(
                     messages=retry_messages,
                     audit_action="email_classification_retry",
+                    think=False,  # Fast mode for classification retry
                 )
                 if retry_result and not retry_result.blocked and retry_result.content:
                     return self._parse(retry_result.content)

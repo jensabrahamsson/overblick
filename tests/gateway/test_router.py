@@ -95,8 +95,8 @@ class TestPriorityRouting:
     def test_high_priority_routes_to_first_non_local_in_preference(self):
         router = RequestRouter(
             _make_registry(
-                ["local", "remote", "dashscope"],
-                preference=["remote", "dashscope", "local"],
+                ["local", "remote", "deepseek"],
+                preference=["remote", "deepseek", "local"],
             )
         )
         assert router.resolve_backend(priority="high") == "remote"
@@ -104,11 +104,11 @@ class TestPriorityRouting:
     def test_high_priority_skips_local_in_preference(self):
         router = RequestRouter(
             _make_registry(
-                ["local", "dashscope"],
-                preference=["local", "dashscope"],
+                ["local", "deepseek"],
+                preference=["local", "deepseek"],
             )
         )
-        assert router.resolve_backend(priority="high") == "dashscope"
+        assert router.resolve_backend(priority="high") == "deepseek"
 
     def test_high_priority_only_local_available_falls_to_default(self):
         """If only local is available and preference has no non-local match, fall to default chain."""
@@ -116,7 +116,7 @@ class TestPriorityRouting:
             _make_registry(
                 ["local"],
                 default="local",
-                preference=["remote", "dashscope", "local"],
+                preference=["remote", "local"],
             )
         )
         # priority=high skips local, no non-local available → falls to default chain
@@ -169,10 +169,10 @@ class TestDefaultFallback:
             _make_registry(
                 ["local", "deepseek"],
                 default="local",
-                preference=["remote", "dashscope", "local", "deepseek"],
+                preference=["remote", "local", "deepseek"],
             )
         )
-        # remote and dashscope not available → local is first available
+        # remote not available → local is first available
         assert router.resolve_backend() == "local"
 
     def test_custom_default_backend_with_no_preference(self):
@@ -330,9 +330,9 @@ class TestBackendPreferenceChain:
         """With all backends available, first in preference wins."""
         router = RequestRouter(
             _make_registry(
-                ["local", "remote", "dashscope", "deepseek"],
+                ["local", "remote", "deepseek"],
                 default="local",
-                preference=["remote", "dashscope", "local", "deepseek"],
+                preference=["remote", "local", "deepseek"],
             )
         )
         assert router.resolve_backend() == "remote"
@@ -341,13 +341,13 @@ class TestBackendPreferenceChain:
         """If first in preference is down, falls to second."""
         router = RequestRouter(
             _make_registry(
-                ["local", "dashscope", "deepseek"],
+                ["local", "deepseek"],
                 default="local",
-                preference=["remote", "dashscope", "local", "deepseek"],
+                preference=["remote", "local", "deepseek"],
             )
         )
-        # remote not available → dashscope
-        assert router.resolve_backend() == "dashscope"
+        # remote not available → local
+        assert router.resolve_backend() == "local"
 
     def test_preference_chain_all_down_except_last(self):
         """If all preferred are down except deepseek, routes to deepseek."""
@@ -355,7 +355,7 @@ class TestBackendPreferenceChain:
             _make_registry(
                 ["deepseek"],
                 default="deepseek",
-                preference=["remote", "dashscope", "local", "deepseek"],
+                preference=["remote", "local", "deepseek"],
             )
         )
         assert router.resolve_backend() == "deepseek"
@@ -375,9 +375,9 @@ class TestBackendPreferenceChain:
         """Priority=high uses preference but skips local."""
         router = RequestRouter(
             _make_registry(
-                ["local", "remote", "dashscope", "deepseek"],
+                ["local", "remote", "deepseek"],
                 default="local",
-                preference=["remote", "dashscope", "local", "deepseek"],
+                preference=["remote", "local", "deepseek"],
             )
         )
         assert router.resolve_backend(priority="high") == "remote"
@@ -388,7 +388,7 @@ class TestBackendPreferenceChain:
             _make_registry(
                 ["local"],
                 default="local",
-                preference=["remote", "dashscope", "local", "deepseek"],
+                preference=["remote", "local", "deepseek"],
             )
         )
         # priority=high skips local → no match → falls to default chain → local

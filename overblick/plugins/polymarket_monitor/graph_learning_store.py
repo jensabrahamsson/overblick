@@ -58,6 +58,11 @@ class PolymarketGraphStore:
             session.run("CREATE INDEX IF NOT EXISTS FOR (s:Strategy) ON (s.name)")
             session.run("CREATE INDEX IF NOT EXISTS FOR (w:WeatherPattern) ON (w.location)")
 
+    @property
+    def is_connected(self) -> bool:
+        """Check if Neo4j driver is connected."""
+        return self._driver is not None
+
     def close(self) -> None:
         """Close Neo4j connection."""
         if self._driver:
@@ -167,7 +172,7 @@ class PolymarketGraphStore:
                 return True
 
         except Exception as e:
-            logger.error(f"Failed to store trade in Neo4j: {e}")
+            logger.debug(f"Failed to store trade in Neo4j: {e}")
             return await self._store_trade_fallback(
                 trade_id,
                 market_id,
@@ -239,7 +244,7 @@ class PolymarketGraphStore:
                 return True
 
         except Exception as e:
-            logger.error(f"Failed to store market analysis in Neo4j: {e}")
+            logger.debug(f"Failed to store market analysis in Neo4j: {e}")
             return await self._store_market_analysis_fallback(
                 market_id, question, category, llm_probability, edge, weather_pattern
             )
@@ -278,7 +283,7 @@ class PolymarketGraphStore:
                 return [dict(record) for record in result]
 
         except Exception as e:
-            logger.error(f"Failed to query similar markets: {e}")
+            logger.debug(f"Failed to query similar markets: {e}")
             return []
 
     async def get_performance_by_category(self) -> Dict[str, Dict[str, float]]:
@@ -311,7 +316,7 @@ class PolymarketGraphStore:
                 return {record["category"]: dict(record) for record in result}
 
         except Exception as e:
-            logger.error(f"Failed to get performance by category: {e}")
+            logger.debug(f"Failed to get performance by category: {e}")
             return {}
 
     async def query_weather_trading_patterns(
@@ -340,7 +345,7 @@ class PolymarketGraphStore:
                 return [dict(record) for record in result]
 
         except Exception as e:
-            logger.error(f"Failed to query weather patterns: {e}")
+            logger.debug(f"Failed to query weather patterns: {e}")
             return []
 
     async def _store_trade_fallback(
@@ -357,7 +362,7 @@ class PolymarketGraphStore:
         tags: Optional[List[str]],
     ) -> bool:
         """Fallback in-memory storage (simplified)."""
-        logger.warning(f"Using fallback store for trade {trade_id}")
+        logger.debug(f"Using fallback store for trade {trade_id}")
         return True  # Return success for fallback
 
     async def _store_market_analysis_fallback(
@@ -370,26 +375,26 @@ class PolymarketGraphStore:
         weather_pattern: Optional[Dict[str, Any]],
     ) -> bool:
         """Fallback in-memory storage."""
-        logger.warning(f"Using fallback store for market analysis {market_id}")
+        logger.debug(f"Using fallback store for market analysis {market_id}")
         return True
 
     async def _query_similar_markets_fallback(
         self, market_id: str, limit: int
     ) -> List[Dict[str, Any]]:
         """Fallback query."""
-        logger.warning(f"Using fallback query for similar markets to {market_id}")
+        logger.debug(f"Using fallback query for similar markets to {market_id}")
         return []
 
     async def _get_performance_by_category_fallback(self) -> Dict[str, Dict[str, float]]:
         """Fallback performance query."""
-        logger.warning("Using fallback performance query")
+        logger.debug("Using fallback performance query")
         return {}
 
     async def _query_weather_trading_patterns_fallback(
         self, location: Optional[str]
     ) -> List[Dict[str, Any]]:
         """Fallback weather pattern query."""
-        logger.warning(f"Using fallback weather pattern query for {location}")
+        logger.debug(f"Using fallback weather pattern query for {location}")
         return []
 
 

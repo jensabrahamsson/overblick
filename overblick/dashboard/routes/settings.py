@@ -36,7 +36,6 @@ from overblick.setup.validators import (
     AgentConfig,
     BackendConfig,
     CommunicationData,
-    DashScopeConfig,
     DeepseekConfig,
     LLMData,
     OpenAIConfig,
@@ -397,7 +396,6 @@ def _parse_new_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
     # Support both "remote" (new) and "cloud" (legacy) backend names
     remote = backends.get("remote", backends.get("cloud", {}))
     deepseek = backends.get("deepseek", {})
-    dashscope = backends.get("dashscope", {})
     openai = backends.get("openai", {})
 
     # Migrate legacy default_backend "cloud" → "remote"
@@ -425,14 +423,6 @@ def _parse_new_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
             "enabled": deepseek.get("enabled", False),
             "api_url": deepseek.get("api_url", "https://api.deepseek.com/v1"),
             "model": deepseek.get("model", "deepseek-chat"),
-        },
-        "dashscope": {
-            "enabled": dashscope.get("enabled", False),
-            "api_url": dashscope.get(
-                "api_url",
-                "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-            ),
-            "model": dashscope.get("model", "qwen-plus"),
         },
         "openai": {
             "enabled": openai.get("enabled", False),
@@ -473,11 +463,6 @@ def _migrate_old_llm_config(llm: dict[str, Any]) -> dict[str, Any]:
             "enabled": False,
             "api_url": "https://api.deepseek.com/v1",
             "model": "deepseek-chat",
-        },
-        "dashscope": {
-            "enabled": False,
-            "api_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-            "model": "qwen-plus",
         },
         "openai": {
             "enabled": provider in ("cloud", "openai"),
@@ -661,11 +646,6 @@ async def step3_post(request: Request):
         remote_port = form.get("remote_port", "1234")
         remote_model = form.get("remote_model", "qwen3.5:9b")
 
-        # DashScope backend (Alibaba Qwen cloud)
-        dashscope_enabled = form.get("dashscope_enabled", "off") == "on"
-        dashscope_model = form.get("dashscope_model", "qwen-plus")
-        dashscope_api_key = form.get("dashscope_api_key", "")
-
         # Deepseek backend
         deepseek_enabled = form.get("deepseek_enabled", "off") == "on"
         deepseek_model = form.get("deepseek_model", "deepseek-chat")
@@ -704,10 +684,6 @@ async def step3_post(request: Request):
                 enabled=deepseek_enabled,
                 model=deepseek_model,
             ),
-            dashscope=DashScopeConfig(
-                enabled=dashscope_enabled,
-                model=dashscope_model,
-            ),
             openai=OpenAIConfig(
                 enabled=openai_enabled,
                 api_url=openai_api_url,
@@ -723,9 +699,6 @@ async def step3_post(request: Request):
         # Store API keys for provisioner (secret, not in config)
         if deepseek_api_key:
             state["_deepseek_api_key"] = deepseek_api_key
-        if dashscope_api_key:
-            state["_dashscope_api_key"] = dashscope_api_key
-
         _save_wizard_state(state)
         return RedirectResponse("/settings/step/4", status_code=303)
     except Exception as e:
@@ -1170,40 +1143,6 @@ async def test_deepseek(request: Request):
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 "https://api.deepseek.com/v1/models",
-                headers={"Authorization": f"Bearer {api_key}"},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                models = [m.get("id", "?") for m in data.get("data", [])]
-                model_list = html.escape(", ".join(models[:5])) if models else "API reachable"
-                return HTMLResponse(
-                    f'<span class="badge badge-green">Connected</span>'
-                    f'<span class="test-detail">{model_list}</span>'
-                )
-            elif resp.status_code == 401:
-                return HTMLResponse('<span class="badge badge-red">Invalid API key</span>')
-            else:
-                return HTMLResponse(f'<span class="badge badge-red">HTTP {resp.status_code}</span>')
-    except Exception as e:
-        return HTMLResponse(
-            f'<span class="badge badge-red">Not reachable</span>'
-            f'<span class="test-detail">{html.escape(str(e))}</span>'
-        )
-
-
-@router.post("/test/dashscope", response_class=HTMLResponse)
-async def test_dashscope(request: Request):
-    """Test DashScope API connection by listing available models."""
-    form = await request.form()
-    api_key = form.get("dashscope_api_key", "")
-    if not api_key:
-        return HTMLResponse('<span class="badge badge-amber">Enter API key first</span>')
-    try:
-        import httpx
-
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models",
                 headers={"Authorization": f"Bearer {api_key}"},
             )
             if resp.status_code == 200:

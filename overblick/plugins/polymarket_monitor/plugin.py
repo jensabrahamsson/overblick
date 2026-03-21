@@ -114,6 +114,7 @@ class PolymarketMonitorPlugin(PluginBase):
                 "max_position_size_percent": plugin_config.get(
                     "max_position_size_percent", _DEFAULT_MAX_POSITION_SIZE_PERCENT
                 ),
+                "max_markets_per_scan": plugin_config.get("max_markets_per_scan", 10),
                 "enable_real_api": plugin_config.get("enable_real_api", True),
             }
         )
@@ -142,17 +143,25 @@ class PolymarketMonitorPlugin(PluginBase):
         else:
             logger.warning("No LLM pipeline available - using fallback analysis")
 
-        # Initialize Neo4j GraphStore
+        # Initialize Neo4j GraphStore (optional — runs locally, not in Docker)
         try:
             neo4j_config = plugin_config.get("neo4j", {})
             uri = neo4j_config.get("uri", "bolt://localhost:7687")
             user = neo4j_config.get("user", "neo4j")
-            password = neo4j_config.get("password", "polytrader2024!")
+            password = self.ctx.get_secret("neo4j_password") or neo4j_config.get("password", "")
 
-            self._graph_store = create_graph_store(uri=uri, user=user, password=password)
-            logger.info("Neo4j GraphStore initialized for trading knowledge")
+            if not password:
+                logger.info("Neo4j password not configured — skipping graph store")
+                self._graph_store = None
+            else:
+                self._graph_store = create_graph_store(uri=uri, user=user, password=password)
+                if self._graph_store and not self._graph_store.is_connected:
+                    logger.info("Neo4j not available — running without graph store")
+                    self._graph_store = None
+                else:
+                    logger.info("Neo4j GraphStore initialized for trading knowledge")
         except Exception as e:
-            logger.warning(f"Failed to initialize Neo4j GraphStore: {e} - using fallback mode")
+            logger.warning(f"Failed to initialize Neo4j GraphStore: {e}")
             self._graph_store = None
 
         # Load default alert conditions if none exist
@@ -233,9 +242,10 @@ class PolymarketMonitorPlugin(PluginBase):
         # Update monitored markets list (prioritize active, liquid markets)
         self._update_monitored_markets(markets)
 
-        # Analyze each monitored market
+        # Analyze each monitored market (limited to max_markets_per_scan for speed)
+        scan_start = time.monotonic()
         opportunities = []
-        for market_id in self._monitored_markets[: self._config["max_markets"]]:
+        for market_id in self._monitored_markets[: self._config["max_markets_per_scan"]]:
             market = next((m for m in markets if m.id == market_id), None)
             if not market:
                 continue
@@ -267,9 +277,11 @@ class PolymarketMonitorPlugin(PluginBase):
         # Persist state
         self._save_state()
 
+        scan_duration = time.monotonic() - scan_start
         logger.info(
-            "PolymarketMonitor: scan complete — %d markets, %d opportunities",
-            len(markets),
+            "PolymarketMonitor: scan complete in %.1fs — %d markets analyzed, %d opportunities",
+            scan_duration,
+            min(len(self._monitored_markets), self._config["max_markets_per_scan"]),
             len(opportunities),
         )
 
@@ -308,7 +320,7 @@ class PolymarketMonitorPlugin(PluginBase):
             return []
 
         try:
-            markets = await self._client.get_all_markets(limit=100)
+            markets = await self._client.get_all_markets(limit=self._config["max_markets"])
             logger.info("PolymarketMonitor: fetched %d markets from Polymarket", len(markets))
             return markets
         except PolymarketAPIError as e:
@@ -542,7 +554,9 @@ class PolymarketMonitorPlugin(PluginBase):
             ]
 
             try:
-                result = await self.ctx.llm_pipeline.chat(messages)
+                result = await self.ctx.llm_pipeline.chat(
+                    messages, max_tokens=500, think=False
+                )
                 if result and not result.blocked and result.content:
                     # Parse numeric response
                     try:
