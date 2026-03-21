@@ -1,297 +1,150 @@
-<!-- Live Status Bar -->
-<div class="live-status-bar">
-    <div class="live-indicator">
-        <div class="live-dot"></div>
-        <span>Live Engine Active</span>
+<!-- Compact Stats Strip -->
+<div class="pm-stats-strip">
+    <div class="pm-strip-left">
+        <span class="pm-strip-item"><span class="pm-strip-dot"></span> Live</span>
+        <span class="pm-strip-item">{{ stats.total_markets }} markets</span>
+        <span class="pm-strip-item">{{ stats.total_opportunities }} signals</span>
+        <span class="pm-strip-item">{{ stats.total_trades }} trades</span>
     </div>
-    <div style="display: flex; gap: var(--space-xl); font-size: 0.85rem; color: var(--text-secondary);">
-        <span><span class="stat-label">Last Analysis:</span> <span class="mono">{{ activity_feed[0].time[:19] if activity_feed else 'N/A' }}</span></span>
-        <span><span class="stat-label">Active Agents:</span> <span class="mono">{{ stats.active_markets // 2 + 1 }}</span></span>
+    <div class="pm-strip-right">
+        <span class="pm-strip-item">Portfolio <strong class="mono">${{ "%.2f"|format(stats.portfolio_value_usd|float) }}</strong></span>
+        <span class="pm-strip-item {% if stats.total_pnl_usd|float > 0 %}positive{% elif stats.total_pnl_usd|float < 0 %}negative{% endif %}">P&L <strong class="mono">${{ "%.2f"|format(stats.total_pnl_usd|float) }}</strong></span>
+        <span class="pm-strip-item">Win {{ "%.0f"|format(risk_metrics.win_rate_percent|float) }}%</span>
     </div>
 </div>
 
-<!-- AI Reasoning Preview (If available) -->
-{% if latest_reasoning %}
-<div class="card mb-4">
-    <div class="card-header">
-        <h3>Current Strategy & Reasoning</h3>
-        <span class="badge badge-info">Latest AI Thought</span>
+<!-- Category Tabs + Search -->
+<div class="pm-toolbar">
+    <div class="pm-categories" id="pm-categories">
+        <button class="pm-tab active" data-category="all">All</button>
+        {% for cat in categories %}
+        <button class="pm-tab" data-category="{{ cat }}">{{ cat|capitalize }}</button>
+        {% endfor %}
     </div>
-    <div class="reasoning-box">
-        "{{ latest_reasoning|truncate(400) }}"
+    <div class="pm-toolbar-right">
+        <input type="text" id="pm-search" class="pm-search" placeholder="Search markets...">
+        <select id="pm-sort" class="pm-sort">
+            <option value="volume">Vol ↓</option>
+            <option value="price-high">Price ↓</option>
+            <option value="price-low">Price ↑</option>
+            <option value="name">A-Z</option>
+        </select>
+    </div>
+</div>
+
+<!-- Market List -->
+<div class="pm-markets" id="pm-market-grid">
+    {% for market in markets %}
+    {% set q = market.market_question|default(market.question|default("Unknown")) %}
+    {% if market.outcomes and market.outcomes|length >= 2 %}
+        {% if market.outcomes[0].ticker|upper == "YES" %}
+            {% set yes_price = market.outcomes[0].price %}
+        {% else %}
+            {% set yes_price = market.outcomes[1].price if market.outcomes|length > 1 else 0.5 %}
+        {% endif %}
+    {% else %}
+        {% set yes_price = market.implied_probability|default(0.5) %}
+    {% endif %}
+    {% set no_price = 1 - yes_price %}
+
+    <div class="pm-row"
+         data-category="{{ market.category|default('other') }}"
+         data-volume="{{ market.volume_24h|default(0) }}"
+         data-price="{{ yes_price }}"
+         data-question="{{ q|lower }}">
+
+        <div class="pm-row-main">
+            <div class="pm-row-question">{{ q }}</div>
+            <div class="pm-row-meta">
+                <span class="pm-meta-cat">{{ market.category|default("other")|capitalize }}</span>
+                <span class="pm-meta-vol">${{ "{:,.0f}".format(market.volume_24h|default(0)) }} Vol</span>
+            </div>
+        </div>
+
+        <div class="pm-row-odds">
+            <div class="pm-odds-pill pm-yes" style="--pct: {{ (yes_price * 100)|int }}%">
+                <span class="pm-odds-label">Yes</span>
+                <span class="pm-odds-pct">{{ "%.0f"|format(yes_price * 100) }}¢</span>
+            </div>
+            <div class="pm-odds-pill pm-no" style="--pct: {{ (no_price * 100)|int }}%">
+                <span class="pm-odds-label">No</span>
+                <span class="pm-odds-pct">{{ "%.0f"|format(no_price * 100) }}¢</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not markets %}
+    <div class="pm-empty">Waiting for first scan...</div>
+    {% endif %}
+</div>
+
+<div class="pm-count" id="pm-market-count">
+    <span id="pm-visible-count">{{ markets|length }}</span> / {{ markets|length }} markets
+</div>
+
+<!-- Signals & Trading -->
+{% if opportunities or positions or trades or activity_feed %}
+<div class="pm-trading-grid">
+    <!-- Signals -->
+    <div class="pm-panel">
+        <div class="pm-panel-header">
+            <h3>Signals</h3>
+            <span class="badge badge-info">{{ opportunities|length }}</span>
+        </div>
+        {% for opp in opportunities %}
+        <div class="pm-signal">
+            <div class="pm-signal-q">{{ opp.market_question|truncate(55) }}</div>
+            <div class="pm-signal-row">
+                <span class="badge {% if opp.probability_edge|float >= 0.05 %}badge-success{% elif opp.probability_edge|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format(opp.probability_edge * 100) }}%</span>
+                <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}% conf</span>
+                {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
+                {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% if not opportunities %}
+        <div class="pm-panel-empty">No signals yet</div>
+        {% endif %}
+    </div>
+
+    <!-- Positions -->
+    <div class="pm-panel">
+        <div class="pm-panel-header">
+            <h3>Positions</h3>
+            <span class="badge badge-info">{{ positions|length }}</span>
+        </div>
+        {% for pos in positions %}
+        <div class="pm-position">
+            <div class="pm-pos-q">{{ pos.market_id }}</div>
+            <div class="pm-pos-row">
+                {% if pos.outcome == "YES" %}<span class="badge badge-success">YES</span>{% else %}<span class="badge badge-danger">NO</span>{% endif %}
+                <span class="{% if pos.unrealized_pnl_usd|default(0) > 0 %}positive{% elif pos.unrealized_pnl_usd|default(0) < 0 %}negative{% endif %} mono">${{ "%.2f"|format(pos.unrealized_pnl_usd|default(0)) }}</span>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not positions %}
+        <div class="pm-panel-empty">No positions</div>
+        {% endif %}
+    </div>
+
+    <!-- Activity -->
+    <div class="pm-panel">
+        <div class="pm-panel-header">
+            <h3>Activity</h3>
+            <span class="badge badge-success">Live</span>
+        </div>
+        <div class="pm-activity-feed">
+            {% for entry in activity_feed %}
+            <div class="pm-feed-line">
+                <span class="pm-feed-time">[{{ entry.time[11:19] }}]</span>
+                <span class="pm-feed-msg {{ entry.type }}">{{ entry.msg }}</span>
+            </div>
+            {% endfor %}
+            {% if not activity_feed %}
+            <div class="pm-panel-empty">Waiting for events...</div>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endif %}
-
-<!-- Portfolio Stats -->
-<div class="trading-overview" id="trading-stats">
-    <div class="card">
-        <div class="card-header">
-            <h3>Portfolio Value</h3>
-            <span class="stat-icon">💰</span>
-        </div>
-        <p class="stat-value">${{ "%.2f"|format(stats.portfolio_value_usd|float) }}</p>
-        <div class="stat-details">
-            <span class="stat-label">Total P&L:</span>
-            <span class="stat-number {% if stats.total_pnl_usd|float > 0 %}positive{% elif stats.total_pnl_usd|float < 0 %}negative{% endif %}">
-                ${{ "%.2f"|format(stats.total_pnl_usd|float) }}
-            </span>
-        </div>
-        <div class="stat-details">
-            <span class="stat-label">Daily P&L:</span>
-            <span class="stat-number {% if stats.daily_pnl_usd|float > 0 %}positive{% elif stats.daily_pnl_usd|float < 0 %}negative{% endif %}">
-                ${{ "%.2f"|format(stats.daily_pnl_usd|float) }}
-            </span>
-        </div>
-    </div>
-
-    <!-- Market Stats -->
-    <div class="card">
-        <div class="card-header">
-            <h3>Markets</h3>
-            <span class="stat-icon">🌐</span>
-        </div>
-        <p class="stat-value">{{ stats.total_markets }}</p>
-        <div class="stat-details">
-            <span class="stat-label">Active:</span>
-            <span class="stat-number">{{ stats.active_markets }}</span>
-        </div>
-        <div class="stat-details">
-            <span class="stat-label">Opportunities:</span>
-            <span class="stat-number">{{ stats.total_opportunities }}</span>
-        </div>
-    </div>
-
-    <!-- Trading Performance -->
-    <div class="card">
-        <div class="card-header">
-            <h3>Performance</h3>
-            <span class="stat-icon">📈</span>
-        </div>
-        <p class="stat-value">{{ "%.1f"|format(risk_metrics.win_rate_percent|float) }}%</p>
-        <div class="stat-details">
-            <span class="stat-label">Total Trades:</span>
-            <span class="stat-number">{{ stats.total_trades }}</span>
-        </div>
-        <div class="stat-details">
-            <span class="stat-label">W/L:</span>
-            <span class="stat-number">{{ stats.winning_trades }}/{{ stats.losing_trades }}</span>
-        </div>
-    </div>
-
-    <!-- Risk Metrics -->
-    <div class="card">
-        <div class="card-header">
-            <h3>Risk Exposure</h3>
-            <span class="stat-icon">🛡️</span>
-        </div>
-        <p class="stat-value {% if risk_metrics.current_exposure_percent|float > 20 %}negative{% elif risk_metrics.current_exposure_percent|float > 10 %}warning{% else %}positive{% endif %}">
-            {{ "%.1f"|format(risk_metrics.current_exposure_percent|float) }}%
-        </p>
-        <div class="stat-details">
-            <span class="stat-label">Max Drawdown:</span>
-            <span class="stat-number">{{ "%.1f"|format(risk_metrics.max_drawdown_percent|float) }}%</span>
-        </div>
-        <div class="stat-details">
-            <span class="stat-label">Sharpe:</span>
-            <span class="stat-number">{{ "%.2f"|format(risk_metrics.sharpe_ratio|float) }}</span>
-        </div>
-    </div>
-</div>
-
-<!-- Monitored Markets Table -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h2>Monitored Markets</h2>
-        <span class="badge badge-info">{{ markets|length }}</span>
-    </div>
-    <div class="table-container" style="max-height: 500px; overflow-y: auto;">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Market</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>24h Volume</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for market in markets %}
-                <tr>
-                    <td style="max-width: 300px;">
-                        <strong>{{ market.market_question|default(market.question|default("Unknown"))|truncate(80) }}</strong>
-                    </td>
-                    <td><span class="badge badge-secondary">{{ market.category|default("other") }}</span></td>
-                    <td>
-                        {% if market.outcomes %}
-                            {% for o in market.outcomes %}
-                                <span class="mono" style="font-size: 0.85rem;">{{ o.ticker }}: ${{ "%.2f"|format(o.price) }}</span>
-                                {% if not loop.last %}<br>{% endif %}
-                            {% endfor %}
-                        {% else %}
-                            <span class="mono">{{ "%.0f"|format((market.implied_probability|default(0.5)) * 100) }}%</span>
-                        {% endif %}
-                    </td>
-                    <td class="mono">${{ "{:,.0f}".format(market.volume_24h|default(0)) }}</td>
-                    <td>
-                        {% if market.status|upper == "OPEN" %}
-                            <span class="badge badge-success">OPEN</span>
-                        {% else %}
-                            <span class="badge badge-secondary">{{ market.status|upper }}</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-                {% if not markets %}
-                <tr><td colspan="5" class="text-muted" style="text-align: center; padding: 30px;">No markets loaded yet. Waiting for first scan...</td></tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div class="trading-dashboard">
-    <!-- Left Column -->
-    <div class="trading-column">
-        <!-- Live Activity Feed -->
-        <div class="card">
-            <div class="card-header">
-                <h2>Live Activity Feed</h2>
-                <span class="badge badge-success">Live</span>
-            </div>
-            <div class="terminal-feed">
-                {% for entry in activity_feed %}
-                <div class="terminal-line">
-                    <span class="terminal-time">[{{ entry.time[11:19] }}]</span>
-                    <span class="terminal-id">{{ entry.identity }}:</span>
-                    <span class="terminal-msg {{ entry.type }}">{{ entry.msg }}</span>
-                </div>
-                {% endfor %}
-                {% if not activity_feed %}
-                <div class="text-muted" style="text-align: center; margin-top: 50px;">Waiting for system events...</div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Trading Opportunities -->
-        <div class="card">
-            <div class="card-header">
-                <h2>Trading Opportunities</h2>
-                <span class="badge badge-info">{{ opportunities|length }}</span>
-            </div>
-            <div class="table-container">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Market</th>
-                            <th>Edge</th>
-                            <th>Conf</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for opp in opportunities %}
-                        <tr>
-                            <td>
-                                <div><strong style="display: block; margin-bottom: 2px;">{{ opp.market_question|truncate(60) }}</strong></div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <small class="text-muted">Mkt: {{ "%.0f"|format(opp.market_price * 100) }}% | Our: {{ "%.0f"|format(opp.our_probability * 100) }}%</small>
-                                    <span class="identity-badge">{{ opp.identity }}</span>
-                                </div>
-                            </td>
-                            <td><span class="badge {% if opp.probability_edge|float >= 0.05 %}badge-success{% elif opp.probability_edge|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format(opp.probability_edge * 100) }}%</span></td>
-                            <td>
-                                <div class="confidence-bar">
-                                    <div class="confidence-fill" style="width: {{ opp.confidence_score|default(50) }}%"></div>
-                                    <span>{{ "%.0f"|format(opp.confidence_score|default(50)) }}%</span>
-                                </div>
-                            </td>
-                            <td>
-                                {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
-                                {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>
-                                {% else %}<span class="badge badge-info">{{ opp.recommended_outcome }}</span>{% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Right Column -->
-    <div class="trading-column">
-        <!-- Active Positions -->
-        <div class="card">
-            <div class="card-header">
-                <h2>Active Positions</h2>
-                <span class="badge badge-info">{{ positions|length }}</span>
-            </div>
-            <div class="table-container">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Market</th>
-                            <th>Pos</th>
-                            <th>P&L</th>
-                            <th>Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for position in positions %}
-                        <tr>
-                            <td>
-                                <div style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ position.market_id }}"><strong>{{ position.market_id }}</strong></div>
-                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Avg: {{ "%.2f"|format(position.average_price|default(0)) }} <span class="identity-badge">{{ position.identity }}</span></div>
-                            </td>
-                            <td>{% if position.outcome == "YES" %}<span class="badge badge-success">YES</span>{% else %}<span class="badge badge-danger">NO</span>{% endif %}</td>
-                            <td>
-                                <div class="{% if position.unrealized_pnl_usd|default(0) > 0 %}positive{% elif position.unrealized_pnl_usd|default(0) < 0 %}negative{% endif %}" style="font-weight: 600;">${{ "%.2f"|format(position.unrealized_pnl_usd|default(0)) }}</div>
-                                <small class="text-muted">{{ "%.1f"|format(position.unrealized_pnl_percent|default(0)) }}%</small>
-                            </td>
-                            <td>${{ "%.0f"|format(position.current_value_usd|default(0)) }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Recent Trades -->
-        <div class="card">
-            <div class="card-header">
-                <h2>Recent Trades</h2>
-                <span class="badge badge-secondary">{{ trades|length }}</span>
-            </div>
-            <div class="table-container">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Time / Identity</th>
-                            <th>Action</th>
-                            <th>Size</th>
-                            <th>P&L</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for trade in trades %}
-                        <tr>
-                            <td>
-                                <small style="display: block;">{{ trade.executed_at|default("")|replace("T", " ")|replace("Z", "")|truncate(16, True, "") }}</small>
-                                <span class="identity-badge" style="margin-left: 0; margin-top: 4px;">{{ trade.identity }}</span>
-                            </td>
-                            <td>{% if "BUY" in trade.action %}<span class="badge badge-success">{{ trade.action }}</span>
-                                {% elif "SELL" in trade.action %}<span class="badge badge-warning">{{ trade.action }}</span>
-                                {% else %}<span class="badge badge-info">{{ trade.action }}</span>{% endif %}
-                            </td>
-                            <td>${{ "%.0f"|format(trade.position_size_usd|default(0)) }}</td>
-                            <td><span class="{% if trade.realized_pnl_usd|default(0) > 0 %}positive{% elif trade.realized_pnl_usd|default(0) < 0 %}negative{% endif %}" style="font-weight: 600;">${{ "%.2f"|format(trade.realized_pnl_usd|default(0)) }}</span></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>

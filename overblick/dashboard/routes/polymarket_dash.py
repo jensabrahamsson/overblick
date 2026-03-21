@@ -41,6 +41,7 @@ async def polymarket_page(request: Request):
             "csrf_token": request.state.session.get("csrf_token", ""),
             "stats": data["stats"],
             "markets": data["markets"],
+            "categories": data.get("categories", []),
             "opportunities": data["opportunities"],
             "positions": data["positions"],
             "trades": data["trades"],
@@ -70,6 +71,7 @@ async def polymarket_content(request: Request):
             "request": request,
             "stats": data["stats"],
             "markets": data["markets"],
+            "categories": data.get("categories", []),
             "opportunities": data["opportunities"],
             "positions": data["positions"],
             "trades": data["trades"],
@@ -97,6 +99,7 @@ def _get_default_data() -> dict:
             "daily_pnl_usd": 0.0,
         },
         "markets": [],
+        "categories": [],
         "opportunities": [],
         "positions": [],
         "trades": [],
@@ -335,9 +338,13 @@ def _load_polymarket_data(request: Request) -> dict:
         else:
             risk_metrics_serializable[key] = value
 
+    # Extract unique categories for filter UI
+    categories = sorted({m.get("category", "other") for m in markets})
+
     return {
         "stats": stats_serializable,
-        "markets": markets[:50],  # Limit for display
+        "markets": markets,
+        "categories": categories,
         "opportunities": opportunities[:20],
         "positions": positions,
         "trades": trades[:50],

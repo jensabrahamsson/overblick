@@ -117,6 +117,82 @@
         }
     });
 
+    // ── Polymarket: Search, Filter, Sort ─────────────────────────────
+    function _initPolymarketFilters() {
+        var grid = document.getElementById("pm-market-grid");
+        if (!grid) return;
+
+        var searchInput = document.getElementById("pm-search");
+        var sortSelect = document.getElementById("pm-sort");
+        var countEl = document.getElementById("pm-visible-count");
+        var cards = grid.querySelectorAll(".pm-market-card");
+
+        function filterAndSort() {
+            var query = (searchInput ? searchInput.value : "").toLowerCase();
+            var activeCategory = "all";
+            var activeBtn = document.querySelector(".pm-cat-btn.active");
+            if (activeBtn) activeCategory = activeBtn.getAttribute("data-category");
+
+            var visible = 0;
+            cards.forEach(function (card) {
+                var cat = card.getAttribute("data-category") || "";
+                var question = card.getAttribute("data-question") || "";
+                var matchCategory = activeCategory === "all" || cat === activeCategory;
+                var matchSearch = !query || question.indexOf(query) !== -1;
+                if (matchCategory && matchSearch) {
+                    card.classList.remove("pm-hidden");
+                    visible++;
+                } else {
+                    card.classList.add("pm-hidden");
+                }
+            });
+            if (countEl) countEl.textContent = visible;
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener("input", filterAndSort);
+        }
+
+        // Category tab clicks
+        document.querySelectorAll(".pm-cat-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                document.querySelectorAll(".pm-cat-btn").forEach(function (b) {
+                    b.classList.remove("active");
+                });
+                btn.classList.add("active");
+                filterAndSort();
+            });
+        });
+
+        // Sort
+        if (sortSelect) {
+            sortSelect.addEventListener("change", function () {
+                var sortBy = sortSelect.value;
+                var arr = Array.from(cards);
+                arr.sort(function (a, b) {
+                    if (sortBy === "volume") {
+                        return (parseFloat(b.getAttribute("data-volume")) || 0) -
+                               (parseFloat(a.getAttribute("data-volume")) || 0);
+                    } else if (sortBy === "name") {
+                        return (a.getAttribute("data-question") || "").localeCompare(
+                               b.getAttribute("data-question") || "");
+                    }
+                    return 0;
+                });
+                arr.forEach(function (card) { grid.appendChild(card); });
+                filterAndSort();
+            });
+        }
+    }
+    _initPolymarketFilters();
+
+    // Re-init after htmx swap
+    document.body.addEventListener("htmx:afterSwap", function (e) {
+        if (e.detail.target && e.detail.target.id === "polymarket-container") {
+            _initPolymarketFilters();
+        }
+    });
+
     // ── CSP-safe event delegation (replaces inline onclick handlers) ───
     document.addEventListener("click", function (e) {
         // data-action="reload" → location.reload()
