@@ -27,9 +27,7 @@ def _should_use_secure_cookie(request: Request) -> bool:
         return True
     if request.headers.get("X-Forwarded-Proto") == "https":
         return True
-    # Network access mode typically requires HTTPS for security
-    if config.network_access:
-        return True
+    # Only set Secure flag when actually using HTTPS
     return False
 
 

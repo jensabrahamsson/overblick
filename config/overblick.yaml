@@ -31,5 +31,5 @@ llm:
 local_plugins:
   stal: []
 dashboard:
-  network_access: false
-  password_hash: ""
+  network_access: true
+  password_hash: "$2b$12$MQhd/8iqlfwwIpykU4b7BuOaJLrmOW2.l8Awvw15dDiYXqCUN2m4S"
