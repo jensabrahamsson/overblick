@@ -99,6 +99,58 @@
     </div>
 </div>
 
+<!-- Monitored Markets Table -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h2>Monitored Markets</h2>
+        <span class="badge badge-info">{{ markets|length }}</span>
+    </div>
+    <div class="table-container" style="max-height: 500px; overflow-y: auto;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Market</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>24h Volume</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for market in markets %}
+                <tr>
+                    <td style="max-width: 300px;">
+                        <strong>{{ market.market_question|default(market.question|default("Unknown"))|truncate(80) }}</strong>
+                    </td>
+                    <td><span class="badge badge-secondary">{{ market.category|default("other") }}</span></td>
+                    <td>
+                        {% if market.outcomes %}
+                            {% for o in market.outcomes %}
+                                <span class="mono" style="font-size: 0.85rem;">{{ o.ticker }}: ${{ "%.2f"|format(o.price) }}</span>
+                                {% if not loop.last %}<br>{% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="mono">{{ "%.0f"|format((market.implied_probability|default(0.5)) * 100) }}%</span>
+                        {% endif %}
+                    </td>
+                    <td class="mono">${{ "{:,.0f}".format(market.volume_24h|default(0)) }}</td>
+                    <td>
+                        {% if market.status|upper == "OPEN" %}
+                            <span class="badge badge-success">OPEN</span>
+                        {% else %}
+                            <span class="badge badge-secondary">{{ market.status|upper }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not markets %}
+                <tr><td colspan="5" class="text-muted" style="text-align: center; padding: 30px;">No markets loaded yet. Waiting for first scan...</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <div class="trading-dashboard">
     <!-- Left Column -->
     <div class="trading-column">
