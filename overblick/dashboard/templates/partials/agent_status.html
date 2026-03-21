@@ -1,7 +1,7 @@
 {% if agent_rows %}
 <div class="agent-grid">
     {% for agent in agent_rows %}
-    <div class="agent-card agent-card-link" onclick="window.location='/agent/{{ agent.identity_ref }}'" role="link" tabindex="0" aria-label="{{ agent.agent_name }}">
+    <a href="/agent/{{ agent.identity_ref }}" class="agent-card agent-card-link" aria-label="{{ agent.agent_name }}" style="text-decoration: none; color: inherit; display: block;">
         <div class="agent-card-header">
             <span class="status-dot status-{{ agent.state }}" aria-hidden="true"></span>
             <a href="/agent/{{ agent.identity_ref }}" class="agent-card-name">{{ agent.agent_name }}</a>
@@ -38,7 +38,7 @@
         </div>
         {% endif %}
         {% if supervisor_running is defined and supervisor_running %}
-        <div class="agent-card-actions" onclick="event.stopPropagation()">
+        <div class="agent-card-actions" data-stop-propagation="true">
             {% if agent.can_start %}
             <button class="btn btn-agent-start btn-sm"
                     hx-post="/agent/{{ agent.identity_ref }}/{{ agent.plugin }}/start"
@@ -56,7 +56,7 @@
             {% endif %}
         </div>
         {% endif %}
-    </div>
+    </a>
     {% endfor %}
 </div>
 {% elif supervisor_running is defined and not supervisor_running %}

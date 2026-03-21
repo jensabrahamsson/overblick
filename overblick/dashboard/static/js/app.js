@@ -116,4 +116,35 @@
             evt.preventDefault();
         }
     });
+
+    // ── CSP-safe event delegation (replaces inline onclick handlers) ───
+    document.addEventListener("click", function (e) {
+        // data-action="reload" → location.reload()
+        var reloadBtn = e.target.closest("[data-action='reload']");
+        if (reloadBtn) { location.reload(); return; }
+
+        // data-drift-view="timeline|table" → toggle drift view
+        var driftBtn = e.target.closest("[data-drift-view]");
+        if (driftBtn) {
+            var view = driftBtn.getAttribute("data-drift-view");
+            var timeline = document.getElementById("drift-timeline");
+            var table = document.getElementById("drift-table");
+            if (timeline && table) {
+                timeline.hidden = view !== "timeline";
+                table.hidden = view !== "table";
+            }
+            // Update aria-pressed on siblings
+            var group = driftBtn.parentElement;
+            if (group) {
+                group.querySelectorAll("[data-drift-view]").forEach(function (btn) {
+                    btn.setAttribute("aria-pressed", btn === driftBtn ? "true" : "false");
+                });
+            }
+            return;
+        }
+
+        // data-stop-propagation → prevent click from reaching parent <a>
+        var stopEl = e.target.closest("[data-stop-propagation]");
+        if (stopEl) { e.preventDefault(); e.stopPropagation(); }
+    });
 })();

@@ -106,6 +106,14 @@ class OutputSafety:
             "I'm not sure that's quite right. Moving on...",
         ]
 
+    @staticmethod
+    def _normalize_for_matching(text: str) -> str:
+        """Normalize text to defeat homoglyph/unicode bypasses."""
+        import unicodedata
+
+        # NFKC normalization converts lookalike chars to ASCII equivalents
+        return unicodedata.normalize("NFKC", text)
+
     def sanitize(self, text: str) -> OutputSafetyResult:
         """Apply output safety filtering to LLM output."""
         if not text:
@@ -114,9 +122,12 @@ class OutputSafety:
         filtered = text
         replaced = False
 
-        # Layer 1: AI language
+        # Normalize for pattern matching (defeats homoglyph bypasses)
+        normalized = self._normalize_for_matching(filtered)
+
+        # Layer 1: AI language (match against normalized text to defeat homoglyphs)
         for pattern in self._ai_compiled:
-            if pattern.search(filtered):
+            if pattern.search(normalized):
                 logger.warning(f"OUTPUT SAFETY: AI language detected: {pattern.pattern}")
                 return OutputSafetyResult(
                     text=random.choice(self._deflections),
@@ -126,7 +137,7 @@ class OutputSafety:
 
         # Layer 2: Persona break
         for pattern in self._persona_compiled:
-            if pattern.search(filtered):
+            if pattern.search(normalized):
                 logger.warning("OUTPUT SAFETY: Persona break detected")
                 return OutputSafetyResult(
                     text=f"Right, I'm not sure where that came from. I'm {self._identity_name}, same as always.",

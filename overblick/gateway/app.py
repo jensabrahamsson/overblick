@@ -263,7 +263,9 @@ async def chat_completion(
     priority: str = Query(default="low", description="Priority: high or low"),
     backend: str | None = Query(default=None, description="Backend to route to"),
     complexity: str | None = Query(
-        default=None, description="Complexity: ultra, high, or low (for backend routing)"
+        default=None,
+        description="Complexity: einstein, ultra, high, or low (for backend routing)",
+        pattern="^(einstein|ultra|high|low)$",
     ),
 ) -> ChatResponse:
     """
