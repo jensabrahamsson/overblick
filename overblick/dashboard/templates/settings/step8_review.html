@@ -42,7 +42,6 @@
         {% set local = llm.get('local', {}) %}
         {% set remote_cfg = llm.get('remote', {}) %}
         {% set deepseek = llm.get('deepseek', {}) %}
-        {% set dashscope = llm.get('dashscope', {}) %}
         <div class="review-section">
             <div class="review-section-title">
                 AI Engine
@@ -63,15 +62,11 @@
                     <span class="badge badge-green review-badge-ml">Remote</span>
                     <span class="mono review-model-name">{{ remote_cfg.get('model', 'qwen3.5:9b') }}</span>
                     {% endif %}
-                    {% if dashscope.get('enabled') %}
-                    <span class="badge badge-green review-badge-ml">DashScope</span>
-                    <span class="mono review-model-name">{{ dashscope.get('model', 'qwen-plus') }}</span>
-                    {% endif %}
                     {% if deepseek.get('enabled') %}
                     <span class="badge badge-green review-badge-ml">Deepseek</span>
                     <span class="mono review-model-name">{{ deepseek.get('model', 'deepseek-chat') }}</span>
                     {% endif %}
-                    {% if not local.get('enabled') and not remote_cfg.get('enabled') and not dashscope.get('enabled') and not deepseek.get('enabled') %}
+                    {% if not local.get('enabled') and not remote_cfg.get('enabled') and not deepseek.get('enabled') %}
                     <span class="badge badge-amber">None enabled</span>
                     {% endif %}
                 </span>

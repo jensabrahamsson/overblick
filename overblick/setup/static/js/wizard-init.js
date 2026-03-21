@@ -117,7 +117,6 @@ function initLLMBackends() {
     var backends = [
         { name: 'local_enabled', target: 'local-config', key: 'local', label: 'Local' },
         { name: 'remote_enabled', target: 'remote-config', key: 'remote', label: 'Remote' },
-        { name: 'dashscope_enabled', target: 'dashscope-config', key: 'dashscope', label: 'DashScope' },
         { name: 'deepseek_enabled', target: 'deepseek-config', key: 'deepseek', label: 'Deepseek' },
     ];
     backends.forEach(function(b) {
@@ -156,7 +155,6 @@ function initLLMBackends() {
 var _BACKEND_LABELS = {
     local: 'Local',
     remote: 'Remote',
-    dashscope: 'DashScope',
     deepseek: 'Deepseek',
 };
 
@@ -165,7 +163,6 @@ function _getEnabledBackends() {
     var checks = [
         { name: 'local_enabled', key: 'local' },
         { name: 'remote_enabled', key: 'remote' },
-        { name: 'dashscope_enabled', key: 'dashscope' },
         { name: 'deepseek_enabled', key: 'deepseek' },
     ];
     checks.forEach(function(c) {

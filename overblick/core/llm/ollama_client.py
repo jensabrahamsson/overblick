@@ -77,6 +77,7 @@ class OllamaClient(LLMClient):
         top_p: float | None = None,
         priority: str = "low",
         complexity: str | None = None,
+        think: bool | None = None,
     ) -> dict | None:
         """Send a chat completion request to Ollama. Priority and complexity are ignored (no queue)."""
         await self._ensure_session()
@@ -94,6 +95,8 @@ class OllamaClient(LLMClient):
             "top_p": nucleus,
             "stream": False,
         }
+        if think is not None:
+            payload["think"] = think
 
         start_time = time.monotonic()
         logger.debug(f"LLM: Sending request to {self.model}")

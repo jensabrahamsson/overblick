@@ -227,6 +227,7 @@ class SafeLLMPipeline:
         audit_details: dict[str, Any] | None = None,
         priority: str = "low",
         complexity: str | None = None,
+        think: bool | None = None,
     ) -> PipelineResult:
         """
         Send a chat request through the full security pipeline.
@@ -245,6 +246,7 @@ class SafeLLMPipeline:
             audit_details: Extra audit details
             priority: Request priority ("high" or "low")
             complexity: Request complexity ("high" or "low")
+            think: Enable/disable Qwen3 reasoning. None=default, False=fast mode.
 
         Returns:
             PipelineResult with safe content or block information
@@ -262,6 +264,7 @@ class SafeLLMPipeline:
             audit_details=audit_details,
             priority=priority,
             complexity=complexity,
+            think=think,
         )
 
     async def _chat_with_overrides(
@@ -278,6 +281,7 @@ class SafeLLMPipeline:
         audit_details: dict[str, Any] | None = None,
         priority: str = "low",
         complexity: str | None = None,
+        think: bool | None = None,
     ) -> PipelineResult:
         """
         Internal chat implementation with security overrides.
@@ -358,6 +362,7 @@ class SafeLLMPipeline:
                 top_p=top_p,
                 priority=priority,
                 complexity=complexity,
+                think=think,
             )
 
             # Record success on circuit breaker
@@ -395,6 +400,33 @@ class SafeLLMPipeline:
         from overblick.core.llm.client import LLMClient
 
         content = LLMClient.strip_think_tokens(content)
+
+        # Detect thinking token starvation: model used all tokens on <think>
+        # but produced little/no actual content (finish_reason=length)
+        finish_reason = raw_response.get("finish_reason")
+        if finish_reason == "length" and len(content.strip()) < 50:
+            retry_max = min((max_tokens or 4000) * 2, 8192)
+            logger.warning(
+                "Thinking token starvation (finish_reason=length, %d chars). "
+                "Retrying with max_tokens=%d, think=False",
+                len(content),
+                retry_max,
+            )
+            retry_response = await self._llm.chat(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=retry_max,
+                top_p=top_p,
+                priority=priority,
+                complexity=complexity,
+                think=False,
+            )
+            if retry_response:
+                content = retry_response.get("content", "")
+                content = LLMClient.strip_think_tokens(content)
+                reasoning_content = retry_response.get("reasoning_content")
+                raw_response = retry_response
+
         stage_timings["llm_call"] = (time.monotonic() - t0) * 1000
         stages.append(PipelineStage.LLM_CALL)
 

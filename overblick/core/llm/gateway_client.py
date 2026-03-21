@@ -80,6 +80,7 @@ class GatewayClient(LLMClient):
         top_p: float | None = None,
         priority: str = "",
         complexity: str | None = None,
+        think: bool | None = None,
     ) -> dict | None:
         """Send chat completion through the gateway with per-request priority."""
         await self._ensure_session()
@@ -96,6 +97,8 @@ class GatewayClient(LLMClient):
             "max_tokens": max_tokens if max_tokens is not None else self.max_tokens,
             "top_p": top_p if top_p is not None else self.top_p,
         }
+        if think is not None:
+            payload["think"] = think
 
         start_time = time.monotonic()
 

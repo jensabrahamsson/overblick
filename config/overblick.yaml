@@ -7,7 +7,7 @@ principal:
 llm:
   gateway_url: http://127.0.0.1:8200
   default_backend: remote
-  backend_preference: [remote, dashscope, local, deepseek]
+  backend_preference: [remote, local, deepseek]
   temperature: 0.7
   max_tokens: 2000
   backends:
@@ -16,7 +16,7 @@ llm:
       type: ollama
       host: '10.8.0.24'
       port: 1234
-      model: qwen3.5:9b
+      model: qwen/qwen3.5-35b-a3b
     local:
       enabled: true
       type: ollama

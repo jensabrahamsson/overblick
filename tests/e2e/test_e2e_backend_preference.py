@@ -6,8 +6,6 @@ Covers:
 - Up/down arrow reordering
 - Dynamic list updates when backends are toggled
 - Hidden input value correctness
-- Form submission with preference data
-- DashScope backend panel
 - Remote backend (renamed from cloud)
 - Review page shows preference order
 """
@@ -72,12 +70,6 @@ class TestStep3BackendPanels:
         assert page.locator("input[name='remote_enabled']").count() == 1
         assert page.locator("#remote-config").count() == 1
 
-    def test_dashscope_backend_panel_present(self, dashboard_server, page):
-        """DashScope backend panel should exist."""
-        _goto_step3(page, dashboard_server)
-        assert page.locator("input[name='dashscope_enabled']").count() == 1
-        assert page.locator("#dashscope-config").count() == 1
-
     def test_deepseek_backend_panel_present(self, dashboard_server, page):
         _goto_step3(page, dashboard_server)
         assert page.locator("input[name='deepseek_enabled']").count() == 1
@@ -93,13 +85,6 @@ class TestStep3BackendPanels:
         _goto_step3(page, dashboard_server)
         content = page.content()
         assert "Remote Inference" in content
-
-    def test_dashscope_panel_text(self, dashboard_server, page):
-        """DashScope panel should mention Alibaba Qwen."""
-        _goto_step3(page, dashboard_server)
-        content = page.content()
-        assert "DashScope" in content
-        assert "Alibaba" in content or "Qwen" in content
 
 
 class TestPreferenceList:
@@ -120,16 +105,14 @@ class TestPreferenceList:
         """With only local enabled, preference list has one item."""
         _goto_step3(page, dashboard_server)
 
-        # Ensure only local is checked
         local_cb = page.locator("input[name='local_enabled']")
         if not local_cb.is_checked():
             local_cb.check()
-        for name in ["remote_enabled", "dashscope_enabled", "deepseek_enabled"]:
+        for name in ["remote_enabled", "deepseek_enabled"]:
             cb = page.locator(f"input[name='{name}']")
             if cb.is_checked():
                 cb.uncheck()
 
-        # Wait for JS to update
         page.wait_for_timeout(200)
 
         items = page.locator("#preference-list .preference-item[data-backend]")
@@ -140,60 +123,55 @@ class TestPreferenceList:
         """Enabling remote should add it to the preference list."""
         _goto_step3(page, dashboard_server)
 
-        # Start with only local
         local_cb = page.locator("input[name='local_enabled']")
         if not local_cb.is_checked():
             local_cb.check()
-        for name in ["remote_enabled", "dashscope_enabled", "deepseek_enabled"]:
+        for name in ["remote_enabled", "deepseek_enabled"]:
             cb = page.locator(f"input[name='{name}']")
             if cb.is_checked():
                 cb.uncheck()
         page.wait_for_timeout(200)
 
-        # Enable remote
         page.locator("input[name='remote_enabled']").check()
         page.wait_for_timeout(200)
 
         items = page.locator("#preference-list .preference-item[data-backend]")
         assert items.count() == 2
 
-        # Remote should be in the list
         backends = [
             items.nth(i).get_attribute("data-backend") for i in range(items.count())
         ]
         assert "remote" in backends
         assert "local" in backends
 
-    def test_enabling_all_shows_four_items(self, dashboard_server, page):
-        """Enabling all 4 backends should show 4 preference items."""
+    def test_enabling_all_shows_three_items(self, dashboard_server, page):
+        """Enabling all 3 backends should show 3 preference items."""
         _goto_step3(page, dashboard_server)
 
-        for name in ["local_enabled", "remote_enabled", "dashscope_enabled", "deepseek_enabled"]:
+        for name in ["local_enabled", "remote_enabled", "deepseek_enabled"]:
             cb = page.locator(f"input[name='{name}']")
             if not cb.is_checked():
                 cb.check()
         page.wait_for_timeout(200)
 
         items = page.locator("#preference-list .preference-item[data-backend]")
-        assert items.count() == 4
+        assert items.count() == 3
 
     def test_disabling_backend_removes_from_list(self, dashboard_server, page):
         """Disabling a backend should remove it from the preference list."""
         _goto_step3(page, dashboard_server)
 
-        # Enable all
-        for name in ["local_enabled", "remote_enabled", "dashscope_enabled", "deepseek_enabled"]:
+        for name in ["local_enabled", "remote_enabled", "deepseek_enabled"]:
             cb = page.locator(f"input[name='{name}']")
             if not cb.is_checked():
                 cb.check()
         page.wait_for_timeout(200)
 
-        # Disable deepseek
         page.locator("input[name='deepseek_enabled']").uncheck()
         page.wait_for_timeout(200)
 
         items = page.locator("#preference-list .preference-item[data-backend]")
-        assert items.count() == 3
+        assert items.count() == 2
         backends = [
             items.nth(i).get_attribute("data-backend") for i in range(items.count())
         ]
@@ -203,13 +181,11 @@ class TestPreferenceList:
         """Hidden input value should update when backends are toggled."""
         _goto_step3(page, dashboard_server)
 
-        # Enable local + remote only
         page.locator("input[name='local_enabled']").check()
         page.locator("input[name='remote_enabled']").check()
-        for name in ["dashscope_enabled", "deepseek_enabled"]:
-            cb = page.locator(f"input[name='{name}']")
-            if cb.is_checked():
-                cb.uncheck()
+        cb = page.locator("input[name='deepseek_enabled']")
+        if cb.is_checked():
+            cb.uncheck()
         page.wait_for_timeout(200)
 
         value = page.locator("input[name='backend_preference']").input_value()
@@ -226,23 +202,19 @@ class TestPreferenceReordering:
         """Clicking down arrow on first item should move it down."""
         _goto_step3(page, dashboard_server)
 
-        # Enable local + remote
         page.locator("input[name='local_enabled']").check()
         page.locator("input[name='remote_enabled']").check()
-        for name in ["dashscope_enabled", "deepseek_enabled"]:
-            cb = page.locator(f"input[name='{name}']")
-            if cb.is_checked():
-                cb.uncheck()
+        cb = page.locator("input[name='deepseek_enabled']")
+        if cb.is_checked():
+            cb.uncheck()
         page.wait_for_timeout(200)
 
         items = page.locator("#preference-list .preference-item[data-backend]")
         first_backend = items.first.get_attribute("data-backend")
 
-        # Click down arrow on first item
         items.first.locator(".pref-down").click()
         page.wait_for_timeout(200)
 
-        # First item should now be second
         items = page.locator("#preference-list .preference-item[data-backend]")
         assert items.nth(1).get_attribute("data-backend") == first_backend
 
@@ -250,23 +222,19 @@ class TestPreferenceReordering:
         """Clicking up arrow on second item should move it up."""
         _goto_step3(page, dashboard_server)
 
-        # Enable local + remote
         page.locator("input[name='local_enabled']").check()
         page.locator("input[name='remote_enabled']").check()
-        for name in ["dashscope_enabled", "deepseek_enabled"]:
-            cb = page.locator(f"input[name='{name}']")
-            if cb.is_checked():
-                cb.uncheck()
+        cb = page.locator("input[name='deepseek_enabled']")
+        if cb.is_checked():
+            cb.uncheck()
         page.wait_for_timeout(200)
 
         items = page.locator("#preference-list .preference-item[data-backend]")
         second_backend = items.nth(1).get_attribute("data-backend")
 
-        # Click up arrow on second item
         items.nth(1).locator(".pref-up").click()
         page.wait_for_timeout(200)
 
-        # Second item should now be first
         items = page.locator("#preference-list .preference-item[data-backend]")
         assert items.first.get_attribute("data-backend") == second_backend
 
@@ -274,21 +242,17 @@ class TestPreferenceReordering:
         """Rank numbers (1, 2, ...) should update after reorder."""
         _goto_step3(page, dashboard_server)
 
-        # Enable local + remote
         page.locator("input[name='local_enabled']").check()
         page.locator("input[name='remote_enabled']").check()
-        for name in ["dashscope_enabled", "deepseek_enabled"]:
-            cb = page.locator(f"input[name='{name}']")
-            if cb.is_checked():
-                cb.uncheck()
+        cb = page.locator("input[name='deepseek_enabled']")
+        if cb.is_checked():
+            cb.uncheck()
         page.wait_for_timeout(200)
 
-        # Click down on first
         items = page.locator("#preference-list .preference-item[data-backend]")
         items.first.locator(".pref-down").click()
         page.wait_for_timeout(200)
 
-        # Check ranks
         items = page.locator("#preference-list .preference-item[data-backend]")
         rank1 = items.nth(0).locator(".preference-rank").text_content()
         rank2 = items.nth(1).locator(".preference-rank").text_content()
@@ -299,18 +263,12 @@ class TestPreferenceReordering:
         """Hidden input should reflect the new order after reordering."""
         _goto_step3(page, dashboard_server)
 
-        # Enable local + remote + dashscope
-        for name in ["local_enabled", "remote_enabled", "dashscope_enabled"]:
+        for name in ["local_enabled", "remote_enabled", "deepseek_enabled"]:
             page.locator(f"input[name='{name}']").check()
-        cb = page.locator("input[name='deepseek_enabled']")
-        if cb.is_checked():
-            cb.uncheck()
         page.wait_for_timeout(200)
 
-        # Get initial order
         value_before = page.locator("input[name='backend_preference']").input_value()
 
-        # Move first item to second
         items = page.locator("#preference-list .preference-item[data-backend]")
         items.first.locator(".pref-down").click()
         page.wait_for_timeout(200)
@@ -341,8 +299,8 @@ class TestPreferenceReordering:
         assert items.last.locator(".pref-down").is_disabled()
 
 
-class TestStep3FormSubmission:
-    """Test that step 3 submits correctly with new fields."""
+class TestStep3FormElements:
+    """Test form elements for correctness."""
 
     def test_default_backend_dropdown_has_remote(self, dashboard_server, page):
         """Default backend dropdown should have 'remote' option."""
@@ -352,7 +310,6 @@ class TestStep3FormSubmission:
         options = select.locator("option")
         values = [options.nth(i).get_attribute("value") for i in range(options.count())]
         assert "remote" in values
-        assert "dashscope" in values
         assert "local" in values
         assert "deepseek" in values
 
@@ -364,6 +321,7 @@ class TestStep3FormSubmission:
         options = select.locator("option")
         values = [options.nth(i).get_attribute("value") for i in range(options.count())]
         assert "cloud" not in values
+        assert "dashscope" not in values
 
 
 class TestBackendToggleUI:
@@ -389,28 +347,6 @@ class TestBackendToggleUI:
         page.wait_for_timeout(100)
 
         config = page.locator("#remote-config")
-        assert config.is_visible()
-
-    def test_dashscope_config_hidden_when_unchecked(self, dashboard_server, page):
-        _goto_step3(page, dashboard_server)
-
-        cb = page.locator("input[name='dashscope_enabled']")
-        if cb.is_checked():
-            cb.uncheck()
-        page.wait_for_timeout(100)
-
-        config = page.locator("#dashscope-config")
-        assert config.is_hidden()
-
-    def test_dashscope_config_shown_when_checked(self, dashboard_server, page):
-        _goto_step3(page, dashboard_server)
-
-        cb = page.locator("input[name='dashscope_enabled']")
-        if not cb.is_checked():
-            cb.check()
-        page.wait_for_timeout(100)
-
-        config = page.locator("#dashscope-config")
         assert config.is_visible()
 
 
