@@ -13,12 +13,12 @@
 
     <!-- Gmail Section -->
     <div class="toggle-section">
-        <div class="toggle-header" onclick="toggleSection('gmail')">
+        <div class="toggle-header" data-toggle-section="gmail">
             <span class="toggle-header-title">Gmail Integration</span>
-            <label class="toggle-switch" onclick="event.stopPropagation()">
+            <label class="toggle-switch" data-stop-propagation="true">
                 <input type="checkbox" name="gmail_enabled" id="gmail-toggle"
                        {{ 'checked' if comm.get('gmail_enabled') }}
-                       onchange="toggleSection('gmail', this.checked)">
+                       data-toggle-checkbox="gmail">
                 <span class="toggle-slider"></span>
             </label>
         </div>
@@ -30,14 +30,13 @@
             </div>
             <div class="form-group">
                 <label class="form-label" for="gmail_app_password">App Password</label>
-                <span class="form-hint" id="gmail_app_hint">
+                <span class="form-hint" id="gmail_pw_hint">
                     Generate at
-                    <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Google App Passwords</a>
-                    (requires 2FA enabled)
+                    <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Google Account &rarr; App Passwords</a>
                 </span>
                 <input type="password" class="form-input" id="gmail_app_password" name="gmail_app_password"
                        value="{{ comm.get('gmail_app_password', '') }}" placeholder="xxxx xxxx xxxx xxxx"
-                       aria-describedby="gmail_app_hint">
+                       aria-describedby="gmail_pw_hint">
             </div>
             <div class="form-group">
                 <button type="button" class="btn btn-secondary btn-test"
@@ -53,12 +52,12 @@
 
     <!-- Telegram Section -->
     <div class="toggle-section">
-        <div class="toggle-header" onclick="toggleSection('telegram')">
+        <div class="toggle-header" data-toggle-section="telegram">
             <span class="toggle-header-title">Telegram Notifications</span>
-            <label class="toggle-switch" onclick="event.stopPropagation()">
+            <label class="toggle-switch" data-stop-propagation="true">
                 <input type="checkbox" name="telegram_enabled" id="telegram-toggle"
                        {{ 'checked' if comm.get('telegram_enabled') }}
-                       onchange="toggleSection('telegram', this.checked)">
+                       data-toggle-checkbox="telegram">
                 <span class="toggle-slider"></span>
             </label>
         </div>
@@ -100,22 +99,4 @@
         <button type="submit" class="btn btn-primary">Next: Characters</button>
     </div>
 </form>
-
-<script>
-function toggleSection(name, forceState) {
-    var body = document.getElementById(name + '-body');
-    var toggle = document.getElementById(name + '-toggle');
-    if (!body) return;
-
-    var shouldOpen = forceState !== undefined ? forceState : !body.classList.contains('open');
-
-    if (shouldOpen) {
-        body.classList.add('open');
-        if (toggle) toggle.checked = true;
-    } else {
-        body.classList.remove('open');
-        if (toggle) toggle.checked = false;
-    }
-}
-</script>
 {% endblock %}

@@ -317,6 +317,5 @@ class TestFormStatePersistence:
                     return null;
                 }
             """)
-            # Session storage may or may not be implemented — this is a soft check
-            # The important thing is no JS errors
-            assert True  # No JS crash = pass
+            # Verify no JS crash occurred — page still functional
+            assert "500" not in page.title()

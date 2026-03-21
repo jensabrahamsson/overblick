@@ -455,6 +455,21 @@ function wizardInit() {
         toggleNetwork(networkToggle.checked);
     }
 
+    // Step 4: Toggle section headers (CSP-safe delegation)
+    document.querySelectorAll('[data-toggle-section]').forEach(function(el) {
+        _bindOnce(el, 'click', function() {
+            toggleSection(el.getAttribute('data-toggle-section'));
+        });
+    });
+    document.querySelectorAll('[data-toggle-checkbox]').forEach(function(el) {
+        _bindOnce(el, 'change', function() {
+            toggleSection(el.getAttribute('data-toggle-checkbox'), el.checked);
+        });
+    });
+    document.querySelectorAll('[data-stop-propagation]').forEach(function(el) {
+        _bindOnce(el, 'click', function(e) { e.stopPropagation(); });
+    });
+
     // Step 6: Use case counter
     if (document.getElementById('selection-count')) initUseCaseCounter();
 

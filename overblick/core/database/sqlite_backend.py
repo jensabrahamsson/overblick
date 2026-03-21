@@ -61,16 +61,18 @@ class SQLiteBackend(DatabaseBackend):
         return "?"
 
     async def connect(self) -> None:
-        """Open SQLite connection with WAL mode."""
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
+        """Open SQLite connection with WAL mode (non-blocking)."""
+        import asyncio
 
-        # Enable WAL mode for better concurrency
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        # Enable foreign keys
-        self._conn.execute("PRAGMA foreign_keys=ON")
+        def _connect_sync() -> sqlite3.Connection:
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA foreign_keys=ON")
+            return conn
 
+        self._conn = await asyncio.to_thread(_connect_sync)
         self._connected = True
         logger.info("SQLite connected: %s", self._db_path)
 

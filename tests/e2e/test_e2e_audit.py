@@ -80,9 +80,8 @@ class TestAuditPage:
                 "search",
             ]
         )
-        # Audit page may or may not have filters
-        # This is a soft check
-        assert True  # Page loaded successfully
+        # Verify audit page loaded with table structure
+        assert "audit" in page.content().lower()
 
 
 class TestAuditScreenshots:
