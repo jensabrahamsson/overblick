@@ -36,9 +36,10 @@
                     {{ "%.2f"|format(pos.unrealized_pnl|default(0)|float) }}
                 </span>
                 {% endif %}
+                {% if pos.category|default("") %}<span class="pm-meta-cat">{{ pos.category|capitalize }}</span>{% endif %}
             </div>
             {% if pos.reasoning %}
-            <div class="pm-signal-reasoning">{{ pos.reasoning }}</div>
+            <div class="pm-signal-reasoning">{{ pos.reasoning|truncate(200) }}</div>
             {% endif %}
         </div>
         {% endfor %}

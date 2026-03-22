@@ -151,6 +151,8 @@
                 var question = card.getAttribute("data-question") || "";
                 var matchCategory = activeCategory === "all" || cat === activeCategory;
                 var matchSearch = !query || question.indexOf(query) !== -1;
+                // Reset inline display (pagination might have set display:none)
+                card.style.display = "";
                 if (matchCategory && matchSearch) {
                     card.classList.remove("pm-hidden");
                     visible++;
