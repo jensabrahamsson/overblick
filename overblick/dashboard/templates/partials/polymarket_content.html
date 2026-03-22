@@ -22,14 +22,19 @@
             <span class="badge badge-info">{{ opportunities|length }}</span>
         </div>
         {% for opp in opportunities %}
-        <div class="pm-signal-inline">
-            <span class="pm-signal-q-inline" {% if opp.reasoning %}title="{{ opp.reasoning }}"{% endif %}>{{ opp.market_question|default("Unknown market") }}</span>
-            <span class="pm-signal-meta">
-                <span class="badge {% if opp.probability_edge|default(0)|float >= 0.05 %}badge-success{% elif opp.probability_edge|default(0)|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format((opp.probability_edge|default(0)) * 100) }}%</span>
-                <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}%</span>
-                {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
-                {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
-            </span>
+        <div class="pm-signal-block">
+            <div class="pm-signal-inline">
+                <span class="pm-signal-q-inline">{{ opp.market_question|default("Unknown market") }}</span>
+                <span class="pm-signal-meta">
+                    <span class="badge {% if opp.probability_edge|default(0)|float >= 0.05 %}badge-success{% elif opp.probability_edge|default(0)|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format((opp.probability_edge|default(0)) * 100) }}%</span>
+                    <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}%</span>
+                    {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
+                    {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
+                </span>
+            </div>
+            {% if opp.reasoning %}
+            <div class="pm-signal-reasoning">{{ opp.reasoning }}</div>
+            {% endif %}
         </div>
         {% endfor %}
         {% if not opportunities %}
@@ -44,16 +49,18 @@
         </div>
         {% for pos in positions %}
         <div class="pm-position">
-            <div class="pm-pos-q">
-                {% if pos.market_slug %}
-                <a href="https://polymarket.com/event/{{ pos.market_slug }}" target="_blank" rel="noopener" class="pm-link">{{ pos.market_question|default(pos.market_id) }}</a>
-                {% else %}
-                {{ pos.market_question|default(pos.market_id) }}
-                {% endif %}
+            <div class="pm-pos-header">
+                <div class="pm-pos-q">{{ pos.market_question|default(pos.market_id) }}</div>
+                <button class="pm-chart-btn" data-market-id="{{ pos.market_id }}" data-market-question="{{ pos.market_question|default(pos.market_id) }}" title="View price chart">📈</button>
             </div>
             <div class="pm-pos-row">
                 {% if pos.outcome == "YES" %}<span class="badge badge-success">YES</span>{% else %}<span class="badge badge-danger">NO</span>{% endif %}
                 <span class="mono">${{ "%.2f"|format(pos.invested_amount|default(pos.current_value|default(0))|float) }}</span>
+                {% if pos.unrealized_pnl is defined %}
+                <span class="{% if pos.unrealized_pnl|default(0)|float > 0 %}positive{% elif pos.unrealized_pnl|default(0)|float < 0 %}negative{% endif %} mono">
+                    {{ "%.2f"|format(pos.unrealized_pnl|default(0)|float) }}
+                </span>
+                {% endif %}
             </div>
         </div>
         {% endfor %}

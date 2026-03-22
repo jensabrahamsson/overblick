@@ -203,7 +203,20 @@
 }
 .pm-panel-empty { text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.82rem; }
 
-/* Signal cards — single row layout */
+/* Signal cards */
+.pm-signal-block {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+.pm-signal-block:last-child { border-bottom: none; }
+.pm-signal-reasoning {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    padding-left: 2px;
+    line-height: 1.4;
+    font-style: italic;
+}
 .pm-signal-inline {
     display: flex;
     align-items: center;
@@ -220,7 +233,10 @@
 /* Positions */
 .pm-position { padding: 8px 0; border-bottom: 1px solid var(--border); }
 .pm-position:last-child { border-bottom: none; }
-.pm-pos-q { font-size: 0.82rem; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pm-pos-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.pm-pos-q { font-size: 0.82rem; font-weight: 500; color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-chart-btn { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 0.75rem; transition: border-color 0.15s; flex-shrink: 0; }
+.pm-chart-btn:hover { border-color: var(--accent); }
 .pm-pos-row { display: flex; align-items: center; gap: 8px; }
 
 /* Activity feed */

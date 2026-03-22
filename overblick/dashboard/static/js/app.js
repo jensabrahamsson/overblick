@@ -212,15 +212,22 @@
         }
     });
 
-    // ── Polymarket: Click market row to open chart ─────────────────────
+    // ── Polymarket: Click market row or chart button to open chart ─────
     document.addEventListener("click", function (e) {
+        // Chart button on positions
+        var chartBtn = e.target.closest(".pm-chart-btn[data-market-id]");
+        if (chartBtn) {
+            var mid = chartBtn.getAttribute("data-market-id");
+            var mq = chartBtn.getAttribute("data-market-question");
+            if (mid && window.openMarketChart) window.openMarketChart(mid, mq);
+            return;
+        }
+        // Click market row
         var row = e.target.closest(".pm-row[data-market-id]");
         if (row && !e.target.closest("a")) {
             var marketId = row.getAttribute("data-market-id");
             var question = row.getAttribute("data-market-question");
-            if (marketId && window.openMarketChart) {
-                window.openMarketChart(marketId, question);
-            }
+            if (marketId && window.openMarketChart) window.openMarketChart(marketId, question);
         }
     });
 
