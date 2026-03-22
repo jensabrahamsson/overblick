@@ -321,13 +321,15 @@ def _load_polymarket_data(request: Request) -> dict:
                         if opp.get("confidence_score", 0) >= 70:
                             stats["high_confidence_opportunities"] += 1
                         
-                        # Add to activity feed
-                        activity_feed.append({
-                            "time": opp.get("detected_at", ""),
-                            "identity": identity_name,
-                            "type": "opportunity",
-                            "msg": f"SIGNAL: {opp.get('recommended_outcome')} ({opp.get('probability_edge', 0)*100:.1f}% edge) for '{opp.get('market_question', '')[:40]}...'"
-                        })
+                        # Add to activity feed (skip dummy 1% edge signals from quick-screen)
+                        edge_pct = opp.get("probability_edge", 0) * 100
+                        if edge_pct > 1.5:
+                            activity_feed.append({
+                                "time": opp.get("detected_at", ""),
+                                "identity": identity_name,
+                                "type": "opportunity",
+                                "msg": f"SIGNAL: {opp.get('recommended_outcome')} ({edge_pct:.1f}% edge, {opp.get('confidence_score', 0):.0f}% conf) — {opp.get('market_question', '')}",
+                            })
 
                 if "alerts" in monitor_state:
                     for alert in monitor_state["alerts"]:
@@ -338,7 +340,7 @@ def _load_polymarket_data(request: Request) -> dict:
                             "time": alert.get("triggered_at", ""),
                             "identity": identity_name,
                             "type": "alert",
-                            "msg": f"ALERT: {alert.get('condition', {}).get('name', 'Triggered')} - {alert.get('message', '')[:60]}"
+                            "msg": f"ALERT: {alert.get('message', alert.get('condition', {}).get('name', 'Triggered'))}",
                         })
 
             except Exception as e:
