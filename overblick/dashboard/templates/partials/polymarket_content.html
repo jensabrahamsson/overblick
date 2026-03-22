@@ -25,7 +25,7 @@
         {% for pos in positions %}
         <div class="pm-position">
             <div class="pm-pos-header">
-                <div class="pm-pos-q"><a href="https://polymarket.com/markets?_q={{ pos.market_question|default(pos.market_id)|urlencode }}" target="_blank" rel="noopener" class="pm-link">{{ pos.market_question|default(pos.market_id) }}</a></div>
+                <div class="pm-pos-q"><a href="https://polymarket.com/event/{{ pos.market_slug|default(pos.market_question|default(pos.market_id)|urlencode) }}" target="_blank" rel="noopener" class="pm-link">{{ pos.market_question|default(pos.market_id) }}</a></div>
                 <button class="pm-chart-btn" data-market-id="{{ pos.market_id }}" data-market-question="{{ pos.market_question|default(pos.market_id) }}" title="View price chart">📈</button>
             </div>
             <div class="pm-pos-row">
@@ -142,7 +142,7 @@
 
         <div class="pm-row-main">
             <div class="pm-row-question">
-                <a href="https://polymarket.com/markets?_q={{ q|urlencode }}" target="_blank" rel="noopener" class="pm-link">{{ q }}</a>
+                <a href="https://polymarket.com/event/{{ market.slug|default(q|urlencode) }}" target="_blank" rel="noopener" class="pm-link">{{ q }}</a>
             </div>
             <div class="pm-row-meta">
                 <span class="pm-meta-cat">{{ market.category|default("other")|capitalize }}</span>
