@@ -119,7 +119,11 @@
          data-category="{{ market.category|default('other') }}"
          data-volume="{{ market.volume_24h|default(0) }}"
          data-price="{{ yes_price }}"
-         data-question="{{ q|lower }}">
+         data-question="{{ q|lower }}"
+         data-market-id="{{ market.market_id|default(market.id|default('')) }}"
+         data-market-question="{{ q }}"
+         style="cursor: pointer;"
+         title="Click for price chart">
 
         <div class="pm-row-main">
             <div class="pm-row-question">

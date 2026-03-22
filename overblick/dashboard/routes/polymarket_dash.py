@@ -83,6 +83,77 @@ async def polymarket_content(request: Request):
     )
 
 
+@router.get("/api/polymarket/chart/{market_id}")
+async def market_chart_data(market_id: str, request: Request):
+    """API endpoint returning price history + trades for chart rendering."""
+    try:
+        import asyncpg
+
+        conn = await asyncpg.connect("postgresql://jens@localhost/postgres")
+
+        # Price history
+        prices = await conn.fetch(
+            """
+            SELECT yes_price, no_price, captured_at
+            FROM overblick.market_snapshots
+            WHERE market_id = $1
+            ORDER BY captured_at ASC
+            """,
+            market_id,
+        )
+
+        # Trades on this market
+        trades = await conn.fetch(
+            """
+            SELECT action, outcome, price, position_size_usd, executed_at
+            FROM overblick.trade_log
+            WHERE market_id = $1
+            ORDER BY executed_at ASC
+            """,
+            market_id,
+        )
+
+        # Market question
+        question = ""
+        if prices:
+            q_row = await conn.fetchrow(
+                "SELECT market_question FROM overblick.market_snapshots WHERE market_id = $1 LIMIT 1",
+                market_id,
+            )
+            if q_row:
+                question = q_row["market_question"] or ""
+
+        await conn.close()
+
+        return JSONResponse(
+            {
+                "market_id": market_id,
+                "question": question,
+                "prices": [
+                    {
+                        "time": int(r["captured_at"].timestamp()),
+                        "yes": float(r["yes_price"]),
+                        "no": float(r["no_price"]),
+                    }
+                    for r in prices
+                ],
+                "trades": [
+                    {
+                        "time": int(r["executed_at"].timestamp()),
+                        "action": r["action"],
+                        "outcome": r["outcome"],
+                        "price": float(r["price"]),
+                        "size": float(r["position_size_usd"]) if r["position_size_usd"] else 0,
+                    }
+                    for r in trades
+                ],
+            }
+        )
+    except Exception as e:
+        logger.error("Chart data error: %s", e)
+        return JSONResponse({"error": str(e), "prices": [], "trades": []})
+
+
 def _get_default_data() -> dict:
     """Return default empty data structure."""
     return {

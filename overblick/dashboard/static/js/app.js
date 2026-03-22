@@ -193,6 +193,18 @@
         }
     });
 
+    // ── Polymarket: Click market row to open chart ─────────────────────
+    document.addEventListener("click", function (e) {
+        var row = e.target.closest(".pm-row[data-market-id]");
+        if (row && !e.target.closest("a")) {
+            var marketId = row.getAttribute("data-market-id");
+            var question = row.getAttribute("data-market-question");
+            if (marketId && window.openMarketChart) {
+                window.openMarketChart(marketId, question);
+            }
+        }
+    });
+
     // ── CSP-safe event delegation (replaces inline onclick handlers) ───
     document.addEventListener("click", function (e) {
         // data-action="reload" → location.reload()

@@ -256,6 +256,71 @@
 #polymarket-container { transition: opacity 0.2s; }
 .htmx-request #polymarket-container { opacity: 0.5; }
 
+/* ═══ Chart Modal (TradingView-style) ═══ */
+.chart-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.chart-modal-backdrop {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+}
+.chart-modal-content {
+    position: relative;
+    width: 90vw;
+    max-width: 1200px;
+    height: 70vh;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.chart-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+.chart-modal-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.chart-modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.chart-modal-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.chart-container-modal {
+    flex: 1;
+    min-height: 300px;
+}
+.chart-info {
+    padding: 10px 20px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+
 @media (max-width: 768px) {
     .pm-stats-strip { flex-direction: column; gap: 8px; }
     .pm-toolbar { flex-direction: column; }
