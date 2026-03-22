@@ -203,15 +203,19 @@
 }
 .pm-panel-empty { text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.82rem; }
 
-/* Signal cards */
-.pm-signal {
+/* Signal cards — single row layout */
+.pm-signal-inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 8px 0;
     border-bottom: 1px solid var(--border);
+    gap: 12px;
 }
-.pm-signal:last-child { border-bottom: none; }
-.pm-signal-q { font-size: 0.82rem; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
-.pm-signal-row { display: flex; align-items: center; gap: 8px; }
-.pm-signal-conf { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); }
+.pm-signal-inline:last-child { border-bottom: none; }
+.pm-signal-q-inline { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); flex: 1; min-width: 0; }
+.pm-signal-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.pm-signal-conf { font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); }
 
 /* Positions */
 .pm-position { padding: 8px 0; border-bottom: 1px solid var(--border); }

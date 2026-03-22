@@ -22,14 +22,14 @@
             <span class="badge badge-info">{{ opportunities|length }}</span>
         </div>
         {% for opp in opportunities %}
-        <div class="pm-signal">
-            <div class="pm-signal-q">{{ opp.market_question|truncate(55) }}</div>
-            <div class="pm-signal-row">
+        <div class="pm-signal-inline">
+            <span class="pm-signal-q-inline">{{ opp.market_question }}</span>
+            <span class="pm-signal-meta">
                 <span class="badge {% if opp.probability_edge|float >= 0.05 %}badge-success{% elif opp.probability_edge|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format(opp.probability_edge * 100) }}%</span>
-                <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}% conf</span>
+                <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}%</span>
                 {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
                 {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
-            </div>
+            </span>
         </div>
         {% endfor %}
         {% if not opportunities %}
