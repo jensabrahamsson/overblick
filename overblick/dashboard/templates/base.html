@@ -58,7 +58,7 @@
             </div>
             {% endif %}
 
-            {% if not auth_enabled() %}
+            {% if not auth_enabled() and network_access_enabled() %}
             <div class="alert alert-warning" role="alert">
                 <strong>Access Warning:</strong> Dashboard authentication is disabled. Anyone on this network can access agent controls.
             </div>

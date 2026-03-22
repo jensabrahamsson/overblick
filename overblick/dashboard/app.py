@@ -185,6 +185,7 @@ def _create_templates() -> Jinja2Templates:
     env.globals["settings_enabled"] = lambda: True
     # Auth placeholder — overridden in lifespan once config is available
     env.globals["auth_enabled"] = lambda: False
+    env.globals["network_access_enabled"] = lambda: False
 
     # Security alerts
     from overblick.core.security.settings import safe_mode
@@ -267,6 +268,7 @@ async def lifespan(app: FastAPI):
     app.state.templates.env.globals["polymarket_enabled"] = _polymarket_has_data
     app.state.templates.env.globals["settings_enabled"] = lambda: True
     app.state.templates.env.globals["auth_enabled"] = lambda: config.auth_enabled
+    app.state.templates.env.globals["network_access_enabled"] = lambda: config.network_access
 
     # First-run detection: redirect to /settings/ if no config exists
     if config.test_mode:

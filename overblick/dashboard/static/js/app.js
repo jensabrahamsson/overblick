@@ -118,6 +118,10 @@
     });
 
     // ── Polymarket: Search, Filter, Sort ─────────────────────────────
+    // Persist search/filter state across htmx swaps
+    var _pmSearchQuery = "";
+    var _pmActiveCategory = "all";
+
     function _initPolymarketFilters() {
         var grid = document.getElementById("pm-market-grid");
         if (!grid) return;
@@ -125,6 +129,14 @@
         var searchInput = document.getElementById("pm-search");
         var sortSelect = document.getElementById("pm-sort");
         var countEl = document.getElementById("pm-visible-count");
+
+        // Restore persisted state
+        if (searchInput && _pmSearchQuery) searchInput.value = _pmSearchQuery;
+        if (_pmActiveCategory !== "all") {
+            document.querySelectorAll(".pm-tab").forEach(function(b) {
+                b.classList.toggle("active", b.getAttribute("data-category") === _pmActiveCategory);
+            });
+        }
         var cards = grid.querySelectorAll(".pm-row");
 
         function filterAndSort() {
@@ -150,7 +162,10 @@
         }
 
         if (searchInput) {
-            searchInput.addEventListener("input", filterAndSort);
+            searchInput.addEventListener("input", function() {
+                _pmSearchQuery = searchInput.value;
+                filterAndSort();
+            });
         }
 
         // Category tab clicks
@@ -160,6 +175,7 @@
                     b.classList.remove("active");
                 });
                 btn.classList.add("active");
+                _pmActiveCategory = btn.getAttribute("data-category");
                 filterAndSort();
             });
         });
@@ -183,6 +199,9 @@
                 filterAndSort();
             });
         }
+
+        // Apply persisted filter on init
+        filterAndSort();
     }
     _initPolymarketFilters();
 
