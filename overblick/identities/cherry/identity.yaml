@@ -32,7 +32,7 @@ interest_keywords:
 llm:
   model: qwen3.5:9b
   temperature: 0.8
-  max_tokens: 1500
+  max_tokens: 4000
   provider: ollama
 schedule:
   heartbeat_hours: 3

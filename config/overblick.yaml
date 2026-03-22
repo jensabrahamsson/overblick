@@ -9,7 +9,7 @@ llm:
   default_backend: remote
   backend_preference: [remote, local, deepseek]
   temperature: 0.7
-  max_tokens: 2000
+  max_tokens: 4000
   backends:
     remote:
       enabled: true
@@ -31,5 +31,5 @@ llm:
 local_plugins:
   stal: []
 dashboard:
-  network_access: true
-  password_hash: "$2b$12$MQhd/8iqlfwwIpykU4b7BuOaJLrmOW2.l8Awvw15dDiYXqCUN2m4S"
+  network_access: false
+  password_hash: ""

@@ -471,7 +471,11 @@ class SafeLLMPipeline:
             d = {**(audit_details or {})}
             d["duration_ms"] = duration
             d["content_length"] = len(content)
-            if hasattr(self._llm, "model"):
+            # Prefer actual model from LLM response over client default
+            response_model = raw_response.get("model") if raw_response else None
+            if response_model:
+                d["model"] = response_model
+            elif hasattr(self._llm, "model"):
                 d["model"] = self._llm.model
             self._audit.log(
                 action=audit_action,

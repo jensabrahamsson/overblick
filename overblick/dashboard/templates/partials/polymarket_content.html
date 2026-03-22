@@ -37,6 +37,9 @@
                 </span>
                 {% endif %}
             </div>
+            {% if pos.reasoning %}
+            <div class="pm-signal-reasoning">{{ pos.reasoning }}</div>
+            {% endif %}
         </div>
         {% endfor %}
         {% if not positions %}

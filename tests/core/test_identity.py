@@ -83,7 +83,7 @@ class TestLoadIdentity:
         assert identity.name == "anomal"
         assert identity.display_name == "Anomal"
         assert identity.llm.temperature == 0.7
-        assert identity.llm.max_tokens == 2000
+        assert identity.llm.max_tokens == 4000
         assert identity.quiet_hours.start_hour == 23
         assert "dream_system" in identity.enabled_modules
         assert len(identity.interest_keywords) > 0
