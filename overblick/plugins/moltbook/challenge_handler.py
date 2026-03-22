@@ -271,14 +271,16 @@ class PerContentChallengeHandler:
         answer = None
         solver = None
 
-        answer = await self._solve_with_llm(clean_question, complexity="ultra")
+        # Try local LLM first (fast, 5-10s) — challenges are simple math
+        answer = await self._solve_with_llm(clean_question, complexity="low")
         if answer:
-            solver = "cloud_llm"
+            solver = "local_llm"
 
         if not answer:
-            answer = await self._solve_with_llm(clean_question, complexity="low")
+            # Fallback to remote/cloud if local fails
+            answer = await self._solve_with_llm(clean_question, complexity="high")
             if answer:
-                solver = "local_llm"
+                solver = "cloud_llm"
 
         # Cross-validate LLM vs arithmetic for math challenges.
         # Arithmetic is deterministic but word-number parsing can be wrong with

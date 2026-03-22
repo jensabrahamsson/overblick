@@ -283,8 +283,8 @@ class TestChallengeSolving:
 class TestComplexityRouting:
     """Tests for complexity-based LLM routing via gateway."""
 
-    async def test_ultra_complexity_tried_first(self):
-        """Ultra complexity is tried before local LLM."""
+    async def test_local_complexity_tried_first(self):
+        """Local LLM (fast) is tried first for challenges."""
         llm = AsyncMock()
         llm.chat = AsyncMock(return_value=MagicMock(blocked=False, content="50"))
         session = _make_mock_session()
@@ -295,7 +295,6 @@ class TestComplexityRouting:
             base_url="https://api.test.com",
         )
 
-        # Use a non-arithmetic question so arithmetic fast-path doesn't trigger
         result = await handler.solve(
             {
                 "question": "What color is the sky?",
@@ -304,12 +303,12 @@ class TestComplexityRouting:
         )
 
         assert result is not None
-        # First call should be complexity="ultra"
+        # First call should be complexity="low" (local, fast for simple challenges)
         first_call = llm.chat.call_args_list[0]
-        assert first_call.kwargs["complexity"] == "ultra"
+        assert first_call.kwargs["complexity"] == "low"
 
-    async def test_fallback_to_local_on_ultra_failure(self):
-        """When ultra LLM fails, local LLM (complexity=low) is used as fallback."""
+    async def test_fallback_to_remote_on_local_failure(self):
+        """When local LLM fails, remote/cloud LLM (complexity=high) is used as fallback."""
         llm = AsyncMock()
         # First call (ultra) fails, second call (low) succeeds
         llm.chat = AsyncMock(
@@ -335,10 +334,10 @@ class TestComplexityRouting:
 
         assert result is not None
         assert llm.chat.call_count == 2
-        # First call: ultra
-        assert llm.chat.call_args_list[0].kwargs["complexity"] == "ultra"
-        # Second call: low
-        assert llm.chat.call_args_list[1].kwargs["complexity"] == "low"
+        # First call: local (fast, for simple math challenges)
+        assert llm.chat.call_args_list[0].kwargs["complexity"] == "low"
+        # Second call: remote/cloud fallback
+        assert llm.chat.call_args_list[1].kwargs["complexity"] == "high"
 
     async def test_arithmetic_fallback_when_llm_fails(self):
         """Arithmetic solver is used as fallback when all LLMs fail."""
@@ -562,7 +561,7 @@ class TestAuditEvents:
         assert len(response_calls) == 1
         details = response_calls[0].kwargs["details"]
         assert details["answer"] == "50"
-        assert details["solver"] == "cloud_llm"
+        assert details["solver"] == "local_llm"
         assert details["duration_ms"] > 0
 
     async def test_challenge_submitted_audit(self):
@@ -630,7 +629,7 @@ class TestDBRecording:
         call_kwargs = engagement_db.record_challenge.call_args.kwargs
         assert call_kwargs["challenge_id"] == "nonce_1"
         assert call_kwargs["answer"] == "50"
-        assert call_kwargs["solver"] == "cloud_llm"
+        assert call_kwargs["solver"] == "local_llm"
         assert call_kwargs["correct"] is True
         assert call_kwargs["duration_ms"] > 0
 
