@@ -39,7 +39,7 @@
                 {% if pos.category|default("") %}<span class="pm-meta-cat">{{ pos.category|capitalize }}</span>{% endif %}
             </div>
             {% if pos.reasoning %}
-            <div class="pm-signal-reasoning">{{ pos.reasoning|truncate(200) }}</div>
+            <div class="pm-signal-reasoning">{{ pos.reasoning }}</div>
             {% endif %}
         </div>
         {% endfor %}
