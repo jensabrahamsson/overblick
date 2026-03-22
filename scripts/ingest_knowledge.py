@@ -26,6 +26,14 @@ async def main():
     parser.add_argument("--user", default="neo4j", help="Neo4j user")
     parser.add_argument("--password", default="", help="Neo4j password")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
+    parser.add_argument(
+        "--enable-scihub",
+        action="store_true",
+        help="Enable Sci-Hub scientific paper ingestion (experimental)",
+    )
+    parser.add_argument(
+        "--max-papers", type=int, default=5, help="Maximum papers per Sci-Hub query (default: 5)"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -44,16 +52,23 @@ async def main():
         sys.exit(1)
 
     print("Connected to Neo4j. Starting knowledge ingestion...")
-    print("This will fetch data from DuckDuckGo + RSS feeds across all categories.")
+    if args.enable_scihub:
+        print("This will fetch data from DuckDuckGo + RSS feeds + Sci-Hub scientific papers.")
+    else:
+        print("This will fetch data from DuckDuckGo + RSS feeds across all categories.")
     print()
 
-    stats = await kg.ingest_all()
+    stats = await kg.ingest_all(
+        enable_scihub=args.enable_scihub, max_papers_per_query=args.max_papers
+    )
 
     print()
     print("=" * 50)
     print(f"Ingestion complete!")
     print(f"  Topics:   {stats['topics']}")
     print(f"  Articles: {stats['articles']}")
+    if "papers" in stats:
+        print(f"  Papers:   {stats['papers']}")
     print(f"  Errors:   {stats['errors']}")
     print()
 
