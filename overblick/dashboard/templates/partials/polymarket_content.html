@@ -128,7 +128,7 @@
         <div class="pm-row-main">
             <div class="pm-row-question">
                 {% if market.slug %}
-                <a href="https://polymarket.com/event/{{ market.slug }}" target="_blank" rel="noopener" class="pm-link">{{ q }}</a>
+                <a href="https://polymarket.com/markets?_q={{ q|urlencode }}" target="_blank" rel="noopener" class="pm-link">{{ q }}</a>
                 {% else %}
                 {{ q }}
                 {% endif %}
