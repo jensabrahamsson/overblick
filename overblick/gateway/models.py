@@ -55,7 +55,7 @@ class ChatRequest(BaseModel):
 
     model: str = Field(default="qwen3.5:9b", description="Model name to use")
     messages: list[ChatMessage] = Field(..., description="Conversation messages")
-    max_tokens: int = Field(default=2000, ge=1, le=8192, description="Max tokens to generate")
+    max_tokens: int = Field(default=2000, ge=1, le=32768, description="Max tokens to generate")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
     top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Nucleus sampling threshold")
     think: bool | None = Field(
