@@ -125,12 +125,12 @@
         var searchInput = document.getElementById("pm-search");
         var sortSelect = document.getElementById("pm-sort");
         var countEl = document.getElementById("pm-visible-count");
-        var cards = grid.querySelectorAll(".pm-market-card");
+        var cards = grid.querySelectorAll(".pm-row");
 
         function filterAndSort() {
             var query = (searchInput ? searchInput.value : "").toLowerCase();
             var activeCategory = "all";
-            var activeBtn = document.querySelector(".pm-cat-btn.active");
+            var activeBtn = document.querySelector(".pm-tab.active");
             if (activeBtn) activeCategory = activeBtn.getAttribute("data-category");
 
             var visible = 0;
@@ -154,9 +154,9 @@
         }
 
         // Category tab clicks
-        document.querySelectorAll(".pm-cat-btn").forEach(function (btn) {
+        document.querySelectorAll(".pm-tab").forEach(function (btn) {
             btn.addEventListener("click", function () {
-                document.querySelectorAll(".pm-cat-btn").forEach(function (b) {
+                document.querySelectorAll(".pm-tab").forEach(function (b) {
                     b.classList.remove("active");
                 });
                 btn.classList.add("active");
