@@ -32,7 +32,7 @@ async def polymarket_page(request: Request):
     except Exception as e:
         logger.error("Failed to load polymarket data: %s", e, exc_info=True)
         data = _get_default_data()
-        data_errors = [f"Failed to load polymarket data: {e}"]
+        data_errors = ["Failed to load trading data. Check server logs for details."]
 
     return templates.TemplateResponse(
         "polymarket.html",
@@ -103,8 +103,11 @@ async def market_chart_data(market_id: str, request: Request):
         dsn = getattr(request.app.state, "postgres_dsn", None)
         if not dsn:
             import os
-            dsn = os.environ.get(
-                "OVERBLICK_POSTGRES_DSN", "postgresql://jens@localhost/postgres"
+            dsn = os.environ.get("OVERBLICK_POSTGRES_DSN")
+        if not dsn:
+            return JSONResponse(
+                {"error": "Database not configured", "prices": [], "trades": []},
+                status_code=503,
             )
 
         conn = await asyncpg.connect(dsn)
