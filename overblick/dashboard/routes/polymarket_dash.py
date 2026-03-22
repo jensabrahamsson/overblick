@@ -147,7 +147,9 @@ def _load_polymarket_data(request: Request) -> dict:
         "winning_trades": 0,
         "losing_trades": 0,
         "total_pnl_usd": Decimal("0"),
-        "portfolio_value_usd": Decimal("0"),
+        "portfolio_value_usd": Decimal("100"),  # Starting balance
+        "total_invested_usd": Decimal("0"),
+        "cash_usd": Decimal("100"),
         "daily_pnl_usd": Decimal("0"),
     }
 
@@ -257,14 +259,14 @@ def _load_polymarket_data(request: Request) -> dict:
                         position["identity"] = identity_name
                         positions.append(position)
 
-                        # Update portfolio value
-                        if "current_value_usd" in position:
-                            try:
-                                stats["portfolio_value_usd"] += Decimal(
-                                    str(position["current_value_usd"])
-                                )
-                            except (ValueError, TypeError, ArithmeticError):
-                                pass
+                        # Track invested and current value
+                        try:
+                            invested = Decimal(str(position.get("invested_amount", 0)))
+                            current = Decimal(str(position.get("current_value", position.get("current_value_usd", 0))))
+                            stats["total_invested_usd"] += invested
+                            stats["portfolio_value_usd"] += current
+                        except (ValueError, TypeError, ArithmeticError):
+                            pass
 
                 if "trade_history" in trader_state:
                     for trade in trader_state["trade_history"]:
@@ -322,6 +324,12 @@ def _load_polymarket_data(request: Request) -> dict:
     trades.sort(key=lambda x: x.get("executed_at", ""), reverse=True)
     alerts.sort(key=lambda x: x.get("triggered_at", ""), reverse=True)
     activity_feed.sort(key=lambda x: x.get("time", ""), reverse=True)
+
+    # Calculate cash = starting balance - invested + realized P&L
+    stats["cash_usd"] = Decimal("100") - stats["total_invested_usd"]
+    stats["total_pnl_usd"] = stats["portfolio_value_usd"] - stats["total_invested_usd"]
+    # Portfolio = cash + positions value
+    stats["portfolio_value_usd"] = stats["cash_usd"] + stats["portfolio_value_usd"]
 
     # Convert Decimal to float for JSON serialization
     stats_serializable = {}
