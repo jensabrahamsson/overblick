@@ -92,3 +92,7 @@ overblick/core/llm/pipeline_*.txt
 overblick/core/llm/pipeline_*.py
 mutants/
 KNOWLEDGEBASE_HOWTO.md
+
+# Oracle scripts (local knowledge querying)
+scripts/oracle.py
+scripts/oracle.sh
