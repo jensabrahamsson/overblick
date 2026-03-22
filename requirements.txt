@@ -11,3 +11,4 @@ cryptography>=42.0
 keyring>=25.0
 web3>=6.0
 eth-account>=0.5
+py-clob-client>=0.34

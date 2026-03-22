@@ -78,6 +78,12 @@ class PostgreSQLBackend(DatabaseBackend):
             if schema != "public":
                 await conn.execute(f"SET search_path TO {schema}, public")
 
+        # Use server_settings for search_path — applied per-connection at
+        # protocol level, more reliable than init callback alone
+        server_settings: dict[str, str] = {}
+        if schema != "public":
+            server_settings["search_path"] = f"{schema}, public"
+
         self._pool = await asyncpg.create_pool(
             host=self._config.pg_host,
             port=self._config.pg_port,
@@ -87,6 +93,7 @@ class PostgreSQLBackend(DatabaseBackend):
             min_size=self._config.pool_min_size,
             max_size=self._config.pool_max_size,
             init=_init_conn,
+            server_settings=server_settings,
         )
 
         self._connected = True
