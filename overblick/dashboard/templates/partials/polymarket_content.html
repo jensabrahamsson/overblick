@@ -99,9 +99,10 @@
 <!-- Category Tabs + Search -->
 <div class="pm-toolbar">
     <div class="pm-categories" id="pm-categories">
-        <button class="pm-tab active" data-category="all">All</button>
+        <button class="pm-tab active" data-category="all">All <span class="pm-tab-count">{{ markets|length }}</span></button>
         {% for cat in categories %}
-        <button class="pm-tab" data-category="{{ cat }}">{{ cat|capitalize }}</button>
+        {% set cat_count = markets|selectattr("category", "equalto", cat)|list|length %}
+        <button class="pm-tab" data-category="{{ cat }}">{{ cat|capitalize }} <span class="pm-tab-count">{{ cat_count }}</span></button>
         {% endfor %}
     </div>
     <div class="pm-toolbar-right">

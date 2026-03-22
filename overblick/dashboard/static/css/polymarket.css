@@ -67,6 +67,17 @@
 }
 .pm-tab:hover { border-color: var(--text-muted); color: var(--text-primary); }
 .pm-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.pm-tab-count {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.15);
+    padding: 1px 5px;
+    border-radius: 8px;
+    margin-left: 3px;
+    vertical-align: middle;
+}
+.pm-tab.active .pm-tab-count { background: rgba(255,255,255,0.25); }
 
 .pm-toolbar-right { display: flex; gap: 8px; flex-shrink: 0; }
 .pm-search {
