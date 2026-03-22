@@ -91,3 +91,4 @@ OVERBLICK_CODE_REVIEW.md
 overblick/core/llm/pipeline_*.txt
 overblick/core/llm/pipeline_*.py
 mutants/
+KNOWLEDGEBASE_HOWTO.md
