@@ -3,7 +3,7 @@
 {% block title %}Polymarket Trading{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="/static/css/polymarket.css?v=9">
+<link rel="stylesheet" href="/static/css/polymarket.css?v=10">
 
 <div class="page-header">
     <h1>Polymarket Trading</h1>
@@ -18,23 +18,15 @@
 </div>
 {% endif %}
 
-<!-- Main Content Container with Auto-refresh -->
-<div id="polymarket-container" 
-     hx-get="/partials/polymarket-content" 
-     hx-trigger="every 10s" 
-     hx-swap="innerHTML">
-    {% include "partials/polymarket_content.html" %}
-</div>
-
-<!-- Controls (Fixed at bottom or separate card) -->
-<div class="card mt-4">
+<!-- Trading Controls — ALWAYS visible at top -->
+<div class="card mb-4">
     <div class="card-header">
         <h2>Trading Controls</h2>
         <span class="badge badge-warning">Simulation Mode Active</span>
     </div>
     <div class="control-grid">
-        <button class="btn btn-secondary" 
-                hx-get="/partials/polymarket-content" 
+        <button class="btn btn-secondary"
+                hx-get="/partials/polymarket-content"
                 hx-target="#polymarket-container"
                 hx-trigger="click">
             <span class="btn-icon">🔄</span>
@@ -49,6 +41,14 @@
             Emergency Stop
         </button>
     </div>
+</div>
+
+<!-- Main Content Container with Auto-refresh -->
+<div id="polymarket-container"
+     hx-get="/partials/polymarket-content"
+     hx-trigger="every 1800s"
+     hx-swap="innerHTML">
+    {% include "partials/polymarket_content.html" %}
 </div>
 
 <!-- Chart Modal -->

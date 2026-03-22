@@ -200,6 +200,35 @@
             });
         }
 
+        // Pagination — show first 50, "Show more" for rest
+        var PAGE_SIZE = 50;
+        var shownCount = PAGE_SIZE;
+        var loadMoreBtn = document.getElementById("pm-load-more");
+
+        function applyPagination() {
+            var allRows = grid.querySelectorAll(".pm-row:not(.pm-hidden)");
+            allRows.forEach(function(row, i) {
+                row.style.display = i < shownCount ? "" : "none";
+            });
+            if (loadMoreBtn) {
+                loadMoreBtn.style.display = allRows.length > shownCount ? "inline-block" : "none";
+            }
+        }
+
+        if (loadMoreBtn) {
+            loadMoreBtn.addEventListener("click", function() {
+                shownCount += PAGE_SIZE;
+                applyPagination();
+            });
+        }
+
+        var _origFilter = filterAndSort;
+        filterAndSort = function() {
+            _origFilter();
+            shownCount = PAGE_SIZE;
+            applyPagination();
+        };
+
         // Apply persisted filter on init
         filterAndSort();
     }

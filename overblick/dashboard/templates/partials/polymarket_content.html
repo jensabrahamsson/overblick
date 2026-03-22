@@ -14,34 +14,9 @@
     </div>
 </div>
 
-<!-- Signals, Positions, Activity — TOP of page -->
+<!-- Positions, Activity, Signals -->
 <div class="pm-trading-grid">
-    <div class="pm-panel">
-        <div class="pm-panel-header">
-            <h3>Signals</h3>
-            <span class="badge badge-info">{{ opportunities|length }}</span>
-        </div>
-        {% for opp in opportunities %}
-        <div class="pm-signal-block">
-            <div class="pm-signal-inline">
-                <span class="pm-signal-q-inline">{{ opp.market_question|default("Unknown market") }}</span>
-                <span class="pm-signal-meta">
-                    <span class="badge {% if opp.probability_edge|default(0)|float >= 0.05 %}badge-success{% elif opp.probability_edge|default(0)|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format((opp.probability_edge|default(0)) * 100) }}%</span>
-                    <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}%</span>
-                    {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
-                    {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
-                </span>
-            </div>
-            {% if opp.reasoning %}
-            <div class="pm-signal-reasoning">{{ opp.reasoning }}</div>
-            {% endif %}
-        </div>
-        {% endfor %}
-        {% if not opportunities %}
-        <div class="pm-panel-empty">No signals yet</div>
-        {% endif %}
-    </div>
-
+    <!-- POSITIONS first -->
     <div class="pm-panel">
         <div class="pm-panel-header">
             <h3>Positions</h3>
@@ -69,6 +44,7 @@
         {% endif %}
     </div>
 
+    <!-- ACTIVITY second -->
     <div class="pm-panel">
         <div class="pm-panel-header">
             <h3>Activity</h3>
@@ -77,7 +53,7 @@
         <div class="pm-activity-feed">
             {% for entry in activity_feed %}
             <div class="pm-feed-line">
-                <span class="pm-feed-time">[{{ entry.time[11:19] }}]</span>
+                <span class="pm-feed-time">[{{ entry.time[11:19] if entry.time and entry.time|length > 19 else '' }}]</span>
                 <span class="pm-feed-msg {{ entry.type }}">{{ entry.msg }}</span>
             </div>
             {% endfor %}
@@ -86,6 +62,35 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- SIGNALS third -->
+    <div class="pm-panel">
+        <div class="pm-panel-header">
+            <h3>Signals</h3>
+            <span class="badge badge-info">{{ opportunities|length }}</span>
+        </div>
+        {% for opp in opportunities %}
+        <div class="pm-signal-block">
+            <div class="pm-signal-inline">
+                <span class="pm-signal-q-inline">{{ opp.market_question|default("Unknown market") }}</span>
+                <span class="pm-signal-meta">
+                    <span class="badge {% if opp.probability_edge|default(0)|float >= 0.05 %}badge-success{% elif opp.probability_edge|default(0)|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format((opp.probability_edge|default(0)) * 100) }}%</span>
+                    <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}%</span>
+                    {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
+                    {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
+                </span>
+            </div>
+            {% if opp.reasoning %}
+            <div class="pm-signal-reasoning">{{ opp.reasoning }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% if not opportunities %}
+        <div class="pm-panel-empty">No signals yet</div>
+        {% endif %}
+    </div>
+
+    <!-- (old duplicates removed) -->
 </div>
 
 <!-- Category Tabs + Search -->
@@ -166,6 +171,7 @@
 
 <div class="pm-count" id="pm-market-count">
     <span id="pm-visible-count">{{ markets|length }}</span> / {{ markets|length }} markets
+    <button id="pm-load-more" class="pm-load-more-btn" style="display:none;">Show more</button>
 </div>
 
 <!-- (trading grid moved to top) -->

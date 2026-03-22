@@ -168,8 +168,20 @@
 .pm-row.pm-hidden { display: none; }
 .pm-empty { padding: 40px; text-align: center; color: var(--text-muted); background: var(--bg-card); }
 
-/* Market count */
+/* Market count + pagination */
 .pm-count { text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 8px 0; }
+.pm-load-more-btn {
+    margin-left: 12px;
+    padding: 4px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.pm-load-more-btn:hover { border-color: var(--accent); }
 
 /* ═══ Trading Grid (Signals + Positions + Activity) ═══ */
 .pm-trading-grid {
