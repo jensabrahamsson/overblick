@@ -138,6 +138,7 @@ def _load_polymarket_data(request: Request) -> dict:
     activity_feed: list[dict] = []
     latest_reasoning = ""
 
+    starting_balance = Decimal("100")
     stats = {
         "total_markets": 0,
         "active_markets": 0,
@@ -147,9 +148,11 @@ def _load_polymarket_data(request: Request) -> dict:
         "winning_trades": 0,
         "losing_trades": 0,
         "total_pnl_usd": Decimal("0"),
-        "portfolio_value_usd": Decimal("100"),  # Starting balance
+        "portfolio_value_usd": Decimal("0"),
+        "positions_value_usd": Decimal("0"),
         "total_invested_usd": Decimal("0"),
-        "cash_usd": Decimal("100"),
+        "cash_usd": starting_balance,
+        "starting_balance_usd": starting_balance,
         "daily_pnl_usd": Decimal("0"),
     }
 
@@ -164,6 +167,7 @@ def _load_polymarket_data(request: Request) -> dict:
     }
 
     if not data_root.exists():
+        stats["portfolio_value_usd"] = stats["cash_usd"]  # No positions, portfolio = cash
         return {
             "stats": stats,
             "markets": markets,
@@ -264,7 +268,7 @@ def _load_polymarket_data(request: Request) -> dict:
                             invested = Decimal(str(position.get("invested_amount", 0)))
                             current = Decimal(str(position.get("current_value", position.get("current_value_usd", 0))))
                             stats["total_invested_usd"] += invested
-                            stats["portfolio_value_usd"] += current
+                            stats["positions_value_usd"] += current
                         except (ValueError, TypeError, ArithmeticError):
                             pass
 
@@ -325,11 +329,13 @@ def _load_polymarket_data(request: Request) -> dict:
     alerts.sort(key=lambda x: x.get("triggered_at", ""), reverse=True)
     activity_feed.sort(key=lambda x: x.get("time", ""), reverse=True)
 
-    # Calculate cash = starting balance - invested + realized P&L
-    stats["cash_usd"] = Decimal("100") - stats["total_invested_usd"]
-    stats["total_pnl_usd"] = stats["portfolio_value_usd"] - stats["total_invested_usd"]
-    # Portfolio = cash + positions value
-    stats["portfolio_value_usd"] = stats["cash_usd"] + stats["portfolio_value_usd"]
+    # Correct portfolio calculation:
+    # cash = starting_balance - total_invested
+    # portfolio = cash + positions_value
+    # pnl = portfolio - starting_balance
+    stats["cash_usd"] = stats["starting_balance_usd"] - stats["total_invested_usd"]
+    stats["portfolio_value_usd"] = stats["cash_usd"] + stats["positions_value_usd"]
+    stats["total_pnl_usd"] = stats["portfolio_value_usd"] - stats["starting_balance_usd"]
 
     # Convert Decimal to float for JSON serialization
     stats_serializable = {}

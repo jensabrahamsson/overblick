@@ -9,7 +9,7 @@
     <div class="pm-strip-right">
         <span class="pm-strip-item">Portfolio <strong class="mono">${{ "%.2f"|format(stats.portfolio_value_usd|float) }}</strong></span>
         <span class="pm-strip-item">Cash <strong class="mono">${{ "%.2f"|format(stats.cash_usd|default(0)|float) }}</strong></span>
-        <span class="pm-strip-item">Invested <strong class="mono">${{ "%.2f"|format(stats.total_invested_usd|default(0)|float) }}</strong></span>
+        <span class="pm-strip-item">Positions <strong class="mono">${{ "%.2f"|format(stats.positions_value_usd|default(0)|float) }}</strong></span>
         <span class="pm-strip-item {% if stats.total_pnl_usd|float > 0 %}positive{% elif stats.total_pnl_usd|float < 0 %}negative{% endif %}">P&L <strong class="mono">${{ "%.2f"|format(stats.total_pnl_usd|float) }}</strong></span>
     </div>
 </div>

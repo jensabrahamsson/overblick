@@ -84,7 +84,7 @@ class TestChatRequest:
         with pytest.raises(ValidationError):
             ChatRequest(
                 messages=[ChatMessage(role="user", content="Hi")],
-                max_tokens=10000,
+                max_tokens=50000,  # Above 32768 limit
             )
 
     def test_temperature_validation(self):
