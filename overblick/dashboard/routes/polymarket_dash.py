@@ -86,10 +86,28 @@ async def polymarket_content(request: Request):
 @router.get("/api/polymarket/chart/{market_id}")
 async def market_chart_data(market_id: str, request: Request):
     """API endpoint returning price history + trades for chart rendering."""
+    import re
+
+    # Validate market_id format
+    if not re.fullmatch(r"[a-zA-Z0-9_\-]{1,100}", market_id):
+        return JSONResponse(
+            {"error": "Invalid market ID", "prices": [], "trades": []},
+            status_code=400,
+        )
+
+    conn = None
     try:
         import asyncpg
 
-        conn = await asyncpg.connect("postgresql://jens@localhost/postgres")
+        # Read DSN from config or environment
+        dsn = getattr(request.app.state, "postgres_dsn", None)
+        if not dsn:
+            import os
+            dsn = os.environ.get(
+                "OVERBLICK_POSTGRES_DSN", "postgresql://jens@localhost/postgres"
+            )
+
+        conn = await asyncpg.connect(dsn)
 
         # Price history
         prices = await conn.fetch(
@@ -123,8 +141,6 @@ async def market_chart_data(market_id: str, request: Request):
             if q_row:
                 question = q_row["market_question"] or ""
 
-        await conn.close()
-
         return JSONResponse(
             {
                 "market_id": market_id,
@@ -150,8 +166,14 @@ async def market_chart_data(market_id: str, request: Request):
             }
         )
     except Exception as e:
-        logger.error("Chart data error: %s", e)
-        return JSONResponse({"error": str(e), "prices": [], "trades": []})
+        logger.error("Chart data error for market %s: %s", market_id, e)
+        return JSONResponse(
+            {"error": "Failed to load chart data", "prices": [], "trades": []},
+            status_code=500,
+        )
+    finally:
+        if conn:
+            await conn.close()
 
 
 def _get_default_data() -> dict:
