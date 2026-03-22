@@ -174,11 +174,10 @@
 /* ═══ Trading Grid (Signals + Positions + Activity) ═══ */
 .pm-trading-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 16px;
     margin-top: 16px;
 }
-@media (max-width: 1200px) { .pm-trading-grid { grid-template-columns: 1fr; } }
 
 .pm-panel {
     background: var(--bg-card);
