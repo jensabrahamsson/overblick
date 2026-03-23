@@ -32,9 +32,12 @@
             <span class="btn-icon">🔄</span>
             Refresh Now
         </button>
-        <button class="btn btn-info" disabled>
-            <span class="btn-icon">📊</span>
-            Generate Full Report
+        <button class="btn btn-info"
+                hx-post="/api/polymarket/scan"
+                hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
+                hx-swap="none">
+            <span class="btn-icon">🔍</span>
+            Scan Now
         </button>
         <button class="btn btn-danger" disabled title="Emergency Stop requires Identity specific access">
             <span class="btn-icon">⏹</span>

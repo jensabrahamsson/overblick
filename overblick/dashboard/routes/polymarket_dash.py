@@ -82,6 +82,20 @@ async def polymarket_content(request: Request):
     )
 
 
+@router.post("/api/polymarket/scan", response_class=JSONResponse)
+async def trigger_scan(request: Request):
+    """Trigger an immediate market scan by creating a scan_now file."""
+    from pathlib import Path
+
+    data_root = resolve_data_root(request)
+    for identity_dir in data_root.iterdir():
+        if identity_dir.is_dir():
+            trigger = identity_dir / "scan_now"
+            trigger.touch()
+    logger.info("Manual scan triggered for all identities")
+    return JSONResponse({"status": "scan_triggered"})
+
+
 @router.get("/api/polymarket/chart/{market_id}")
 async def market_chart_data(market_id: str, request: Request):
     """API endpoint returning price history + trades for chart rendering."""
