@@ -1,35 +1,38 @@
+dashboard:
+  network_access: true
+  password_hash: $2b$12$cWIVngVKrDdSd4QGKqRxPeIxr6GZjuvcnNYTh59Dd9H07zE9j0CR2
 framework:
   name: Överblick
   version: 0.1.0
-principal:
-  timezone: Europe/Stockholm
-  language: en
 llm:
-  gateway_url: http://127.0.0.1:8200
-  default_backend: remote
-  backend_preference: [remote, local, deepseek]
-  temperature: 0.7
-  max_tokens: 4000
+  backend_preference:
+  - remote
+  - local
+  - deepseek
   backends:
-    remote:
+    deepseek:
+      api_url: https://api.deepseek.com/v1
       enabled: true
-      type: ollama
-      host: '10.8.0.24'
-      port: 1234
-      model: qwen/qwen3.5-35b-a3b
+      model: deepseek-chat
+      type: deepseek
     local:
       enabled: true
-      type: ollama
       host: 127.0.0.1
-      port: 11434
       model: qwen3.5:9b
-    deepseek:
+      port: 11434
+      type: ollama
+    remote:
       enabled: true
-      type: deepseek
-      api_url: https://api.deepseek.com/v1
-      model: deepseek-chat
+      host: 10.8.0.24
+      model: qwen/qwen3.5-35b-a3b
+      port: 1234
+      type: ollama
+  default_backend: remote
+  gateway_url: http://127.0.0.1:8200
+  max_tokens: 4000
+  temperature: 0.7
 local_plugins:
   stal: []
-dashboard:
-  network_access: false
-  password_hash: ""
+principal:
+  language: en
+  timezone: Europe/Stockholm
