@@ -33,7 +33,7 @@
                 <span class="mono">${{ "%.2f"|format(pos.invested_amount|default(pos.current_value|default(0))|float) }}</span>
                 {% if pos.unrealized_pnl is defined %}
                 <span class="{% if pos.unrealized_pnl|default(0)|float > 0 %}positive{% elif pos.unrealized_pnl|default(0)|float < 0 %}negative{% endif %} mono">
-                    {{ "%.2f"|format(pos.unrealized_pnl|default(0)|float) }}
+                    {% if pos.unrealized_pnl|default(0)|float > 0 %}+${{ "%.2f"|format(pos.unrealized_pnl|default(0)|float) }}{% elif pos.unrealized_pnl|default(0)|float < 0 %}-${{ "%.2f"|format(pos.unrealized_pnl|default(0)|float|abs) }}{% else %}$0.00{% endif %}
                 </span>
                 {% endif %}
                 {% if pos.category|default("") %}<span class="pm-meta-cat">{{ pos.category|capitalize }}</span>{% endif %}
