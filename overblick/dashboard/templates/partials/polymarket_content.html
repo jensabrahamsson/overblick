@@ -3,8 +3,8 @@
     <div class="pm-strip-left">
         <span class="pm-strip-item"><span class="pm-strip-dot" style="background: var(--warning-color); box-shadow: 0 0 6px var(--warning-color);"></span> <strong>Paper Trading</strong></span>
         <span class="pm-strip-item">Wallet: <strong class="mono">${{ "%.2f"|format(stats.starting_balance_usd|default(100)|float) }}</strong> sim</span>
-        <span class="pm-strip-item">{{ stats.total_markets }} markets</span>
-        <span class="pm-strip-item">{{ stats.total_trades }} trades</span>
+        <span class="pm-strip-item">{{ markets|length }} market{{ 's' if markets|length != 1 else '' }}</span>
+        <span class="pm-strip-item">{{ stats.total_trades }} trade{{ 's' if stats.total_trades != 1 else '' }}</span>
     </div>
     <div class="pm-strip-right">
         <span class="pm-strip-item">Portfolio <strong class="mono">${{ "%.2f"|format(stats.portfolio_value_usd|float) }}</strong></span>
