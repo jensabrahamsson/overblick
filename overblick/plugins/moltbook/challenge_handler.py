@@ -387,7 +387,7 @@ class PerContentChallengeHandler:
             result: PipelineResult | dict | None = await self._llm.chat(
                 messages=messages,
                 temperature=0.0,
-                max_tokens=512,
+                max_tokens=2000,
                 priority="high",
                 complexity=complexity,
             )
