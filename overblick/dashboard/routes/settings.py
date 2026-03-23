@@ -77,16 +77,23 @@ _PRIVATE_NETWORKS = (
 )
 
 
+_BLOCKED_HOSTNAMES = frozenset({
+    "localhost", "ip6-localhost", "ip6-loopback", "0.0.0.0",
+})
+
+
 def _is_private_or_blocked(host: str) -> bool:
     """Check if host is a private IP, loopback, or blocked metadata endpoint."""
     if host in _BLOCKED_HOSTS:
+        return True
+    if host.lower() in _BLOCKED_HOSTNAMES:
         return True
     try:
         addr = ipaddress.ip_address(host)
         return any(addr in net for net in _PRIVATE_NETWORKS)
     except ValueError:
         # Not a valid IP — could be a hostname like "metadata.google.internal"
-        return host in _BLOCKED_HOSTS
+        return host in _BLOCKED_HOSTS or host.lower() in _BLOCKED_HOSTNAMES
 
 
 def _validate_test_host(host: str, port: str) -> tuple[str, int]:

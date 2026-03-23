@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import sqlite3
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -84,6 +85,8 @@ class AuditLog:
         self._migrate_add_chain_hash()
         # Initialize prev_hash from last entry (or genesis)
         self._prev_hash = self._load_last_chain_hash()
+        # Lock for thread-safe hash chain updates
+        self._chain_lock = threading.Lock()
         # Single-thread executor for non-blocking writes
         self._write_executor = ThreadPoolExecutor(
             max_workers=1,
@@ -160,46 +163,48 @@ class AuditLog:
         conn = self._conn
 
         timestamp = time.time()
-        previous_hash = self._prev_hash
 
-        # Compute chain hash for this entry
-        chain_hash = self._compute_entry_hash(
-            timestamp,
-            action,
-            category,
-            plugin,
-            details_json,
-            success,
-            duration_ms,
-            error,
-            previous_hash,
-        )
+        # Thread-safe hash chain: read prev_hash, write, and update atomically
+        with self._chain_lock:
+            previous_hash = self._prev_hash
 
-        cursor = conn.execute(
-            """
-            INSERT INTO audit_log
-                (timestamp, action, category, identity, plugin, details,
-                 success, duration_ms, error, previous_hash, chain_hash)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
+            chain_hash = self._compute_entry_hash(
                 timestamp,
                 action,
                 category,
-                self._identity,
                 plugin,
                 details_json,
-                1 if success else 0,
+                success,
                 duration_ms,
                 error,
                 previous_hash,
-                chain_hash,
-            ),
-        )
-        conn.commit()
+            )
 
-        # Advance the chain
-        self._prev_hash = chain_hash
+            cursor = conn.execute(
+                """
+                INSERT INTO audit_log
+                    (timestamp, action, category, identity, plugin, details,
+                     success, duration_ms, error, previous_hash, chain_hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    timestamp,
+                    action,
+                    category,
+                    self._identity,
+                    plugin,
+                    details_json,
+                    1 if success else 0,
+                    duration_ms,
+                    error,
+                    previous_hash,
+                    chain_hash,
+                ),
+            )
+            conn.commit()
+
+            # Advance the chain
+            self._prev_hash = chain_hash
 
         assert cursor.lastrowid is not None
         return cursor.lastrowid

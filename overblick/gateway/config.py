@@ -126,7 +126,7 @@ class GatewayConfig(BaseModel):
                 "enabled": True,
                 "type": "deepseek",
                 "api_url": "https://api.deepseek.com/v1",
-                "api_key": deepseek_key,
+                # api_key NOT stored here — read from env by _register_deepseek_backend
                 "model": "deepseek-chat",
             }
             logger.info("Deepseek backend injected from OVERBLICK_DEEPSEEK_API_KEY env var")

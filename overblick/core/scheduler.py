@@ -162,7 +162,7 @@ class Scheduler:
         # Create asyncio tasks for each scheduled task (sorted by priority)
         sorted_tasks = sorted(
             self._tasks.values(),
-            key=lambda t: (t.priority == TaskPriority.HIGH, t.name),
+            key=lambda t: (t.priority != TaskPriority.HIGH, t.name),
         )
 
         async with self._lock:
@@ -183,16 +183,21 @@ class Scheduler:
         if not self._running:
             return
 
+        # Collect tasks to cancel while holding the lock
+        tasks_to_cancel = []
         async with self._lock:
             self._running = False
-
             for st in list(self._tasks.values()):
                 if st._task and not st._task.done():
                     st._task.cancel()
-                    try:
-                        await st._task
-                    except asyncio.CancelledError:
-                        pass
+                    tasks_to_cancel.append(st._task)
+
+        # Await cancellation OUTSIDE the lock to avoid deadlock
+        for task in tasks_to_cancel:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
         logger.info("Scheduler stopped")
 

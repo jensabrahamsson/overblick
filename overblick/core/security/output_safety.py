@@ -152,9 +152,10 @@ class OutputSafety:
                     filtered = re.sub(rf"\b{slang}\b", replacement, filtered, flags=re.IGNORECASE)
                 replaced = True
 
-        # Layer 4: Blocked content
+        # Layer 4: Blocked content (check normalized text to defeat homoglyphs)
+        normalized_filtered = self._normalize_for_matching(filtered)
         for pattern in self._block_compiled:
-            if pattern.search(filtered):
+            if pattern.search(normalized_filtered):
                 logger.warning("OUTPUT SAFETY: Blocked content detected")
                 return OutputSafetyResult(
                     text=random.choice(self._deflections),
