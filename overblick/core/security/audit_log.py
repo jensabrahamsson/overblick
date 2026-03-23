@@ -332,9 +332,9 @@ class AuditLog:
                 SELECT id FROM audit_log
                 {offset_where}
                 ORDER BY timestamp DESC
-                LIMIT 1 OFFSET {offset}
+                LIMIT 1 OFFSET ?
             """
-            cursor = conn.execute(offset_query, offset_params)
+            cursor = conn.execute(offset_query, (*offset_params, offset))
             offset_row = cursor.fetchone()
 
             if offset_row is None:

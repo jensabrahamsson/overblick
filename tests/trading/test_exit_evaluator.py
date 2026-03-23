@@ -1,6 +1,6 @@
 """Tests for ExitEvaluator — mechanical triggers and LLM exit decisions."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -78,7 +78,7 @@ class TestMechanicalTriggers:
         ev = ExitEvaluator()
         pos = _make_position()
         market_data = {
-            "end_time": (datetime.now(timezone.utc) + timedelta(hours=12)).isoformat(),
+            "end_time": (datetime.now(UTC) + timedelta(hours=12)).isoformat(),
         }
         decision = await ev.assess_position(pos, market_data=market_data)
         assert decision.action == ExitAction.SELL

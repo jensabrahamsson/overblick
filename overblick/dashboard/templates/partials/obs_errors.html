@@ -4,7 +4,7 @@
     <div class="obs-error-entry">
         <div class="obs-error-header">
             <span class="obs-error-time mono">{{ entry.get('timestamp', 0) | epoch_to_datetime }}</span>
-            <span class="status-badge status-badge-sm status-running">{{ entry.get('identity', '—') }}</span>
+            <span class="status-badge status-badge-sm status-offline">{{ entry.get('identity', '—') }}</span>
             <span class="obs-error-action">{{ entry.get('action', '—') }}</span>
         </div>
         {% set errmsg = entry.get('error', '') or 'No error message' %}

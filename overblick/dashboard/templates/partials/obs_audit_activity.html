@@ -11,7 +11,7 @@
         </div>
         <div class="obs-stat-box">
             <div class="obs-stat-label">Error Rate</div>
-            <div class="obs-stat-value {% if error_rate >= 10 %}text-warning{% elif error_rate >= 25 %}text-danger{% endif %}">{{ error_rate }}%</div>
+            <div class="obs-stat-value {% if error_rate >= 25 %}text-danger{% elif error_rate >= 10 %}text-warning{% endif %}">{{ error_rate }}%</div>
         </div>
         <div class="obs-stat-box">
             <div class="obs-stat-label">LLM Calls</div>

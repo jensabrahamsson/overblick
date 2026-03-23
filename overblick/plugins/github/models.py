@@ -15,6 +15,15 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 # Re-export core agentic models for backward compatibility
+from overblick.core.agentic.models import (  # noqa: F401
+    ActionOutcome,
+    ActionPlan,
+    AgentGoal,
+    AgentLearning,
+    GoalStatus,
+    PlannedAction,
+    TickLog,
+)
 
 # ---------------------------------------------------------------------------
 # Legacy bot-pattern models (used by decision_engine.py, response_gen.py)

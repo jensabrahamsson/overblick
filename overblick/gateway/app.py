@@ -402,7 +402,7 @@ async def chat_completion(
 
     except ValueError as e:
         logger.warning("Invalid request in chat: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid request parameters")
 
 
 @app.get("/queue", dependencies=[Depends(verify_api_key)])

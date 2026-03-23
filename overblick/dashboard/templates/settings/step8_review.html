@@ -166,11 +166,11 @@
             <div class="review-section-title">Files to write</div>
             <div class="review-item">
                 <span class="review-label">Config</span>
-                <span class="review-value mono" class="review-model-name">config/overblick.yaml</span>
+                <span class="review-value mono review-model-name">config/overblick.yaml</span>
             </div>
             <div class="review-item">
                 <span class="review-label">Secrets</span>
-                <span class="review-value mono" class="review-model-name">
+                <span class="review-value mono review-model-name">
                     {% for name in state.selected_characters %}config/secrets/{{ name }}.yaml{% if not loop.last %}, {% endif %}{% endfor %}
                 </span>
             </div>

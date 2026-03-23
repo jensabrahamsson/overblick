@@ -188,9 +188,11 @@ class ResponseGenerator:
         priority: str = "high",
     ) -> str | None:
         """Generate a reply to a DM."""
-        # Wrap sender and message for security
-        safe_sender = f"<<<EXTERNAL_SENDER: {sender_name}>>>"
-        safe_msg = f"<<<EXTERNAL_MESSAGE: {message}>>>"
+        # Wrap sender and message with proper boundary markers
+        from overblick.core.security.input_sanitizer import wrap_external_content
+
+        safe_sender = wrap_external_content(sender_name, source="sender")
+        safe_msg = wrap_external_content(message, source="message")
 
         prompt = prompt_template.format(
             sender=safe_sender,

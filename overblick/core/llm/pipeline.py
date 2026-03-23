@@ -411,20 +411,27 @@ class SafeLLMPipeline:
                 len(content),
                 retry_max,
             )
-            retry_response = await self._llm.chat(
-                messages=messages,
-                temperature=temperature,
-                max_tokens=retry_max,
-                top_p=top_p,
-                priority=priority,
-                complexity=complexity,
-                think=False,
-            )
-            if retry_response:
-                content = retry_response.get("content", "")
-                content = LLMClient.strip_think_tokens(content)
-                reasoning_content = retry_response.get("reasoning_content")
-                raw_response = retry_response
+            try:
+                retry_response = await self._llm.chat(
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=retry_max,
+                    top_p=top_p,
+                    priority=priority,
+                    complexity=complexity,
+                    think=False,
+                )
+                if self._circuit_breaker:
+                    self._circuit_breaker.on_success()
+                if retry_response:
+                    content = retry_response.get("content", "")
+                    content = LLMClient.strip_think_tokens(content)
+                    reasoning_content = retry_response.get("reasoning_content")
+                    raw_response = retry_response
+            except Exception as retry_err:
+                if self._circuit_breaker:
+                    self._circuit_breaker.on_failure()
+                logger.warning("Starvation retry failed: %s", retry_err)
 
         stage_timings["llm_call"] = (time.monotonic() - t0) * 1000
         stages.append(PipelineStage.LLM_CALL)

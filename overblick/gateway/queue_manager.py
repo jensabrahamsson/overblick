@@ -181,6 +181,7 @@ class QueueManager:
             return response
         except TimeoutError:
             logger.error("Request %s timed out", queued.request_id, exc_info=True)
+            self._pending_requests.pop(str(queued.request_id), None)
             raise
 
     async def _worker_loop(self) -> None:

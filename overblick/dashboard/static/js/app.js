@@ -33,6 +33,15 @@
                 navLinks.classList.remove("nav-links-open");
             }
         });
+
+        // Close menu when clicking outside
+        document.addEventListener("click", function (e) {
+            if (hamburger.getAttribute("aria-expanded") === "true" &&
+                !hamburger.contains(e.target) && !navLinks.contains(e.target)) {
+                hamburger.setAttribute("aria-expanded", "false");
+                navLinks.classList.remove("nav-links-open");
+            }
+        });
     }
 
     // ── htmx error handler ──────────────────────────────────────────────
