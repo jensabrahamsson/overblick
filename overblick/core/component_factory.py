@@ -55,7 +55,7 @@ class ComponentFactory:
         """Load identity configuration."""
         if self._identity is None:
             self._identity = load_identity(self._identity_name)
-            logger.info(f"Identity loaded: {self._identity.display_name} v{self._identity.version}")
+            logger.info("Identity loaded: %s v%s", self._identity.display_name, self._identity.version)
         return self._identity
 
     def get_paths(self) -> dict[str, Path]:

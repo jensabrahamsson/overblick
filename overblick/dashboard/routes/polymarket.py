@@ -169,7 +169,7 @@ async def _load_trading_data(data_root: Path) -> dict[str, Any]:
         }
 
     except Exception as e:
-        logger.error(f"Failed to load trading data: {e}")
+        logger.error("Failed to load trading data: %s", e)
         return {}
 
 
@@ -212,7 +212,7 @@ async def _load_market_data(data_root: Path) -> dict[str, Any]:
         return market_data
 
     except Exception as e:
-        logger.error(f"Failed to load market data: {e}")
+        logger.error("Failed to load market data: %s", e)
         return {}
 
 
@@ -285,7 +285,7 @@ async def _load_performance_data(data_root: Path) -> dict[str, Any]:
         }
 
     except Exception as e:
-        logger.error(f"Failed to load performance data: {e}")
+        logger.error("Failed to load performance data: %s", e)
         return {}
 
 
@@ -302,7 +302,7 @@ async def _load_weather_data(data_root: Path) -> dict[str, Any]:
         return _generate_mock_weather_data()
 
     except Exception as e:
-        logger.error(f"Failed to load weather data: {e}")
+        logger.error("Failed to load weather data: %s", e)
         return {}
 
 
@@ -337,7 +337,7 @@ async def _load_portfolio_details(data_root: Path) -> dict[str, Any]:
         return {"positions": [], "summary": {}}
 
     except Exception as e:
-        logger.error(f"Failed to load portfolio details: {e}")
+        logger.error("Failed to load portfolio details: %s", e)
         return {"positions": [], "summary": {}}
 
 
@@ -380,7 +380,7 @@ async def _load_recent_trades(data_root: Path, limit: int = 50) -> dict[str, Any
         return {"trades": [], "total": 0, "showing": 0}
 
     except Exception as e:
-        logger.error(f"Failed to load recent trades: {e}")
+        logger.error("Failed to load recent trades: %s", e)
         return {"trades": [], "total": 0, "showing": 0}
 
 
@@ -433,7 +433,7 @@ async def _load_trading_opportunities(data_root: Path) -> dict[str, Any]:
         return {"opportunities": [], "statistics": {}}
 
     except Exception as e:
-        logger.error(f"Failed to load trading opportunities: {e}")
+        logger.error("Failed to load trading opportunities: %s", e)
         return {"opportunities": [], "statistics": {}}
 
 
@@ -477,7 +477,7 @@ async def _load_performance_metrics(data_root: Path) -> dict[str, Any]:
         return {"current": {}, "history": {}, "summary": {}}
 
     except Exception as e:
-        logger.error(f"Failed to load performance metrics: {e}")
+        logger.error("Failed to load performance metrics: %s", e)
         return {"current": {}, "history": {}, "summary": {}}
 
 
@@ -494,7 +494,7 @@ async def _load_weather_forecasts(data_root: Path) -> dict[str, Any]:
         return _generate_mock_weather_data()
 
     except Exception as e:
-        logger.error(f"Failed to load weather forecasts: {e}")
+        logger.error("Failed to load weather forecasts: %s", e)
         return {}
 
 

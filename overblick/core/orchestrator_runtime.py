@@ -137,7 +137,7 @@ class OrchestratorRuntime:
         except asyncio.CancelledError:
             logger.info("Orchestrator cancelled")
         except Exception as e:
-            logger.error(f"Orchestrator error: {e}", exc_info=True)
+            logger.error("Orchestrator error: %s", e, exc_info=True)
         finally:
             # Delegate shutdown
             await self._on_stop_requested()

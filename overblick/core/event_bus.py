@@ -41,7 +41,7 @@ class EventBus:
         """
         self._handlers[event].append(handler)
         self._handler_count += 1
-        logger.debug(f"EventBus: subscribed to '{event}' (total: {self._handler_count})")
+        logger.debug("EventBus: subscribed to '%s' (total: %s)", event, self._handler_count)
 
     def unsubscribe(self, event: str, handler: EventHandler) -> bool:
         """
@@ -83,7 +83,7 @@ class EventBus:
         failures = sum(1 for r in results if r is not True)
 
         if failures:
-            logger.warning(f"EventBus: '{event}' — {success} ok, {failures} failed")
+            logger.warning("EventBus: '%s' — %s ok, %s failed", event, success, failures)
 
         return success
 
@@ -93,7 +93,7 @@ class EventBus:
             await handler(**kwargs)
             return True
         except Exception as e:
-            logger.error(f"EventBus: handler error on '{event}': {e}", exc_info=True)
+            logger.error("EventBus: handler error on '%s': %s", event, e, exc_info=True)
             return False
 
     def clear(self) -> None:

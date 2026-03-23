@@ -158,7 +158,7 @@ class MoltbookRateLimiter:
         """Reset daily counters if new day."""
         current_day = self._get_day_start()
         if current_day > self._day_start:
-            logger.info(f"New day - resetting daily comment count (was {self._daily_comments})")
+            logger.info("New day - resetting daily comment count (was %s)", self._daily_comments)
             self._daily_comments = 0
             self._day_start = current_day
 
@@ -194,7 +194,7 @@ class MoltbookRateLimiter:
 
         # Check daily limit
         if self._daily_comments >= self._max_daily_comments:
-            logger.warning(f"Daily comment limit reached ({self._max_daily_comments})")
+            logger.warning("Daily comment limit reached (%s)", self._max_daily_comments)
             return False
 
         # Must pass both general and comment-specific limits

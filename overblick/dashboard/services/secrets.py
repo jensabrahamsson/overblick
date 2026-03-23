@@ -51,7 +51,7 @@ class SecretsService:
             "principal_email",
         }
         if key not in safe_keys:
-            logger.warning(f"Attempt to read sensitive key '{key}' via get_readable_secret blocked")
+            logger.warning("Attempt to read sensitive key '%s' via get_readable_secret blocked", key)
             return None
 
         try:
@@ -60,7 +60,7 @@ class SecretsService:
             sm = SecretsManager(self._secrets_dir)
             return sm.get(identity, key)
         except Exception as e:
-            logger.debug(f"Failed to read secret {identity}.{key}: {e}")
+            logger.debug("Failed to read secret %s.%s: %s", identity, key, e)
             return None
 
     def list_identities_with_secrets(self) -> list[str]:

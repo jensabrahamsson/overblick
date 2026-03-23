@@ -226,7 +226,7 @@ class MoltCaptchaSolver:
         # Extract ASCII sum (required)
         ascii_match = self.ASCII_SUM_PATTERN.search(text)
         if not ascii_match:
-            logger.warning(f"Challenge missing ASCII sum: {text[:100]}")
+            logger.warning("Challenge missing ASCII sum: %s", text[:100])
             return None
 
         target_ascii_sum = int(ascii_match.group(1))
@@ -234,7 +234,7 @@ class MoltCaptchaSolver:
         # Extract word count (required)
         word_match = self.WORD_COUNT_PATTERN.search(text)
         if not word_match:
-            logger.warning(f"Challenge missing word count: {text[:100]}")
+            logger.warning("Challenge missing word count: %s", text[:100])
             return None
 
         word_count = int(word_match.group(1))
@@ -278,11 +278,11 @@ class MoltCaptchaSolver:
             Solution text, or None if unsolvable
         """
         if spec.word_count <= 0 or spec.word_count > 200:
-            logger.warning(f"Invalid word count: {spec.word_count}")
+            logger.warning("Invalid word count: %s", spec.word_count)
             return None
 
         if spec.target_ascii_sum <= 0:
-            logger.warning(f"Invalid ASCII sum target: {spec.target_ascii_sum}")
+            logger.warning("Invalid ASCII sum target: %s", spec.target_ascii_sum)
             return None
 
         # Find letter combination that sums to target

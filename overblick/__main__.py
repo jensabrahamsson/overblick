@@ -45,7 +45,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     setup_logging(args.identity, log_dir, verbose=args.verbose)
 
     logger = logging.getLogger("overblick")
-    logger.info(f"Starting Överblick with identity: {args.identity}")
+    logger.info("Starting Överblick with identity: %s", args.identity)
 
     orch = Orchestrator(
         identity_name=args.identity,
@@ -57,7 +57,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt")
     except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
+        logger.error("Fatal error: %s", e, exc_info=True)
         sys.exit(1)
 
 
@@ -318,7 +318,7 @@ def cmd_supervisor(args: argparse.Namespace) -> None:
     setup_logging("supervisor", log_dir, verbose=args.verbose)
 
     logger = logging.getLogger("overblick.supervisor")
-    logger.info(f"Starting Överblick Supervisor with identities: {', '.join(args.identities)}")
+    logger.info("Starting Överblick Supervisor with identities: %s", ', '.join(args.identities))
 
     supervisor = Supervisor(
         identities=args.identities,
@@ -336,7 +336,7 @@ def cmd_supervisor(args: argparse.Namespace) -> None:
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt")
     except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
+        logger.error("Fatal error: %s", e, exc_info=True)
         sys.exit(1)
 
 

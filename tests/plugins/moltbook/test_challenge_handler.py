@@ -6,15 +6,15 @@ import pytest
 
 from overblick.core.llm.pipeline import PipelineResult
 from overblick.plugins.moltbook.arithmetic_solver import _extract_word_numbers, _fuzzy_match
-from overblick.plugins.moltbook.deobfuscator import (
-    _edit_distance_one,
-    _reassemble_fragments,
-    _strip_letter_doubling,
-)
 from overblick.plugins.moltbook.challenge_handler import (
     PerContentChallengeHandler,
     deobfuscate_challenge,
     solve_arithmetic,
+)
+from overblick.plugins.moltbook.deobfuscator import (
+    _edit_distance_one,
+    _reassemble_fragments,
+    _strip_letter_doubling,
 )
 
 

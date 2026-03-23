@@ -56,7 +56,7 @@ def sanitize(text: str, max_length: int = MAX_INPUT_LENGTH) -> str:
     # Truncate
     if len(result) > max_length:
         result = result[:max_length]
-        logger.debug(f"Input truncated from {len(text)} to {max_length} chars")
+        logger.debug("Input truncated from %s to %s chars", len(text), max_length)
 
     return result
 

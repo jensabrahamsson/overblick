@@ -59,7 +59,7 @@ def _extract_plugin_metadata(module_path: str, class_name: str) -> PluginMetadat
             raise FileNotFoundError(f"Cannot locate module {module_path}")
         filepath = Path(spec.origin)
     except Exception as e:
-        logger.warning(f"Could not locate module {module_path}: {e}")
+        logger.warning("Could not locate module %s: %s", module_path, e)
         # Fallback: assume it's a .py file in the package tree
         # This is less reliable but works for standard layout.
         base_dir = Path(__file__).parent.parent.parent
@@ -164,7 +164,7 @@ class PluginRegistry:
         """
         self._plugins[name] = (module_path, class_name)
         # Note: NOT updating _KNOWN_PLUGINS to maintain instance isolation in tests
-        logger.info(f"PluginRegistry: registered '{name}' -> {module_path}.{class_name}")
+        logger.info("PluginRegistry: registered '%s' -> %s.%s", name, module_path, class_name)
 
     def get_plugin_class(self, name: str) -> type[PluginBase]:
         """
@@ -243,7 +243,7 @@ class PluginRegistry:
 
         plugin = cls(ctx)
         self._loaded[name] = plugin
-        logger.info(f"PluginRegistry: loaded '{name}' ({cls.__name__})")
+        logger.info("PluginRegistry: loaded '%s' (%s)", name, cls.__name__)
         return plugin
 
     def get(self, name: str) -> PluginBase | None:

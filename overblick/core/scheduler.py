@@ -140,7 +140,7 @@ class Scheduler:
                 return False
 
             self._tasks[name].enabled = enabled
-            logger.info(f"Scheduler: task '{name}' {'enabled' if enabled else 'disabled'}")
+            logger.info("Scheduler: task '%s' %s", name, 'enabled' if enabled else 'disabled')
             return True
 
     async def get_task_count(self) -> int:
@@ -157,7 +157,7 @@ class Scheduler:
     async def start(self) -> None:
         """Start all scheduled tasks. Blocks until stop() is called."""
         self._running = True
-        logger.info(f"Scheduler starting with {len(self._tasks)} tasks")
+        logger.info("Scheduler starting with %s tasks", len(self._tasks))
 
         # Create asyncio tasks for each scheduled task (sorted by priority)
         sorted_tasks = sorted(
@@ -231,7 +231,7 @@ class Scheduler:
                     )
                     await asyncio.sleep(actual_backoff)
                 else:
-                    logger.error(f"Scheduler: '{st.name}' execution error: {e}", exc_info=True)
+                    logger.error("Scheduler: '%s' execution error: %s", st.name, e, exc_info=True)
 
     async def _execute(self, st: ScheduledTask) -> None:
         """Execute a scheduled task with error handling and recovery."""

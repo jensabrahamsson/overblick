@@ -341,7 +341,7 @@ class PreflightChecker:
             )
 
         except Exception as e:
-            logger.error(f"AI analysis failed: {e}", exc_info=True)
+            logger.error("AI analysis failed: %s", e, exc_info=True)
             # Fail CLOSED — if AI analysis crashes, block the suspicious message
             return PreflightResult(
                 allowed=False,

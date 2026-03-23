@@ -50,13 +50,13 @@ class RequestCache:
         if key in self._cache:
             value, expires_at = self._cache[key]
             if time.time() < expires_at:
-                logger.debug(f"Cache HIT: {method} {endpoint}")
+                logger.debug("Cache HIT: %s %s", method, endpoint)
                 return value
             else:
                 # Expired, remove
                 del self._cache[key]
 
-        logger.debug(f"Cache MISS: {method} {endpoint}")
+        logger.debug("Cache MISS: %s %s", method, endpoint)
         return None
 
     def set(self, method: str, endpoint: str, value: Any, params: dict | None = None) -> None:
@@ -64,7 +64,7 @@ class RequestCache:
         key = self._make_key(method, endpoint, params)
         expires_at = time.time() + self._ttl
         self._cache[key] = (value, expires_at)
-        logger.debug(f"Cache SET: {method} {endpoint} (TTL: {self._ttl}s)")
+        logger.debug("Cache SET: %s %s (TTL: %ss)", method, endpoint, self._ttl)
 
     def clear(self) -> None:
         """Clear all cached entries."""

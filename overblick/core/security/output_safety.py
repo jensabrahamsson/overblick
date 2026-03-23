@@ -128,7 +128,7 @@ class OutputSafety:
         # Layer 1: AI language (match against normalized text to defeat homoglyphs)
         for pattern in self._ai_compiled:
             if pattern.search(normalized):
-                logger.warning(f"OUTPUT SAFETY: AI language detected: {pattern.pattern}")
+                logger.warning("OUTPUT SAFETY: AI language detected: %s", pattern.pattern)
                 return OutputSafetyResult(
                     text=random.choice(self._deflections),
                     blocked=True,

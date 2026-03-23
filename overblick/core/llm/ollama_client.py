@@ -58,7 +58,7 @@ class OllamaClient(LLMClient):
         self._session: aiohttp.ClientSession | None = None
         self._session_lock = asyncio.Lock()
 
-        logger.info(f"OllamaClient: model={model}, url={base_url}")
+        logger.info("OllamaClient: model=%s, url=%s", model, base_url)
 
     async def _ensure_session(self) -> None:
         """Ensure HTTP session exists."""
@@ -98,7 +98,7 @@ class OllamaClient(LLMClient):
             payload["think"] = think
 
         start_time = time.monotonic()
-        logger.debug(f"LLM: Sending request to {self.model}")
+        logger.debug("LLM: Sending request to %s", self.model)
 
         try:
             async with self._session.post(
@@ -133,7 +133,7 @@ class OllamaClient(LLMClient):
                     f"({len(content)} chars output, {think_chars} chars reasoning)"
                 )
             else:
-                logger.info(f"LLM: Response in {elapsed:.1f}s ({len(content)} chars)")
+                logger.info("LLM: Response in %.1fs (%d chars)", elapsed, len(content))
 
             return {
                 "content": content,
@@ -143,15 +143,15 @@ class OllamaClient(LLMClient):
             }
 
         except TimeoutError:
-            logger.error(f"LLM: Request timeout ({self.timeout_seconds}s)", exc_info=True)
+            logger.error("LLM: Request timeout (%ss)", self.timeout_seconds, exc_info=True)
             raise LLMTimeoutError(f"Ollama request timeout ({self.timeout_seconds}s)")
         except aiohttp.ClientError as e:
-            logger.error(f"LLM: Connection error: {e}", exc_info=True)
+            logger.error("LLM: Connection error: %s", e, exc_info=True)
             raise LLMConnectionError(f"Ollama connection error: {e}") from e
         except (LLMTimeoutError, LLMConnectionError):
             raise
         except Exception as e:
-            logger.error(f"LLM: Unexpected error: {e}", exc_info=True)
+            logger.error("LLM: Unexpected error: %s", e, exc_info=True)
             raise LLMConnectionError(f"Ollama unexpected error: {e}") from e
 
     async def health_check(self) -> bool:
@@ -170,13 +170,13 @@ class OllamaClient(LLMClient):
                     model_base = self.model.split(":")[0]
                     available = any(model_base in m for m in models)
                     if not available:
-                        logger.warning(f"LLM: Model {self.model} not found in {models}")
+                        logger.warning("LLM: Model %s not found in %s", self.model, models)
                     return available
                 else:
-                    logger.warning(f"LLM: Health check failed: {response.status}")
+                    logger.warning("LLM: Health check failed: %s", response.status)
                     return False
         except Exception as e:
-            logger.warning(f"LLM: Health check error: {e}")
+            logger.warning("LLM: Health check error: %s", e)
             return False
 
     async def close(self) -> None:

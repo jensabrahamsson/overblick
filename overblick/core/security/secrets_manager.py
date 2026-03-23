@@ -108,7 +108,7 @@ class SecretsManager:
                     self._keys[key_id] = fernet
 
                 except Exception as e:
-                    logger.warning(f"Failed to load key from {key_file}: {e}")
+                    logger.warning("Failed to load key from %s: %s", key_file, e)
 
             if self._keys:
                 # Most recent key is the last one loaded
@@ -167,7 +167,7 @@ class SecretsManager:
                 return stored.encode()
         except Exception as e:
             keyring_failed = True
-            logger.warning(f"Keyring unavailable ({e}), falling back to file-based key")
+            logger.warning("Keyring unavailable (%s), falling back to file-based key", e)
 
         # Fallback: key file in secrets directory
         key_file = self._secrets_dir / ".master_key"
@@ -245,7 +245,7 @@ class SecretsManager:
                     continue  # This key doesn't work, try next
 
         except Exception as e:
-            logger.warning(f"Error during multi-key decryption: {e}")
+            logger.warning("Error during multi-key decryption: %s", e)
 
         return None
 
@@ -400,7 +400,7 @@ class SecretsManager:
             self._cache.setdefault(identity, {})[key] = decrypted
             return decrypted
         except Exception as e:
-            logger.warning(f"Failed to decrypt secret '{key}' for '{identity}': {e}", exc_info=True)
+            logger.warning("Failed to decrypt secret '%s' for '%s': %s", key, identity, e, exc_info=True)
             return None
 
     def set(self, identity: str, key: str, value: str) -> None:
@@ -429,7 +429,7 @@ class SecretsManager:
 
         # Update cache
         self._cache.setdefault(identity, {})[key] = value
-        logger.info(f"Secret '{key}' stored for identity '{identity}'")
+        logger.info("Secret '%s' stored for identity '%s'", key, identity)
 
     def has(self, identity: str, key: str) -> bool:
         """Check if a secret exists."""
@@ -459,4 +459,4 @@ class SecretsManager:
         """
         for key, value in data.items():
             self.set(identity, key, value)
-        logger.info(f"Imported {len(data)} secrets for identity '{identity}'")
+        logger.info("Imported %s secrets for identity '%s'", len(data), identity)
