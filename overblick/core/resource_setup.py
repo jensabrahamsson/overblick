@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
-
-from overblick.core.learning_store_builder import LearningStoreBuilder
 from overblick.core.capability_setup import CapabilitySetup
 from overblick.core.ipc_bootstrap import IPCBootstrap
+from overblick.core.learning_store_builder import LearningStoreBuilder
 from overblick.core.orchestrator_paths import OrchestratorPaths
 from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
 from overblick.core.orchestrator_services import OrchestratorServices
-from overblick.core.plugin_capability_checker import PluginCapabilityChecker
-from overblick.identities import Identity
 
 
 class ResourceSetup:

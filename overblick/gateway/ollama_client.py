@@ -5,13 +5,13 @@ Wraps the Ollama HTTP API with proper error handling and timeout management.
 """
 
 import logging
-from typing import Optional
 
 import httpx
 
+from overblick.core.exceptions import LLMError
+
 from .config import GatewayConfig, get_config
 from .models import ChatMessage, ChatRequest, ChatResponse, ChatResponseChoice, ChatResponseUsage
-from overblick.core.exceptions import LLMError, LLMConnectionError, LLMTimeoutError
 
 logger = logging.getLogger(__name__)
 

@@ -74,7 +74,7 @@ async def test_max_retries_exceeded(mock_engagement_db):
     ]
 
     manager = ReplyQueueManager(engagement_db=mock_engagement_db, max_retries=3)
-    result = await manager.process_queue(AsyncMock())
+    await manager.process_queue(AsyncMock())
 
     mock_engagement_db.mark_reply_processed.assert_called_once()
     mock_engagement_db.remove_from_queue.assert_called_once()

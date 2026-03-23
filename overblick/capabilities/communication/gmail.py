@@ -27,13 +27,12 @@ import asyncio
 import imaplib
 import logging
 import smtplib
-import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from email import message, policy
 from email.header import decode_header as _decode_header
 from email.mime.text import MIMEText
 from email.parser import BytesParser
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 

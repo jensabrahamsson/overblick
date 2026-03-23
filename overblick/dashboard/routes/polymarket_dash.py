@@ -10,7 +10,6 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -313,14 +312,14 @@ def _load_polymarket_data(request: Request) -> dict:
                         opp["identity"] = identity_name
                         opportunities.append(opp)
                         stats["total_opportunities"] += 1
-                        
+
                         # Use reasoning from latest opportunity
                         if "reasoning" in opp:
                             latest_reasoning = opp["reasoning"]
 
                         if opp.get("confidence_score", 0) >= 70:
                             stats["high_confidence_opportunities"] += 1
-                        
+
                         # Add to activity feed (skip dummy 1% edge signals from quick-screen)
                         edge_pct = opp.get("probability_edge", 0) * 100
                         if edge_pct > 1.5:
@@ -375,7 +374,7 @@ def _load_polymarket_data(request: Request) -> dict:
                         trade["identity"] = identity_name
                         trades.append(trade)
                         stats["total_trades"] += 1
-                        
+
                         # Add to activity feed
                         activity_feed.append({
                             "time": trade.get("executed_at", ""),

@@ -16,7 +16,7 @@ import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ It creates identity YAML files and stores secrets via SecretsManager.
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 

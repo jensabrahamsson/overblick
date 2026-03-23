@@ -7,7 +7,6 @@ Parameterized from identity settings (start/end hour, timezone).
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 from overblick.identities import QuietHoursSettings

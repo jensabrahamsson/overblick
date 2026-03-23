@@ -631,7 +631,7 @@ class TestObfuscation:
                 # safe_mode returns False
                 with patch("overblick.core.security.settings.safe_mode", return_value=False):
                     try:
-                        from cryptography.fernet import Fernet  # noqa: F401
+                        from cryptography.fernet import Fernet
                     except ImportError:
                         return token.encode()
 

@@ -16,7 +16,6 @@ import re
 from typing import TYPE_CHECKING, Any, Optional
 
 from overblick.plugins.email_agent.models import (
-    AgentGoal,
     AgentLearning,
     AgentState,
     EmailClassification,

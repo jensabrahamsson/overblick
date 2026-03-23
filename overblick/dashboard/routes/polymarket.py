@@ -12,10 +12,9 @@ Shows:
 
 import json
 import logging
-import math
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -127,35 +126,35 @@ async def get_weather_data(request: Request):
     return JSONResponse(weather_data)
 
 
-async def _load_trading_data(data_root: Path) -> Dict[str, Any]:
+async def _load_trading_data(data_root: Path) -> dict[str, Any]:
     """Load comprehensive trading data."""
     try:
         # Portfolio data
         portfolio_file = data_root / "whallet_trader" / "whallet_trader_state.json"
         portfolio_data = {}
         if portfolio_file.exists():
-            with open(portfolio_file, "r") as f:
+            with open(portfolio_file) as f:
                 portfolio_data = json.load(f)
 
         # Trade history
         trades_file = data_root / "whallet_trader" / "trade_history.json"
         trades_data = []
         if trades_file.exists():
-            with open(trades_file, "r") as f:
+            with open(trades_file) as f:
                 trades_data = json.load(f).get("trades", [])
 
         # Performance metrics
         performance_file = data_root / "whallet_trader" / "performance_metrics.json"
         performance_data = {}
         if performance_file.exists():
-            with open(performance_file, "r") as f:
+            with open(performance_file) as f:
                 performance_data = json.load(f)
 
         # Market opportunities
         opportunities_file = data_root / "polymarket_monitor" / "polymarket_monitor_state.json"
         opportunities_data = []
         if opportunities_file.exists():
-            with open(opportunities_file, "r") as f:
+            with open(opportunities_file) as f:
                 state_data = json.load(f)
                 opportunities_data = state_data.get("recent_opportunities", [])
 
@@ -174,7 +173,7 @@ async def _load_trading_data(data_root: Path) -> Dict[str, Any]:
         return {}
 
 
-async def _load_market_data(data_root: Path) -> Dict[str, Any]:
+async def _load_market_data(data_root: Path) -> dict[str, Any]:
     """Load market analysis data."""
     try:
         # Market analysis cache
@@ -191,7 +190,7 @@ async def _load_market_data(data_root: Path) -> Dict[str, Any]:
             if analysis_files:
                 # Get most recent
                 latest_file = max(analysis_files, key=lambda f: f.stat().st_mtime)
-                with open(latest_file, "r") as f:
+                with open(latest_file) as f:
                     market_data.update(json.load(f))
 
         # Mock some data for demo
@@ -217,13 +216,13 @@ async def _load_market_data(data_root: Path) -> Dict[str, Any]:
         return {}
 
 
-async def _load_performance_data(data_root: Path) -> Dict[str, Any]:
+async def _load_performance_data(data_root: Path) -> dict[str, Any]:
     """Load performance tracking data."""
     try:
         performance_file = data_root / "whallet_trader" / "performance_metrics.json"
 
         if performance_file.exists():
-            with open(performance_file, "r") as f:
+            with open(performance_file) as f:
                 data = json.load(f)
 
                 # Calculate additional metrics
@@ -290,13 +289,13 @@ async def _load_performance_data(data_root: Path) -> Dict[str, Any]:
         return {}
 
 
-async def _load_weather_data(data_root: Path) -> Dict[str, Any]:
+async def _load_weather_data(data_root: Path) -> dict[str, Any]:
     """Load weather forecast data."""
     try:
         weather_file = data_root / "polymarket_monitor" / "weather_analysis.json"
 
         if weather_file.exists():
-            with open(weather_file, "r") as f:
+            with open(weather_file) as f:
                 return json.load(f)
 
         # Generate mock weather data
@@ -307,13 +306,13 @@ async def _load_weather_data(data_root: Path) -> Dict[str, Any]:
         return {}
 
 
-async def _load_portfolio_details(data_root: Path) -> Dict[str, Any]:
+async def _load_portfolio_details(data_root: Path) -> dict[str, Any]:
     """Load detailed portfolio data for API."""
     try:
         portfolio_file = data_root / "whallet_trader" / "whallet_trader_state.json"
 
         if portfolio_file.exists():
-            with open(portfolio_file, "r") as f:
+            with open(portfolio_file) as f:
                 data = json.load(f)
 
                 # Calculate current value if positions exist
@@ -342,13 +341,13 @@ async def _load_portfolio_details(data_root: Path) -> Dict[str, Any]:
         return {"positions": [], "summary": {}}
 
 
-async def _load_recent_trades(data_root: Path, limit: int = 50) -> Dict[str, Any]:
+async def _load_recent_trades(data_root: Path, limit: int = 50) -> dict[str, Any]:
     """Load recent trades for API."""
     try:
         trades_file = data_root / "whallet_trader" / "trade_history.json"
 
         if trades_file.exists():
-            with open(trades_file, "r") as f:
+            with open(trades_file) as f:
                 data = json.load(f)
                 trades = data.get("trades", [])
 
@@ -385,13 +384,13 @@ async def _load_recent_trades(data_root: Path, limit: int = 50) -> Dict[str, Any
         return {"trades": [], "total": 0, "showing": 0}
 
 
-async def _load_trading_opportunities(data_root: Path) -> Dict[str, Any]:
+async def _load_trading_opportunities(data_root: Path) -> dict[str, Any]:
     """Load trading opportunities for API."""
     try:
         opportunities_file = data_root / "polymarket_monitor" / "polymarket_monitor_state.json"
 
         if opportunities_file.exists():
-            with open(opportunities_file, "r") as f:
+            with open(opportunities_file) as f:
                 data = json.load(f)
                 opportunities = data.get("recent_opportunities", [])
 
@@ -438,13 +437,13 @@ async def _load_trading_opportunities(data_root: Path) -> Dict[str, Any]:
         return {"opportunities": [], "statistics": {}}
 
 
-async def _load_performance_metrics(data_root: Path) -> Dict[str, Any]:
+async def _load_performance_metrics(data_root: Path) -> dict[str, Any]:
     """Load performance metrics for API."""
     try:
         performance_file = data_root / "whallet_trader" / "performance_metrics.json"
 
         if performance_file.exists():
-            with open(performance_file, "r") as f:
+            with open(performance_file) as f:
                 data = json.load(f)
                 metrics = data.get("metrics", [])
 
@@ -482,13 +481,13 @@ async def _load_performance_metrics(data_root: Path) -> Dict[str, Any]:
         return {"current": {}, "history": {}, "summary": {}}
 
 
-async def _load_weather_forecasts(data_root: Path) -> Dict[str, Any]:
+async def _load_weather_forecasts(data_root: Path) -> dict[str, Any]:
     """Load weather forecasts for API."""
     try:
         weather_file = data_root / "polymarket_monitor" / "weather_analysis.json"
 
         if weather_file.exists():
-            with open(weather_file, "r") as f:
+            with open(weather_file) as f:
                 return json.load(f)
 
         # Return mock data
@@ -499,7 +498,7 @@ async def _load_weather_forecasts(data_root: Path) -> Dict[str, Any]:
         return {}
 
 
-def _calculate_trade_profit(trade: Dict[str, Any]) -> float:
+def _calculate_trade_profit(trade: dict[str, Any]) -> float:
     """Calculate profit for a trade (simplified)."""
     # This is a simplified calculation
     # In a real system, you'd track entry/exit prices
@@ -513,7 +512,7 @@ def _calculate_trade_profit(trade: Dict[str, Any]) -> float:
     return 0
 
 
-def _generate_mock_markets() -> List[Dict[str, Any]]:
+def _generate_mock_markets() -> list[dict[str, Any]]:
     """Generate mock market data for demo."""
     markets = [
         {
@@ -580,7 +579,7 @@ def _generate_mock_markets() -> List[Dict[str, Any]]:
     return markets
 
 
-def _generate_mock_weather_data() -> Dict[str, Any]:
+def _generate_mock_weather_data() -> dict[str, Any]:
     """Generate mock weather data for demo."""
     now = datetime.now()
 

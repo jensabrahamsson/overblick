@@ -6,11 +6,9 @@ Useful for condensing long posts, articles, or conversation history.
 """
 
 import logging
-from typing import Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.core.security.input_sanitizer import wrap_external_content
-from overblick.core.security.settings import raw_llm
 
 logger = logging.getLogger(__name__)
 

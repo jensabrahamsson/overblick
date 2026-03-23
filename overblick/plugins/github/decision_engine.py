@@ -6,9 +6,7 @@ notify, or skip a GitHub event based on configurable factors.
 """
 
 import logging
-import time
 from datetime import UTC
-from typing import Optional
 
 from overblick.plugins.github.models import (
     DecisionResult,
@@ -147,7 +145,7 @@ class GitHubDecisionEngine:
     def _event_age_hours(created_at: str) -> float | None:
         """Parse ISO 8601 timestamp and return age in hours."""
         try:
-            from datetime import datetime, timezone
+            from datetime import datetime
 
             # GitHub uses ISO 8601 with Z suffix
             ts = created_at.replace("Z", "+00:00")

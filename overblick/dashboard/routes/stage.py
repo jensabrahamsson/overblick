@@ -58,7 +58,6 @@ def has_data() -> bool:
 def _load_results(request: Request) -> list:
     """Load Stage results from data directories."""
     import json
-    from pathlib import Path
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
 

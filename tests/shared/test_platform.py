@@ -121,7 +121,6 @@ class TestRegisterShutdownSignals:
 
         # Record which signals are registered
         registered_signals = []
-        original_add = loop.add_signal_handler
 
         def spy_add(sig, callback):
             registered_signals.append(sig)
@@ -146,7 +145,6 @@ class TestRegisterShutdownSignals:
         # Create a fake SIGBREAK value (21 on real Windows)
         FAKE_SIGBREAK = 21
 
-        original_signal = plat.signal.signal
 
         def mock_signal_func(signum, handler):
             registered_signals.append(signum)

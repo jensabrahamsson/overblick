@@ -59,7 +59,6 @@ def has_data() -> bool:
 def _load_pieces(request: Request) -> list:
     """Load Kontrast pieces from the data directory."""
     import json
-    from pathlib import Path
 
     # Try to find kontrast state files across all identity data dirs
     from overblick.dashboard.routes._plugin_utils import resolve_data_root

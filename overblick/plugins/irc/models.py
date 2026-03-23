@@ -8,7 +8,7 @@ for identity-to-identity chat sessions.
 from __future__ import annotations
 
 import time
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field

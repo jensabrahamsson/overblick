@@ -8,11 +8,10 @@ to GitHub issues and comments. Two modes:
 """
 
 import logging
-from typing import Optional
 
 from overblick.core.security.input_sanitizer import wrap_external_content
 from overblick.plugins.github.code_context import CodeContextBuilder
-from overblick.plugins.github.models import CodeContext, GitHubEvent
+from overblick.plugins.github.models import GitHubEvent
 from overblick.plugins.github.prompts import code_question_prompt, issue_response_prompt
 
 logger = logging.getLogger(__name__)

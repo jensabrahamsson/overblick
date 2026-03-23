@@ -51,7 +51,6 @@ def has_data() -> bool:
 
 def _load_digest_data(request: Request) -> dict:
     """Load AI Digest state from data directories."""
-    from pathlib import Path
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
 
@@ -105,7 +104,7 @@ def _load_latest_digest_content(identity_dir: Path) -> str:
         # Sort by modification time (newest first)
         latest_log = max(log_files, key=lambda f: f.stat().st_mtime)
 
-        with open(latest_log, "r") as f:
+        with open(latest_log) as f:
             content = f.read()
 
         # Extract digest section from logs

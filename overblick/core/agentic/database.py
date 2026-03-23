@@ -11,7 +11,7 @@ if the plugin already has these tables from earlier schema versions.
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from overblick.core.agentic.models import (
     ActionOutcome,

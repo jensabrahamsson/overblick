@@ -95,7 +95,7 @@ class TestPipelineHappyPath:
         )
 
         assert not result.blocked
-        user_msg = [m for m in captured["messages"] if m["role"] == "user"][0]
+        user_msg = next(m for m in captured["messages"] if m["role"] == "user")
         assert "<<<EXTERNAL_API_RESPONSE_START>>>" in user_msg["content"]
         assert "<<<EXTERNAL_API_RESPONSE_END>>>" in user_msg["content"]
 
@@ -130,7 +130,7 @@ class TestPipelineBlockedAtPreflight:
     @pytest.mark.asyncio
     async def test_jailbreak_blocked(self):
         """Classic jailbreak prompt is blocked before LLM call."""
-        pipeline, llm, audit = _make_pipeline()
+        pipeline, llm, _audit = _make_pipeline()
 
         result = await pipeline.chat(
             messages=[
@@ -203,7 +203,7 @@ class TestPipelineBlockedAtRateLimit:
     @pytest.mark.asyncio
     async def test_rate_limit_blocks_after_burst(self):
         """Burst capacity exhausted → subsequent calls blocked."""
-        pipeline, llm, _ = _make_pipeline(rate_max=3, rate_refill=0.001)
+        pipeline, _llm, _ = _make_pipeline(rate_max=3, rate_refill=0.001)
 
         # First 3 calls succeed
         for _ in range(3):
@@ -229,7 +229,7 @@ class TestPipelineBlockedAtOutputSafety:
     async def test_ai_language_leakage_blocked(self):
         """LLM saying 'I am an AI' gets caught by output safety."""
         llm = _make_llm(content="I am an AI language model and I cannot help with that.")
-        pipeline, _, audit = _make_pipeline(llm=llm)
+        pipeline, _, _audit = _make_pipeline(llm=llm)
 
         result = await pipeline.chat(
             messages=[{"role": "user", "content": "Who are you?"}],

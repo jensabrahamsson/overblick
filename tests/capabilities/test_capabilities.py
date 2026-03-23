@@ -352,34 +352,34 @@ class TestPluginCapabilityIntegration:
     @pytest.mark.asyncio
     async def test_plugin_has_capabilities(self, setup_anomal_plugin):
         """Anomal plugin (with dream/therapy) has capabilities loaded."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, _client = setup_anomal_plugin
         assert plugin._dream_system is not None
         assert plugin._therapy_system is not None
 
     @pytest.mark.asyncio
     async def test_plugin_capabilities_dict(self, setup_anomal_plugin):
         """Capabilities dict is populated."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, _client = setup_anomal_plugin
         assert "dream_system" in plugin._capabilities
         assert "therapy_system" in plugin._capabilities
 
     @pytest.mark.asyncio
     async def test_get_capability(self, setup_anomal_plugin):
         """get_capability() returns correct capability."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, _client = setup_anomal_plugin
         dream = plugin.get_capability("dream_system")
         assert isinstance(dream, DreamCapability)
 
     @pytest.mark.asyncio
     async def test_get_capability_unknown(self, setup_anomal_plugin):
         """get_capability() returns None for unknown."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, _client = setup_anomal_plugin
         assert plugin.get_capability("nonexistent") is None
 
     @pytest.mark.asyncio
     async def test_cherry_no_capabilities(self, setup_cherry_plugin):
         """Cherry (no enabled_modules) has empty capabilities."""
-        plugin, ctx, client = setup_cherry_plugin
+        plugin, _ctx, _client = setup_cherry_plugin
         assert plugin._dream_system is None
         assert plugin._therapy_system is None
         assert len(plugin._capabilities) == 0
@@ -387,7 +387,7 @@ class TestPluginCapabilityIntegration:
     @pytest.mark.asyncio
     async def test_gather_context(self, setup_anomal_plugin):
         """_gather_capability_context() collects from all enabled capabilities."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, _client = setup_anomal_plugin
         # Initially empty (no dreams generated)
         context = plugin._gather_capability_context()
         assert isinstance(context, str)

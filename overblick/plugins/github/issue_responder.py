@@ -7,13 +7,9 @@ as an agentic layer on top.
 """
 
 import hashlib
-import json
 import logging
-from typing import Optional
 
-from overblick.core.security.input_sanitizer import wrap_external_content
 from overblick.plugins.github.client import GitHubAPIClient, GitHubAPIError
-from overblick.plugins.github.code_context import CodeContextBuilder
 from overblick.plugins.github.database import GitHubDB
 from overblick.plugins.github.models import (
     ActionOutcome,
@@ -23,7 +19,6 @@ from overblick.plugins.github.models import (
     IssueSnapshot,
     PlannedAction,
 )
-from overblick.plugins.github.prompts import issue_classification_prompt
 from overblick.plugins.github.response_gen import ResponseGenerator
 
 logger = logging.getLogger(__name__)

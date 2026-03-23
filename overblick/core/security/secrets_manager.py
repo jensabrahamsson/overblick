@@ -28,9 +28,9 @@ Usage:
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -234,7 +234,7 @@ class SecretsManager:
             Decrypted bytes if successful, None if no key works
         """
         try:
-            from cryptography.fernet import Fernet, InvalidToken
+            from cryptography.fernet import InvalidToken
 
             # Try all keys in reverse order (newest first for efficiency)
             for key_id in reversed(list(self._keys.keys())):

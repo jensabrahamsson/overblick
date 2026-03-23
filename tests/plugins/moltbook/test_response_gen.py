@@ -79,7 +79,7 @@ class TestResponseGenerator:
         )
 
         assert result is not None
-        title, content, submolt = result
+        title, _content, submolt = result
         assert title == "My Heartbeat"
         assert submolt == "ai"
 
@@ -97,7 +97,7 @@ class TestResponseGenerator:
             prompt_template="Write {topic_index}",
             system_prompt="You are a test AI agent.",
         )
-        title, content, submolt = result
+        title, _content, submolt = result
         assert title == "Simple Post"
         assert submolt == "ai"  # Default
 

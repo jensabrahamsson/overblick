@@ -6,7 +6,6 @@ Real audio synthesis backends will be integrated later.
 """
 
 import logging
-from typing import Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityContext
 

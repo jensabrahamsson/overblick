@@ -14,7 +14,6 @@ against command injection. All arguments are passed as separate tokens.
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
 
 from overblick.plugins.dev_agent.models import WorkspaceState
 

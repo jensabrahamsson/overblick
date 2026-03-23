@@ -11,7 +11,7 @@ by the core agentic platform via AgenticDB.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from overblick.core.agentic.database import AGENTIC_MIGRATIONS, AgenticDB
 from overblick.core.database.base import DatabaseBackend, Migration, MigrationManager

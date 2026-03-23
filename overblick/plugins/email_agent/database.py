@@ -7,7 +7,6 @@ framework's migration system for schema management.
 """
 
 import logging
-from typing import Optional
 
 from overblick.core.database.base import DatabaseBackend, Migration, MigrationManager
 from overblick.plugins.email_agent.models import (

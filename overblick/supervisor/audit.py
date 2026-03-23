@@ -15,7 +15,7 @@ behave well and improving their prompts over time.
 import logging
 import time
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 

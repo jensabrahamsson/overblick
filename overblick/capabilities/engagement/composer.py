@@ -6,11 +6,9 @@ the SafeLLMPipeline for full security enforcement.
 """
 
 import logging
-from typing import Optional
 
 from overblick.capabilities.engagement.response_gen import ResponseGenerator
 from overblick.core.capability import CapabilityBase, CapabilityContext
-from overblick.core.security.settings import raw_llm
 
 logger = logging.getLogger(__name__)
 

@@ -7,9 +7,10 @@ Deepseek cloud API at https://api.deepseek.com/v1.
 """
 
 import logging
-from typing import Optional
 
 import httpx
+
+from overblick.core.exceptions import LLMError
 
 from .models import (
     ChatMessage,
@@ -18,7 +19,6 @@ from .models import (
     ChatResponseChoice,
     ChatResponseUsage,
 )
-from overblick.core.exceptions import LLMError, LLMConnectionError, LLMTimeoutError
 
 logger = logging.getLogger(__name__)
 

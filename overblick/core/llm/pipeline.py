@@ -9,7 +9,6 @@ This guarantees that every LLM interaction passes through all security layers,
 eliminating the risk of skipped checks.
 """
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field

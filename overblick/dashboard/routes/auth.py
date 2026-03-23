@@ -4,7 +4,6 @@ Authentication routes — login and logout.
 Supports bcrypt password hash (dashboard.password_hash in YAML).
 """
 
-import hmac
 import logging
 
 from fastapi import APIRouter, Request
@@ -22,7 +21,6 @@ def _should_use_secure_cookie(request: Request) -> bool:
     - X-Forwarded-Proto header is https (reverse proxy), OR
     - Network access mode is enabled (assumes HTTPS should be used).
     """
-    config = request.app.state.config
     if request.url.scheme == "https":
         return True
     if request.headers.get("X-Forwarded-Proto") == "https":

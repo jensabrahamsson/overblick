@@ -35,8 +35,8 @@ from overblick.core.capability import CapabilityContext
 
 def _make_ctx(
     identity_name: str = "cherry",
-    data_dir: Path = None,
-    config: dict = None,
+    data_dir: Path | None = None,
+    config: dict | None = None,
 ) -> CapabilityContext:
     """Build a minimal CapabilityContext for testing."""
     return CapabilityContext(

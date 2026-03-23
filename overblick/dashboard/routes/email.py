@@ -61,7 +61,6 @@ def has_data() -> bool:
 
 def _load_email_data(request: Request) -> dict:
     """Load email agent data from SQLite databases across identities."""
-    from pathlib import Path
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
 

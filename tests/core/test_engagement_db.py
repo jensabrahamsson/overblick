@@ -24,7 +24,7 @@ class TestEngagementDB:
     async def test_record_engagement(self, engagement_db):
         await engagement_db.record_engagement("post1", "comment", 0.85)
         # Verify the engagement was recorded (no exception = success)
-        stats = (
+        (
             await engagement_db.get_engagement_stats()
             if hasattr(engagement_db, "get_engagement_stats")
             else None

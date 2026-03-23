@@ -13,7 +13,6 @@ Uses pure algorithmic solving — no LLM needed (<1ms vs 5-15s).
 
 import logging
 import re
-from typing import Optional
 
 from pydantic import BaseModel
 

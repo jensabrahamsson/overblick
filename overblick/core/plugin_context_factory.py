@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
-
+from overblick.core.orchestrator_paths import OrchestratorPaths
+from overblick.core.orchestrator_services import OrchestratorServices
 from overblick.core.permissions import PermissionChecker
 from overblick.core.plugin_base import (
     AgenticPluginContext,
@@ -13,9 +12,6 @@ from overblick.core.plugin_base import (
     PluginContext,
 )
 from overblick.core.plugin_capability_checker import PluginCapabilityChecker
-from overblick.core.orchestrator_paths import OrchestratorPaths
-from overblick.core.orchestrator_services import OrchestratorServices
-from overblick.identities import Identity
 
 
 class PluginContextFactory:

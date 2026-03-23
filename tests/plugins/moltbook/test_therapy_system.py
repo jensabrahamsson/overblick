@@ -117,7 +117,7 @@ class TestTherapyCapabilityPromptContext:
     async def test_cherry_returns_session_summary(self):
         cap = TherapyCapability(self._make_cap_ctx("cherry"))
         await cap.setup()
-        session = await cap.run_session()
+        await cap.run_session()
         ctx_str = cap.get_prompt_context()
         assert "Therapy insight" in ctx_str
 

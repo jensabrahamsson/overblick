@@ -106,7 +106,7 @@ class TestCharacterCarousel:
         page.goto(f"{dashboard_server}/settings/step/7")
         page.wait_for_load_state("networkidle")
 
-        content = page.content()
+        page.content()
         # Either carousel instances or auto-assigned badges should exist
         carousel = page.locator(".carousel-instance")
         auto_assigned = page.locator(".auto-assigned")
@@ -306,7 +306,7 @@ class TestFormStatePersistence:
             page.wait_for_timeout(300)
 
             # Check sessionStorage
-            stored = page.evaluate("""
+            page.evaluate("""
                 () => {
                     for (let i = 0; i < sessionStorage.length; i++) {
                         const key = sessionStorage.key(i);

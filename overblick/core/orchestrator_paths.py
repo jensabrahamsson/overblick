@@ -12,7 +12,7 @@ class OrchestratorPaths:
     secrets_dir: Path
 
     @classmethod
-    def for_identity(cls, base_dir: Path, identity_name: str) -> "OrchestratorPaths":
+    def for_identity(cls, base_dir: Path, identity_name: str) -> OrchestratorPaths:
         return cls(
             base_dir=base_dir,
             data_dir=base_dir / "data" / identity_name,

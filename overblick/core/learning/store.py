@@ -12,7 +12,6 @@ import struct
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
 
 import aiosqlite
 

@@ -14,7 +14,6 @@ Optional overrides:
 
 import logging
 from abc import abstractmethod
-from typing import Optional
 
 from overblick.core.agentic.database import AGENTIC_MIGRATIONS, AgenticDB
 from overblick.core.agentic.executor import ActionExecutor

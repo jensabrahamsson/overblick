@@ -408,7 +408,7 @@ class TestDMFlow:
         server, client = server_and_client
         req = await client.send_dm_request("agent-99", "Opening message")
         await client.approve_dm_request(req["request_id"])
-        conv_id = list(server.state.conversations.keys())[0]
+        conv_id = next(iter(server.state.conversations.keys()))
 
         msg = await client.send_dm(conv_id, "Hello from integration test!")
         assert isinstance(msg, Message)
@@ -416,7 +416,7 @@ class TestDMFlow:
         assert msg.sender_id == "agent-1"
 
     async def test_list_conversations(self, server_and_client):
-        server, client = server_and_client
+        _server, client = server_and_client
         req = await client.send_dm_request("agent-99", "Chat start")
         await client.approve_dm_request(req["request_id"])
 
@@ -777,7 +777,7 @@ class TestScenarioSwitching:
         server.state.challenge_on_next_post = True
 
         # First post triggers challenge
-        post1 = await client.create_post(title="First", content="Content")
+        await client.create_post(title="First", content="Content")
         # Challenge consumed — flag should be False
         assert server.state.challenge_on_next_post is False
 

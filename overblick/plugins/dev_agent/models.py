@@ -6,21 +6,11 @@ workspace state, and observations. Generic agentic models are
 re-exported from core for convenience.
 """
 
-from enum import Enum, StrEnum
-from typing import Any, Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 # Re-export core agentic models for convenience
-from overblick.core.agentic.models import (
-    ActionOutcome,
-    ActionPlan,
-    AgentGoal,
-    AgentLearning,
-    GoalStatus,
-    PlannedAction,
-    TickLog,
-)
 
 # ---------------------------------------------------------------------------
 # Bug status lifecycle

@@ -8,10 +8,8 @@ AgentProcess tracks process state, PID, and provides lifecycle methods.
 import asyncio
 import logging
 import os
-import sys
 import time
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 

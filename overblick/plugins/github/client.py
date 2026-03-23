@@ -8,9 +8,10 @@ Handles rate limiting, retries, and Bearer token auth.
 import asyncio
 import base64
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
+
 from overblick.core.exceptions import PluginError
 
 logger = logging.getLogger(__name__)

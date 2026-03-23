@@ -14,7 +14,6 @@ Usage:
 """
 
 import argparse
-import sys
 
 from overblick.manage.manager import ServiceManager
 

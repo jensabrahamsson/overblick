@@ -8,7 +8,6 @@ file offsets in the database to avoid re-processing old entries.
 import logging
 import re
 from pathlib import Path
-from typing import Optional
 
 from overblick.plugins.dev_agent.models import LogErrorEntry
 

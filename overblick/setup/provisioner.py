@@ -199,7 +199,7 @@ def _build_llm_config_new_format(llm: dict[str, Any]) -> dict[str, Any]:
     local = llm.get("local", {})
     remote = llm.get("remote", llm.get("cloud", {}))
     deepseek = llm.get("deepseek", {})
-    openai = llm.get("openai", {})
+    llm.get("openai", {})
 
     config: dict[str, Any] = {
         "gateway_url": llm.get("gateway_url", "http://127.0.0.1:8200"),

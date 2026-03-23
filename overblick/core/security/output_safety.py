@@ -8,7 +8,7 @@ Identity-driven: persona patterns and banned slang loaded from identity config.
 import logging
 import random
 import re
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 from pydantic import BaseModel
 

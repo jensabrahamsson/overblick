@@ -16,7 +16,6 @@ import asyncio
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from overblick.core.security.audit_log import AuditLog
 from overblick.supervisor.email_handler import EmailConsultationHandler

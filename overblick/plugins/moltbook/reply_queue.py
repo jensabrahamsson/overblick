@@ -6,7 +6,6 @@ with retry logic, expiry handling, and anti-spam limits.
 """
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

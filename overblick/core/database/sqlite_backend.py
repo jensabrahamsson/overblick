@@ -12,7 +12,7 @@ import sqlite3
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 from overblick.core.database.base import DatabaseBackend, DatabaseConfig, DatabaseRow
 

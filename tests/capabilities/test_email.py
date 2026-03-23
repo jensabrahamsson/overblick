@@ -114,7 +114,7 @@ class TestEmailCapability:
         cap = EmailCapability(ctx)
         await cap.setup()
 
-        with patch.object(cap, "_send_smtp") as mock_smtp:
+        with patch.object(cap, "_send_smtp"):
             result = await cap.send(
                 to="recipient@example.com",
                 subject="HTML Test",

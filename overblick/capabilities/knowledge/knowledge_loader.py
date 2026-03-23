@@ -7,7 +7,6 @@ formats them for inclusion in LLM system prompts.
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import yaml  # type: ignore[import-untyped]
 

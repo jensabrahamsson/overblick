@@ -324,11 +324,7 @@ class TestMigrationManager:
         assert await mgr.current_version() == 1
 
         # Apply second batch (includes old + new)
-        batch2 = batch1 + [
-            Migration(
-                version=2, name="second", up_sql="CREATE TABLE inc2 (id INTEGER PRIMARY KEY);"
-            ),
-        ]
+        batch2 = [*batch1, Migration(version=2, name="second", up_sql="CREATE TABLE inc2 (id INTEGER PRIMARY KEY);")]
         applied = await mgr.apply(batch2)
         assert applied == 1  # Only the new one
         assert await mgr.current_version() == 2

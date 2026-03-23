@@ -10,14 +10,11 @@ Manages three services:
 - Supervisor (Boss agent managing identity subprocesses)
 """
 
-import json
 import logging
 import os
 import subprocess
-import sys
 import time
 from pathlib import Path
-from typing import Optional
 from urllib.error import URLError
 from urllib.request import urlopen
 

@@ -6,24 +6,19 @@ Wires together identity, plugins, LLM, security, and scheduling.
 """
 
 import asyncio
-import importlib
-import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from overblick.core.orchestrator_bootstrap import OrchestratorBootstrap
-from overblick.core.orchestrator_runtime import OrchestratorRuntime
-from overblick.core.orchestrator_shutdown import OrchestratorShutdown
 from overblick.core.orchestrator_paths import OrchestratorPaths
+from overblick.core.orchestrator_runtime import OrchestratorRuntime
 from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
 from overblick.core.orchestrator_services import OrchestratorServices
+from overblick.core.orchestrator_shutdown import OrchestratorShutdown
 from overblick.core.orchestrator_types import OrchestratorState
-from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.plugin_loader import PluginLoader
-from overblick.core.plugin_run_controller import PluginRunController
 from overblick.identities import Identity
-from overblick.supervisor.ipc import IPCClient
 
 if TYPE_CHECKING:
     from overblick.core.component_factory import ComponentFactory
@@ -226,7 +221,7 @@ class Orchestrator:
         except asyncio.CancelledError:
             logger.info("Orchestrator run cancelled")
             await self.stop()
-        except Exception as e:
+        except Exception:
             logger.exception("Orchestrator run failed")
             await self.stop()
             raise

@@ -6,7 +6,7 @@ This service provides access to the character/personality aspects of identities
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

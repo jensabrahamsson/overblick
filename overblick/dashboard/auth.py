@@ -8,12 +8,10 @@ Security properties:
 - Sessions expire after configurable hours
 """
 
-import hashlib
 import hmac
 import logging
 import secrets
 import time
-from typing import Optional
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from starlette.middleware.base import BaseHTTPMiddleware

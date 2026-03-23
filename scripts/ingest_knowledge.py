@@ -27,12 +27,12 @@ async def main():
     parser.add_argument("--password", default="", help="Neo4j password")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
     parser.add_argument(
-        "--enable-scihub",
+        "--enable-academic",
         action="store_true",
-        help="Enable Sci-Hub scientific paper ingestion (experimental)",
+        help="Enable academic paper ingestion from arXiv (open access)",
     )
     parser.add_argument(
-        "--max-papers", type=int, default=5, help="Maximum papers per Sci-Hub query (default: 5)"
+        "--max-papers", type=int, default=5, help="Maximum papers per arXiv query (default: 5)"
     )
     args = parser.parse_args()
 

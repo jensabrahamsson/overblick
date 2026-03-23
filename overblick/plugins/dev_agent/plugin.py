@@ -19,7 +19,6 @@ The agent keeps the codebase healthy by:
 import logging
 import time
 from pathlib import Path
-from typing import Optional
 
 from overblick.core.agentic.models import AgentGoal
 from overblick.core.agentic.plugin_base import AgenticPluginBase

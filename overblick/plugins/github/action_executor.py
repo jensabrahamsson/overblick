@@ -9,7 +9,7 @@ for the core ActionExecutor.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from overblick.core.agentic.models import ActionOutcome, PlannedAction
 from overblick.plugins.github.client import GitHubAPIClient
@@ -19,7 +19,6 @@ from overblick.plugins.github.models import (
     ActionType,
     IssueSnapshot,
     PRSnapshot,
-    RepoObservation,
     VersionBumpType,
 )
 

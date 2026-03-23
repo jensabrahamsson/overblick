@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from overblick.core.plugin_registry import PluginRegistry
 
 
@@ -19,7 +17,7 @@ class PluginDependencyResolver:
         # Build dependency-to-dependent graph (edges: dep → name)
         graph: dict[str, list[str]] = {name: [] for name in plugin_names}
         all_plugins = set(plugin_names)
-        in_degree = {name: 0 for name in plugin_names}
+        in_degree = dict.fromkeys(plugin_names, 0)
 
         for name in plugin_names:
             try:

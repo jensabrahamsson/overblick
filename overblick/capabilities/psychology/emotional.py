@@ -12,7 +12,6 @@ emotional state variant:
 """
 
 import logging
-from typing import Optional
 
 from overblick.capabilities.psychology.emotional_state import (
     AnomalEmotionalState,

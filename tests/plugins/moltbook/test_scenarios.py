@@ -191,7 +191,7 @@ async def test_quiet_hours_prevent_tick(setup_anomal_plugin):
 @pytest.mark.asyncio
 async def test_tick_calls_capability_ticks(setup_anomal_plugin):
     """Plugin tick propagates to enabled capabilities."""
-    plugin, ctx, client = setup_anomal_plugin
+    plugin, _ctx, _client = setup_anomal_plugin
 
     # Create mock capabilities that are properly awaitable and marked as enabled
     mock_dream = AsyncMock()
@@ -220,7 +220,7 @@ async def test_tick_calls_capability_ticks(setup_anomal_plugin):
 @pytest.mark.asyncio
 async def test_tick_skips_disabled_capabilities(setup_cherry_plugin):
     """Cherry has no extra modules enabled; tick should not call them."""
-    plugin, ctx, client = setup_cherry_plugin
+    plugin, _ctx, _client = setup_cherry_plugin
 
     # Force capabilities to be empty for this identity
     plugin._capabilities = {}
@@ -239,7 +239,7 @@ async def test_tick_skips_disabled_capabilities(setup_cherry_plugin):
 @pytest.mark.asyncio
 async def test_tick_capability_error_does_not_crash(setup_anomal_plugin):
     """Error in one capability tick shouldn't stop the plugin tick."""
-    plugin, ctx, client = setup_anomal_plugin
+    plugin, _ctx, _client = setup_anomal_plugin
 
     # Mock capability with error and mark as enabled
     bad_cap = AsyncMock()
@@ -310,7 +310,7 @@ async def test_challenge_during_comment(setup_anomal_plugin):
 @pytest.mark.asyncio
 async def test_rate_limit_handling(setup_anomal_plugin):
     """Plugin handles RateLimitError gracefully."""
-    plugin, ctx, client = setup_anomal_plugin
+    plugin, _ctx, client = setup_anomal_plugin
 
     client.get_posts = AsyncMock(side_effect=RateLimitError("Too many requests", retry_after=60))
 
@@ -487,7 +487,7 @@ async def test_reply_queue_processing(setup_anomal_plugin):
 @pytest.mark.asyncio
 async def test_skip_own_posts(setup_anomal_plugin):
     """Plugin should never engage with its own posts."""
-    plugin, ctx, client = setup_anomal_plugin
+    plugin, _ctx, client = setup_anomal_plugin
     plugin._reset_state()
 
     # Post authored by Anomal
@@ -507,7 +507,7 @@ async def test_skip_own_posts(setup_anomal_plugin):
 @pytest.mark.asyncio
 async def test_empty_feed(setup_anomal_plugin):
     """Empty feed is handled gracefully."""
-    plugin, ctx, client = setup_anomal_plugin
+    plugin, _ctx, client = setup_anomal_plugin
     plugin._reset_state()
     client.get_posts = AsyncMock(return_value=[])
 
@@ -679,7 +679,7 @@ async def test_preflight_blocks_comment(setup_anomal_plugin):
 @pytest.mark.asyncio
 async def test_upvote_for_moderate_score(setup_anomal_plugin):
     """Score between 0 and threshold => upvote action, not comment."""
-    plugin, ctx, client = setup_anomal_plugin
+    plugin, _ctx, client = setup_anomal_plugin
     plugin._reset_state()
 
     # A post that Anomal likes a little bit (score ~15), but below threshold (35)
@@ -712,8 +712,8 @@ async def test_upvote_for_moderate_score(setup_anomal_plugin):
 @pytest.mark.asyncio
 async def test_multi_identity_isolation(setup_anomal_plugin, setup_cherry_plugin):
     """Two plugins with different identities don't share state."""
-    anomal_plugin, anomal_ctx, anomal_client = setup_anomal_plugin
-    cherry_plugin, cherry_ctx, cherry_client = setup_cherry_plugin
+    anomal_plugin, _anomal_ctx, _anomal_client = setup_anomal_plugin
+    cherry_plugin, _cherry_ctx, _cherry_client = setup_cherry_plugin
 
     assert anomal_plugin.ctx.identity.name == "anomal"
     assert cherry_plugin.ctx.identity.name == "cherry"

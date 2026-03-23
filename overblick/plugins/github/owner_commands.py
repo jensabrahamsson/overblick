@@ -20,7 +20,6 @@ The TelegramNotifier capability handles chat_id filtering internally.
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

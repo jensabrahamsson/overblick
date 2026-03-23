@@ -8,11 +8,8 @@ Input validation uses Pydantic models for all form data.
 import logging
 import time
 from collections import defaultdict
-from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
-from starlette.requests import Request
-from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 

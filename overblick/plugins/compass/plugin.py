@@ -19,8 +19,7 @@ Security: Pure analysis, no LLM calls. Read-only access to output data.
 import json
 import logging
 import statistics
-import time
-from typing import Any, Optional
+from typing import Any
 
 from overblick.core.plugin_base import PluginBase, PluginContext
 

@@ -13,7 +13,7 @@ Supported backend types:
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 from .config import GatewayConfig
 from .deepseek_client import DeepseekClient

@@ -22,9 +22,9 @@ async def init_services(app: FastAPI, config: DashboardConfig) -> None:
     from .irc import IRCService
     from .onboarding import OnboardingService
     from .personality import PersonalityService
+    from .secrets import SecretsService
     from .supervisor import SupervisorService
     from .system import SystemService
-    from .secrets import SecretsService
 
     # Determine base_dir (project root, not package root)
     if config.base_dir:

@@ -8,8 +8,6 @@ Community findings (issue #134):
 - Obfuscation: case-mixing (tWeNtY) + letter-doubling (tWwEeNnTtYy) + space injection (f i v e)
 """
 
-import re
-from typing import Optional
 
 # ── Deobfuscation utilities ──────────────────────────────────────────────────
 # Moltbook challenges use three obfuscation techniques (per community reports):

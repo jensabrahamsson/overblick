@@ -7,7 +7,6 @@ ONLY interface to the framework. This ensures clean isolation.
 
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Optional
 
@@ -614,20 +613,20 @@ class PluginBase(ABC):
 
 # Real imports for model_rebuild() — these modules do not import from plugin_base,
 # so there is no circular dependency. Placed after class definitions per PEP 8 E402.
-from overblick.core.db.engagement_db import EngagementDB  # noqa: E402
-from overblick.core.event_bus import EventBus  # noqa: E402
-from overblick.core.learning.store import LearningStore  # noqa: E402
-from overblick.core.llm.client import LLMClient  # noqa: E402
-from overblick.core.llm.pipeline import SafeLLMPipeline  # noqa: E402
-from overblick.core.llm.response_router import ResponseRouter  # noqa: E402
-from overblick.core.permissions import PermissionChecker  # noqa: E402
-from overblick.core.quiet_hours import QuietHoursChecker  # noqa: E402
-from overblick.core.scheduler import Scheduler  # noqa: E402
-from overblick.core.security.audit_log import AuditLog  # noqa: E402
-from overblick.core.security.output_safety import OutputSafety  # noqa: E402
-from overblick.core.security.policy_gate import PolicyGate  # noqa: E402
-from overblick.core.security.preflight import PreflightChecker  # noqa: E402
-from overblick.identities import Identity  # noqa: E402
-from overblick.supervisor.ipc import IPCClient  # noqa: E402
+from overblick.core.db.engagement_db import EngagementDB
+from overblick.core.event_bus import EventBus
+from overblick.core.learning.store import LearningStore
+from overblick.core.llm.client import LLMClient
+from overblick.core.llm.pipeline import SafeLLMPipeline
+from overblick.core.llm.response_router import ResponseRouter
+from overblick.core.permissions import PermissionChecker
+from overblick.core.quiet_hours import QuietHoursChecker
+from overblick.core.scheduler import Scheduler
+from overblick.core.security.audit_log import AuditLog
+from overblick.core.security.output_safety import OutputSafety
+from overblick.core.security.policy_gate import PolicyGate
+from overblick.core.security.preflight import PreflightChecker
+from overblick.identities import Identity
+from overblick.supervisor.ipc import IPCClient
 
 PluginContext.model_rebuild()

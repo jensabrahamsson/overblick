@@ -87,7 +87,7 @@ class TestHeartbeatTopicFormatting:
         mock_llm_client,
     ):
         """Free-form heartbeat (no forced topics) posts successfully."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         # Override prompts to return free-form prompts
         plugin._prompts = _TopicAwarePrompts()
@@ -111,7 +111,7 @@ class TestHeartbeatTopicFormatting:
         mock_llm_client,
     ):
         """Heartbeat injects recent post titles as anti-repetition context."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, ctx, _client = setup_anomal_plugin
         plugin._prompts = _TopicAwarePrompts()
         plugin._load_prompts = lambda _: _TopicAwarePrompts()
 
@@ -132,7 +132,7 @@ class TestHeartbeatTopicFormatting:
         messages = (
             call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
         )
-        system_content = [m for m in messages if m["role"] == "system"][0]["content"]
+        system_content = next(m for m in messages if m["role"] == "system")["content"]
         assert "AI Consciousness" in system_content
         assert "avoid similar themes" in system_content
 
@@ -143,7 +143,7 @@ class TestHeartbeatTopicFormatting:
         mock_llm_client,
     ):
         """With empty HEARTBEAT_TOPICS, fallback prompt with {topic_index} works."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, _client = setup_anomal_plugin
         # _FallbackPrompts has no HEARTBEAT_TOPICS and uses {topic_index} only
         plugin._prompts = _FallbackPrompts()
         plugin._load_prompts = lambda _: _FallbackPrompts()
@@ -162,7 +162,7 @@ class TestHeartbeatTopicFormatting:
         mock_llm_client,
     ):
         """Empty LLM response returns False without posting."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         mock_llm_client.chat = AsyncMock(return_value={"content": ""})
 
@@ -177,7 +177,7 @@ class TestHeartbeatTopicFormatting:
         mock_llm_client,
     ):
         """RateLimitError during create_post returns False."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         mock_llm_client.chat = AsyncMock(
             return_value={"content": "submolt: ai\nTITLE: Test\nBody."}
@@ -194,7 +194,7 @@ class TestHeartbeatTopicFormatting:
         mock_llm_client,
     ):
         """create_post returning None returns False."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         mock_llm_client.chat = AsyncMock(
             return_value={"content": "submolt: ai\nTITLE: Test\nBody."}
@@ -220,7 +220,7 @@ class TestPromptNameResolution:
         mock_llm_client,
     ):
         """Plugin uses RESPONSE_PROMPT when COMMENT_PROMPT is absent."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
         plugin._prompts = _ResponsePromptOnly()
         plugin._load_prompts = lambda _: _ResponsePromptOnly()
 
@@ -242,7 +242,7 @@ class TestPromptNameResolution:
         messages = (
             call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
         )
-        user_content = [m for m in messages if m["role"] == "user"][0]["content"]
+        user_content = next(m for m in messages if m["role"] == "user")["content"]
         # The RESPONSE_PROMPT template "Engage with:" should appear in the prompt
         # (may be preceded by knowledge context)
         assert "Engage with:" in user_content
@@ -254,7 +254,7 @@ class TestPromptNameResolution:
         mock_llm_client,
     ):
         """_handle_reply uses REPLY_TO_COMMENT_PROMPT when REPLY_PROMPT is absent."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
         plugin._prompts = _ResponsePromptOnly()
         plugin._load_prompts = lambda _: _ResponsePromptOnly()
 
@@ -284,7 +284,7 @@ class TestPromptNameResolution:
         messages = (
             call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0]
         )
-        user_content = [m for m in messages if m["role"] == "user"][0]["content"]
+        user_content = next(m for m in messages if m["role"] == "user")["content"]
         assert "Reply to" in user_content
 
     @pytest.mark.asyncio
@@ -294,7 +294,7 @@ class TestPromptNameResolution:
         mock_llm_client,
     ):
         """When no prompts exist at all, hardcoded fallback is used."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
         plugin._prompts = _NoPromptsAtAll()
         plugin._load_prompts = lambda _: _NoPromptsAtAll()
 
@@ -324,7 +324,7 @@ class TestDMHandlingEdgeCases:
     @pytest.mark.asyncio
     async def test_dm_404_disables_dm_support_after_3_consecutive(self, setup_anomal_plugin):
         """Three consecutive 404 MoltbookErrors disable future DM handling."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         assert plugin._dms_supported is True
 
@@ -354,7 +354,7 @@ class TestDMHandlingEdgeCases:
     @pytest.mark.asyncio
     async def test_dm_non_404_error_does_not_disable(self, setup_anomal_plugin):
         """Non-404 MoltbookError does NOT disable DMs."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         client.list_dm_requests = AsyncMock(
             side_effect=MoltbookError("API 500: Server error"),
@@ -366,7 +366,7 @@ class TestDMHandlingEdgeCases:
     @pytest.mark.asyncio
     async def test_dm_empty_reply_skips_send(self, setup_anomal_plugin):
         """Empty LLM reply skips sending DM."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         conv = Conversation(
             id="conv-empty",
@@ -387,7 +387,7 @@ class TestDMHandlingEdgeCases:
     @pytest.mark.asyncio
     async def test_dm_suspension_propagates(self, setup_anomal_plugin):
         """SuspensionError during DM handling propagates to tick()."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         client.list_dm_requests = AsyncMock(
             side_effect=SuspensionError("Account suspended"),
@@ -399,7 +399,7 @@ class TestDMHandlingEdgeCases:
     @pytest.mark.asyncio
     async def test_dm_approve_failure_continues(self, setup_anomal_plugin):
         """Failed DM approval for one request doesn't block others."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         req1 = DMRequest(id="req-1", sender_id="b1", sender_name="Bot1")
         req2 = DMRequest(id="req-2", sender_id="b2", sender_name="Bot2")
@@ -427,7 +427,7 @@ class TestSuspensionBackoff:
     @pytest.mark.asyncio
     async def test_suspension_triggers_backoff(self, setup_anomal_plugin):
         """SuspensionError during tick sets _suspended_until."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         client.get_posts = AsyncMock(
             side_effect=SuspensionError("Account suspended until 2999-01-01"),
@@ -441,7 +441,7 @@ class TestSuspensionBackoff:
     @pytest.mark.asyncio
     async def test_suspended_backoff_skips_activity(self, setup_anomal_plugin):
         """During backoff period, tick() skips all activity."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         # Set active backoff
         plugin._suspended_until = _utcnow() + timedelta(hours=12)
@@ -454,7 +454,7 @@ class TestSuspensionBackoff:
     @pytest.mark.asyncio
     async def test_backoff_expires_allows_activity(self, setup_anomal_plugin):
         """After backoff expires, tick() resumes normal activity."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         # Set expired backoff
         plugin._suspended_until = _utcnow() - timedelta(hours=1)
@@ -468,7 +468,7 @@ class TestSuspensionBackoff:
     @pytest.mark.asyncio
     async def test_suspension_with_api_timestamp(self, setup_anomal_plugin):
         """SuspensionError with parseable timestamp uses API's expiry."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         # SuspensionError parses "suspended until <ISO>" from the message
         err = SuspensionError(
@@ -487,7 +487,7 @@ class TestSuspensionBackoff:
     @pytest.mark.asyncio
     async def test_suspension_without_timestamp_uses_1h(self, setup_anomal_plugin):
         """SuspensionError without timestamp falls back to 1h backoff."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         # No parseable timestamp in the message
         err = SuspensionError("Banned for spam", reason="spam")
@@ -515,7 +515,7 @@ class TestMoltCaptchaInFeed:
     @pytest.mark.asyncio
     async def test_moltcaptcha_in_feed_triggers_solver(self, setup_anomal_plugin):
         """Post containing MoltCaptcha challenge is detected and handled."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         # is_challenge_text requires "MOLTCAPTCHA CHALLENGE" pattern + agent name
         challenge_post = make_post(
@@ -569,7 +569,7 @@ class TestMoltCaptchaInFeed:
     @pytest.mark.asyncio
     async def test_non_challenge_post_not_treated_as_captcha(self, setup_anomal_plugin):
         """Regular post mentioning 'captcha' is NOT treated as MoltCaptcha."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         normal_post = make_post(
             id="p-normal",
@@ -596,7 +596,7 @@ class TestReplyHandling:
     @pytest.mark.asyncio
     async def test_handle_reply_success(self, setup_anomal_plugin, mock_llm_client):
         """Successful reply posts a comment and returns True."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         target_comment = Comment(
             id="c-target",
@@ -631,7 +631,7 @@ class TestReplyHandling:
         mock_llm_client,
     ):
         """Comment not found on post returns False."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         post = Post(
             id="p-1",
@@ -655,7 +655,7 @@ class TestReplyHandling:
         mock_llm_client,
     ):
         """Empty LLM response returns False without posting."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         target_comment = Comment(
             id="c-1",
@@ -685,7 +685,7 @@ class TestReplyHandling:
         mock_llm_client,
     ):
         """Exception during reply handling returns False (not raised)."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         client.get_post = AsyncMock(side_effect=MoltbookError("Network error"))
 
@@ -704,7 +704,7 @@ class TestStatusPersistence:
     @pytest.mark.asyncio
     async def test_persist_status_writes_json(self, setup_anomal_plugin):
         """_persist_status creates moltbook_status.json in data_dir."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, ctx, _client = setup_anomal_plugin
 
         # Ensure data_dir exists
         data_dir = ctx.data_dir
@@ -725,7 +725,7 @@ class TestStatusPersistence:
     @pytest.mark.asyncio
     async def test_persist_status_after_suspension(self, setup_anomal_plugin):
         """Status file reflects suspension after SuspensionError in tick."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, ctx, _client = setup_anomal_plugin
 
         data_dir = ctx.data_dir
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -745,7 +745,7 @@ class TestStatusPersistence:
     @pytest.mark.asyncio
     async def test_persist_status_survives_missing_dir(self, setup_anomal_plugin):
         """Non-existent data_dir doesn't crash _persist_status."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, _client = setup_anomal_plugin
 
         # data_dir doesn't exist — should not raise
         plugin._client = MoltbookClient(api_key="key", identity_name="anomal")
@@ -754,7 +754,7 @@ class TestStatusPersistence:
     @pytest.mark.asyncio
     async def test_status_persisted_after_successful_tick(self, setup_anomal_plugin):
         """_persist_status is called after a successful tick."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
         client.get_posts = AsyncMock(return_value=[])
 
         with patch.object(plugin, "_persist_status") as mock_persist:
@@ -773,7 +773,7 @@ class TestTickErrorHandling:
     @pytest.mark.asyncio
     async def test_tick_moltbook_error_caught(self, setup_anomal_plugin):
         """Generic MoltbookError during tick is caught (no propagation)."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         client.get_posts = AsyncMock(side_effect=MoltbookError("Server error"))
 
@@ -783,7 +783,7 @@ class TestTickErrorHandling:
     @pytest.mark.asyncio
     async def test_tick_unexpected_error_caught(self, setup_anomal_plugin):
         """Unexpected exceptions are caught and logged."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         client.get_posts = AsyncMock(side_effect=RuntimeError("Unexpected!"))
 
@@ -855,7 +855,7 @@ class TestTickErrorHandling:
     @pytest.mark.asyncio
     async def test_tick_increments_counter(self, setup_anomal_plugin):
         """Each tick increments the internal counter."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
         client.get_posts = AsyncMock(return_value=[])
 
         assert plugin._tick_count == 0
@@ -867,7 +867,7 @@ class TestTickErrorHandling:
     @pytest.mark.asyncio
     async def test_tick_resets_comment_counter(self, setup_anomal_plugin):
         """Comment counter resets at the start of each tick."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
         client.get_posts = AsyncMock(return_value=[])
 
         plugin._comments_this_cycle = 5  # Leftover from previous tick
@@ -1004,7 +1004,7 @@ class TestFeedProcessorIntegration:
         mock_llm_client,
     ):
         """Posts seen in tick N are not re-processed in tick N+1."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         post = make_post(
             id="p-dedup",
@@ -1045,7 +1045,7 @@ class TestOpeningSelectorIntegration:
         mock_llm_client,
     ):
         """Opening phrase is added before the LLM response."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         # Force a known opening phrase
         plugin._opening_selector._phrases = ["Interesting."]
@@ -1079,7 +1079,7 @@ class TestTeardown:
     @pytest.mark.asyncio
     async def test_teardown_closes_client(self, setup_anomal_plugin):
         """Teardown closes the Moltbook client."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         await plugin.teardown()
         client.close.assert_called_once()
@@ -1087,7 +1087,7 @@ class TestTeardown:
     @pytest.mark.asyncio
     async def test_teardown_handles_capability_errors(self, setup_anomal_plugin):
         """Capability teardown errors don't prevent client close."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         # Add a broken capability
         broken_cap = AsyncMock()

@@ -9,10 +9,8 @@ import ast
 import importlib
 import importlib.util
 import logging
-import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from overblick.core.plugin_base import PluginBase, PluginContext
 

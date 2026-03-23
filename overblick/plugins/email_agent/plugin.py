@@ -17,15 +17,14 @@ Tick cycle:
 5. If boss provides feedback, update learnings
 """
 
-import asyncio
 import email.utils
 import json
 import logging
 import math
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from overblick.capabilities.consulting.personality_consultant import (
     PersonalityConsultantCapability,
@@ -41,7 +40,6 @@ from overblick.plugins.email_agent.models import (
     EmailClassification,
     EmailIntent,
     EmailRecord,
-    SenderProfile,
 )
 from overblick.plugins.email_agent.prompts import (
     boss_consultation_prompt,

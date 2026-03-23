@@ -58,7 +58,6 @@ def has_data() -> bool:
 def _load_pairs(request: Request) -> list:
     """Load Spegel pairs from data directories."""
     import json
-    from pathlib import Path
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
 

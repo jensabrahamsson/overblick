@@ -66,7 +66,6 @@ def _load_telegram_data(request: Request) -> dict:
     channel for email classification results).  We also scan audit logs
     for any direct telegram plugin entries.
     """
-    from pathlib import Path
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
 

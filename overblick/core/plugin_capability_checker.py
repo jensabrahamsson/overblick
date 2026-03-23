@@ -18,7 +18,6 @@ missing grants (recommended for production).
 """
 
 import logging
-import os
 from typing import Any, ClassVar
 
 from overblick.core.security.settings import strict_capabilities

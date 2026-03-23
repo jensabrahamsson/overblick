@@ -11,7 +11,6 @@ Lazy initialization: LLM resources are only created on first request.
 
 import logging
 import time
-from typing import Optional
 
 import aiohttp
 

@@ -228,6 +228,12 @@ async def lifespan(app: FastAPI):
     app.state.rate_limiter = RateLimiter()
     app.state.templates = _create_templates()
 
+    # Postgres DSN for chart API (from env or default for local dev)
+    import os
+    app.state.postgres_dsn = os.environ.get(
+        "OVERBLICK_POSTGRES_DSN", "postgresql://jens@localhost/postgres"
+    )
+
     # Initialize service layer
     from .services import init_services
 

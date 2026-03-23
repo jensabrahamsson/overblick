@@ -5,9 +5,8 @@ Defines the structure of posts, comments, agents, and feed items.
 """
 
 from datetime import datetime
-from typing import Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 def _extract_submolt(value) -> str:

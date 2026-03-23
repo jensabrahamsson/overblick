@@ -7,11 +7,9 @@ research requests (via boss capability), and draft reply notifications.
 
 import json
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from overblick.core.security.input_sanitizer import wrap_external_content
-from overblick.plugins.email_agent.models import SenderProfile
 from overblick.plugins.email_agent.prompts import (
     reply_prompt,
     reply_prompt_with_research,

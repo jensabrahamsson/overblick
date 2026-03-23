@@ -354,7 +354,7 @@ class TestRoutingChaos:
     def test_expired_messages_cleaned(self):
         router = MessageRouter()
         router.register_agent("rust")
-        msg = router.route("volt", "rust", "question", ttl_seconds=0.0)
+        router.route("volt", "rust", "question", ttl_seconds=0.0)
         # Message is immediately expired
         collected = router.collect("rust")
         assert len(collected) == 0

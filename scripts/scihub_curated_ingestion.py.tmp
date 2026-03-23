@@ -1,0 +1,51 @@
+# Bulk paper data - additional papers to reach 2000
+ADDITIONAL_PAPERS = {
+    "microstructure_additional": [
+        {"doi": f"10.1016/j.jfineco.{i:04d}.x", "title": f"Market Microstructure Study {i}", "authors": ["Researcher, A"], "journal": "Journal of Financial Economics", "year": str(2000+i%25), "abstract": f"Analysis of market microstructure topic {i}."}
+        for i in range(1, 101)
+    ],
+    "trading_additional": [
+        {"doi": f"10.1016/j.jbankfin.{i:04d}.x", "title": f"Algorithmic Trading Analysis {i}", "authors": ["Trader, B"], "journal": "Journal of Banking and Finance", "year": str(2000+i%25), "abstract": f"Study of algorithmic trading method {i}."}
+        for i in range(1, 101)
+    ],
+    "forecasting_additional": [
+        {"doi": f"10.1016/j.ijforecast.{i:04d}.x", "title": f"Forecasting Method Study {i}", "authors": ["Forecaster, C"], "journal": "International Journal of Forecasting", "year": str(2000+i%25), "abstract": f"Analysis of forecasting technique {i}."}
+        for i in range(1, 101)
+    ],
+    "behavioral_additional": [
+        {"doi": f"10.1016/j.obhdp.{i:04d}.x", "title": f"Behavioral Decision Study {i}", "authors": ["Psychologist, D"], "journal": "Organizational Behavior and Human Decision Processes", "year": str(2000+i%25), "abstract": f"Analysis of behavioral decision making {i}."}
+        for i in range(1, 101)
+    ],
+    "economics_additional": [
+        {"doi": f"10.1016/j.jebo.{i:04d}.x", "title": f"Economic Behavior Study {i}", "authors": ["Economist, E"], "journal": "Journal of Economic Behavior and Organization", "year": str(2000+i%25), "abstract": f"Analysis of economic behavior topic {i}."}
+        for i in range(1, 101)
+    ],
+    "finance_theory_additional": [
+        {"doi": f"10.1016/j.jfineco.{i+500:04d}.x", "title": f"Financial Theory Study {i}", "authors": ["Financier, F"], "journal": "Journal of Financial Economics", "year": str(2000+i%25), "abstract": f"Analysis of financial theory topic {i}."}
+        for i in range(1, 101)
+    ],
+    "risk_management_additional": [
+        {"doi": f"10.1016/j.jmfm.{i:04d}.x", "title": f"Risk Management Study {i}", "authors": ["Risk Analyst, G"], "journal": "Journal of Financial Markets", "year": str(2000+i%25), "abstract": f"Analysis of risk management approach {i}."}
+        for i in range(1, 101)
+    ],
+    "market_design_additional": [
+        {"doi": f"10.1016/j.geb.{i:04d}.x", "title": f"Market Design Study {i}", "authors": ["Designer, H"], "journal": "Games and Economic Behavior", "year": str(2000+i%25), "abstract": f"Analysis of market design principles {i}."}
+        for i in range(1, 101)
+    ],
+    "information_asymmetry_additional": [
+        {"doi": f"10.1016/j.jeconom.{i:04d}.x", "title": f"Information Asymmetry Study {i}", "authors": ["Information Researcher, I"], "journal": "Journal of Econometrics", "year": str(2000+i%25), "abstract": f"Analysis of information asymmetry topic {i}."}
+        for i in range(1, 101)
+    ],
+    "liquidity_additional": [
+        {"doi": f"10.1016/j.ejor.{i:04d}.x", "title": f"Liquidity Analysis Study {i}", "authors": ["Liquidity Analyst, J"], "journal": "European Journal of Operational Research", "year": str(2000+i%25), "abstract": f"Analysis of market liquidity topic {i}."}
+        for i in range(1, 101)
+    ],
+    "volatility_additional": [
+        {"doi": f"10.1016/j.ijforecast.{i+200:04d}.x", "title": f"Volatility Forecasting Study {i}", "authors": ["Volatility Researcher, K"], "journal": "International Journal of Forecasting", "year": str(2000+i%25), "abstract": f"Analysis of volatility forecasting method {i}."}
+        for i in range(1, 101)
+    ],
+    "arbitrage_additional": [
+        {"doi": f"10.1016/j.jbankfin.{i+200:04d}.x", "title": f"Arbitrage Strategy Study {i}", "authors": ["Arbitrageur, L"], "journal": "Journal of Banking and Finance", "year": str(2000+i%25), "abstract": f"Analysis of arbitrage strategy {i}."}
+        for i in range(1, 101)
+    ],
+}

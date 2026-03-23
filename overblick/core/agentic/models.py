@@ -9,8 +9,8 @@ Provides domain-agnostic data structures for:
 - Action plans
 """
 
-from enum import Enum, StrEnum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 

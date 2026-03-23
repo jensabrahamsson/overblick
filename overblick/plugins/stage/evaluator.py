@@ -6,7 +6,6 @@ scenario YAML files.
 """
 
 import logging
-import re
 
 from .models import Constraint, ConstraintResult
 

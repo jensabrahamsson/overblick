@@ -6,7 +6,6 @@ identity-driven interest keywords, thresholds, and scoring rules.
 """
 
 import logging
-from typing import Optional
 
 from overblick.capabilities.engagement.decision_engine import DecisionEngine, EngagementDecision
 from overblick.core.capability import CapabilityBase, CapabilityContext

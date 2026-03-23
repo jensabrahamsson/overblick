@@ -7,7 +7,6 @@ Weekly psychological reflection. Config-driven via 'therapy_model':
 """
 
 import logging
-from typing import Optional
 
 from overblick.capabilities.psychology.therapy_system import (
     CherryTherapySystem,
@@ -15,7 +14,6 @@ from overblick.capabilities.psychology.therapy_system import (
     TherapySystem,
 )
 from overblick.core.capability import CapabilityBase, CapabilityContext
-from overblick.core.security.settings import raw_llm
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,6 @@ Usage:
 
 import base64
 import logging
-from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp

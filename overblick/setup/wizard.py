@@ -30,7 +30,6 @@ from jinja2 import Environment, FileSystemLoader
 from pydantic import ValidationError
 
 from .validators import (
-    AgentConfig,
     CommunicationData,
     LLMData,
     PrincipalData,

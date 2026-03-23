@@ -17,10 +17,9 @@ import hashlib
 import json
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 import feedparser
-from pydantic import BaseModel
 
 from overblick.core.plugin_base import PluginBase, PluginContext
 from overblick.core.security.input_sanitizer import wrap_external_content

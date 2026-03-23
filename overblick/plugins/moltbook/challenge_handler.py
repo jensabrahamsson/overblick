@@ -24,31 +24,22 @@ Architecture:
 import json as json_module
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 import aiohttp  # type: ignore[import-not-found]
 
 from .arithmetic_solver import (
-    _extract_word_numbers,
-    _fuzzy_match,
-    _is_subsequence,
     solve_arithmetic,
 )
 
 # Import from split modules
 from .deobfuscator import (
-    _ONES,
-    _TENS,
-    _edit_distance_one,
-    _reassemble_fragments,
-    _strip_letter_doubling,
     deobfuscate_challenge,
 )
 
 if TYPE_CHECKING:
     from overblick.core.db.engagement_db import EngagementDB
-    from overblick.core.llm.client import LLMClient
-    from overblick.core.llm.pipeline import PipelineResult, SafeLLMPipeline
+    from overblick.core.llm.pipeline import SafeLLMPipeline
     from overblick.core.security.audit_log import AuditLog
 
 logger = logging.getLogger(__name__)

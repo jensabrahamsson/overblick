@@ -266,12 +266,12 @@
 .pm-activity-feed {
     font-family: var(--font-mono);
     font-size: 0.75rem;
-    max-height: 200px;
+    max-height: 400px;
     overflow-y: auto;
 }
-.pm-feed-line { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.02); display: flex; gap: 6px; }
-.pm-feed-time { color: var(--text-muted); flex-shrink: 0; }
-.pm-feed-msg { color: var(--text-secondary); }
+.pm-feed-line { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.02); display: flex; gap: 6px; }
+.pm-feed-time { color: var(--text-muted); flex-shrink: 0; white-space: nowrap; }
+.pm-feed-msg { color: var(--text-secondary); word-break: break-word; }
 .pm-feed-msg.opportunity { color: #bc8cff; }
 .pm-feed-msg.trade { color: var(--text-primary); }
 .pm-feed-msg.alert { color: var(--warning-color); }

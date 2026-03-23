@@ -4,14 +4,15 @@ Orchestrator runtime — scheduling, heartbeat, and main loop.
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Callable, Awaitable
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from overblick.core.plugin_run_controller import PluginRunController
 
-from overblick.core.scheduler import TaskPriority
 from overblick.core.orchestrator_runtime_state import OrchestratorRuntimeState
 from overblick.core.orchestrator_services import OrchestratorServices
+from overblick.core.scheduler import TaskPriority
 
 logger = logging.getLogger(__name__)
 

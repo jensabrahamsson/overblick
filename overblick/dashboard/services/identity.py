@@ -4,7 +4,7 @@ Identity service — read-only access to identity configurations.
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,6 @@ Security:
 """
 
 import logging
-from typing import Optional
 
 from overblick.supervisor.ipc import IPCMessage
 

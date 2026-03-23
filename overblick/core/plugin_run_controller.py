@@ -39,7 +39,7 @@ class PluginRunController:
             return self._is_stopped_value(self._cache.get(plugin_name, False))
 
         try:
-            with open(self._control_file, "r", encoding="utf-8") as f:
+            with open(self._control_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             if not isinstance(data, dict):

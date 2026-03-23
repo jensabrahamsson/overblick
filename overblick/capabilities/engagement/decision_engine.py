@@ -8,7 +8,6 @@ loaded from the identity configuration.
 
 import logging
 import re
-from typing import Optional
 
 from pydantic import BaseModel, Field
 from rapidfuzz import fuzz

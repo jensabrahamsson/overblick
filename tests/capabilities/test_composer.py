@@ -131,7 +131,7 @@ class TestComposerCapability:
             topic_index=0,
         )
         assert result is not None
-        title, body, submolt = result
+        title, _body, submolt = result
         assert title == "My Thoughts"
         assert submolt == "ai"
 

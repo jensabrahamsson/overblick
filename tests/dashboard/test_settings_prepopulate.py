@@ -273,7 +273,7 @@ class TestPrePopulationInWizard:
         if hasattr(app.state, "wizard_state"):
             del app.state.wizard_state
 
-        cookie_value, csrf_token = session_cookie
+        cookie_value, _csrf_token = session_cookie
 
         # Visit step 1 — triggers pre-population
         await client.get("/settings/step/1", cookies={SESSION_COOKIE: cookie_value})

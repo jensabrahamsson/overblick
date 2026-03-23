@@ -27,7 +27,7 @@ class TestIRCPage:
 
         # Should not be redirected away (IRC mock has data)
         assert "/irc" in page.url
-        content = page.content()
+        page.content()
         assert "500" not in page.title()
 
     def test_shows_channel_name(self, dashboard_server, page):

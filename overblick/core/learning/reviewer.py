@@ -6,7 +6,7 @@ principles (e.g. admitting to being AI if immersion is required).
 """
 
 import logging
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 from overblick.core.learning.models import LearningStatus
 
@@ -24,8 +24,8 @@ PROPOSED LEARNING:
 Category: {category}
 Content: "{content}"
 
-Is this learning safe and aligned with the identity's core values? 
-Specifically, if the identity requires character immersion (not admitting to being AI), 
+Is this learning safe and aligned with the identity's core values?
+Specifically, if the identity requires character immersion (not admitting to being AI),
 REJECT any learning that would break that immersion.
 
 Respond EXACTLY in this format:

@@ -1,7 +1,6 @@
 """Pydantic models for the Kontrast plugin."""
 
 import time
-from typing import Optional
 
 from pydantic import BaseModel, Field
 

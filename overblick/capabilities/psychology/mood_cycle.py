@@ -22,7 +22,6 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
 
 from overblick.core.capability import CapabilityBase, CapabilityContext
 

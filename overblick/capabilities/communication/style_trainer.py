@@ -16,7 +16,7 @@ Status: INACTIVE by default. Must be explicitly enabled in identity config.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from overblick.core.capability import CapabilityBase, CapabilityContext
 from overblick.core.security.input_sanitizer import wrap_external_content

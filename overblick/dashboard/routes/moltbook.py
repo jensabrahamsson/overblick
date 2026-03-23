@@ -5,7 +5,6 @@ Moltbook route — profile links and account status for Moltbook agents.
 import logging
 from pathlib import Path
 
-import yaml
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 

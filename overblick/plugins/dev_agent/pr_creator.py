@@ -11,7 +11,6 @@ command injection. All arguments are passed as separate list elements.
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
 
 from overblick.plugins.dev_agent.models import BugReport
 

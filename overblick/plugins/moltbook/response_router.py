@@ -15,10 +15,15 @@ This avoids calling the LLM on every API response (which would be too slow
 and expensive). Only ~1-5% of responses should reach the LLM step.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from overblick.core.llm.pipeline import SafeLLMPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +76,7 @@ class ResponseRouter:
 
     def __init__(
         self,
-        llm_pipeline: "SafeLLMPipeline",
+        llm_pipeline: SafeLLMPipeline,
         max_response_size: int = 5000,
     ):
         """Initialize the response router.

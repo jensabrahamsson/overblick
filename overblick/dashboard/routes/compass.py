@@ -82,7 +82,6 @@ def _load_compass_data(request: Request) -> tuple:
     latest drift score and severity.
     """
     import json
-    from pathlib import Path
 
     baselines = {}
     alerts = []

@@ -26,7 +26,7 @@ class TestDMDedup:
     @pytest.mark.asyncio
     async def test_dm_dedup_prevents_double_reply(self, setup_cherry_plugin):
         """Same conversation not replied to twice in one tick."""
-        plugin, ctx, client = setup_cherry_plugin
+        plugin, _ctx, client = setup_cherry_plugin
 
         conv = MockConversation(
             id="conv-1",
@@ -49,7 +49,7 @@ class TestDMDedup:
     @pytest.mark.asyncio
     async def test_dm_dedup_reset_between_ticks(self, setup_cherry_plugin):
         """New tick allows replying to same conversation."""
-        plugin, ctx, client = setup_cherry_plugin
+        plugin, _ctx, client = setup_cherry_plugin
 
         conv = MockConversation(
             id="conv-1",
@@ -77,7 +77,7 @@ class TestDMDedup:
     @pytest.mark.asyncio
     async def test_dm_approval_flow(self, setup_cherry_plugin):
         """Pending DM requests get approved."""
-        plugin, ctx, client = setup_cherry_plugin
+        plugin, _ctx, client = setup_cherry_plugin
 
         req = MockDMRequest(id="req-1", sender_name="Bob")
         client.list_dm_requests = AsyncMock(return_value=[req])

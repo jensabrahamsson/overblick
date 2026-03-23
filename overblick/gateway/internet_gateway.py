@@ -14,7 +14,6 @@ import ipaddress
 import logging
 import time
 from contextlib import asynccontextmanager
-from typing import Optional
 
 import httpx
 import pydantic

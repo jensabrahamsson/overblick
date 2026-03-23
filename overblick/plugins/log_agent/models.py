@@ -5,20 +5,12 @@ Defines domain-specific types for log scanning, pattern matching,
 and alert management.
 """
 
-from enum import Enum, StrEnum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 # Re-export core agentic models for convenience
-from overblick.core.agentic.models import (
-    ActionOutcome,
-    ActionPlan,
-    AgentGoal,
-    AgentLearning,
-    PlannedAction,
-    TickLog,
-)
 
 
 class AlertSeverity(StrEnum):

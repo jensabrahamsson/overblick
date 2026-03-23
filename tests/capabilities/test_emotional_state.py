@@ -94,7 +94,6 @@ class TestEmotionalState:
         state = EmotionalState()
         state.record_positive()
         initial_intensity = state.mood_intensity
-        initial_mood = state.current_mood
 
         # Just changed, decay should have minimal effect
         state.decay()

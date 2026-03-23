@@ -13,10 +13,11 @@ import asyncio
 import json as json_module
 import logging
 import re
-from datetime import UTC, datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import aiohttp
+
+from overblick.core.exceptions import PluginError
 
 from .models import (
     Agent,
@@ -31,7 +32,6 @@ from .models import (
 )
 from .rate_limiter import MoltbookRateLimiter
 from .request_proxy import MoltbookRequestProxy
-from overblick.core.exceptions import PluginError
 
 logger = logging.getLogger(__name__)
 

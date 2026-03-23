@@ -5,14 +5,14 @@ Shared test fixtures for Överblick tests.
 # Skip tests requiring optional dependencies not installed in CI
 collect_ignore_glob = []
 try:
-    import overblick.gateway.dashscope_client  # noqa: F401
+    import overblick.gateway.dashscope_client
 except (ImportError, ModuleNotFoundError):
     collect_ignore_glob.extend([
         "gateway/test_backend_registry*.py",
         "integration/test_gateway_integration.py",
     ])
 try:
-    import py_clob_client  # noqa: F401
+    import py_clob_client
 except (ImportError, ModuleNotFoundError):
     collect_ignore_glob.append("plugins/whallet_trader/test_plugin.py")
 

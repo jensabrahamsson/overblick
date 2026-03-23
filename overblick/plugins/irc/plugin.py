@@ -25,7 +25,7 @@ import time
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from overblick.core.plugin_base import PluginBase, PluginContext
 

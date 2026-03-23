@@ -9,7 +9,6 @@ All arithmetic is done via safe manual parsing — no dynamic code execution.
 """
 
 import re
-from typing import Optional
 
 from .deobfuscator import _ONES, _TENS, _edit_distance_one
 

@@ -13,7 +13,6 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import Optional
 
 from overblick.plugins.log_agent.models import LogEntry, LogScanResult
 

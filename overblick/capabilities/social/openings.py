@@ -5,7 +5,6 @@ Selects varied opening phrases for agent responses to avoid repetition.
 """
 
 import logging
-from typing import Optional
 
 from overblick.capabilities.social.opening_selector import OpeningSelector
 from overblick.core.capability import CapabilityBase, CapabilityContext

@@ -4,7 +4,7 @@ Explicitly imports only the needed fixtures from moltbook conftest
 instead of wildcard import.
 """
 
-from tests.plugins.moltbook.conftest import (  # noqa: F401
+from tests.plugins.moltbook.conftest import (
     anomal_identity,
     anomal_plugin_context,
     cherry_identity,

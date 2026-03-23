@@ -91,7 +91,7 @@ class TestPluginContextInit:
     def test_creates_directories(self, tmp_path):
         data_dir = tmp_path / "data" / "nested"
         log_dir = tmp_path / "logs" / "nested"
-        ctx = PluginContext(
+        PluginContext(
             identity_name="test",
             data_dir=data_dir,
             log_dir=log_dir,

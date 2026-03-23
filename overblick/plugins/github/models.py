@@ -10,21 +10,11 @@ Generic agentic models (AgentGoal, AgentLearning, TickLog, PlannedAction,
 ActionPlan, ActionOutcome, GoalStatus) are re-exported from core.
 """
 
-from enum import Enum, StrEnum
-from typing import Any, Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 # Re-export core agentic models for backward compatibility
-from overblick.core.agentic.models import (
-    ActionOutcome,
-    ActionPlan,
-    AgentGoal,
-    AgentLearning,
-    GoalStatus,
-    PlannedAction,
-    TickLog,
-)
 
 # ---------------------------------------------------------------------------
 # Legacy bot-pattern models (used by decision_engine.py, response_gen.py)

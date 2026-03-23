@@ -17,7 +17,6 @@ Reasoning policy:
 import asyncio
 import logging
 import time
-from typing import Optional
 
 import aiohttp
 

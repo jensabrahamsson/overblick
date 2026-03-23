@@ -54,12 +54,12 @@ def _make_orchestrator(tmp_path: Path, plugins=None) -> Orchestrator:
 
 def _mock_identity(**overrides) -> Identity:
     """Create a minimal Identity for testing."""
-    defaults = dict(
-        name="test",
-        description="Test identity",
-        plugins=["stub"],
-        llm=LLMSettings(provider="ollama"),
-    )
+    defaults = {
+        "name": "test",
+        "description": "Test identity",
+        "plugins": ["stub"],
+        "llm": LLMSettings(provider="ollama"),
+    }
     defaults.update(overrides)
     return Identity(**defaults)
 

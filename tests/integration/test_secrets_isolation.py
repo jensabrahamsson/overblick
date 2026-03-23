@@ -16,7 +16,6 @@ from cryptography.fernet import Fernet
 
 from overblick.core.exceptions import SecurityError
 from overblick.core.security.secrets_manager import SecretsManager
-from overblick.core.exceptions import SecurityError
 
 
 @pytest.fixture

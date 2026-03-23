@@ -972,7 +972,7 @@ class TestRegisterLocalPlugins:
         """With factory, _register_local_plugins delegates to factory."""
         factory = MagicMock()
         factory.register_local_plugins = MagicMock()
-        orch = Orchestrator("testident", base_dir=tmp_path, factory=factory)
+        Orchestrator("testident", base_dir=tmp_path, factory=factory)
         factory.register_local_plugins.assert_called_once()
 
     def test_factory_without_register_local_plugins_skips(self, tmp_path):

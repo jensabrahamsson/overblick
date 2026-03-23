@@ -342,7 +342,7 @@ class TestSecurityIntegration:
         assert not result.blocked
         # Check that the LLM received messages with boundary markers
         sent_messages = captured_messages[0]
-        user_msg = [m for m in sent_messages if m["role"] == "user"][0]
+        user_msg = next(m for m in sent_messages if m["role"] == "user")
         assert "<<<EXTERNAL_TELEGRAM_START>>>" in user_msg["content"]
 
     @pytest.mark.asyncio

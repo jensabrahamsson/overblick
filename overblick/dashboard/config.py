@@ -18,7 +18,7 @@ import logging
 import os
 import secrets
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from pydantic import BaseModel

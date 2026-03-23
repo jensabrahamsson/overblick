@@ -81,7 +81,7 @@ class TestScanFile:
             "2026-02-23 10:00:02 INFO  Next line\n"
         )
 
-        errors, new_offset = watcher.scan_file(log_file, "anomal", 0)
+        errors, _new_offset = watcher.scan_file(log_file, "anomal", 0)
         assert len(errors) == 1
         assert "Traceback" in errors[0].traceback
         assert "ConnectionError" in errors[0].traceback

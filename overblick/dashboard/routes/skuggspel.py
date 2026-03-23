@@ -58,7 +58,6 @@ def has_data() -> bool:
 def _load_posts(request: Request) -> list:
     """Load Skuggspel posts from data directories."""
     import json
-    from pathlib import Path
 
     from overblick.dashboard.routes._plugin_utils import resolve_data_root
 

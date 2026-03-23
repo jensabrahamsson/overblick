@@ -13,7 +13,6 @@ import asyncio
 import hmac
 import logging
 from contextlib import asynccontextmanager
-from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Security
 from fastapi.responses import JSONResponse

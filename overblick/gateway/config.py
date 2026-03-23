@@ -8,7 +8,7 @@ Also reads from config/overblick.yaml if present (backends section).
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field

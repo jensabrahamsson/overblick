@@ -16,7 +16,7 @@ The agent keeps repos healthy by:
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from overblick.core.agentic.models import AgentGoal
 from overblick.core.agentic.plugin_base import AgenticPluginBase

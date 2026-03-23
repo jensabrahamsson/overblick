@@ -11,9 +11,7 @@ Sha-based caching ensures unchanged files are never re-fetched.
 import fnmatch
 import json
 import logging
-import time
 from datetime import UTC
-from typing import Optional
 
 from overblick.plugins.github.client import GitHubAPIClient
 from overblick.plugins.github.database import GitHubDB
@@ -80,7 +78,7 @@ class CodeContextBuilder:
         # Check if refresh is needed
         meta = await self._db.get_tree_meta(repo)
         if meta:
-            from datetime import datetime, timezone
+            from datetime import datetime
 
             try:
                 last_refreshed = datetime.fromisoformat(

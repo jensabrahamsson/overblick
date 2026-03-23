@@ -71,7 +71,7 @@ class TestAuditPage:
 
         # Look for form elements (select, input, button)
         content = page.content().lower()
-        has_controls = any(
+        any(
             el in content
             for el in [
                 "<select",

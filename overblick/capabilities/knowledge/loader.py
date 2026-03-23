@@ -6,7 +6,6 @@ Loads YAML knowledge files and formats them for LLM prompt injection.
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from overblick.capabilities.knowledge.knowledge_loader import KnowledgeLoader
 from overblick.core.capability import CapabilityBase, CapabilityContext

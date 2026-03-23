@@ -230,7 +230,6 @@ class TestOutcomePriceMapping:
     def test_buy_no_uses_no_price(self):
         """When buying NO, execution price should be (1 - yes_price)."""
         yes_price = 0.10  # YES at 10 cents
-        outcome = "NO"
 
         # Correct NO price
         no_price = 1 - yes_price

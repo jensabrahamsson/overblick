@@ -10,7 +10,7 @@ import sqlite3
 import threading
 import time
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 logger = logging.getLogger(__name__)
 

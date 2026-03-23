@@ -27,15 +27,15 @@ from overblick.plugins.moltbook.response_gen import ResponseGenerator
 
 def _make_dream(**overrides) -> Dream:
     """Create a test Dream instance."""
-    defaults = dict(
-        dream_type=DreamType.SHADOW_INTEGRATION,
-        timestamp="2026-02-24T07:00:00",
-        content="I walked through a hall of mirrors and each reflection showed a different face.",
-        symbols=["mirror", "shadow", "face"],
-        tone=DreamTone.UNSETTLING,
-        insight="The masks we wear hide even from ourselves.",
-        potential_learning="Authenticity requires facing the shadow.",
-    )
+    defaults = {
+        "dream_type": DreamType.SHADOW_INTEGRATION,
+        "timestamp": "2026-02-24T07:00:00",
+        "content": "I walked through a hall of mirrors and each reflection showed a different face.",
+        "symbols": ["mirror", "shadow", "face"],
+        "tone": DreamTone.UNSETTLING,
+        "insight": "The masks we wear hide even from ourselves.",
+        "potential_learning": "Authenticity requires facing the shadow.",
+    }
     defaults.update(overrides)
     return Dream(**defaults)
 
@@ -93,7 +93,7 @@ class TestGenerateDreamPost:
         )
 
         assert result is not None
-        title, content, submolt = result
+        title, _content, submolt = result
         assert title == "Morning Fragments: Mirrors"
         assert submolt == "philosophy"
 

@@ -9,8 +9,8 @@ protocols and handlers.
 
 import logging
 import time
-from datetime import UTC, datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from overblick.core.agentic.database import AgenticDB
 from overblick.core.agentic.executor import ActionExecutor

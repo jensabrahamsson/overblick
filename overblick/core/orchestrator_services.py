@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
+from overblick.core.capability import CapabilityRegistry
 from overblick.core.database.sqlite_backend import SQLiteBackend
 from overblick.core.db.engagement_db import EngagementDB
 from overblick.core.event_bus import EventBus
@@ -11,7 +11,6 @@ from overblick.core.llm.client import LLMClient
 from overblick.core.llm.pipeline import SafeLLMPipeline
 from overblick.core.permissions import PermissionChecker
 from overblick.core.plugin_capability_checker import PluginCapabilityChecker
-from overblick.core.capability import CapabilityRegistry
 from overblick.core.plugin_registry import PluginRegistry
 from overblick.core.quiet_hours import QuietHoursChecker
 from overblick.core.scheduler import Scheduler
@@ -21,8 +20,8 @@ from overblick.core.security.policy_gate import PolicyGate
 from overblick.core.security.preflight import PreflightChecker
 from overblick.core.security.rate_limiter import RateLimiter
 from overblick.core.security.secrets_manager import SecretsManager
-from overblick.supervisor.ipc import IPCClient
 from overblick.identities import Identity
+from overblick.supervisor.ipc import IPCClient
 
 
 @dataclass

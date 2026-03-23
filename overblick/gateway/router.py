@@ -15,7 +15,7 @@ The router never fails — it always falls back to the default backend.
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .backend_registry import BackendRegistry

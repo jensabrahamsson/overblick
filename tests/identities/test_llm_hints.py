@@ -13,10 +13,10 @@ pytestmark = pytest.mark.skipif(
 import yaml
 
 from overblick.identities import (
+    _model_to_slug,
     build_system_prompt,
     load_llm_hints,
     load_personality,
-    _model_to_slug,
 )
 
 # ---------------------------------------------------------------------------

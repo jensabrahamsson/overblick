@@ -30,10 +30,8 @@ from urllib.parse import urlparse
 import yaml
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import ValidationError
 
 from overblick.setup.validators import (
-    AgentConfig,
     BackendConfig,
     CommunicationData,
     DeepseekConfig,
@@ -45,7 +43,6 @@ from overblick.setup.validators import (
 )
 from overblick.setup.wizard import (
     _USE_CASE_MAP,
-    PLUGIN_DISPLAY_NAMES,
     USE_CASES,
     _build_assignment_data,
     _derive_provisioner_state,
@@ -53,8 +50,6 @@ from overblick.setup.wizard import (
     _get_state,
     _load_identity_data,
     _save_wizard_state,
-    _uc_to_plugin_key,
-    plugin_name,
 )
 
 logger = logging.getLogger(__name__)

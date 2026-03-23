@@ -1368,6 +1368,6 @@ class TestAuditLogHashChain:
         log = AuditLog(db_path, identity="test")
         log.log(action="new_entry")
 
-        valid, tampered = log.verify_chain()
+        valid, _tampered = log.verify_chain()
         assert valid is True
         log.close()

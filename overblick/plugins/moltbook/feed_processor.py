@@ -7,7 +7,6 @@ a set for O(1) lookup + guaranteed FIFO eviction order.
 
 import logging
 from collections import deque
-from typing import Optional
 
 from .models import FeedItem, Post
 

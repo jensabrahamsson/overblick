@@ -1091,7 +1091,7 @@ class TestFeedbackProcessing:
         # Disable LLM to test heuristic
         stal_plugin_context.llm_pipeline = None
 
-        sentiment, learning, should_ack = await plugin._classify_feedback(
+        sentiment, _learning, _should_ack = await plugin._classify_feedback(
             "Bra att du flaggade det!",
             "Notification text",
             "Email subject",
@@ -1107,7 +1107,7 @@ class TestFeedbackProcessing:
 
         stal_plugin_context.llm_pipeline = None
 
-        sentiment, learning, should_ack = await plugin._classify_feedback(
+        sentiment, _learning, should_ack = await plugin._classify_feedback(
             "Inte viktigt, sluta notifiera",
             "Notification text",
             "Email subject",

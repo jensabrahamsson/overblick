@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.gateway.conftest import noop_lifespan
-
 from overblick.gateway.deepseek_client import (
     DeepseekConnectionError,
     DeepseekError,
@@ -20,6 +18,7 @@ from overblick.gateway.ollama_client import (
     OllamaError,
     OllamaTimeoutError,
 )
+from tests.gateway.conftest import noop_lifespan
 
 
 class TestFastAPIApp:

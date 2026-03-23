@@ -7,7 +7,6 @@ for each identity. No external NLP dependencies required.
 
 import re
 import string
-from typing import Optional
 
 from .models import StyleMetrics
 

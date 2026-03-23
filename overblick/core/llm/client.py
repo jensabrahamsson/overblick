@@ -14,7 +14,6 @@ Reasoning policy:
 import re
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Optional
 
 from overblick.core.exceptions import SecurityError
 

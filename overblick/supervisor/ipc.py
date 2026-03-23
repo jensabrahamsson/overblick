@@ -12,7 +12,6 @@ supervisor startup and shared with child processes via a token file
 """
 
 import asyncio
-import hashlib
 import hmac
 import json
 import logging
@@ -23,9 +22,9 @@ import tempfile
 import time
 from collections import deque
 from collections.abc import Callable, Coroutine
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 

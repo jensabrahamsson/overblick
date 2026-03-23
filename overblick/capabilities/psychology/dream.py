@@ -16,14 +16,14 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 if TYPE_CHECKING:
     from .dream_system import Dream
 
-from overblick.capabilities.psychology.dream_system import DreamSystem, DreamTone, DreamType
+from overblick.capabilities.psychology.dream_system import DreamSystem, DreamType
 from overblick.core.capability import CapabilityBase, CapabilityContext
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,6 @@ set of valid action strings.
 
 import json
 import logging
-from typing import Optional
 
 from overblick.core.agentic.models import ActionPlan, PlannedAction
 from overblick.core.agentic.prompts import planning_prompt

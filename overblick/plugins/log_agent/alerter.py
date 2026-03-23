@@ -7,7 +7,6 @@ and tracks alert deduplication to prevent spam.
 
 import logging
 import time
-from typing import Any, Optional
 
 from overblick.plugins.log_agent.models import AlertSeverity, LogEntry, LogScanResult
 

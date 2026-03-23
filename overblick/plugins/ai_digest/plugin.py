@@ -21,8 +21,8 @@ No secrets are required (RSS feeds are public).
 import json
 import logging
 import time
-from datetime import datetime, timedelta
-from typing import Any, Optional
+from datetime import datetime
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import feedparser

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from overblick.core.capability import CapabilityBase, CapabilityRegistry
 from overblick.core.orchestrator_paths import OrchestratorPaths

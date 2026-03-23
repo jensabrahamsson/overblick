@@ -5,8 +5,7 @@ Learnings are per-identity knowledge items that go through ethos review
 before being approved and made available for context injection.
 """
 
-from enum import Enum, StrEnum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 

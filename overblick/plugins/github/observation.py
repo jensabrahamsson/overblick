@@ -8,8 +8,7 @@ at a point in time.
 
 import logging
 import re
-from datetime import UTC, datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from overblick.plugins.github.client import GitHubAPIClient, GitHubAPIError
 from overblick.plugins.github.database import GitHubDB

@@ -10,7 +10,7 @@ import logging
 import time
 from collections.abc import Callable, Coroutine
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, PrivateAttr
 
@@ -161,7 +161,7 @@ class Scheduler:
 
         # Create asyncio tasks for each scheduled task (sorted by priority)
         sorted_tasks = sorted(
-            list(self._tasks.values()),
+            self._tasks.values(),
             key=lambda t: (t.priority == TaskPriority.HIGH, t.name),
         )
 

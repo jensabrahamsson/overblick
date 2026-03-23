@@ -15,7 +15,6 @@ import os
 import signal
 import sys
 import sysconfig
-import warnings
 from pathlib import Path
 from typing import Any
 

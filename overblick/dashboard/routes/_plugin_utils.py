@@ -8,7 +8,6 @@ personality.yaml operational section, and identity.yaml).
 
 import re
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from fastapi import Request

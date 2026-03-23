@@ -22,7 +22,7 @@ import logging
 import random
 from collections.abc import Callable, Sequence
 from functools import wraps
-from typing import Any, Optional, Type, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

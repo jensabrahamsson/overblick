@@ -8,7 +8,6 @@ phrases and ensuring variety across interactions.
 import logging
 import random
 from collections import deque
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

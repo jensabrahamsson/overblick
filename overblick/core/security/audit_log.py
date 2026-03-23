@@ -16,7 +16,7 @@ import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -503,7 +503,7 @@ class AuditLog:
                 timestamp,
                 action,
                 category,
-                identity,
+                _identity,
                 plugin,
                 details_json,
                 success,

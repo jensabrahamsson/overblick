@@ -6,7 +6,6 @@ Starts the dashboard server on localhost.
 
 import argparse
 import logging
-import sys
 
 
 def main() -> None:

@@ -9,7 +9,7 @@ Pattern: same as SummarizerCapability (LLM call via pipeline, returns result).
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from overblick.core.capability import CapabilityBase, CapabilityContext
 

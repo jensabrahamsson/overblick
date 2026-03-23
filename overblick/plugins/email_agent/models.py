@@ -5,8 +5,7 @@ Defines the data structures for email classification, agent state,
 learnings from boss feedback, and goal tracking.
 """
 
-from enum import Enum, StrEnum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 

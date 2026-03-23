@@ -10,7 +10,6 @@ Lazy initialization: LLM resources are only created on first consultation.
 
 import logging
 import time
-from typing import Optional
 
 from overblick.core.security.audit_log import AuditLog
 from overblick.supervisor.ipc import IPCMessage

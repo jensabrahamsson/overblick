@@ -8,7 +8,6 @@ into a reusable capability.
 
 import logging
 import time
-from typing import Optional
 
 from pydantic import BaseModel, Field
 

@@ -4,7 +4,6 @@ Secrets service — read-only access to secrets (existence checks and non-sensit
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ class SecretsService:
         except Exception:
             return False
 
-    def get_readable_secret(self, identity: str, key: str) -> Optional[str]:
+    def get_readable_secret(self, identity: str, key: str) -> str | None:
         """
         Get a non-sensitive secret value for pre-filling forms.
 

@@ -7,10 +7,9 @@ and survive restarts.
 """
 
 import logging
-from typing import Optional
 
 from overblick.core.agentic.database import AgenticDB
-from overblick.core.agentic.models import AgentGoal, GoalStatus
+from overblick.core.agentic.models import AgentGoal
 
 logger = logging.getLogger(__name__)
 

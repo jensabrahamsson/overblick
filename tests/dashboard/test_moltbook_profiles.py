@@ -1,5 +1,7 @@
 """Tests for Moltbook profile filtering — only plugin-configured identities appear."""
 
+from pathlib import Path
+
 import pytest
 import yaml
 

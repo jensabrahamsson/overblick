@@ -17,7 +17,7 @@ import re
 import time
 import unicodedata
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 

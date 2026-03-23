@@ -12,7 +12,7 @@ import asyncio
 import logging
 import time
 from collections import deque
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from .config import GatewayConfig, get_config
 from .models import (
@@ -22,8 +22,8 @@ from .models import (
     DetailedStats,
     GatewayStats,
     Priority,
-    QueueItemInfo,
     QueuedRequest,
+    QueueItemInfo,
 )
 from .ollama_client import OllamaClient
 

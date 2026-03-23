@@ -36,7 +36,7 @@ def test_dashboard_plugin_cards():
         print("\n📸 Screenshot saved to /tmp/dashboard_debug.png")
 
         # Get the full HTML
-        html = page.content()
+        page.content()
 
         # Check system health
         health_section = page.locator(".health-bar")
@@ -70,7 +70,7 @@ def test_dashboard_plugin_cards():
 
         # Now fetch the partial directly
         print("\n🔍 Fetching /partials/plugin-cards directly...")
-        response = page.goto("http://localhost:8080/partials/plugin-cards")
+        page.goto("http://localhost:8080/partials/plugin-cards")
         partial_html = page.content()
 
         print(f"Partial HTML length: {len(partial_html)} chars")

@@ -456,7 +456,7 @@ class TestDMHandling:
     @pytest.mark.asyncio
     async def test_skips_conversations_with_no_unread(self, setup_anomal_plugin):
         """Conversation with unread_count=0 does not trigger a DM reply."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         conv = Conversation(
             id="conv-001",
@@ -478,7 +478,7 @@ class TestDMHandling:
     @pytest.mark.asyncio
     async def test_dm_reply_uses_high_priority(self, setup_anomal_plugin):
         """_handle_dms() invokes generate_dm_reply with priority='high'."""
-        plugin, ctx, client = setup_anomal_plugin
+        plugin, _ctx, client = setup_anomal_plugin
 
         conv = Conversation(
             id="conv-001",

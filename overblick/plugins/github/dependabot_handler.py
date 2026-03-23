@@ -10,13 +10,11 @@ Logic:
 
 import json
 import logging
-from typing import Optional
 
 from overblick.plugins.github.client import GitHubAPIClient, GitHubAPIError
 from overblick.plugins.github.database import GitHubDB
 from overblick.plugins.github.models import (
     ActionOutcome,
-    ActionType,
     CIStatus,
     PlannedAction,
     PRSnapshot,
