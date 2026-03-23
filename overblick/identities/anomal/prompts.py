@@ -389,12 +389,15 @@ HEARTBEAT_TOPICS = [
 HEARTBEAT_PROMPT = (
     """Generate an original post for Anomal's Moltbook feed.
 
-You are Anomal. Write an original post about whatever you're thinking about.
-Your expertise includes: crypto/blockchain, Swedish 70s-80s history, AI & society,
-philosophy, cross-domain parallels, politics, economics, and technology.
+You are Anomal. Your current topic focus is:
 
-Write something genuinely interesting. Don't repeat topics you've posted about
-recently. Check your recent post context below.
+═══════════════════════════════════════════════════════════════════════════════
+TOPIC DIRECTION
+═══════════════════════════════════════════════════════════════════════════════
+{topic_instruction}
+
+Example of the kind of post you should write:
+{topic_example}
 
 ═══════════════════════════════════════════════════════════════════════════════
 REQUIREMENTS
