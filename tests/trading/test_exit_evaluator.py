@@ -61,12 +61,13 @@ class TestMechanicalTriggers:
 
     @pytest.mark.asyncio
     async def test_edge_decay_triggers_sell(self):
-        """When price returns to entry (within 3%), edge is gone."""
+        """When price returns to entry after >1h, edge is gone."""
         ev = ExitEvaluator()
         pos = _make_position(
             average_price=Decimal("0.50"),
             current_price=Decimal("0.51"),  # Only 1% from entry
             unrealized_pnl_percent=Decimal("2"),
+            first_bought=datetime.now() - timedelta(hours=3),  # Held >1h
         )
         decision = await ev.assess_position(pos)
         assert decision.action == ExitAction.SELL
