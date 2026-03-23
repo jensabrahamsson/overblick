@@ -337,7 +337,7 @@ async def chat_completion(
             response = await qm.submit(request, prio, backend=resolved_backend)
             return response
 
-        except (OllamaConnectionError, DeepseekConnectionError) as e:
+        except (OllamaConnectionError, OllamaError, DeepseekConnectionError, DeepseekError) as e:
             # Backend-specific connection failure — retry with fallback backend
             # if router can find an alternative (exclude the failed backend).
             failed_backend = actual_backend_name or _backend_registry.default_backend
