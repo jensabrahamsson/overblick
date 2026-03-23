@@ -193,7 +193,8 @@ class TestRiskScoreOrdering:
 class TestKellyZeroEdge:
     """Bug #11: Kelly=0 trades were forced to $10 minimum."""
 
-    def test_kelly_zero_returns_zero_position(self):
+    @pytest.mark.asyncio
+    async def test_kelly_zero_returns_zero_position(self):
         """When Kelly fraction is 0, position size should be 0 (skip trade)."""
         rm = RiskManager(starting_balance=Decimal("100"))
         signal = TradeSignal(
@@ -217,10 +218,7 @@ class TestKellyZeroEdge:
             risk_level=RiskLevel.MEDIUM,
             risk_score=50.0,
         )
-        import asyncio
-        size = asyncio.get_event_loop().run_until_complete(
-            rm.calculate_position_size(signal, risk_check)
-        )
+        size = await rm.calculate_position_size(signal, risk_check)
         assert size == Decimal("0")
 
 

@@ -380,7 +380,7 @@ class TestOrchestratorRun:
         with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
              patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls, \
              patch("overblick.core.orchestrator.OrchestratorRuntime") as mock_runtime_cls, \
-             patch("overblick.core.orchestrator.PluginRunController"):
+             patch("overblick.core.plugin_run_controller.PluginRunController"):
             mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
             mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
             mock_runtime = mock_runtime_cls.return_value
@@ -401,7 +401,7 @@ class TestOrchestratorRun:
         with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
              patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls, \
              patch("overblick.core.orchestrator.OrchestratorRuntime") as mock_runtime_cls, \
-             patch("overblick.core.orchestrator.PluginRunController"):
+             patch("overblick.core.plugin_run_controller.PluginRunController"):
             mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
             mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
             mock_runtime = mock_runtime_cls.return_value
@@ -421,7 +421,7 @@ class TestOrchestratorRun:
         with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
              patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls, \
              patch("overblick.core.orchestrator.OrchestratorRuntime") as mock_runtime_cls, \
-             patch("overblick.core.orchestrator.PluginRunController"):
+             patch("overblick.core.plugin_run_controller.PluginRunController"):
             mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
             mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
             mock_runtime = mock_runtime_cls.return_value
@@ -447,7 +447,7 @@ class TestOrchestratorRun:
         with patch("overblick.core.orchestrator.OrchestratorBootstrap") as mock_bootstrap_cls, \
              patch("overblick.core.orchestrator.PluginLoader") as mock_loader_cls, \
              patch("overblick.core.orchestrator.OrchestratorRuntime") as mock_runtime_cls, \
-             patch("overblick.core.orchestrator.PluginRunController"):
+             patch("overblick.core.plugin_run_controller.PluginRunController"):
             mock_bootstrap_cls.return_value.setup = AsyncMock(return_value=bootstrap_result)
             mock_loader_cls.return_value.load_all = AsyncMock(return_value=[])
             mock_runtime = mock_runtime_cls.return_value

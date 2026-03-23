@@ -898,28 +898,28 @@ class TestFuzzyMatchStrictness:
 
     def test_thir_does_not_match_thirteen(self):
         """'thir' (fragment of 'thirty') must NOT match 'thirteen'."""
-        from overblick.plugins.moltbook.challenge_handler import _ONES
+        from overblick.plugins.moltbook.deobfuscator import _ONES
 
         result = _fuzzy_match("thir", _ONES)
         assert result is None
 
     def test_ty_does_not_match_twenty(self):
         """'ty' (fragment of 'twenty') must NOT match any number."""
-        from overblick.plugins.moltbook.challenge_handler import _ONES, _TENS
+        from overblick.plugins.moltbook.deobfuscator import _ONES, _TENS
 
         assert _fuzzy_match("ty", _TENS) is None
         assert _fuzzy_match("ty", _ONES) is None
 
     def test_wen_does_not_match(self):
         """'wen' (fragment of 'twenty') must NOT match any number."""
-        from overblick.plugins.moltbook.challenge_handler import _ONES, _TENS
+        from overblick.plugins.moltbook.deobfuscator import _ONES, _TENS
 
         assert _fuzzy_match("wen", _TENS) is None
         assert _fuzzy_match("wen", _ONES) is None
 
     def test_thre_matches_three(self):
         """'thre' (deobfuscation artifact) SHOULD match 'three'."""
-        from overblick.plugins.moltbook.challenge_handler import _ONES
+        from overblick.plugins.moltbook.deobfuscator import _ONES
 
         result = _fuzzy_match("thre", _ONES)
         assert result is not None
@@ -927,7 +927,7 @@ class TestFuzzyMatchStrictness:
 
     def test_exact_matches_preserved(self):
         """Exact word matches must always work."""
-        from overblick.plugins.moltbook.challenge_handler import _ONES, _TENS
+        from overblick.plugins.moltbook.deobfuscator import _ONES, _TENS
 
         assert _fuzzy_match("twenty", _TENS) == ("twenty", 20)
         assert _fuzzy_match("seven", _ONES) == ("seven", 7)
@@ -1103,7 +1103,7 @@ class TestEditDistanceFuzzyMatch:
 
     def test_fourten_matches_fourteen(self):
         """'fourten' (missing 'e') matches 'fourteen' via edit-distance-1."""
-        from overblick.plugins.moltbook.challenge_handler import _ONES
+        from overblick.plugins.moltbook.deobfuscator import _ONES
 
         result = _fuzzy_match("fourten", _ONES)
         assert result is not None
@@ -1111,7 +1111,7 @@ class TestEditDistanceFuzzyMatch:
 
     def test_edit_distance_short_no_match(self):
         """Short words (< 6 chars) must NOT use edit-distance matching."""
-        from overblick.plugins.moltbook.challenge_handler import _ONES
+        from overblick.plugins.moltbook.deobfuscator import _ONES
 
         # "for" is edit-distance-1 from "four" but len("for") = 3 < 6
         result = _fuzzy_match("for", _ONES)
@@ -1136,7 +1136,7 @@ class TestEditDistanceFuzzyMatch:
 
     def test_sevnteen_matches_seventeen(self):
         """'sevnteen' (missing 'e') matches 'seventeen'."""
-        from overblick.plugins.moltbook.challenge_handler import _ONES
+        from overblick.plugins.moltbook.deobfuscator import _ONES
 
         result = _fuzzy_match("sevnteen", _ONES)
         assert result is not None
