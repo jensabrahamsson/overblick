@@ -36,7 +36,7 @@
                     {% if pos.unrealized_pnl|default(0)|float > 0 %}+${{ "%.2f"|format(pos.unrealized_pnl|default(0)|float) }}{% elif pos.unrealized_pnl|default(0)|float < 0 %}-${{ "%.2f"|format(pos.unrealized_pnl|default(0)|float|abs) }}{% else %}$0.00{% endif %}
                 </span>
                 {% endif %}
-                {% if pos.category|default("") %}<span class="pm-meta-cat">{{ pos.category|capitalize }}</span>{% endif %}
+                {% if pos.category|default("") %}<span class="pm-meta-cat" data-cat="{{ pos.category }}">{{ pos.category|capitalize }}</span>{% endif %}
             </div>
             {% if pos.reasoning %}
             <div class="pm-signal-reasoning">{{ pos.reasoning }}</div>
@@ -147,7 +147,7 @@
                 <a href="https://polymarket.com/market/{{ market.slug|default(q|urlencode) }}" target="_blank" rel="noopener" class="pm-link">{{ q }}</a>
             </div>
             <div class="pm-row-meta">
-                <span class="pm-meta-cat">{{ market.category|default("other")|capitalize }}</span>
+                <span class="pm-meta-cat" data-cat="{{ market.category|default('other') }}">{{ market.category|default("other")|capitalize }}</span>
                 <span class="pm-meta-vol">${{ "{:,.0f}".format(market.volume_24h|default(0)) }} Vol</span>
             </div>
         </div>

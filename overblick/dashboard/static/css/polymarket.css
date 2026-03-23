@@ -136,7 +136,15 @@
     margin-bottom: 3px;
 }
 .pm-row-meta { display: flex; gap: 12px; font-size: 0.72rem; color: var(--text-muted); }
-.pm-meta-cat { text-transform: capitalize; }
+.pm-meta-cat { text-transform: capitalize; padding: 1px 6px; border-radius: 3px; font-weight: 500; }
+.pm-meta-cat[data-cat="politics"] { color: #58a6ff; background: rgba(88, 166, 255, 0.12); }
+.pm-meta-cat[data-cat="geopolitics"] { color: #f0883e; background: rgba(240, 136, 62, 0.12); }
+.pm-meta-cat[data-cat="weather"] { color: #3fb950; background: rgba(63, 185, 80, 0.12); }
+.pm-meta-cat[data-cat="economy"] { color: #d29922; background: rgba(210, 153, 34, 0.12); }
+.pm-meta-cat[data-cat="finance"] { color: #d29922; background: rgba(210, 153, 34, 0.12); }
+.pm-meta-cat[data-cat="crypto"] { color: #bc8cff; background: rgba(188, 140, 255, 0.12); }
+.pm-meta-cat[data-cat="sports"] { color: #f97583; background: rgba(249, 117, 131, 0.12); }
+.pm-meta-cat[data-cat="science"] { color: #56d4dd; background: rgba(86, 212, 221, 0.12); }
 .pm-meta-vol { font-family: var(--font-mono); }
 
 /* Odds pills — like Polymarket YES/NO buttons */
