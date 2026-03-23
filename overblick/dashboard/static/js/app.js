@@ -161,6 +161,8 @@
                 }
             });
             if (countEl) countEl.textContent = visible;
+            var noResults = document.getElementById("pm-no-results");
+            if (noResults) noResults.style.display = visible === 0 ? "" : "none";
         }
 
         if (searchInput) {
