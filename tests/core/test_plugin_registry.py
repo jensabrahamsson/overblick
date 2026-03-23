@@ -211,11 +211,11 @@ class TestPluginRegistryLoad:
 class TestPluginRegistryRegister:
     """Tests for PluginRegistry.register()."""
 
-    def test_register_adds_to_known(self, registry, _cleanup_known_plugins):
-        """register() should add a new entry to the global _KNOWN_PLUGINS dict."""
+    def test_register_adds_to_instance(self, registry, _cleanup_known_plugins):
+        """register() should add a new entry to the instance's plugin dict."""
         registry.register("custom_test", "my.custom.module", "CustomClass")
-        assert "custom_test" in _KNOWN_PLUGINS
-        assert _KNOWN_PLUGINS["custom_test"] == ("my.custom.module", "CustomClass")
+        assert "custom_test" in registry._plugins
+        assert registry._plugins["custom_test"] == ("my.custom.module", "CustomClass")
 
     def test_register_makes_plugin_loadable(self, registry, plugin_ctx, _cleanup_known_plugins):
         """A registered plugin should be loadable via load()."""
@@ -239,7 +239,17 @@ class TestPluginRegistryRegister:
         """Registering with the same name should overwrite the previous entry."""
         registry.register("overwrite_me", "old.module", "OldClass")
         registry.register("overwrite_me", "new.module", "NewClass")
-        assert _KNOWN_PLUGINS["overwrite_me"] == ("new.module", "NewClass")
+        assert registry._plugins["overwrite_me"] == ("new.module", "NewClass")
+
+    def test_register_does_not_leak_to_other_instances(self, _cleanup_known_plugins):
+        """Registering on one instance should NOT leak to a new instance."""
+        from overblick.core.plugin_registry import PluginRegistry
+        reg1 = PluginRegistry()
+        reg1.register("isolated_test", "some.module", "SomeClass")
+        assert "isolated_test" in reg1._plugins
+
+        reg2 = PluginRegistry()
+        assert "isolated_test" not in reg2._plugins
 
 
 # ---------------------------------------------------------------------------

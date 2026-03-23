@@ -278,11 +278,18 @@ def _save_wizard_state(state: dict[str, Any]) -> None:
     try:
         _WIZARD_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         # Filter out sensitive keys before saving
+        _SENSITIVE_COMM_KEYS = {"gmail_app_password", "telegram_bot_token"}
         safe_state = {
             k: v
             for k, v in state.items()
             if not k.startswith("_") and k not in ("deepseek_api_key",)
         }
+        # Strip credentials from communication sub-dict
+        if "communication" in safe_state and isinstance(safe_state["communication"], dict):
+            safe_state["communication"] = {
+                k: v for k, v in safe_state["communication"].items()
+                if k not in _SENSITIVE_COMM_KEYS
+            }
         _WIZARD_STATE_FILE.write_text(json.dumps(safe_state, default=str))
     except Exception as e:
         logger.warning("Failed to save wizard state: %s", e)

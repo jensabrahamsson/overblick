@@ -95,8 +95,15 @@ class PluginLoader:
                 # Load and instantiate plugin via registry
                 plugin = self._registry.load(name, ctx)
 
-                # Run setup
-                await plugin.setup()
+                # Run setup (teardown on failure to prevent resource leaks)
+                try:
+                    await plugin.setup()
+                except Exception:
+                    try:
+                        await plugin.teardown()
+                    except Exception:
+                        pass
+                    raise
 
                 # Store
                 plugins.append(plugin)

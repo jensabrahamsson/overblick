@@ -163,8 +163,7 @@ class PluginRegistry:
             class_name: Class name within module
         """
         self._plugins[name] = (module_path, class_name)
-        # Also update module-level dict for backward compatibility
-        _KNOWN_PLUGINS[name] = (module_path, class_name)
+        # Note: NOT updating _KNOWN_PLUGINS to maintain instance isolation in tests
         logger.info(f"PluginRegistry: registered '{name}' -> {module_path}.{class_name}")
 
     def get_plugin_class(self, name: str) -> type[PluginBase]:

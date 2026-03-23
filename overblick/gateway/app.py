@@ -295,12 +295,14 @@ async def chat_completion(
 
     # Use router to resolve backend if not explicitly specified
     resolved_backend = backend
+    actual_backend_name = backend  # Track the real name for fallback
     if _router and not backend:
         resolved_backend = _router.resolve_backend(
             priority=priority.lower() if priority else "low",
             complexity=complexity,
             explicit_backend=None,
         )
+        actual_backend_name = resolved_backend
         # Only set if router chose something other than default
         if resolved_backend == _backend_registry.default_backend:
             resolved_backend = None  # let queue manager use default
@@ -338,13 +340,14 @@ async def chat_completion(
         except (OllamaConnectionError, DeepseekConnectionError) as e:
             # Backend-specific connection failure — retry with fallback backend
             # if router can find an alternative (exclude the failed backend).
-            if resolved_backend and _router:
+            failed_backend = actual_backend_name or _backend_registry.default_backend
+            if _router:
                 fallback = _router.resolve_backend(
                     priority=priority.lower() if priority else "low",
                     complexity=complexity,
-                    exclude={resolved_backend},
+                    exclude={failed_backend},
                 )
-                if fallback != resolved_backend:
+                if fallback != failed_backend:
                     logger.warning(
                         "Backend '%s' failed (%s), retrying with '%s'",
                         resolved_backend,
