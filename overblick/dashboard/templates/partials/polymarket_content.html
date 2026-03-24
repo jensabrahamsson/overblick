@@ -94,6 +94,29 @@
         {% endif %}
     </div>
 
+    <!-- TRADE HISTORY -->
+    <div class="pm-panel">
+        <div class="pm-panel-header">
+            <h3>Trade History</h3>
+            <span class="badge badge-info">{{ trades|length }}</span>
+        </div>
+        {% for trade in trades %}
+        <div class="pm-feed-line">
+            <span class="pm-feed-time">[{{ trade.executed_at[11:19] if trade.executed_at and trade.executed_at|length > 19 else trade.executed_at[:10] if trade.executed_at else '' }}]</span>
+            <span class="pm-feed-msg trade">
+                {{ trade.action }}
+                <span class="mono">${{ "%.2f"|format(trade.position_size_usd|default(0)|float) }}</span>
+                @ {{ "%.3f"|format(trade.execution_price|default(0)|float) }}
+                — {{ trade.market_question|default(trade.market_id)[:50] }}
+                {% if trade.simulation %}<span class="badge badge-warning">SIM</span>{% endif %}
+            </span>
+        </div>
+        {% endfor %}
+        {% if not trades %}
+        <div class="pm-panel-empty">No trades yet</div>
+        {% endif %}
+    </div>
+
     <!-- (old duplicates removed) -->
 </div>
 
