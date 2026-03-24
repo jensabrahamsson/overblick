@@ -107,7 +107,7 @@
                 {{ trade.action }}
                 <span class="mono">${{ "%.2f"|format(trade.position_size_usd|default(0)|float) }}</span>
                 @ {{ "%.3f"|format(trade.execution_price|default(0)|float) }}
-                — {{ trade.market_question|default(trade.market_id)[:50] }}
+                — {{ trade.market_question|default(trade.market_id)|truncate(50) }}
                 {% if trade.simulation %}<span class="badge badge-warning">SIM</span>{% endif %}
             </span>
         </div>
