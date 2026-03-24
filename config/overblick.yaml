@@ -1,6 +1,6 @@
 dashboard:
   network_access: true
-  password_hash: $2b$12$cWIVngVKrDdSd4QGKqRxPeIxr6GZjuvcnNYTh59Dd9H07zE9j0CR2
+  password_hash: $2b$12$YaJmsERBO/uN7fafBMl8TOu3U90Zv2YpDjgZIIwZsLz3pHlwfJ0/2
 framework:
   name: Överblick
   version: 0.1.0
@@ -29,7 +29,7 @@ llm:
       type: ollama
   default_backend: remote
   gateway_url: http://127.0.0.1:8200
-  max_tokens: 4000
+  max_tokens: 8000
   temperature: 0.7
 local_plugins:
   stal: []
