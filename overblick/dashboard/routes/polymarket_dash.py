@@ -323,6 +323,16 @@ def _load_polymarket_data(request: Request) -> dict:
 
                 if "recent_opportunities" in monitor_state:
                     for opp in monitor_state["recent_opportunities"]:
+                        # Skip expired opportunities (older than their time horizon or 24h)
+                        detected_at = opp.get("detected_at", "")
+                        if detected_at:
+                            try:
+                                det_dt = datetime.fromisoformat(str(detected_at))
+                                horizon_s = min(float(opp.get("time_horizon_days", 30)) * 86400, 86400)
+                                if (datetime.now() - det_dt).total_seconds() > horizon_s:
+                                    continue
+                            except (ValueError, TypeError):
+                                pass
                         opp["identity"] = identity_name
                         opportunities.append(opp)
                         stats["total_opportunities"] += 1
@@ -434,7 +444,7 @@ def _load_polymarket_data(request: Request) -> dict:
 
     # Sort data for display
     markets.sort(key=lambda x: x.get("volume_24h", 0), reverse=True)
-    opportunities.sort(key=lambda x: x.get("probability_edge", 0), reverse=True)
+    opportunities.sort(key=lambda x: x.get("detected_at", ""), reverse=True)
     positions.sort(key=lambda x: x.get("unrealized_pnl_usd", 0), reverse=True)
     trades.sort(key=lambda x: x.get("executed_at", ""), reverse=True)
     alerts.sort(key=lambda x: x.get("triggered_at", ""), reverse=True)

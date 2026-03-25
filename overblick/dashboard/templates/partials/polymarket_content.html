@@ -74,20 +74,19 @@
             <span class="badge badge-info">{{ opportunities|length }}</span>
         </div>
         {% for opp in opportunities %}
-        <div class="pm-signal-block">
-            <div class="pm-signal-inline">
-                <span class="pm-signal-q-inline">{{ opp.market_question|default("Unknown market") }}</span>
-                <span class="pm-signal-meta">
-                    <span class="badge {% if opp.probability_edge|default(0)|float >= 0.05 %}badge-success{% elif opp.probability_edge|default(0)|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format((opp.probability_edge|default(0)) * 100) }}%</span>
-                    <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}%</span>
-                    {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
-                    {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
-                </span>
-            </div>
-            {% if opp.reasoning %}
-            <div class="pm-signal-reasoning">{{ opp.reasoning }}</div>
-            {% endif %}
+        <div class="pm-feed-line">
+            <span class="pm-feed-time">[{{ opp.detected_at[11:16] if opp.detected_at and opp.detected_at|length > 16 else '' }}]</span>
+            <span class="pm-feed-msg">
+                {{ opp.market_question|default("Unknown market")|truncate(55) }}
+                <span class="badge {% if opp.probability_edge|default(0)|float >= 0.05 %}badge-success{% elif opp.probability_edge|default(0)|float >= 0.03 %}badge-warning{% else %}badge-info{% endif %}">+{{ "%.1f"|format((opp.probability_edge|default(0)) * 100) }}%</span>
+                <span class="pm-signal-conf">{{ "%.0f"|format(opp.confidence_score|default(50)) }}%</span>
+                {% if opp.recommended_outcome == "YES" %}<span class="badge badge-success">BUY YES</span>
+                {% elif opp.recommended_outcome == "NO" %}<span class="badge badge-danger">BUY NO</span>{% endif %}
+            </span>
         </div>
+        {% if opp.reasoning %}
+        <div class="pm-signal-reasoning" style="margin-left:60px; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">{{ opp.reasoning|truncate(120) }}</div>
+        {% endif %}
         {% endfor %}
         {% if not opportunities %}
         <div class="pm-panel-empty">No signals yet</div>
