@@ -178,6 +178,71 @@ class OllamaClient:
             ) from e
 
         except httpx.HTTPStatusError as e:
+            # LM Studio: auto-load model if "no models loaded"
+            if e.response.status_code == 400:
+                error_text = e.response.text.lower()
+                if "no models loaded" in error_text or "model not found" in error_text:
+                    logger.warning(
+                        "LM Studio: model not loaded, sending trigger request to auto-load..."
+                    )
+                    try:
+                        import asyncio
+
+                        # Send a tiny request to trigger model loading
+                        trigger_payload = {
+                            "model": request.model or self.config.default_model,
+                            "messages": [{"role": "user", "content": "hi"}],
+                            "max_tokens": 1,
+                        }
+                        trigger_client = await self._get_client()
+                        try:
+                            await trigger_client.post(
+                                "/v1/chat/completions",
+                                json=trigger_payload,
+                                timeout=60.0,
+                            )
+                        except Exception:
+                            pass  # Model loading may take time
+
+                        # Wait for model to finish loading
+                        logger.info("LM Studio: waiting 30s for model to load...")
+                        await asyncio.sleep(30)
+
+                        # Retry original request
+                        logger.info("LM Studio: retrying original request after auto-load")
+                        retry_client = await self._get_client()
+                        response = await retry_client.post("/v1/chat/completions", json=payload)
+                        response.raise_for_status()
+                        data = response.json()
+                        # Parse response (same as above)
+                        choices = []
+                        for idx, choice in enumerate(data.get("choices", [])):
+                            message = choice.get("message", {})
+                            choices.append(
+                                ChatResponseChoice(
+                                    index=idx,
+                                    message=ChatMessage(
+                                        role=message.get("role", "assistant"),
+                                        content=message.get("content", ""),
+                                    ),
+                                    finish_reason=choice.get("finish_reason") or "stop",
+                                )
+                            )
+                        usage_data = data.get("usage", {})
+                        usage = ChatResponseUsage(
+                            prompt_tokens=usage_data.get("prompt_tokens", 0),
+                            completion_tokens=usage_data.get("completion_tokens", 0),
+                            total_tokens=usage_data.get("total_tokens", 0),
+                        )
+                        return ChatResponse(
+                            id=data.get("id", f"chatcmpl-{request.model}"),
+                            model=data.get("model", request.model),
+                            choices=choices,
+                            usage=usage,
+                        )
+                    except Exception as retry_err:
+                        logger.error("LM Studio auto-load retry failed: %s", retry_err)
+
             logger.error(
                 "Ollama HTTP error: %s - %s", e.response.status_code, e.response.text, exc_info=True
             )
