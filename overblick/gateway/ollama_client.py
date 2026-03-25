@@ -4,6 +4,7 @@ Ollama client for LLM inference.
 Wraps the Ollama HTTP API with proper error handling and timeout management.
 """
 
+import asyncio
 import logging
 
 import httpx
@@ -186,8 +187,6 @@ class OllamaClient:
                         "LM Studio: model not loaded, sending trigger request to auto-load..."
                     )
                     try:
-                        import asyncio
-
                         # Send a tiny request to trigger model loading
                         trigger_payload = {
                             "model": request.model or self.config.default_model,
@@ -199,14 +198,32 @@ class OllamaClient:
                             await trigger_client.post(
                                 "/v1/chat/completions",
                                 json=trigger_payload,
-                                timeout=60.0,
+                                timeout=10.0,
                             )
                         except Exception:
                             pass  # Model loading may take time
 
-                        # Wait for model to finish loading
-                        logger.info("LM Studio: waiting 30s for model to load...")
-                        await asyncio.sleep(30)
+                        # Poll until model is ready (3s intervals, max 30s)
+                        model_ready = False
+                        for attempt in range(10):
+                            await asyncio.sleep(3)
+                            try:
+                                poll_client = await self._get_client()
+                                poll_resp = await poll_client.get("/v1/models", timeout=5.0)
+                                if poll_resp.status_code == 200:
+                                    models_data = poll_resp.json()
+                                    if models_data.get("data"):
+                                        model_ready = True
+                                        logger.info(
+                                            "LM Studio: model ready after %ds",
+                                            (attempt + 1) * 3,
+                                        )
+                                        break
+                            except Exception:
+                                pass
+
+                        if not model_ready:
+                            logger.warning("LM Studio: model not ready after 30s")
 
                         # Retry original request
                         logger.info("LM Studio: retrying original request after auto-load")
@@ -237,7 +254,15 @@ class OllamaClient:
                         return ChatResponse(
                             id=data.get("id", f"chatcmpl-{request.model}"),
                             model=data.get("model", request.model),
-                            choices=choices,
+                            choices=choices
+                            or [
+                                ChatResponseChoice(
+                                    message=ChatMessage(
+                                        role="assistant",
+                                        content="No response generated",
+                                    )
+                                )
+                            ],
                             usage=usage,
                         )
                     except Exception as retry_err:
