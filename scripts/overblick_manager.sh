@@ -460,6 +460,13 @@ start_supervisor() {
 
     mkdir -p "$(dirname "$SUPERVISOR_PID_FILE")" "$(dirname "$SUPERVISOR_LOG_FILE")"
 
+    # Ensure LLM Gateway is running (agents need it)
+    if ! curl -sf http://localhost:8200/health > /dev/null 2>&1; then
+        echo "[supervisor] LLM Gateway not responding — starting it first..."
+        start_gateway
+        sleep 2
+    fi
+
     echo "[supervisor] Starting with identities: $identities"
     # shellcheck disable=SC2086
     nohup "$PYTHON" -m overblick supervisor $identities >> "$SUPERVISOR_LOG_FILE" 2>&1 &
