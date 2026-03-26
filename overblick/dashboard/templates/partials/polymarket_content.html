@@ -100,15 +100,27 @@
             <span class="badge badge-info">{{ trades|length }}</span>
         </div>
         {% for trade in trades %}
-        <div class="pm-feed-line">
-            <span class="pm-feed-time">[{{ trade.executed_at[11:19] if trade.executed_at and trade.executed_at|length > 19 else trade.executed_at[:10] if trade.executed_at else '' }}]</span>
-            <span class="pm-feed-msg trade">
-                {{ trade.action }}
-                <span class="mono">${{ "%.2f"|format(trade.position_size_usd|default(0)|float) }}</span>
-                @ {{ "%.3f"|format(trade.execution_price|default(0)|float) }}
-                — {{ trade.market_question|default(trade.market_id)|truncate(50) }}
-                {% if trade.simulation %}<span class="badge badge-warning">SIM</span>{% endif %}
-            </span>
+        <div class="pm-trade-entry">
+            <div class="pm-feed-line">
+                <span class="pm-feed-time">[{{ trade.executed_at[11:19] if trade.executed_at and trade.executed_at|length > 19 else '' }}]</span>
+                <span class="pm-feed-msg trade">
+                    {% if trade.action and 'SELL' in trade.action|string %}<span class="badge badge-danger">{{ trade.action }}</span>
+                    {% elif trade.action and 'BUY' in trade.action|string %}<span class="badge badge-success">{{ trade.action }}</span>
+                    {% else %}<span class="badge">{{ trade.action }}</span>{% endif %}
+                    <span class="mono">${{ "%.2f"|format(trade.position_size_usd|default(0)|float) }}</span>
+                    @ {{ "%.3f"|format(trade.execution_price|default(0)|float) }}
+                    — {{ trade.market_question|default(trade.market_id) }}
+                    {% if trade.simulation %}<span class="badge badge-warning">SIM</span>{% endif %}
+                    {% if trade.realized_pnl_usd and trade.realized_pnl_usd|float != 0 %}
+                    <span class="{% if trade.realized_pnl_usd|float > 0 %}text-green{% else %}text-red{% endif %} mono">
+                        {{ "%+.2f"|format(trade.realized_pnl_usd|float) }}
+                    </span>
+                    {% endif %}
+                </span>
+            </div>
+            {% if trade.reasoning %}
+            <div class="pm-trade-reasoning">{{ trade.reasoning }}</div>
+            {% endif %}
         </div>
         {% endfor %}
         {% if not trades %}

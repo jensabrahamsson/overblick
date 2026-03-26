@@ -283,6 +283,10 @@
 .pm-feed-msg.opportunity { color: #bc8cff; }
 .pm-feed-msg.trade { color: var(--text-primary); }
 .pm-feed-msg.alert { color: var(--warning-color); }
+.pm-trade-entry { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.pm-trade-reasoning { margin-left: 75px; font-size: 0.72rem; color: var(--text-muted); padding: 2px 0 4px; line-height: 1.4; opacity: 0.8; }
+.text-green { color: #4ade80; }
+.text-red { color: #f87171; }
 
 /* ═══ Shared ═══ */
 .positive { color: var(--positive-color) !important; }
