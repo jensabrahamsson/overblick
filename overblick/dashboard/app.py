@@ -323,8 +323,19 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
     # Security headers middleware (outermost — runs on every response)
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # Auth middleware (must be added before routes)
-    app.add_middleware(AuthMiddleware)
+    # Auth middleware (only when password is configured)
+    if config.auth_enabled:
+        app.add_middleware(AuthMiddleware)
+    else:
+        # Without auth, inject a dummy session so routes don't crash
+        from starlette.middleware.base import BaseHTTPMiddleware
+
+        class NoAuthMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                request.state.session = {"authenticated": True, "csrf_token": "noauth"}
+                return await call_next(request)
+
+        app.add_middleware(NoAuthMiddleware)
 
     # Mount static files
     static_dir = _PKG_DIR / "static"

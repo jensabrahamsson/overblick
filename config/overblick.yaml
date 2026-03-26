@@ -1,6 +1,6 @@
 dashboard:
   network_access: true
-  password_hash: $2b$12$YaJmsERBO/uN7fafBMl8TOu3U90Zv2YpDjgZIIwZsLz3pHlwfJ0/2
+  password_hash: ""
 framework:
   name: Överblick
   version: 0.1.0
