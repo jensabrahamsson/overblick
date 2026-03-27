@@ -141,11 +141,12 @@ class TestLoadYamlDashboardConfig:
 
 
 class TestBindHost:
-    def test_should_return_localhost_for_network_without_password(self):
+    def test_should_return_0000_for_network_without_password(self):
+        """Network access without password binds to all interfaces (LAN access)."""
         from overblick.dashboard.config import DashboardConfig
 
         config = DashboardConfig(network_access=True, password_hash="")
-        assert config.bind_host == "127.0.0.1"
+        assert config.bind_host == "0.0.0.0"
 
     def test_should_return_0000_for_network_with_password(self):
         from overblick.dashboard.config import DashboardConfig

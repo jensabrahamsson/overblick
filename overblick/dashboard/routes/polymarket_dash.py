@@ -404,7 +404,7 @@ def _load_polymarket_data(request: Request) -> dict:
                             "time": trade.get("executed_at", ""),
                             "identity": identity_name,
                             "type": "trade",
-                            "msg": f"TRADE: {trade.get('action')} {trade.get('position_size_usd', 0):.0f}$ at {trade.get('execution_price', 0):.3f}"
+                            "msg": f"TRADE: {trade.get('action')} ${float(trade.get('position_size_usd', 0)):.0f} at {float(trade.get('execution_price', 0)):.3f}"
                         })
 
                         # Calculate P&L
