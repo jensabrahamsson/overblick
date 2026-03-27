@@ -276,28 +276,13 @@ async def lifespan(app: FastAPI):
     app.state.templates.env.globals["log_agent_enabled"] = _log_agent_has_data
     app.state.templates.env.globals["polymarket_enabled"] = _polymarket_has_data
 
-    # Register external plugin templates + static (polytrader)
+    # Register external plugin templates (polytrader)
     try:
         import polytrader.dashboard as _ptdash
         _pt_pkg = Path(_ptdash.__file__).parent
         _pt_templates = _pt_pkg / "templates"
-        _pt_static = _pt_pkg / "static"
         if _pt_templates.exists():
             app.state.templates.env.loader.searchpath.append(str(_pt_templates))
-        if _pt_static.exists():
-            # Merge polytrader static into main static search path
-            # by symlinking or adding to the existing static mount
-            main_static = _PKG_DIR / "static"
-            for subdir in ("css", "js"):
-                src = _pt_static / subdir
-                if src.exists():
-                    for f in src.iterdir():
-                        dst = main_static / subdir / f.name
-                        if not dst.exists():
-                            try:
-                                dst.symlink_to(f)
-                            except OSError:
-                                pass  # Permission denied or exists
     except ImportError:
         pass
 
@@ -369,6 +354,24 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
     # Mount static files
     static_dir = _PKG_DIR / "static"
     if static_dir.exists():
+        # Symlink external plugin static assets (polytrader CSS/JS) into main static dir
+        try:
+            import polytrader.dashboard as _ptdash_static
+            _pt_static = Path(_ptdash_static.__file__).parent / "static"
+            if _pt_static.exists():
+                for subdir in ("css", "js"):
+                    src_dir = _pt_static / subdir
+                    if src_dir.exists():
+                        for f in src_dir.iterdir():
+                            dst = static_dir / subdir / f.name
+                            if not dst.exists():
+                                try:
+                                    dst.symlink_to(f)
+                                except OSError:
+                                    pass
+        except ImportError:
+            pass
+
         app.mount("/static", StaticFiles(directory=str(static_dir), follow_symlink=True), name="static")
 
     # Mount setup static files (CSS, JS, images from the original onboarding wizard)

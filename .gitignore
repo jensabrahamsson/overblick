@@ -96,3 +96,8 @@ KNOWLEDGEBASE_HOWTO.md
 # Oracle scripts (local knowledge querying)
 scripts/oracle.py
 scripts/oracle.sh
+
+# Polytrader symlinks (created at runtime by dashboard)
+overblick/dashboard/static/css/polymarket.css
+overblick/dashboard/static/js/polymarket-chart.js
+overblick/dashboard/static/js/sparkline-chart.js
