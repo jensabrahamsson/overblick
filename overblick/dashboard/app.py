@@ -275,6 +275,32 @@ async def lifespan(app: FastAPI):
     app.state.templates.env.globals["dev_enabled"] = _dev_has_data
     app.state.templates.env.globals["log_agent_enabled"] = _log_agent_has_data
     app.state.templates.env.globals["polymarket_enabled"] = _polymarket_has_data
+
+    # Register external plugin templates + static (polytrader)
+    try:
+        import polytrader.dashboard as _ptdash
+        _pt_pkg = Path(_ptdash.__file__).parent
+        _pt_templates = _pt_pkg / "templates"
+        _pt_static = _pt_pkg / "static"
+        if _pt_templates.exists():
+            app.state.templates.env.loader.searchpath.append(str(_pt_templates))
+        if _pt_static.exists():
+            # Merge polytrader static into main static search path
+            # by symlinking or adding to the existing static mount
+            main_static = _PKG_DIR / "static"
+            for subdir in ("css", "js"):
+                src = _pt_static / subdir
+                if src.exists():
+                    for f in src.iterdir():
+                        dst = main_static / subdir / f.name
+                        if not dst.exists():
+                            try:
+                                dst.symlink_to(f)
+                            except OSError:
+                                pass  # Permission denied or exists
+    except ImportError:
+        pass
+
     app.state.templates.env.globals["settings_enabled"] = lambda: True
     app.state.templates.env.globals["auth_enabled"] = lambda: config.auth_enabled
     app.state.templates.env.globals["network_access_enabled"] = lambda: config.network_access
@@ -343,7 +369,7 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
     # Mount static files
     static_dir = _PKG_DIR / "static"
     if static_dir.exists():
-        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+        app.mount("/static", StaticFiles(directory=str(static_dir), follow_symlink=True), name="static")
 
     # Mount setup static files (CSS, JS, images from the original onboarding wizard)
     setup_static = _PKG_DIR.parent / "setup" / "static"
