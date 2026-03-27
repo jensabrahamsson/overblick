@@ -46,7 +46,7 @@ class GatewayConfig(BaseModel):
     request_timeout_seconds: float = 600.0
 
     # Worker settings
-    max_concurrent_requests: int = 2
+    max_concurrent_requests: int = 4
 
     # API settings
     api_host: str = "127.0.0.1"
