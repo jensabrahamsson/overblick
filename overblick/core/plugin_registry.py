@@ -153,6 +153,22 @@ class PluginRegistry:
         self._loaded: dict[str, PluginBase] = {}
         self._plugins: dict[str, tuple[str, str]] = dict(_DEFAULT_PLUGINS)
 
+        # Auto-discover external plugin packages (e.g. polytrader)
+        self._discover_external_plugins()
+
+    def _discover_external_plugins(self) -> None:
+        """Auto-discover and register external plugin packages."""
+        # Known external plugin packages that provide register_plugins()
+        external_packages = ["polytrader"]
+        for pkg in external_packages:
+            try:
+                mod = __import__(pkg)
+                if hasattr(mod, "register_plugins"):
+                    mod.register_plugins(self)
+                    logger.info("PluginRegistry: loaded external plugins from '%s'", pkg)
+            except ImportError:
+                pass  # Package not installed — skip silently
+
     def register(self, name: str, module_path: str, class_name: str) -> None:
         """
         Register a plugin class (for testing or extensions).
