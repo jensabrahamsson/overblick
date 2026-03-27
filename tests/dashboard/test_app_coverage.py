@@ -390,7 +390,6 @@ class TestLifespan:
                  patch("overblick.dashboard.routes.kontrast.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.log_agent.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.moltbook.has_data", return_value=False), \
-                 patch("overblick.dashboard.routes.polymarket_dash.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.skuggspel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.spegel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.stage.has_data", return_value=False), \
@@ -442,7 +441,6 @@ class TestLifespan:
                  patch("overblick.dashboard.routes.kontrast.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.log_agent.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.moltbook.has_data", return_value=False), \
-                 patch("overblick.dashboard.routes.polymarket_dash.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.skuggspel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.spegel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.stage.has_data", return_value=False), \
@@ -478,7 +476,6 @@ class TestLifespan:
                  patch("overblick.dashboard.routes.kontrast.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.log_agent.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.moltbook.has_data", return_value=False), \
-                 patch("overblick.dashboard.routes.polymarket_dash.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.skuggspel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.spegel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.stage.has_data", return_value=False), \
@@ -517,7 +514,6 @@ class TestLifespan:
                  patch("overblick.dashboard.routes.kontrast.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.log_agent.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.moltbook.has_data", return_value=False), \
-                 patch("overblick.dashboard.routes.polymarket_dash.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.skuggspel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.spegel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.stage.has_data", return_value=False), \
@@ -551,7 +547,6 @@ class TestLifespan:
                  patch("overblick.dashboard.routes.kontrast.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.log_agent.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.moltbook.has_data", return_value=False), \
-                 patch("overblick.dashboard.routes.polymarket_dash.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.skuggspel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.spegel.has_data", return_value=False), \
                  patch("overblick.dashboard.routes.stage.has_data", return_value=False), \

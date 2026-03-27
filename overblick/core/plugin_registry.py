@@ -123,15 +123,12 @@ _DEFAULT_PLUGINS: dict[str, tuple[str, str]] = {
     "kontrast": ("overblick.plugins.kontrast.plugin", "KontrastPlugin"),
     "log_agent": ("overblick.plugins.log_agent.plugin", "LogAgentPlugin"),
     "moltbook": ("overblick.plugins.moltbook.plugin", "MoltbookPlugin"),
-    "polymarket_monitor": (
-        "overblick.plugins.polymarket_monitor.plugin",
-        "PolymarketMonitorPlugin",
-    ),
     "skuggspel": ("overblick.plugins.skuggspel.plugin", "SkuggspelPlugin"),
     "spegel": ("overblick.plugins.spegel.plugin", "SpegelPlugin"),
     "stage": ("overblick.plugins.stage.plugin", "StagePlugin"),
     "telegram": ("overblick.plugins.telegram.plugin", "TelegramPlugin"),
-    "whallet_trader": ("overblick.plugins.whallet_trader.plugin", "WhalletTraderPlugin"),
+    # polymarket_monitor + whallet_trader moved to external package: polytrader
+    # Auto-discovered via _discover_external_plugins() if installed
 }
 
 # Module-level alias for backward compatibility (tests import this)

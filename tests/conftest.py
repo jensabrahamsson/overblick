@@ -12,9 +12,9 @@ except (ImportError, ModuleNotFoundError):
         "integration/test_gateway_integration.py",
     ])
 try:
-    import py_clob_client
+    import py_clob_client  # noqa: F401
 except (ImportError, ModuleNotFoundError):
-    collect_ignore_glob.append("plugins/whallet_trader/test_plugin.py")
+    pass  # polytrader tests moved to separate repo
 
 import asyncio
 import os

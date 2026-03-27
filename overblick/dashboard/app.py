@@ -252,7 +252,10 @@ async def lifespan(app: FastAPI):
     from .routes.kontrast import has_data as _kontrast_has_data
     from .routes.log_agent import has_data as _log_agent_has_data
     from .routes.moltbook import has_data as _moltbook_has_data
-    from .routes.polymarket_dash import has_data as _polymarket_has_data
+    try:
+        from polytrader.dashboard.routes.polymarket_dash import has_data as _polymarket_has_data
+    except ImportError:
+        _polymarket_has_data = lambda _: False
     from .routes.skuggspel import has_data as _skuggspel_has_data
     from .routes.spegel import has_data as _spegel_has_data
     from .routes.stage import has_data as _stage_has_data

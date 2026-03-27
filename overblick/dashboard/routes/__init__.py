@@ -28,7 +28,6 @@ def register_routes(app: FastAPI) -> None:
     from .moltbook import router as moltbook_router
     from .observability import router as observability_router
     from .onboarding import router as onboarding_router
-    from .polymarket_dash import router as polymarket_dash_router
     from .psychology import router as psychology_router
     from .settings import router as settings_router
     from .skuggspel import router as skuggspel_router
@@ -57,7 +56,12 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(telegram_router)
     app.include_router(digest_router)
     app.include_router(github_dash_router)
-    app.include_router(polymarket_dash_router)
+    # PolyTrader dashboard (external package — optional)
+    try:
+        from polytrader.dashboard.routes.polymarket_dash import router as polymarket_dash_router
+        app.include_router(polymarket_dash_router)
+    except ImportError:
+        pass
     app.include_router(dev_router)
     app.include_router(log_agent_router)
     app.include_router(psychology_router)
