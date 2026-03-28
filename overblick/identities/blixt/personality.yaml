@@ -672,6 +672,7 @@ parallel_examples:
 ################################################################################
 operational:
   llm:
+    preferred_backend: local
     model: "qwen3.5:9b"
     temperature: 0.75
     max_tokens: 4000

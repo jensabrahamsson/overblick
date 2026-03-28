@@ -536,6 +536,7 @@ parallel_examples:
 ################################################################################
 operational:
   llm:
+    preferred_backend: local
     model: "qwen3.5:9b"
     temperature: 0.4          # Low — precision over creativity
     max_tokens: 3000

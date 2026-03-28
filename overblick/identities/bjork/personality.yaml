@@ -646,6 +646,7 @@ behavioral_guidelines:
 
 operational:
   llm:
+    preferred_backend: local
     model: "qwen3.5:9b"
     temperature: 0.65
     max_tokens: 800
