@@ -50,11 +50,13 @@ class QueueManager:
         config: GatewayConfig | None = None,
         client: OllamaClient | None = None,
         registry: BackendRegistry | None = None,
+        token_logger: Any | None = None,
     ):
         """Initialize the queue manager."""
         self.config = config or get_config()
         self.client = client or OllamaClient(self.config)
         self._registry = registry
+        self._token_logger = token_logger
 
         self._queue: asyncio.PriorityQueue[QueuedRequest] = asyncio.PriorityQueue(
             maxsize=self.config.max_queue_size
@@ -267,6 +269,28 @@ class QueueManager:
 
                 elapsed_ms = (time.time() - start_time) * 1000
                 self._update_stats(queued.priority, elapsed_ms, backend_name)
+
+                # Log token usage
+                if self._token_logger and response and response.usage:
+                    identity_hint = ""
+                    if queued.request and queued.request.messages:
+                        for msg in queued.request.messages:
+                            if msg.role == "system" and msg.content:
+                                identity_hint = msg.content[:60].replace("\n", " ")
+                                break
+                    try:
+                        self._token_logger.record(
+                            backend=backend_name,
+                            model=response.model,
+                            identity_hint=identity_hint,
+                            priority=queued.priority.name,
+                            prompt_tokens=response.usage.prompt_tokens,
+                            completion_tokens=response.usage.completion_tokens,
+                            total_tokens=response.usage.total_tokens,
+                            response_time_ms=elapsed_ms,
+                        )
+                    except Exception as e:
+                        logger.debug("Token logging failed: %s", e)
 
                 logger.info("Completed request %s in %.0fms", queued.request_id, elapsed_ms)
 

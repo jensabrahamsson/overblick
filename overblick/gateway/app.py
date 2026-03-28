@@ -13,6 +13,7 @@ import asyncio
 import hmac
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Security
 from fastapi.responses import JSONResponse
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 _queue_manager: QueueManager | None = None
 _backend_registry: BackendRegistry | None = None
 _router: RequestRouter | None = None
+_token_logger = None
 
 
 def get_queue_manager() -> QueueManager:
@@ -56,7 +58,7 @@ def get_backend_registry() -> BackendRegistry:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown."""
-    global _queue_manager, _backend_registry, _router
+    global _queue_manager, _backend_registry, _router, _token_logger
 
     config = get_config()
     logger.info("Starting LLM Gateway on %s:%d", config.api_host, config.api_port)
@@ -73,9 +75,17 @@ async def lifespan(app: FastAPI):
     # Initialize request router
     _router = RequestRouter(_backend_registry)
 
-    # Initialize queue manager with default backend client
+    # Initialize token logger
+    from .token_logger import TokenLogger
+    data_dir = Path("data/gateway")
+    _token_logger = TokenLogger(data_dir / "tokens.db")
+
+    # Initialize queue manager with default backend client + token logger
     default_client = _backend_registry.get_client()
-    _queue_manager = QueueManager(config, client=default_client, registry=_backend_registry)
+    _queue_manager = QueueManager(
+        config, client=default_client, registry=_backend_registry,
+        token_logger=_token_logger,
+    )
     await _queue_manager.start()
 
     # Health check all backends
@@ -93,6 +103,8 @@ async def lifespan(app: FastAPI):
         await _queue_manager.stop()
     if _backend_registry is not None:
         await _backend_registry.close_all()
+    if _token_logger is not None:
+        _token_logger.close()
     logger.info("LLM Gateway stopped")
 
 
@@ -231,6 +243,40 @@ async def get_stats() -> GatewayStats:
     """Get gateway statistics: queue size, request counts, response times."""
     qm = get_queue_manager()
     return qm.get_stats()
+
+
+@app.get("/stats/tokens", dependencies=[Depends(verify_api_key)])
+async def get_token_stats(
+    period: str | None = Query(default="24h", description="Period: 1h, 6h, 24h, 7d, 30d"),
+    start: str | None = Query(default=None, description="Start date (ISO format)"),
+    end: str | None = Query(default=None, description="End date (ISO format)"),
+    backend: str | None = Query(default=None, description="Filter by backend"),
+    format: str = Query(default="json", description="Output format: json or csv"),
+):
+    """Token usage log with time-range filtering and CSV export."""
+    if _token_logger is None:
+        return {"error": "Token logger not initialized"}
+    rows = _token_logger.query(period=period, start=start, end=end, backend=backend)
+    if format == "csv":
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse(
+            content=_token_logger.to_csv(rows),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=tokens.csv"},
+        )
+    return rows
+
+
+@app.get("/stats/tokens/summary", dependencies=[Depends(verify_api_key)])
+async def get_token_summary(
+    period: str | None = Query(default="24h", description="Period: 1h, 6h, 24h, 7d, 30d"),
+    start: str | None = Query(default=None, description="Start date (ISO format)"),
+    end: str | None = Query(default=None, description="End date (ISO format)"),
+):
+    """Aggregated token usage: totals, per-backend, per-identity."""
+    if _token_logger is None:
+        return {"error": "Token logger not initialized"}
+    return _token_logger.summary(period=period, start=start, end=end)
 
 
 @app.get("/models", dependencies=[Depends(verify_api_key)])
