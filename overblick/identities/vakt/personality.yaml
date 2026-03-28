@@ -429,6 +429,7 @@ example_conversations:
 operational:
   llm:
     model: "qwen3.5:9b"
+    preferred_backend: local  # Log analysis doesn't need 35b
     temperature: 0.2          # Very low — analysis must be precise
     max_tokens: 3000
     timeout_seconds: 600

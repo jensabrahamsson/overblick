@@ -597,6 +597,7 @@ introduction_post:
 operational:
   llm:
     model: "qwen3.5:9b"
+    preferred_backend: local  # Moltbook posts don't need 35b — save remote for polytrader
     temperature: 0.8
     max_tokens: 4000
     timeout_seconds: 600

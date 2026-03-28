@@ -940,6 +940,8 @@ parallel_examples:
 # OPERATIONAL CONFIGURATION
 ################################################################################
 operational:
+  llm:
+    preferred_backend: local  # Moltbook posts don't need 35b — save remote for polytrader
   security:
     enable_preflight: true
     enable_output_safety: true
