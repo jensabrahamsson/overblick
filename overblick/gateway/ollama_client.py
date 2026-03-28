@@ -110,7 +110,7 @@ class OllamaClient:
             client = await self._get_client()
 
             payload = {
-                "model": request.model or self.config.default_model,
+                "model": self.config.default_model or request.model,
                 "messages": [{"role": m.role, "content": m.content} for m in request.messages],
                 "max_tokens": request.max_tokens,
                 "temperature": request.temperature,
@@ -189,7 +189,7 @@ class OllamaClient:
                     try:
                         # Send a tiny request to trigger model loading
                         trigger_payload = {
-                            "model": request.model or self.config.default_model,
+                            "model": self.config.default_model or request.model,
                             "messages": [{"role": "user", "content": "hi"}],
                             "max_tokens": 1,
                         }
