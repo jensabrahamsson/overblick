@@ -453,8 +453,8 @@ class TestQueueManager:
             backend=None,
         )
 
-        # Replace semaphore with one that cancels the future on acquire
-        original_semaphore = qm._semaphore
+        # Replace per-backend semaphore with one that cancels the future on acquire
+        original_semaphore = qm._get_semaphore("default")
 
         class CancellingSemaphore:
             async def __aenter__(self):
@@ -466,7 +466,7 @@ class TestQueueManager:
             async def __aexit__(self, *args):
                 return await original_semaphore.__aexit__(*args)
 
-        qm._semaphore = CancellingSemaphore()
+        qm._backend_semaphores["default"] = CancellingSemaphore()
 
         # Put it in the queue so task_done works
         await qm._queue.put(queued)

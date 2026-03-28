@@ -476,6 +476,22 @@ def load_identity(name: str) -> "Identity":
         _identity_cache[name] = (now, result)
         return result
 
+    # Try external plugin packages that expose IDENTITY_NAME + IDENTITY_PATH
+    external_packages = ["polytrader"]
+    for pkg in external_packages:
+        try:
+            mod = __import__(pkg)
+            if getattr(mod, "IDENTITY_NAME", None) == name:
+                ext_path = getattr(mod, "IDENTITY_PATH", None)
+                if ext_path and ext_path.exists():
+                    data = _load_yaml(ext_path)
+                    logger.info("Loaded identity from external package '%s': %s", pkg, ext_path)
+                    result = _build_identity(name, data, ext_path.parent)
+                    _identity_cache[name] = (now, result)
+                    return result
+        except ImportError:
+            pass
+
     raise FileNotFoundError(
         f"No identity found for '{name}'. Searched: {dir_based}, {standalone}, {legacy_file}"
     )
@@ -518,6 +534,17 @@ def list_identities() -> list[str]:
         for d in _PERSONALITIES_DIR.iterdir():
             if d.is_dir() and (d / "personality.yaml").exists():
                 names.add(d.name)
+
+    # External plugin packages that expose IDENTITY_NAME
+    external_packages = ["polytrader"]
+    for pkg in external_packages:
+        try:
+            mod = __import__(pkg)
+            ext_name = getattr(mod, "IDENTITY_NAME", None)
+            if ext_name:
+                names.add(ext_name)
+        except ImportError:
+            pass
 
     _identity_list_cache = sorted(names)
     _identity_list_cache_ts = now

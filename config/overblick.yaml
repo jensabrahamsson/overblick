@@ -21,12 +21,14 @@ llm:
       model: qwen3.5:9b
       port: 11434
       type: ollama
+      max_concurrent: 1
     remote:
       enabled: true
       host: 10.8.0.24
       model: qwen/qwen3.5-35b-a3b
       port: 1234
       type: ollama
+      max_concurrent: 4
   default_backend: remote
   gateway_url: http://127.0.0.1:8200
   max_tokens: 8000

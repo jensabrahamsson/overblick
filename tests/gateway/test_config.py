@@ -29,7 +29,7 @@ class TestGatewayConfig:
         assert config.ollama_port == 11434
         assert config.default_model == "qwen3.5:9b"
         assert config.max_queue_size == 100
-        assert config.max_concurrent_requests == 2
+        assert config.max_concurrent_requests == 4
         assert config.api_port == 8200
 
     @patch("overblick.gateway.config._load_yaml_config", return_value={})

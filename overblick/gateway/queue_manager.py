@@ -60,7 +60,14 @@ class QueueManager:
             maxsize=self.config.max_queue_size
         )
 
-        self._semaphore = asyncio.Semaphore(self.config.max_concurrent_requests)
+        # Per-backend semaphores: each backend gets its own concurrency limit
+        self._backend_semaphores: dict[str, asyncio.Semaphore] = {}
+        self._default_concurrency = self.config.max_concurrent_requests
+        # Read per-backend max_concurrent from YAML config
+        self._backend_concurrency: dict[str, int] = {}
+        for name, backend_cfg in self.config.backends.items():
+            if "max_concurrent" in backend_cfg:
+                self._backend_concurrency[name] = int(backend_cfg["max_concurrent"])
 
         self._worker_task: asyncio.Task | None = None
         self._running = False
@@ -223,7 +230,8 @@ class QueueManager:
         backend_name = queued.backend or "default"
 
         try:
-            async with self._semaphore:
+            semaphore = self._get_semaphore(backend_name)
+            async with semaphore:
                 if queued.future.cancelled():
                     logger.info("Skipping cancelled request %s after queue wait", queued.request_id)
                     return
@@ -266,6 +274,20 @@ class QueueManager:
             self._active_requests.pop(req_id, None)
             self._pending_requests.pop(req_id, None)
             self._queue.task_done()
+
+    def _get_semaphore(self, backend_name: str) -> asyncio.Semaphore:
+        """Get or create a per-backend semaphore."""
+        if backend_name not in self._backend_semaphores:
+            limit = self._backend_concurrency.get(
+                backend_name, self._default_concurrency
+            )
+            self._backend_semaphores[backend_name] = asyncio.Semaphore(limit)
+            logger.info(
+                "Created semaphore for backend '%s' with concurrency %d",
+                backend_name,
+                limit,
+            )
+        return self._backend_semaphores[backend_name]
 
     def _get_client_for_request(self, queued: QueuedRequest) -> Any:
         """Get the appropriate backend client for a queued request."""

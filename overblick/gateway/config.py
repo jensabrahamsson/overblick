@@ -87,7 +87,7 @@ class GatewayConfig(BaseModel):
             default_model=_get_env("DEFAULT_MODEL", "qwen3.5:9b"),
             max_queue_size=_get_env_int("MAX_QUEUE_SIZE", 100),
             request_timeout_seconds=_get_env_float("REQUEST_TIMEOUT", 600.0),
-            max_concurrent_requests=_get_env_int("MAX_CONCURRENT", 2),
+            max_concurrent_requests=_get_env_int("MAX_CONCURRENT", 4),
             api_key=_get_env("API_KEY", os.getenv("OVERBLICK_GATEWAY_KEY", "")),
             api_host=_get_env("API_HOST", "127.0.0.1"),
             api_port=_get_env_int("API_PORT", 8200),
