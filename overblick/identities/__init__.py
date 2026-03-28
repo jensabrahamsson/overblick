@@ -92,6 +92,10 @@ class LLMSettings(BaseModel):
     # Gateway URL — all agents route through this
     gateway_url: str = "http://127.0.0.1:8200"
 
+    # Force a specific backend (e.g. "remote", "local", "deepseek")
+    # None = let gateway router decide based on priority/availability
+    preferred_backend: str | None = None
+
 
 class QuietHoursSettings(BaseModel):
     """Quiet hours (bedroom mode) per identity."""

@@ -183,6 +183,11 @@ class OrchestratorBootstrap:
                 top_p=llm_cfg.top_p,
                 timeout_seconds=llm_cfg.timeout_seconds,
             )
+            # Allow identity to force a specific backend
+            preferred_backend = getattr(llm_cfg, "preferred_backend", None)
+            if preferred_backend:
+                client.default_backend = preferred_backend
+                logger.info("Identity %s forced to backend: %s", self._identity_name, preferred_backend)
 
         if await client.health_check():
             logger.info("Connected to LLM Gateway at %s (model: %s)", gateway_url, llm_cfg.model)

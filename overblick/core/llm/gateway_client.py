@@ -50,6 +50,7 @@ class GatewayClient(LLMClient):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.default_priority = default_priority
+        self.default_backend: str | None = None  # Set to force backend routing
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.top_p = top_p
@@ -87,6 +88,8 @@ class GatewayClient(LLMClient):
 
         prio = priority if priority else self.default_priority
         url = f"{self.base_url}/v1/chat/completions?priority={prio}"
+        if self.default_backend:
+            url += f"&backend={self.default_backend}"
         if complexity:
             url += f"&complexity={complexity}"
         payload = {
