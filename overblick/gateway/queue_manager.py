@@ -227,7 +227,13 @@ class QueueManager:
 
         start_time = time.time()
         self._processing_count += 1
-        backend_name = queued.backend or "default"
+        # Resolve "default" to actual backend name for per-backend semaphore
+        if queued.backend:
+            backend_name = queued.backend
+        elif self._registry:
+            backend_name = self._registry.default_backend or "default"
+        else:
+            backend_name = "default"
 
         try:
             semaphore = self._get_semaphore(backend_name)
