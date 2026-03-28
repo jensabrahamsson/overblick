@@ -404,7 +404,7 @@ class SafeLLMPipeline:
         # but produced little/no actual content (finish_reason=length)
         finish_reason = raw_response.get("finish_reason")
         if finish_reason == "length" and len(content.strip()) < 50:
-            retry_max = min((max_tokens or 4000) * 2, 8192)
+            retry_max = min((max_tokens or 4000) * 2, 32000)
             logger.warning(
                 "Thinking token starvation (finish_reason=length, %d chars). "
                 "Retrying with max_tokens=%d, think=False",
