@@ -24,8 +24,8 @@ llm:
       max_concurrent: 1
     remote:
       enabled: true
-      host: 10.8.0.24
-      model: qwen/qwen3.5-35b-a3b
+      host: 10.8.0.22
+      model: dolphin-mistral-24b-venice-edition-i1
       port: 1234
       type: ollama
       max_concurrent: 6
