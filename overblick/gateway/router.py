@@ -24,10 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 class RequestRouter:
-    """Routes requests to the best available backend."""
+    """Routes requests to the best available backend.
+
+    Supports round-robin across same-tier backends (e.g., remote + remote2)
+    for load balancing when multiple GPU servers are available.
+    """
 
     def __init__(self, registry: "BackendRegistry"):
         self._registry = registry
+        self._round_robin_counter = 0
 
     def resolve_backend(
         self,
@@ -117,14 +122,36 @@ class RequestRouter:
                 return "local"
             return self._registry.default_backend
 
-        # 3. Priority-based routing (backward compatible, no complexity specified)
+        # 3. Priority-based routing — round-robin across remote backends
         if priority == "high":
+            remote_candidates = [
+                c for c in self._registry.backend_preference
+                if c in available and c != "local" and c != "deepseek"
+            ]
+            if remote_candidates:
+                # Round-robin across available remote backends
+                idx = self._round_robin_counter % len(remote_candidates)
+                self._round_robin_counter += 1
+                chosen = remote_candidates[idx]
+                logger.debug("Router: priority=high → '%s' (round-robin %d/%d)", chosen, idx + 1, len(remote_candidates))
+                return chosen
+            # No remote available — fall through to preference chain
             for candidate in self._registry.backend_preference:
                 if candidate in available and candidate != "local":
-                    logger.debug("Router: priority=high → '%s' (from preference)", candidate)
                     return candidate
 
-        # 4. Default: try backends in preferred order
+        # 4. Default: round-robin across all non-local backends, then preference chain
+        remote_candidates = [
+            c for c in self._registry.backend_preference
+            if c in available and c != "local"
+        ]
+        if len(remote_candidates) > 1:
+            idx = self._round_robin_counter % len(remote_candidates)
+            self._round_robin_counter += 1
+            chosen = remote_candidates[idx]
+            logger.debug("Router: default → '%s' (round-robin %d/%d)", chosen, idx + 1, len(remote_candidates))
+            return chosen
+
         for candidate in self._registry.backend_preference:
             if candidate in available:
                 logger.debug("Router: default → '%s' (from preference)", candidate)

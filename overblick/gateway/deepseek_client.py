@@ -135,7 +135,10 @@ class DeepseekClient:
         """
         try:
             client = await self._get_client()
-            selected_model = self.model or request.model  # Backend's model takes precedence
+            # Backend model takes precedence, BUT allow deepseek-reasoner override
+            selected_model = self.model or request.model
+            if request.model == "deepseek-reasoner":
+                selected_model = "deepseek-reasoner"
             is_reasoner = selected_model == "deepseek-reasoner"
 
             payload = {
