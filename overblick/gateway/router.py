@@ -140,10 +140,10 @@ class RequestRouter:
                 if candidate in available and candidate != "local":
                     return candidate
 
-        # 4. Default: round-robin across all non-local backends, then preference chain
+        # 4. Default: round-robin across GPU backends (exclude deepseek cloud to save money)
         remote_candidates = [
             c for c in self._registry.backend_preference
-            if c in available and c != "local"
+            if c in available and c != "local" and c != "deepseek"
         ]
         if len(remote_candidates) > 1:
             idx = self._round_robin_counter % len(remote_candidates)
