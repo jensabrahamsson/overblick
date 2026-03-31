@@ -40,12 +40,35 @@ async function askOracle() {
             responseDiv.textContent = 'Error: ' + data.error;
             responseDiv.style.color = 'var(--red)';
         } else {
-            // Use textContent for safe rendering of LLM output
+            // Render analysis + sources
             let text = data.analysis || 'No analysis returned.';
             text += '\n\n---\n';
             text += 'Topic: ' + (data.topic_name || topicId);
             text += '  |  Articles analyzed: ' + (data.article_count || 0);
             text += '  |  ' + new Date(data.timestamp).toLocaleString();
+
+            if (data.sources && data.sources.length > 0) {
+                text += '\n\nSOURCES:\n';
+                // Deduplicate by source name
+                const sourceCounts = {};
+                data.sources.forEach(function(s) {
+                    const name = s.source || 'Unknown';
+                    sourceCounts[name] = (sourceCounts[name] || 0) + 1;
+                });
+                Object.entries(sourceCounts)
+                    .sort(function(a, b) { return b[1] - a[1]; })
+                    .forEach(function(entry) {
+                        text += '  ' + entry[0] + ' (' + entry[1] + ' articles)\n';
+                    });
+                text += '\nARTICLES:\n';
+                data.sources.slice(0, 15).forEach(function(s) {
+                    text += '  - ' + s.title + (s.source ? ' [' + s.source + ']' : '') + '\n';
+                });
+                if (data.sources.length > 15) {
+                    text += '  ... and ' + (data.sources.length - 15) + ' more\n';
+                }
+            }
+
             responseDiv.textContent = text;
             responseDiv.style.color = '';
         }
