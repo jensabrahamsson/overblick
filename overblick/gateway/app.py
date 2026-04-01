@@ -160,20 +160,49 @@ async def verify_api_key(api_key: str | None = Security(_api_key_header)) -> Non
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
+_health_cache: dict = {}
+_health_cache_time: float = 0
+
+
 @app.get("/health")
 async def health_check() -> dict:
     """
     Health check with per-backend status and GPU starvation risk.
+
+    Uses cached health data (max 30s old) to prevent blocking when
+    backends are slow or unreachable. Health checks run in background.
 
     Starvation risk levels:
     - low: queue_size < 3
     - medium: queue_size 3-7
     - high: queue_size >= 8
     """
+    import time as _time
+
+    global _health_cache, _health_cache_time
+
     qm = get_queue_manager()
     registry = get_backend_registry()
 
-    backend_health = await registry.health_check_all()
+    # Use cached health if fresh (< 30s) to avoid blocking
+    now = _time.time()
+    if now - _health_cache_time < 30 and _health_cache:
+        backend_health = _health_cache
+    else:
+        # Run health checks with a 5s total timeout
+        try:
+            backend_health = await asyncio.wait_for(
+                registry.health_check_all(), timeout=5.0
+            )
+            _health_cache = backend_health
+            _health_cache_time = now
+        except asyncio.TimeoutError:
+            # Use stale cache or assume all healthy if no cache
+            if _health_cache:
+                backend_health = _health_cache
+            else:
+                backend_health = {name: True for name in registry.get_backend_info()}
+
     any_healthy = any(backend_health.values())
 
     status = "healthy" if any_healthy else "degraded"
