@@ -90,11 +90,18 @@ async def lifespan(app: FastAPI):
 
     # Health check all backends
     health = await _backend_registry.health_check_all()
+    _health_cache.update(health)
+    import time as _time
+    global _health_cache_time
+    _health_cache_time = _time.time()
     for name, healthy in health.items():
         if healthy:
             logger.info("Backend '%s': connected", name)
         else:
             logger.warning("Backend '%s': not reachable at startup", name)
+
+    # Start lightweight health server on port+1 (non-blocking, separate thread)
+    _start_health_server(config.api_port + 1)
 
     yield
 
@@ -162,6 +169,7 @@ async def verify_api_key(api_key: str | None = Security(_api_key_header)) -> Non
 
 _health_cache: dict = {}
 _health_cache_time: float = 0
+_health_lock = asyncio.Lock()
 
 
 @app.get("/health")
@@ -595,6 +603,66 @@ async def generic_exception_handler(request, exc):
         status_code=500,
         content={"detail": "Internal server error"},
     )
+
+
+def _start_health_server(port: int) -> None:
+    """Start a minimal HTTP health server on a separate thread.
+
+    This server is never blocked by LLM requests because it runs
+    in its own thread with its own event loop.
+    """
+    import json
+    import time
+    import threading
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    class HealthHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path != "/health":
+                self.send_error(404)
+                return
+            # Return cached health data (updated by main app)
+            registry = get_backend_registry()
+            backend_info = registry.get_backend_info() if registry else {}
+            backends_out = {}
+            for name, h in _health_cache.items():
+                btype = backend_info.get(name, {}).get("type", "unknown")
+                if h and btype == "deepseek":
+                    status_label = "cloud_configured"
+                elif h:
+                    status_label = "connected"
+                else:
+                    status_label = "disconnected"
+                backends_out[name] = {
+                    "status": status_label,
+                    "type": btype,
+                    "model": backend_info.get(name, {}).get("model", "unknown"),
+                }
+            qm = get_queue_manager()
+            body = json.dumps({
+                "status": "healthy" if any(_health_cache.values()) else "degraded",
+                "backends": backends_out,
+                "queue_size": qm.queue_size if qm else 0,
+                "cache_age_s": round(time.time() - _health_cache_time, 1),
+            }).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass  # Suppress access logs
+
+    def serve():
+        try:
+            server = HTTPServer(("127.0.0.1", port), HealthHandler)
+            server.serve_forever()
+        except Exception as e:
+            logger.warning("Health server failed on port %d: %s", port, e)
+
+    t = threading.Thread(target=serve, daemon=True)
+    t.start()
+    logger.info("Health server started on port %d (separate thread)", port)
 
 
 def run_server(host: str | None = None, port: int | None = None) -> None:
