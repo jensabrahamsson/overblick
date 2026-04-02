@@ -1,0 +1,66 @@
+################################################################################
+# POHLMAN — WEATHER TRADING SPECIALIST
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent Identity: Pohlman
+# Role: Dedicated weather prediction market trader
+# Named after meteorological tradition — runs independently from thinktank
+# Platform: Överblick Framework
+# Owner: @jensabrahamsson
+################################################################################
+
+identity:
+  name: "pohlman"
+  display_name: "Pohlman"
+  version: "1.0"
+  role: "Weather prediction market specialist"
+  description: "Dedicated weather trading agent. Scans weather markets, calculates CDF edges, consults the oracle, and executes LIVE trades on Polymarket CLOB. Runs in its own process — never blocked by thinktank."
+
+  owner: "@jensabrahamsson"
+  owner_platform: "X (Twitter)"
+  origin_project: "Överblick"
+  is_bot: true
+
+################################################################################
+# OPERATIONAL CONFIG
+################################################################################
+operational:
+  # LLM routing — same gateway as polytrader
+  llm:
+    preferred_backend: remote
+    timeout_seconds: 120  # Weather reviews are fast — no need for 600s
+
+  # Plugins — ONLY weather + trade execution
+  plugins:
+    - "whallet_trader"        # Trade execution — MUST load first
+    - "polymarket_weather"    # Weather scanning, oracle review, signals
+
+  # Schedule
+  schedule:
+    active_hours: "00:00-23:59"  # 24/7 weather monitoring
+    timezone: "UTC"
+
+  # Polymarket Monitor config (inherited by weather plugin)
+  polymarket_monitor:
+    check_interval_minutes: 15    # Weather scan every 15 min
+    max_markets: 50               # Weather has many temperature outcomes
+    min_probability_edge: 0.03    # 3% edge minimum
+    real_api: true                # Use real Polymarket API
+    neo4j:
+      uri: "bolt://localhost:7687"
+      user: "neo4j"
+
+  # Trade execution — LIVE for weather only
+  whallet_trader:
+    simulation_mode: false        # Weather is LIVE
+    starting_balance_usd: 15      # Overridden by CLOB balance at runtime
+    max_position_size_percent: 25
+    max_portfolio_exposure_percent: 75
+    daily_loss_limit_percent: 30
+    check_interval_seconds: 60
+    category_trading_modes:
+      weather: false              # LIVE — real CLOB trades
+    database:
+      host: localhost
+      port: 5432
+      database: overblick
+      user: jens
