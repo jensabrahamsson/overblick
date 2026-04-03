@@ -49,16 +49,16 @@ operational:
       uri: "bolt://localhost:7687"
       user: "neo4j"
 
-  # Trade execution — LIVE for weather only
+  # Trade execution — SIM while optimizing entry/exit strategy
   whallet_trader:
-    simulation_mode: false        # Weather is LIVE
+    simulation_mode: true         # SIM — optimizing entry/exit before going back LIVE
     starting_balance_usd: 15      # Overridden by CLOB balance at runtime
     max_position_size_percent: 25
     max_portfolio_exposure_percent: 75
     daily_loss_limit_percent: 30
     check_interval_seconds: 60
     category_trading_modes:
-      weather: false              # LIVE — real CLOB trades
+      weather: true               # SIM — optimizing entry/exit
     database:
       host: localhost
       port: 5432

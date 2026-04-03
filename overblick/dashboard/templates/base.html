@@ -37,6 +37,7 @@
             {% if dev_enabled() %}<a href="/dev" class="nav-link {% if request.url.path == '/dev' %}active{% endif %}" {% if request.url.path == '/dev' %}aria-current="page"{% endif %}>Dev Agent</a>{% endif %}
             {% if log_agent_enabled() %}<a href="/logs" class="nav-link {% if request.url.path == '/logs' %}active{% endif %}" {% if request.url.path == '/logs' %}aria-current="page"{% endif %}>Log Agent</a>{% endif %}
             {% if polymarket_enabled() %}<a href="/polymarket" class="nav-link {% if request.url.path == '/polymarket' %}active{% endif %}" {% if request.url.path == '/polymarket' %}aria-current="page"{% endif %}>Polymarket</a>{% endif %}
+            {% if oracle_enabled() %}<a href="/oracle" class="nav-link {% if request.url.path == '/oracle' %}active{% endif %}" {% if request.url.path == '/oracle' %}aria-current="page"{% endif %}>Oracle</a>{% endif %}
             <a href="/audit" class="nav-link {% if request.url.path == '/audit' %}active{% endif %}" {% if request.url.path == '/audit' %}aria-current="page"{% endif %}>Audit</a>
             <a href="/settings/" class="nav-link {% if request.url.path.startswith('/settings') %}active{% endif %}" {% if request.url.path.startswith('/settings') %}aria-current="page"{% endif %}>⚙ Settings</a>
             {% if auth_enabled() %}<a href="/logout" class="nav-link nav-link-logout">Logout</a>{% endif %}

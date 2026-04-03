@@ -182,6 +182,7 @@ def _create_templates() -> Jinja2Templates:
     env.globals["dev_enabled"] = lambda: False
     env.globals["log_agent_enabled"] = lambda: False
     env.globals["polymarket_enabled"] = lambda: False
+    env.globals["oracle_enabled"] = lambda: False
     env.globals["settings_enabled"] = lambda: True
     # Auth placeholder — overridden in lifespan once config is available
     env.globals["auth_enabled"] = lambda: False
@@ -230,6 +231,7 @@ async def lifespan(app: FastAPI):
 
     # Postgres DSN for chart API (from env or default for local dev)
     import os
+
     app.state.postgres_dsn = os.environ.get(
         "OVERBLICK_POSTGRES_DSN", "postgresql://jens@localhost/postgres"
     )
@@ -252,10 +254,15 @@ async def lifespan(app: FastAPI):
     from .routes.kontrast import has_data as _kontrast_has_data
     from .routes.log_agent import has_data as _log_agent_has_data
     from .routes.moltbook import has_data as _moltbook_has_data
+
     try:
         from polytrader.dashboard.routes.polymarket_dash import has_data as _polymarket_has_data
     except ImportError:
-        _polymarket_has_data = lambda _: False
+        _polymarket_has_data = lambda: False
+    try:
+        from polytrader.dashboard.routes.oracle import has_data as _oracle_has_data
+    except ImportError:
+        _oracle_has_data = lambda: False
     from .routes.skuggspel import has_data as _skuggspel_has_data
     from .routes.spegel import has_data as _spegel_has_data
     from .routes.stage import has_data as _stage_has_data
@@ -275,10 +282,12 @@ async def lifespan(app: FastAPI):
     app.state.templates.env.globals["dev_enabled"] = _dev_has_data
     app.state.templates.env.globals["log_agent_enabled"] = _log_agent_has_data
     app.state.templates.env.globals["polymarket_enabled"] = _polymarket_has_data
+    app.state.templates.env.globals["oracle_enabled"] = _oracle_has_data
 
     # Register external plugin templates (polytrader)
     try:
         import polytrader.dashboard as _ptdash
+
         _pt_pkg = Path(_ptdash.__file__).parent
         _pt_templates = _pt_pkg / "templates"
         if _pt_templates.exists():
@@ -357,6 +366,7 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
         # Symlink external plugin static assets (polytrader CSS/JS) into main static dir
         try:
             import polytrader.dashboard as _ptdash_static
+
             _pt_static = Path(_ptdash_static.__file__).parent / "static"
             if _pt_static.exists():
                 for subdir in ("css", "js"):
@@ -372,7 +382,9 @@ def create_app(config: DashboardConfig | None = None) -> FastAPI:
         except ImportError:
             pass
 
-        app.mount("/static", StaticFiles(directory=str(static_dir), follow_symlink=True), name="static")
+        app.mount(
+            "/static", StaticFiles(directory=str(static_dir), follow_symlink=True), name="static"
+        )
 
     # Mount setup static files (CSS, JS, images from the original onboarding wizard)
     setup_static = _PKG_DIR.parent / "setup" / "static"
