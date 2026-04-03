@@ -52,7 +52,7 @@ operational:
   # Trade execution — SIM while optimizing entry/exit strategy
   whallet_trader:
     simulation_mode: true         # SIM — optimizing entry/exit before going back LIVE
-    starting_balance_usd: 15      # Overridden by CLOB balance at runtime
+    starting_balance_usd: 100      # Overridden by CLOB balance at runtime
     max_position_size_percent: 25
     max_portfolio_exposure_percent: 75
     daily_loss_limit_percent: 30

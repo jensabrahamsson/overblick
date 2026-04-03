@@ -49,7 +49,7 @@ operational:
   # Trade execution — SIM for all non-weather categories
   whallet_trader:
     simulation_mode: true
-    starting_balance_usd: 15
+    starting_balance_usd: 100
     max_position_size_percent: 25
     max_portfolio_exposure_percent: 75
     daily_loss_limit_percent: 30

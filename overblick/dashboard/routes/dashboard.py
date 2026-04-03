@@ -5,6 +5,7 @@ Dashboard routes — main page with agent cards and system health.
 import json
 import logging
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -25,6 +26,20 @@ from overblick.dashboard.routes._plugin_utils import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _check_process_running(identity_name: str) -> bool:
+    """Check if an agent process is running via ps."""
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", f"overblick run {identity_name}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -331,6 +346,26 @@ def _build_plugin_cards(
         status = agent_status.get(name, {})
         plugins = identity.get("plugins", [])
 
+        # Fallback: check if process is running via ps and get PID
+        state = status.get("state", "offline")
+        if state == "offline" and _check_process_running(name):
+            state = "running"
+            # Try to get PID from pgrep
+            try:
+                import subprocess
+
+                result = subprocess.run(
+                    ["pgrep", "-f", f"overblick run {name}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    pid_str = result.stdout.strip().split("\n")[0]
+                    status["pid"] = int(pid_str)
+            except Exception:
+                pass
+
         # Get Big Five traits for emotion radar chart (if available)
         traits = identity.get("traits", {})
         big_five = {
@@ -343,7 +378,7 @@ def _build_plugin_cards(
         agent_info = {
             "name": name,
             "display_name": identity.get("display_name", name.capitalize()),
-            "state": status.get("state", "offline"),
+            "state": state,
             "identity_ref": identity.get("identity_ref", ""),
             "traits": big_five,
         }
@@ -416,6 +451,30 @@ def _build_agent_status_rows(
 
         proc = running_lookup.get(ident_name)
         process_running = proc is not None and proc.get("state") == "running"
+
+        # Fallback: check if process is running via pgrep and get PID
+        if not process_running and _check_process_running(ident_name):
+            process_running = True
+            # Try to get PID from pgrep for display
+            try:
+                import subprocess
+
+                result = subprocess.run(
+                    ["pgrep", "-f", f"overblick run {ident_name}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    pid_str = result.stdout.strip().split("\n")[0]
+                    proc = {
+                        "pid": int(pid_str),
+                        "state": "running",
+                        "uptime_seconds": 0,
+                        "restart_count": 0,
+                    }
+            except Exception:
+                pass
 
         # Per-plugin control state
         plugin_states = _read_plugin_states(base_dir, ident_name)
