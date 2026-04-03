@@ -158,40 +158,59 @@ operational:
         description: Government UFO/UAP disclosure
         keywords: ["ufo", "uap", "alien", "disclosure"]
 
-    # 5 Domain Experts with PID tuning
+    # 6 Domain Experts with PID tuning
     domain_experts:
+      # ── Geopolitics ──────────────────────────────────────────────
+      # Active conflicts, military tensions, nuclear threats
       - name: geopolitics
-        topics: [russia_ukraine, us_iran, china_taiwan, israel_mideast, putin, xi, us_elections, eu_nato, india, north_korea, nuclear_proliferation, migration]
+        topics: [russia_ukraine, us_iran, china_taiwan, israel_mideast, putin, xi, north_korea, nuclear_proliferation]
         clamp_pp: 10
         p_weight: 0.2
         cadence_hours: 4
 
+      # ── Politics ─────────────────────────────────────────────────
+      # Elections, alliances, demographic shifts, leadership
+      - name: politics
+        topics: [us_elections, eu_nato, india, migration]
+        clamp_pp: 12
+        p_weight: 0.3
+        cadence_hours: 4
+
+      # ── Economics ────────────────────────────────────────────────
+      # Monetary policy, markets, inflation, recession
       - name: economics
         topics: [fed_policy, oil_price, bitcoin, us_inflation, us_recession, stock_market, opec]
         clamp_pp: 15
         p_weight: 0.5
         cadence_hours: 2
 
+      # ── Trade & Currency ─────────────────────────────────────────
+      # Global trade flows, currency strength, geopolitical blocs
       - name: trade_currency
         topics: [us_china_trade, global_trade, usd_strength, brics_g7]
         clamp_pp: 12
         p_weight: 0.4
         cadence_hours: 4
 
+      # ── Technology ───────────────────────────────────────────────
+      # AI race, energy transition
       - name: technology
         topics: [ai_race, energy_transition]
         clamp_pp: 12
         p_weight: 0.3
         cadence_hours: 8
 
+      # ── Science ──────────────────────────────────────────────────
+      # Health, UFO disclosure, scientific breakthroughs
       - name: science
         topics: [us_measles, alien_disclosure]
         clamp_pp: 5
         p_weight: 0.8
         cadence_hours: 24
 
-    # Causal graph edges (58)
+    # Causal graph edges (65)
     graph_edges:
+      # ── Geopolitics → Economics ──────────────────────────────────
       - from: russia_ukraine
         to: oil_price
         weight: 0.7
@@ -204,6 +223,8 @@ operational:
         to: global_trade
         weight: 0.9
         direction: negative
+
+      # ── Economics ────────────────────────────────────────────────
       - from: fed_policy
         to: usd_strength
         weight: 0.8
@@ -224,7 +245,45 @@ operational:
         to: us_inflation
         weight: 0.4
         direction: positive
+
+      # ── Trade ────────────────────────────────────────────────────
       - from: us_china_trade
         to: global_trade
         weight: 0.6
+        direction: positive
+
+      # ── Politics → Economics ─────────────────────────────────────
+      - from: us_elections
+        to: us_china_trade
+        weight: 0.6
+        direction: positive
+      - from: us_elections
+        to: stock_market
+        weight: 0.4
+        direction: positive
+      - from: eu_nato
+        to: russia_ukraine
+        weight: 0.5
+        direction: negative
+      - from: migration
+        to: us_elections
+        weight: 0.3
+        direction: positive
+      - from: india
+        to: us_china_trade
+        weight: 0.4
+        direction: negative
+      - from: india
+        to: global_trade
+        weight: 0.3
+        direction: positive
+
+      # ── Geopolitics → Politics ───────────────────────────────────
+      - from: russia_ukraine
+        to: eu_nato
+        weight: 0.5
+        direction: positive
+      - from: china_taiwan
+        to: us_elections
+        weight: 0.3
         direction: positive
