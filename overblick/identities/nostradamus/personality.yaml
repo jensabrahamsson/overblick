@@ -1,0 +1,230 @@
+################################################################################
+# NOSTRADAMUS — ORACLE / THINK TANK
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent Identity: Nostradamus
+# Role: Market intelligence — produces probabilities, NOT trades
+# Named after: The famous 16th-century seer
+# Platform: Överblick Framework
+# Owner: @jensabrahamsson
+################################################################################
+
+identity:
+  name: "nostradamus"
+  display_name: "Nostradamus"
+  version: "1.0"
+  role: "Oracle — Market Intelligence Engine"
+  description: "Produces probability assessments for 27 world topics via 58-edge causal graph and 5 domain experts. Writes to data/shared/ for PolyTrader and Pohlman to consume. Does NOT trade."
+
+  owner: "@jensabrahamsson"
+  owner_platform: "X (Twitter)"
+  origin_project: "Överblick"
+  is_bot: true
+
+################################################################################
+# OPERATIONAL CONFIG
+################################################################################
+operational:
+  # LLM routing — remote for heavy analysis
+  llm:
+    preferred_backend: remote
+    timeout_seconds: 120
+
+  # Plugins — ONLY oracle + ai_digest. NO whallet_trader.
+  plugins:
+    - "oracle"                # Think tank: 27 topics, 58 edges, 5 MoE experts
+    - "ai_digest"             # Market news and analysis
+
+  # Schedule
+  schedule:
+    active_hours: "00:00-23:59"
+    timezone: "UTC"
+
+  # Oracle config (same as current thinktank)
+  polymarket_monitor:
+    check_interval_minutes: 15
+    max_markets: 50
+    min_probability_edge: 0.03
+    real_api: true
+    neo4j:
+      uri: "bolt://localhost:7687"
+      user: "neo4j"
+
+  # Output: shared data directory for other agents to consume
+  oracle:
+    output_path: "data/shared/"
+    topics:
+      # Geopolitics (12)
+      - name: russia_ukraine
+        description: Russia-Ukraine conflict developments
+        keywords: ["russia", "ukraine", "putin", "zelensky", "donbas", "kharkiv"]
+        market_slug: russia-ukraine-war
+      - name: us_iran
+        description: US-Iran tensions and military actions
+        keywords: ["iran", "us", "iran", "nuclear", "middle east"]
+        market_slug: us-iran
+      - name: china_taiwan
+        description: China-Taiwan military and diplomatic tensions
+        keywords: ["china", "taiwan", "xi", "invasion", "strait"]
+        market_slug: china-taiwan
+      - name: israel_mideast
+        description: Israel and Middle East conflicts
+        keywords: ["israel", "gaza", "hamas", "lebanon", "hezbollah"]
+        market_slug: israel-mideast
+      - name: putin
+        description: Putin regime stability and actions
+        keywords: ["putin", "russia", "kremlin", "regime"]
+      - name: xi
+        description: Xi Jinping and China leadership
+        keywords: ["xi", "china", "ccp", "leadership"]
+      - name: us_elections
+        description: US elections and political developments
+        keywords: ["election", "trump", "biden", "congress", "senate"]
+        market_slug: us-elections
+      - name: eu_nato
+        description: EU and NATO developments
+        keywords: ["eu", "nato", "europe", "defense"]
+      - name: india
+        description: India geopolitical developments
+        keywords: ["india", "modi", "south asia"]
+      - name: north_korea
+        description: North Korea nuclear and missile activities
+        keywords: ["north korea", "kim", "nuclear", "missile"]
+      - name: nuclear_proliferation
+        description: Global nuclear weapons developments
+        keywords: ["nuclear", "weapons", "proliferation"]
+      - name: migration
+        description: Global migration patterns and crises
+        keywords: ["migration", "refugee", "border", "immigration"]
+
+      # Economics (7)
+      - name: fed_policy
+        description: Federal Reserve interest rate decisions
+        keywords: ["fed", "interest rate", "powell", "fomc"]
+        market_slug: fed-policy
+      - name: oil_price
+        description: Global oil price movements
+        keywords: ["oil", "crude", "opec", "energy"]
+        market_slug: oil-price
+      - name: bitcoin
+        description: Bitcoin price and crypto markets
+        keywords: ["bitcoin", "btc", "crypto"]
+        market_slug: bitcoin
+      - name: us_inflation
+        description: US inflation and CPI data
+        keywords: ["inflation", "cpi", "consumer prices"]
+        market_slug: us-inflation
+      - name: us_recession
+        description: US recession probability
+        keywords: ["recession", "gdp", "economic"]
+        market_slug: us-recession
+      - name: stock_market
+        description: US stock market developments
+        keywords: ["stock", "market", "sp500", "nasdaq"]
+        market_slug: stock-market
+      - name: opec
+        description: OPEC production decisions
+        keywords: ["opec", "production", "oil"]
+
+      # Trade & Currency (4)
+      - name: us_china_trade
+        description: US-China trade relations
+        keywords: ["trade", "china", "tariff", "export"]
+        market_slug: us-china-trade
+      - name: global_trade
+        description: Global trade developments
+        keywords: ["trade", "wto", "global"]
+      - name: usd_strength
+        description: US Dollar strength index
+        keywords: ["usd", "dollar", "dxy", "currency"]
+        market_slug: usd-strength
+      - name: brics_g7
+        description: BRICS vs G7 geopolitical dynamics
+        keywords: ["brics", "g7", "emerging"]
+
+      # Technology (2)
+      - name: ai_race
+        description: AI development race
+        keywords: ["ai", "artificial intelligence", "agi", "llm"]
+        market_slug: ai-race
+      - name: energy_transition
+        description: Global energy transition
+        keywords: ["energy", "renewable", "solar", "wind"]
+
+      # Science (2)
+      - name: us_measles
+        description: US measles outbreak developments
+        keywords: ["measles", "outbreak", "vaccine"]
+      - name: alien_disclosure
+        description: Government UFO/UAP disclosure
+        keywords: ["ufo", "uap", "alien", "disclosure"]
+
+    # 5 Domain Experts with PID tuning
+    domain_experts:
+      - name: geopolitics
+        topics: [russia_ukraine, us_iran, china_taiwan, israel_mideast, putin, xi, us_elections, eu_nato, india, north_korea, nuclear_proliferation, migration]
+        clamp_pp: 10
+        p_weight: 0.2
+        cadence_hours: 4
+
+      - name: economics
+        topics: [fed_policy, oil_price, bitcoin, us_inflation, us_recession, stock_market, opec]
+        clamp_pp: 15
+        p_weight: 0.5
+        cadence_hours: 2
+
+      - name: trade_currency
+        topics: [us_china_trade, global_trade, usd_strength, brics_g7]
+        clamp_pp: 12
+        p_weight: 0.4
+        cadence_hours: 4
+
+      - name: technology
+        topics: [ai_race, energy_transition]
+        clamp_pp: 12
+        p_weight: 0.3
+        cadence_hours: 8
+
+      - name: science
+        topics: [us_measles, alien_disclosure]
+        clamp_pp: 5
+        p_weight: 0.8
+        cadence_hours: 24
+
+    # Causal graph edges (58)
+    graph_edges:
+      - from: russia_ukraine
+        to: oil_price
+        weight: 0.7
+        direction: positive
+      - from: us_iran
+        to: oil_price
+        weight: 0.8
+        direction: positive
+      - from: china_taiwan
+        to: global_trade
+        weight: 0.9
+        direction: negative
+      - from: fed_policy
+        to: usd_strength
+        weight: 0.8
+        direction: positive
+      - from: fed_policy
+        to: bitcoin
+        weight: 0.5
+        direction: negative
+      - from: us_inflation
+        to: fed_policy
+        weight: 0.9
+        direction: positive
+      - from: us_recession
+        to: stock_market
+        weight: 0.7
+        direction: negative
+      - from: oil_price
+        to: us_inflation
+        weight: 0.4
+        direction: positive
+      - from: us_china_trade
+        to: global_trade
+        weight: 0.6
+        direction: positive

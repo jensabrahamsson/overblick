@@ -1,0 +1,69 @@
+################################################################################
+# POLYTRADER — NON-WEATHER TRADING AGENT
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent Identity: PolyTrader
+# Role: Executes trades on non-weather markets using Nostradamus intelligence
+# Platform: Överblick Framework
+# Owner: @jensabrahamsson
+################################################################################
+
+identity:
+  name: "polytrader"
+  display_name: "PolyTrader"
+  version: "2.0"
+  role: "Non-weather prediction market trader"
+  description: "Reads probability assessments from Nostradamus (data/shared/), compares with market prices, and executes trades on non-weather markets. Handles SIM trading for geopolitics, economics, crypto, politics, science, and culture."
+
+  owner: "@jensabrahamsson"
+  owner_platform: "X (Twitter)"
+  origin_project: "Överblick"
+  is_bot: true
+
+################################################################################
+# OPERATIONAL CONFIG
+################################################################################
+operational:
+  # LLM routing — remote for analysis
+  llm:
+    preferred_backend: remote
+    timeout_seconds: 120
+
+  # Plugins — trading only, reads from Nostradamus
+  plugins:
+    - "whallet_trader"        # Trade execution — MUST load first
+    - "signal_generator"      # Reads Nostradamus probabilities → generates signals
+    - "insider_detection"     # Detect suspicious trading activity
+
+  # Schedule
+  schedule:
+    active_hours: "00:00-23:59"
+    timezone: "UTC"
+
+  # Signal generator — reads from shared data
+  signal_generator:
+    scan_interval_seconds: 60
+    shared_data_path: "data/shared/"
+    min_probability_edge: 0.03
+    min_confidence: 60
+
+  # Trade execution — SIM for all non-weather categories
+  whallet_trader:
+    simulation_mode: true
+    starting_balance_usd: 15
+    max_position_size_percent: 25
+    max_portfolio_exposure_percent: 75
+    daily_loss_limit_percent: 30
+    check_interval_seconds: 60
+    category_trading_modes:
+      weather: false              # Pohlman handles weather
+      geopolitics: true           # SIM
+      economics: true             # SIM
+      crypto: true                # SIM
+      politics: true              # SIM
+      science: true               # SIM
+      culture: true               # SIM
+    database:
+      host: localhost
+      port: 5432
+      database: overblick
+      user: jens
