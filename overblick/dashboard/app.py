@@ -183,6 +183,7 @@ def _create_templates() -> Jinja2Templates:
     env.globals["log_agent_enabled"] = lambda: False
     env.globals["polymarket_enabled"] = lambda: False
     env.globals["oracle_enabled"] = lambda: False
+    env.globals["insider_enabled"] = lambda: False
     env.globals["settings_enabled"] = lambda: True
     # Auth placeholder — overridden in lifespan once config is available
     env.globals["auth_enabled"] = lambda: False
@@ -283,6 +284,9 @@ async def lifespan(app: FastAPI):
     app.state.templates.env.globals["log_agent_enabled"] = _log_agent_has_data
     app.state.templates.env.globals["polymarket_enabled"] = _polymarket_has_data
     app.state.templates.env.globals["oracle_enabled"] = _oracle_has_data
+    app.state.templates.env.globals["insider_enabled"] = lambda: (
+        True
+    )  # Always show insider nav link
 
     # Register external plugin templates (polytrader)
     try:

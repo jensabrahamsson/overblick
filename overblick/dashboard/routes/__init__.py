@@ -59,13 +59,22 @@ def register_routes(app: FastAPI) -> None:
     # PolyTrader dashboard (external package — optional)
     try:
         from polytrader.dashboard.routes.polymarket_dash import router as polymarket_dash_router
+
         app.include_router(polymarket_dash_router)
     except ImportError:
         pass
     # Oracle — Think Tank deep analysis (external package — optional)
     try:
         from polytrader.dashboard.routes.oracle import router as oracle_router
+
         app.include_router(oracle_router)
+    except ImportError:
+        pass
+    # Insider Trading Detection (external package — optional)
+    try:
+        from polytrader.dashboard.routes.insider_dash import router as insider_router
+
+        app.include_router(insider_router)
     except ImportError:
         pass
     app.include_router(dev_router)
