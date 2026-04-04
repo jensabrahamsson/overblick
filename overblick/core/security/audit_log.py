@@ -78,8 +78,9 @@ class AuditLog:
         self._cleanup_task: asyncio.Task | None = None
         self._conn: sqlite3.Connection | None = None
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(db_path), timeout=10, check_same_thread=False)
+        self._conn = sqlite3.connect(str(db_path), timeout=30, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA busy_timeout=5000")
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
         self._migrate_add_chain_hash()
@@ -87,6 +88,8 @@ class AuditLog:
         self._prev_hash = self._load_last_chain_hash()
         # Lock for thread-safe hash chain updates
         self._chain_lock = threading.Lock()
+        # Lock for all database access (prevents write vs cleanup collisions)
+        self._db_lock = threading.Lock()
         # Single-thread executor for non-blocking writes
         self._write_executor = ThreadPoolExecutor(
             max_workers=1,
@@ -140,9 +143,7 @@ class AuditLog:
     def _load_last_chain_hash(self) -> str:
         """Load chain_hash of the most recent entry, or genesis if empty."""
         assert self._conn is not None
-        cursor = self._conn.execute(
-            "SELECT chain_hash FROM audit_log ORDER BY id DESC LIMIT 1"
-        )
+        cursor = self._conn.execute("SELECT chain_hash FROM audit_log ORDER BY id DESC LIMIT 1")
         row = cursor.fetchone()
         if row is None or row[0] is None:
             return GENESIS_HASH
@@ -180,31 +181,33 @@ class AuditLog:
                 previous_hash,
             )
 
-            cursor = conn.execute(
-                """
-                INSERT INTO audit_log
-                    (timestamp, action, category, identity, plugin, details,
-                     success, duration_ms, error, previous_hash, chain_hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    timestamp,
-                    action,
-                    category,
-                    self._identity,
-                    plugin,
-                    details_json,
-                    1 if success else 0,
-                    duration_ms,
-                    error,
-                    previous_hash,
-                    chain_hash,
-                ),
-            )
-            conn.commit()
+            # Database lock prevents collision with cleanup thread
+            with self._db_lock:
+                cursor = conn.execute(
+                    """
+                    INSERT INTO audit_log
+                        (timestamp, action, category, identity, plugin, details,
+                         success, duration_ms, error, previous_hash, chain_hash)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        timestamp,
+                        action,
+                        category,
+                        self._identity,
+                        plugin,
+                        details_json,
+                        1 if success else 0,
+                        duration_ms,
+                        error,
+                        previous_hash,
+                        chain_hash,
+                    ),
+                )
+                conn.commit()
 
-            # Advance the chain
-            self._prev_hash = chain_hash
+                # Advance the chain
+                self._prev_hash = chain_hash
 
         assert cursor.lastrowid is not None
         return cursor.lastrowid
@@ -434,15 +437,16 @@ class AuditLog:
         assert self._conn is not None
         conn = self._conn
         cutoff = time.time() - (self._retention_days * 86400)
-        cursor = conn.execute("DELETE FROM audit_log WHERE timestamp < ?", (cutoff,))
-        deleted = cursor.rowcount
-        if deleted > 0:
-            conn.commit()
-            logger.info(
-                "Audit log trimmed: %d entries older than %d days removed",
-                deleted,
-                self._retention_days,
-            )
+        with self._db_lock:
+            cursor = conn.execute("DELETE FROM audit_log WHERE timestamp < ?", (cutoff,))
+            deleted = cursor.rowcount
+            if deleted > 0:
+                conn.commit()
+                logger.info(
+                    "Audit log trimmed: %d entries older than %d days removed",
+                    deleted,
+                    self._retention_days,
+                )
         return deleted
 
     def start_background_cleanup(self) -> None:

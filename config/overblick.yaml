@@ -27,7 +27,7 @@ llm:
     remote:
       enabled: true
       host: 10.8.0.24
-      model: dolphin-mistral-24b-venice-edition-i1
+      model: google/gemma-4-26b-a4b
       port: 1234
       type: ollama
       max_concurrent: 6

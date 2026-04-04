@@ -109,18 +109,25 @@ class OllamaClient:
         try:
             client = await self._get_client()
 
+            # LM Studio (used for Gemma) shares max_tokens between reasoning and content.
+            # Gemma can use 80%+ of tokens on reasoning, leaving nothing for content.
+            # Multiply max_tokens to ensure room for both reasoning AND content output.
+            # Minimum 4000 tokens to give Gemma enough headroom.
+            base_max_tokens = request.max_tokens
+            if base_max_tokens < 4000:
+                base_max_tokens = 4000
+            else:
+                # Double the requested tokens to account for reasoning overhead
+                base_max_tokens = min(base_max_tokens * 2, 32000)
+
             payload = {
                 "model": self.config.default_model or request.model,
                 "messages": [{"role": m.role, "content": m.content} for m in request.messages],
-                "max_tokens": request.max_tokens,
+                "max_tokens": base_max_tokens,
                 "temperature": request.temperature,
                 "top_p": request.top_p,
                 "stream": False,
             }
-
-            # Pass think parameter to Ollama for Qwen3 reasoning control
-            if request.think is not None:
-                payload["think"] = request.think
 
             logger.debug(
                 "Sending request to Ollama: model=%s, messages=%d",
@@ -133,17 +140,85 @@ class OllamaClient:
 
             data = response.json()
 
+            # Extract reasoning_content based on model type.
+            # Different models return thinking/reasoning in different ways:
+            # - Qwen3: <think> tags embedded in content
+            # - DeepSeek reasoner: reasoning_content field
+            # - Gemma 4: reasoning_content field (via LM Studio / Ollama-compatible API)
+            # - Mistral/Dolphin: no reasoning, just content
             choices = []
             for idx, choice in enumerate(data.get("choices", [])):
                 message = choice.get("message", {})
+                content = message.get("content", "")
+                reasoning = message.get("reasoning_content")
+                finish = choice.get("finish_reason") or "stop"
+
+                # Log response structure for troubleshooting
+                logger.info(
+                    "Ollama response: model=%s, content_len=%d, reasoning_len=%d, finish=%s",
+                    request.model,
+                    len(content) if content else 0,
+                    len(reasoning) if reasoning else 0,
+                    finish,
+                )
+
+                # Gemma (and other reasoning models) may use all tokens on reasoning
+                # and produce zero content. Detect this and retry with think=False.
+                if finish == "length" and (not content or len(content.strip()) < 10):
+                    logger.warning(
+                        "Model %s exhausted tokens on reasoning (content_len=%d, reasoning_len=%d). "
+                        "Retrying with think=False.",
+                        request.model,
+                        len(content) if content else 0,
+                        len(reasoning) if reasoning else 0,
+                    )
+                    # Retry with increased tokens and thinking disabled
+                    retry_payload = dict(payload)
+                    retry_payload["think"] = False
+                    retry_payload["max_tokens"] = max(payload.get("max_tokens", 2000), 4000)
+
+                    retry_response = await client.post("/v1/chat/completions", json=retry_payload)
+                    retry_response.raise_for_status()
+                    data = retry_response.json()
+
+                    # Re-parse choices from retry
+                    choices = []
+                    for retry_idx, retry_choice in enumerate(data.get("choices", [])):
+                        retry_msg = retry_choice.get("message", {})
+                        retry_content = retry_msg.get("content", "")
+                        retry_reasoning = retry_msg.get("reasoning_content")
+                        retry_finish = retry_choice.get("finish_reason") or "stop"
+
+                        logger.info(
+                            "Ollama retry response: model=%s, content_len=%d, reasoning_len=%d, finish=%s",
+                            request.model,
+                            len(retry_content) if retry_content else 0,
+                            len(retry_reasoning) if retry_reasoning else 0,
+                            retry_finish,
+                        )
+
+                        choices.append(
+                            ChatResponseChoice(
+                                index=retry_idx,
+                                message=ChatMessage(
+                                    role=retry_msg.get("role", "assistant"),
+                                    content=retry_content,
+                                    reasoning_content=retry_reasoning,
+                                ),
+                                finish_reason=retry_finish,
+                            )
+                        )
+                    break  # Exit original loop, use retry data
+
                 choices.append(
                     ChatResponseChoice(
                         index=idx,
                         message=ChatMessage(
                             role=message.get("role", "assistant"),
-                            content=message.get("content", ""),
+                            content=content,
+                            reasoning_content=reasoning,
                         ),
-                        finish_reason=choice.get("finish_reason") or "stop",
+                        finish_reason=finish,
                     )
                 )
 
@@ -235,12 +310,15 @@ class OllamaClient:
                         choices = []
                         for idx, choice in enumerate(data.get("choices", [])):
                             message = choice.get("message", {})
+                            content = message.get("content", "")
+                            reasoning = message.get("reasoning_content")
                             choices.append(
                                 ChatResponseChoice(
                                     index=idx,
                                     message=ChatMessage(
                                         role=message.get("role", "assistant"),
-                                        content=message.get("content", ""),
+                                        content=content,
+                                        reasoning_content=reasoning,
                                     ),
                                     finish_reason=choice.get("finish_reason") or "stop",
                                 )

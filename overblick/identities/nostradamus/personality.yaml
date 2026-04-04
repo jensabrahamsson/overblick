@@ -24,9 +24,9 @@ identity:
 # OPERATIONAL CONFIG
 ################################################################################
 operational:
-  # LLM routing — remote for heavy analysis
+  # LLM routing — round-robin between remote (gemma) and remote2 (mistral)
+  # Deep analyses use complexity=high which prefers remote (gemma)
   llm:
-    preferred_backend: remote
     timeout_seconds: 120
 
   # Plugins — ONLY oracle + ai_digest. NO whallet_trader.
@@ -48,6 +48,7 @@ operational:
     neo4j:
       uri: "bolt://localhost:7687"
       user: "neo4j"
+      password: "password"
 
   # Output: shared data directory for other agents to consume
   oracle:
@@ -79,6 +80,7 @@ operational:
       - name: us_elections
         description: US elections and political developments
         keywords: ["election", "trump", "biden", "congress", "senate"]
+        premium_sources: ["ft"]
         market_slug: us-elections
       - name: eu_nato
         description: EU and NATO developments

@@ -401,9 +401,12 @@ class SafeLLMPipeline:
         content = LLMClient.strip_think_tokens(content)
 
         # Detect thinking token starvation: model used all tokens on <think>
-        # but produced little/no actual content (finish_reason=length)
+        # but produced little/no actual content (finish_reason=length).
+        # Skip this check for models that return reasoning separately (Gemma, DeepSeek)
+        # since their content field may be legitimately short.
         finish_reason = raw_response.get("finish_reason")
-        if finish_reason == "length" and len(content.strip()) < 50:
+        has_separate_reasoning = bool(reasoning_content and len(reasoning_content) > 50)
+        if finish_reason == "length" and len(content.strip()) < 50 and not has_separate_reasoning:
             retry_max = min((max_tokens or 4000) * 2, 32000)
             logger.warning(
                 "Thinking token starvation (finish_reason=length, %d chars). "
