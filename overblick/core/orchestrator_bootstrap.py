@@ -132,10 +132,12 @@ class OrchestratorBootstrap:
 
         # 8b. Create capability registry for resource setup
         from overblick.core.capability import CapabilityRegistry
+
         self._services.capability_registry = CapabilityRegistry.default()
 
         # 8c. Create policy gate
         from overblick.core.security.policy_gate import PolicyGate
+
         self._services.policy_gate = PolicyGate(
             identity_name=self._identity_name,
             permission_checker=self._services.permissions,
@@ -169,15 +171,19 @@ class OrchestratorBootstrap:
         """Create LLM client — routes through GatewayClient."""
         from overblick.core.llm.gateway_client import GatewayClient
 
-        assert self._services.identity is not None, "Identity must be loaded before creating LLM client"
+        assert self._services.identity is not None, (
+            "Identity must be loaded before creating LLM client"
+        )
         llm_cfg = self._services.identity.llm
         gateway_url = llm_cfg.gateway_url or "http://127.0.0.1:8200"
 
         with GatewayClient._instantiation_allowed():
+            # Use identity's default_priority if set, otherwise "low"
+            identity_priority = getattr(llm_cfg, "default_priority", None)
             client = GatewayClient(
                 base_url=gateway_url,
                 model=llm_cfg.model,
-                default_priority="low",
+                default_priority=identity_priority or "low",
                 max_tokens=llm_cfg.max_tokens,
                 temperature=llm_cfg.temperature,
                 top_p=llm_cfg.top_p,
@@ -187,7 +193,9 @@ class OrchestratorBootstrap:
             preferred_backend = getattr(llm_cfg, "preferred_backend", None)
             if preferred_backend:
                 client.default_backend = preferred_backend
-                logger.info("Identity %s forced to backend: %s", self._identity_name, preferred_backend)
+                logger.info(
+                    "Identity %s forced to backend: %s", self._identity_name, preferred_backend
+                )
 
         if await client.health_check():
             logger.info("Connected to LLM Gateway at %s (model: %s)", gateway_url, llm_cfg.model)
@@ -203,8 +211,12 @@ class OrchestratorBootstrap:
         """Create preflight checker from identity security config."""
         from overblick.core.security.preflight import PreflightChecker
 
-        assert self._services.identity is not None, "Identity must be loaded before creating preflight checker"
-        assert self._services.llm_client is not None, "LLM client must be initialized before creating preflight checker"
+        assert self._services.identity is not None, (
+            "Identity must be loaded before creating preflight checker"
+        )
+        assert self._services.llm_client is not None, (
+            "LLM client must be initialized before creating preflight checker"
+        )
 
         if not self._services.identity.security.enable_preflight:
             logger.info("Preflight checker disabled by identity config")
@@ -227,7 +239,9 @@ class OrchestratorBootstrap:
         """Create output safety filter from identity config."""
         from overblick.core.security.output_safety import OutputSafety
 
-        assert self._services.identity is not None, "Identity must be loaded before creating output safety"
+        assert self._services.identity is not None, (
+            "Identity must be loaded before creating output safety"
+        )
 
         if not self._services.identity.security.enable_output_safety:
             logger.info("Output safety disabled by identity config")

@@ -24,12 +24,13 @@ identity:
 # OPERATIONAL CONFIG
 ################################################################################
 operational:
-  # LLM routing — force remote (Gemma) for all requests.
-  # Round-robin between remote (gemma) and remote2 (mistral) was causing
-  # timeouts when local (qwen3.5:9b) was selected — too slow for complex tasks.
+  # LLM routing — high priority routes to remote backends only (Gemma/Mistral).
+  # Never uses local (qwen3.5:9b) — too slow, causes 120s timeouts.
+  # priority=high → remote2 (Mistral) first, fallback to remote (Gemma)
+  # complexity=high → remote (Gemma) first, fallback to remote2 (Mistral)
   llm:
     timeout_seconds: 120
-    preferred_backend: remote  # Force Gemma for all requests
+    default_priority: high  # Prefer remote backends, skip local
 
   # Plugins — ONLY oracle + ai_digest. NO whallet_trader.
   plugins:
