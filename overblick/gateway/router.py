@@ -86,15 +86,17 @@ class RequestRouter:
 
         # 2. Complexity-based routing
 
-        # 2a-i. Einstein: deepseek-reasoner only — no fallback (reasoning is
-        # DeepSeek-specific, other backends cannot run this model)
+        # 2a-i. Einstein: prefer Gemma for deep reasoning, fallback to DeepSeek reasoner
+        # Gemma is faster for most analysis tasks. DeepSeek reasoner is reserved
+        # for cases where Gemma fails or is unavailable.
         if complexity == "einstein":
-            if "deepseek" in available:
-                logger.info("Router: complexity=einstein → 'deepseek' (reasoner mode)")
-                return "deepseek"
+            for candidate in ("remote", "deepseek"):
+                if candidate in available:
+                    logger.info("Router: complexity=einstein → '%s'", candidate)
+                    return candidate
             logger.warning(
-                "Router: complexity=einstein but deepseek not available — "
-                "falling back to default (reasoning will NOT be used)"
+                "Router: complexity=einstein but no remote/deepseek available — "
+                "falling back to default"
             )
             return self._registry.default_backend
 
@@ -107,13 +109,13 @@ class RequestRouter:
             logger.debug("Router: complexity=ultra but no deepseek/remote, using default")
             return self._registry.default_backend
 
-        # 2b. High: prefer remote for complex tasks
+        # 2b. High: prefer Gemma (remote) for complex analysis tasks
         if complexity == "high":
-            for candidate in ("remote", "deepseek"):
+            for candidate in ("remote", "remote2"):
                 if candidate in available:
                     logger.debug("Router: complexity=high → '%s'", candidate)
                     return candidate
-            logger.debug("Router: complexity=high but no remote/deepseek, using default")
+            logger.debug("Router: complexity=high but no remote/remote2, using default")
             return self._registry.default_backend
 
         if complexity == "low":
@@ -122,35 +124,24 @@ class RequestRouter:
                 return "local"
             return self._registry.default_backend
 
-        # 3. Priority-based routing — round-robin across remote backends
+        # 3. Priority-based routing — prefer Mistral (remote2) for fast responses
+        # Gemma (remote) is slow due to reasoning tokens — reserve for complex tasks
         if priority == "high":
-            remote_candidates = [
-                c for c in self._registry.backend_preference
-                if c in available and c != "local" and c != "deepseek"
-            ]
-            if remote_candidates:
-                # Round-robin across available remote backends
-                idx = self._round_robin_counter % len(remote_candidates)
-                self._round_robin_counter += 1
-                chosen = remote_candidates[idx]
-                logger.debug("Router: priority=high → '%s' (round-robin %d/%d)", chosen, idx + 1, len(remote_candidates))
-                return chosen
+            # Prefer remote2 (Mistral) for speed, fallback to remote (Gemma)
+            for candidate in ("remote2", "remote"):
+                if candidate in available and candidate != "local" and candidate != "deepseek":
+                    logger.debug("Router: priority=high → '%s' (prefer fast backend)", candidate)
+                    return candidate
             # No remote available — fall through to preference chain
             for candidate in self._registry.backend_preference:
                 if candidate in available and candidate != "local":
                     return candidate
 
-        # 4. Default: round-robin across GPU backends (exclude deepseek cloud to save money)
-        remote_candidates = [
-            c for c in self._registry.backend_preference
-            if c in available and c != "local" and c != "deepseek"
-        ]
-        if len(remote_candidates) > 1:
-            idx = self._round_robin_counter % len(remote_candidates)
-            self._round_robin_counter += 1
-            chosen = remote_candidates[idx]
-            logger.debug("Router: default → '%s' (round-robin %d/%d)", chosen, idx + 1, len(remote_candidates))
-            return chosen
+        # 4. Default: prefer Mistral (remote2) for speed
+        # Gemma (remote) is reserved for complexity=high tasks only
+        if "remote2" in available:
+            logger.debug("Router: default → 'remote2' (Mistral, fast)")
+            return "remote2"
 
         for candidate in self._registry.backend_preference:
             if candidate in available:
