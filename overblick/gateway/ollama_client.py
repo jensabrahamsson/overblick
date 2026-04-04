@@ -154,7 +154,7 @@ class OllamaClient:
                 finish = choice.get("finish_reason") or "stop"
 
                 # Log response structure for troubleshooting
-                logger.info(
+                logger.debug(
                     "Ollama response: model=%s, content_len=%d, reasoning_len=%d, finish=%s",
                     request.model,
                     len(content) if content else 0,
@@ -189,7 +189,7 @@ class OllamaClient:
                         retry_reasoning = retry_msg.get("reasoning_content")
                         retry_finish = retry_choice.get("finish_reason") or "stop"
 
-                        logger.info(
+                        logger.debug(
                             "Ollama retry response: model=%s, content_len=%d, reasoning_len=%d, finish=%s",
                             request.model,
                             len(retry_content) if retry_content else 0,
