@@ -24,14 +24,17 @@ identity:
 # OPERATIONAL CONFIG
 ################################################################################
 operational:
-  # LLM routing — round-robin between remote (gemma) and remote2 (mistral)
-  # Deep analyses use complexity=high which prefers remote (gemma)
+  # LLM routing — force remote (Gemma) for all requests.
+  # Round-robin between remote (gemma) and remote2 (mistral) was causing
+  # timeouts when local (qwen3.5:9b) was selected — too slow for complex tasks.
   llm:
     timeout_seconds: 120
+    preferred_backend: remote  # Force Gemma for all requests
 
   # Plugins — ONLY oracle + ai_digest. NO whallet_trader.
   plugins:
     - "oracle"                # Think tank: 27 topics, 58 edges, 5 MoE experts
+    - "polymarket_monitor"    # Full monitoring (includes YouTube ingestion)
     - "ai_digest"             # Market news and analysis
 
   # Schedule
@@ -74,9 +77,11 @@ operational:
       - name: putin
         description: Putin regime stability and actions
         keywords: ["putin", "russia", "kremlin", "regime"]
+        market_slug: putin
       - name: xi
         description: Xi Jinping and China leadership
         keywords: ["xi", "china", "ccp", "leadership"]
+        market_slug: xi
       - name: us_elections
         description: US elections and political developments
         keywords: ["election", "trump", "biden", "congress", "senate"]
@@ -85,18 +90,23 @@ operational:
       - name: eu_nato
         description: EU and NATO developments
         keywords: ["eu", "nato", "europe", "defense"]
+        market_slug: nato
       - name: india
         description: India geopolitical developments
         keywords: ["india", "modi", "south asia"]
+        market_slug: india
       - name: north_korea
         description: North Korea nuclear and missile activities
         keywords: ["north korea", "kim", "nuclear", "missile"]
+        market_slug: north-korea
       - name: nuclear_proliferation
         description: Global nuclear weapons developments
         keywords: ["nuclear", "weapons", "proliferation"]
+        market_slug: nuclear
       - name: migration
         description: Global migration patterns and crises
         keywords: ["migration", "refugee", "border", "immigration"]
+        market_slug: migration
 
       # Economics (7)
       - name: fed_policy
@@ -126,6 +136,7 @@ operational:
       - name: opec
         description: OPEC production decisions
         keywords: ["opec", "production", "oil"]
+        market_slug: opec
 
       # Trade & Currency (4)
       - name: us_china_trade
@@ -135,6 +146,7 @@ operational:
       - name: global_trade
         description: Global trade developments
         keywords: ["trade", "wto", "global"]
+        market_slug: trade
       - name: usd_strength
         description: US Dollar strength index
         keywords: ["usd", "dollar", "dxy", "currency"]
@@ -142,6 +154,7 @@ operational:
       - name: brics_g7
         description: BRICS vs G7 geopolitical dynamics
         keywords: ["brics", "g7", "emerging"]
+        market_slug: brics
 
       # Technology (2)
       - name: ai_race
@@ -151,14 +164,17 @@ operational:
       - name: energy_transition
         description: Global energy transition
         keywords: ["energy", "renewable", "solar", "wind"]
+        market_slug: energy
 
       # Science (2)
       - name: us_measles
         description: US measles outbreak developments
         keywords: ["measles", "outbreak", "vaccine"]
+        market_slug: measles
       - name: alien_disclosure
         description: Government UFO/UAP disclosure
         keywords: ["ufo", "uap", "alien", "disclosure"]
+        market_slug: ufo
 
     # 6 Domain Experts with PID tuning
     domain_experts:
