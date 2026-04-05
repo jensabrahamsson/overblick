@@ -77,6 +77,13 @@ def register_routes(app: FastAPI) -> None:
         app.include_router(insider_router)
     except ImportError:
         pass
+    # Weather Calibration Dashboard (external package — optional)
+    try:
+        from polytrader.dashboard.routes.weather_calibration import router as weather_cal_router
+
+        app.include_router(weather_cal_router)
+    except ImportError:
+        pass
     app.include_router(dev_router)
     app.include_router(log_agent_router)
     app.include_router(psychology_router)

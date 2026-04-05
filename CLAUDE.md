@@ -1,5 +1,19 @@
 # CLAUDE.md — Överblick Agent Framework
 
+## Git Identity — CRITICAL
+**The git author for this repo is `Jens Abrahamsson <jens.abrahamsson@makeitso.se>`.**
+NEVER commit with any other identity. Before committing, ALWAYS verify:
+```bash
+git config user.name   # Must be "Jens Abrahamsson"
+git config user.email  # Must be "jens.abrahamsson@makeitso.se"
+```
+If these are wrong, fix them BEFORE committing:
+```bash
+git config user.name "Jens Abrahamsson"
+git config user.email "jens.abrahamsson@makeitso.se"
+```
+**DO NOT** use any other name or email. Wrong git identity has caused history rewrites before and is treated as a serious incident.
+
 ## Quality Standard
 **PERFECTION IS THE STANDARD.** Every file, every test, every prompt, every line of code must be production-grade. No shortcuts. No "good enough." No TODO comments left behind. If it's worth building, it's worth building right.
 

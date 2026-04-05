@@ -184,6 +184,7 @@ def _create_templates() -> Jinja2Templates:
     env.globals["polymarket_enabled"] = lambda: False
     env.globals["oracle_enabled"] = lambda: False
     env.globals["insider_enabled"] = lambda: False
+    env.globals["weather_cal_enabled"] = lambda: False
     env.globals["settings_enabled"] = lambda: True
     # Auth placeholder — overridden in lifespan once config is available
     env.globals["auth_enabled"] = lambda: False
@@ -287,6 +288,14 @@ async def lifespan(app: FastAPI):
     app.state.templates.env.globals["insider_enabled"] = lambda: (
         True
     )  # Always show insider nav link
+    # Weather Calibration (external package — optional)
+    try:
+        from polytrader.dashboard.routes.weather_calibration import (
+            has_data as _weather_cal_has_data,
+        )
+    except ImportError:
+        _weather_cal_has_data = lambda: False
+    app.state.templates.env.globals["weather_cal_enabled"] = _weather_cal_has_data
 
     # Register external plugin templates (polytrader)
     try:

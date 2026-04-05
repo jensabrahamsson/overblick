@@ -45,7 +45,7 @@ operational:
 
   # Oracle config (same as current thinktank)
   polymarket_monitor:
-    check_interval_minutes: 15
+    check_interval_minutes: 1
     max_markets: 50
     min_probability_edge: 0.03
     real_api: true
@@ -53,6 +53,18 @@ operational:
       uri: "bolt://localhost:7687"
       user: "neo4j"
       password: "password"
+
+    # YouTube remote fetching via Claude1 (different IP to avoid blocking)
+    # BE SUPER GENTLE — YouTube blocks IPs quickly!
+    youtube_remote_fetch:
+      enabled: true
+      host: "10.8.0.26"
+      user: "carl-inger"
+      password: "1sande-vind"
+      max_channels_per_run: 1          # Check only 1 random channel per run
+      max_videos_per_channel: 1        # Only latest video per channel
+      min_delay_seconds: 180           # Minimum 180 seconds (3 minutes) between requests
+      max_delay_seconds: 900           # Maximum 900 seconds (15 minutes!) - EXTREMELY GENTLE
 
   # Output: shared data directory for other agents to consume
   oracle:
