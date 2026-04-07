@@ -49,16 +49,17 @@ operational:
       uri: "bolt://localhost:7687"
       user: "neo4j"
 
-  # Trade execution — SIM while optimizing entry/exit strategy
+  # Trade execution — SIM mode after 2026-04-07 deep audit (23+ fixes)
+  # Run in simulation until fixes are validated, then flip back to LIVE.
   whallet_trader:
-    simulation_mode: true         # SIM — optimizing entry/exit before going back LIVE
-    starting_balance_usd: 100      # Overridden by CLOB balance at runtime
-    max_position_size_percent: 25
-    max_portfolio_exposure_percent: 75
-    daily_loss_limit_percent: 30
+    simulation_mode: true         # SIM — paper trading only
+    starting_balance_usd: 25       # Virtual starting balance for SIM
+    max_position_size_percent: 10
+    max_portfolio_exposure_percent: 40
+    daily_loss_limit_percent: 20
     check_interval_seconds: 60
     category_trading_modes:
-      weather: true               # SIM — optimizing entry/exit
+      weather: true               # SIM weather trading (was: false = LIVE)
     database:
       host: localhost
       port: 5432
