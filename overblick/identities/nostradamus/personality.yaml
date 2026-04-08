@@ -13,7 +13,7 @@ identity:
   display_name: "Nostradamus"
   version: "1.0"
   role: "Oracle — Market Intelligence Engine"
-  description: "Produces probability assessments for 27 world topics via 58-edge causal graph and 5 domain experts. Writes to data/shared/ for PolyTrader and Pohlman to consume. Does NOT trade."
+  description: "Produces probability assessments for 34 world topics (incl. 7 weather/climate) via 43-edge causal graph and 6 domain experts. Writes to data/shared/ for PolyTrader and Pohlman to consume. Does NOT trade."
 
   owner: "@jensabrahamsson"
   owner_platform: "X (Twitter)"
@@ -32,10 +32,10 @@ operational:
     timeout_seconds: 120
     default_priority: high  # Prefer remote backends, skip local
 
-  # Plugins — ONLY oracle + ai_digest. NO whallet_trader.
+  # Plugins — oracle inherits all monitoring (RSS, YouTube, topic tracker).
+  # Do NOT add polymarket_monitor separately — it would create a duplicate instance.
   plugins:
-    - "oracle"                # Think tank: 27 topics, 58 edges, 5 MoE experts
-    - "polymarket_monitor"    # Full monitoring (includes YouTube ingestion)
+    - "oracle"                # Think tank: 27 topics, 58 edges, 5 MoE experts + full monitoring
     - "ai_digest"             # Market news and analysis
 
   # Schedule
@@ -54,139 +54,231 @@ operational:
       user: "neo4j"
       password: "password"
 
-    # YouTube remote fetching via Claude1 (different IP to avoid blocking)
-    # BE SUPER GENTLE — YouTube blocks IPs quickly!
+    # YouTube remote fetching via Claude1 HTTP transcript server
+    # Server rate-limits internally (30s between yt-dlp calls)
+    # If server is down, ingesters fall back to local youtube-transcript-api
     youtube_remote_fetch:
       enabled: true
       host: "10.8.0.26"
-      user: "carl-inger"
-      password: "1sande-vind"
-      max_channels_per_run: 1          # Check only 1 random channel per run
-      max_videos_per_channel: 1        # Only latest video per channel
-      min_delay_seconds: 180           # Minimum 180 seconds (3 minutes) between requests
-      max_delay_seconds: 900           # Maximum 900 seconds (15 minutes!) - EXTREMELY GENTLE
+      port: 9090
+      max_channels_per_run: 3          # Server handles rate limiting
+      max_videos_per_channel: 2        # 2 latest videos per channel
+      min_delay_seconds: 45            # Client-side delay between requests
+      max_delay_seconds: 120           # Server adds 30s internally
 
   # Output: shared data directory for other agents to consume
   oracle:
     output_path: "data/shared/"
     topics:
-      # Geopolitics (12)
+      # Geopolitics — real Polymarket slugs
       - name: russia_ukraine
         description: Russia-Ukraine conflict developments
         keywords: ["russia", "ukraine", "putin", "zelensky", "donbas", "kharkiv"]
-        market_slug: russia-ukraine-war
+        market_slugs:
+          - "russia-x-ukraine-ceasefire-before-2027"
+        market_question: "Russia x Ukraine ceasefire by end of 2026?"
       - name: us_iran
         description: US-Iran tensions and military actions
         keywords: ["iran", "us", "iran", "nuclear", "middle east"]
-        market_slug: us-iran
+        market_slugs:
+          - "us-forces-enter-iran-by-april-30-899"
+          - "will-the-iranian-regime-fall-by-april-30"
+          - "us-x-iran-ceasefire-by-april-15-182-528-637"
+        market_question: "US forces enter Iran by April 30?"
       - name: china_taiwan
         description: China-Taiwan military and diplomatic tensions
         keywords: ["china", "taiwan", "xi", "invasion", "strait"]
-        market_slug: china-taiwan
+        market_slugs:
+          - "will-china-invade-taiwan-before-2027"
+        market_question: "Will China invade Taiwan by end of 2026?"
       - name: israel_mideast
         description: Israel and Middle East conflicts
-        keywords: ["israel", "gaza", "hamas", "lebanon", "hezbollah"]
-        market_slug: israel-mideast
+        keywords: ["israel", "gaza", "hamas", "lebanon", "hezbollah", "netanyahu"]
+        market_slugs:
+          - "netanyahu-out-by-april-30"
+        market_question: "Netanyahu out by April 30?"
       - name: putin
         description: Putin regime stability and actions
         keywords: ["putin", "russia", "kremlin", "regime"]
-        market_slug: putin
+        market_slugs:
+          - "putin-out-before-2027"
+        market_question: "Putin out as president of Russia by December 31, 2026?"
       - name: xi
         description: Xi Jinping and China leadership
         keywords: ["xi", "china", "ccp", "leadership"]
-        market_slug: xi
+        market_slugs:
+          - "xi-jinping-out-before-2027"
+        market_question: "Xi Jinping out before 2027?"
       - name: us_elections
         description: US elections and political developments
         keywords: ["election", "trump", "biden", "congress", "senate"]
         premium_sources: ["ft"]
-        market_slug: us-elections
+        market_slugs:
+          - "will-gavin-newsom-win-the-2028-us-presidential-election"
+        market_question: "Will Gavin Newsom win the 2028 US Presidential Election?"
       - name: eu_nato
         description: EU and NATO developments
         keywords: ["eu", "nato", "europe", "defense"]
-        market_slug: nato
+        market_slugs:
+          - "will-russia-invade-a-nato-country-by-june-30-2026"
+        market_question: "Will Russia invade a NATO country by June 30, 2026?"
       - name: india
         description: India geopolitical developments
         keywords: ["india", "modi", "south asia"]
-        market_slug: india
+        market_slugs: []
+        market_question: "Will India's GDP growth exceed 7% in fiscal year 2026-27?"
       - name: north_korea
         description: North Korea nuclear and missile activities
         keywords: ["north korea", "kim", "nuclear", "missile"]
-        market_slug: north-korea
+        market_slugs: []
+        market_question: "Will North Korea conduct a nuclear weapons test in 2026?"
       - name: nuclear_proliferation
         description: Global nuclear weapons developments
         keywords: ["nuclear", "weapons", "proliferation"]
-        market_slug: nuclear
+        market_slugs: []
+        market_question: "Will Iran achieve nuclear breakout capability (enough fissile material for a weapon) in 2026?"
       - name: migration
         description: Global migration patterns and crises
         keywords: ["migration", "refugee", "border", "immigration"]
-        market_slug: migration
+        market_slugs: []
+        market_question: "Will US southern border encounters exceed 200,000 in any month of 2026?"
 
-      # Economics (7)
+      # Economics — real Polymarket slugs
       - name: fed_policy
         description: Federal Reserve interest rate decisions
         keywords: ["fed", "interest rate", "powell", "fomc"]
-        market_slug: fed-policy
+        market_slugs:
+          - "will-the-fed-decrease-interest-rates-by-50-bps-after-the-april-2026-meeting"
+          - "will-the-fed-decrease-interest-rates-by-25-bps-after-the-april-2026-meeting"
+        market_question: "Will the Fed decrease interest rates by 50+ bps after the April 2026 meeting?"
       - name: oil_price
         description: Global oil price movements
         keywords: ["oil", "crude", "opec", "energy"]
-        market_slug: oil-price
+        market_slugs: []
+        market_question: "Will WTI crude oil reach $100/barrel at any point in 2026?"
       - name: bitcoin
         description: Bitcoin price and crypto markets
         keywords: ["bitcoin", "btc", "crypto"]
-        market_slug: bitcoin
+        market_slugs: []
+        market_question: "Will Bitcoin reach a new all-time high above $110,000 in 2026?"
       - name: us_inflation
         description: US inflation and CPI data
         keywords: ["inflation", "cpi", "consumer prices"]
-        market_slug: us-inflation
+        market_slugs: []
+        market_question: "Will US headline CPI exceed 4% year-over-year at any point in 2026?"
       - name: us_recession
         description: US recession probability
         keywords: ["recession", "gdp", "economic"]
-        market_slug: us-recession
+        market_slugs: []
+        market_question: "Will the NBER declare a US recession starting in 2025 or 2026?"
       - name: stock_market
         description: US stock market developments
         keywords: ["stock", "market", "sp500", "nasdaq"]
-        market_slug: stock-market
+        market_slugs: []
+        market_question: "Will the S&P 500 experience a bear market (20%+ decline from peak) in 2026?"
       - name: opec
         description: OPEC production decisions
         keywords: ["opec", "production", "oil"]
-        market_slug: opec
+        market_slugs: []
+        market_question: "Will OPEC+ announce new production cuts exceeding 1M bpd in 2026?"
 
-      # Trade & Currency (4)
+      # Trade & Currency
       - name: us_china_trade
         description: US-China trade relations
         keywords: ["trade", "china", "tariff", "export"]
-        market_slug: us-china-trade
+        market_slugs: []
+        market_question: "Will average US-China tariff rates exceed 50% by end of 2026?"
       - name: global_trade
         description: Global trade developments
         keywords: ["trade", "wto", "global"]
-        market_slug: trade
+        market_slugs: []
+        market_question: "Will global trade volume contract year-over-year in 2026 (WTO measure)?"
       - name: usd_strength
         description: US Dollar strength index
         keywords: ["usd", "dollar", "dxy", "currency"]
-        market_slug: usd-strength
+        market_slugs: []
+        market_question: "Will the DXY Dollar Index fall below 95 at any point in 2026?"
       - name: brics_g7
         description: BRICS vs G7 geopolitical dynamics
         keywords: ["brics", "g7", "emerging"]
-        market_slug: brics
+        market_slugs: []
+        market_question: "Will BRICS launch a shared settlement or payment system in 2026?"
 
-      # Technology (2)
+      # Technology
       - name: ai_race
         description: AI development race
-        keywords: ["ai", "artificial intelligence", "agi", "llm"]
-        market_slug: ai-race
+        keywords: ["artificial intelligence", "agi", "llm", "openai", "deepmind"]
+        market_slugs: []
+        market_question: "Will any AI lab announce a model that passes the majority of PhD-level science benchmarks in 2026?"
       - name: energy_transition
         description: Global energy transition
         keywords: ["energy", "renewable", "solar", "wind"]
-        market_slug: energy
+        market_slugs: []
+        market_question: "Will global renewable energy capacity additions exceed 1 TW in 2026?"
 
-      # Science (2)
+      # Weather & Climate — ENSO, seasonal outlooks, precipitation anomalies
+      # These topics inform the precipitation trading model (rain agent).
+      # The weather expert does NOT replace the quantitative hybrid model —
+      # it adds qualitative context: ENSO state, blocking patterns, anomalies.
+      - name: enso_state
+        description: El Niño / La Niña / ENSO-neutral state and its teleconnections to global precipitation patterns
+        keywords: ["el nino", "la nina", "enso", "sst", "sea surface temperature", "pacific decadal", "walker circulation", "teleconnection"]
+        market_slugs: []
+        market_question: "Will NOAA declare an El Niño Advisory (ONI ≥ +0.5°C) for any month in 2026?"
+      - name: polar_vortex
+        description: Stratospheric polar vortex disruptions and Arctic Oscillation (AO) — drives cold-air outbreaks and precipitation anomalies in NYC, Seoul, London
+        keywords: ["polar vortex", "arctic oscillation", "AO", "stratospheric warming", "sudden stratospheric warming", "SSW", "jet stream"]
+        market_slugs: []
+        market_question: "Will a Sudden Stratospheric Warming event disrupt the polar vortex in the 2026-27 winter season?"
+      - name: precipitation_nyc
+        description: Monthly precipitation outlook for New York City — Polymarket resolution via NOAA Central Park station
+        keywords: ["new york precipitation", "nyc rain", "northeast flooding", "nor'easter", "new york weather", "central park rainfall"]
+        market_slugs:
+          - "precipitation-in-nyc-in-april"
+          - "precipitation-in-nyc-in-may"
+        market_question: "Will NYC have more than 5 inches of precipitation in May 2026?"
+      - name: precipitation_seattle
+        description: Monthly precipitation outlook for Seattle — Polymarket resolution via NOAA Seattle-Tacoma Airport
+        keywords: ["seattle precipitation", "seattle rain", "pacific northwest rain", "atmospheric river", "pineapple express", "seattle weather"]
+        market_slugs:
+          - "precipitation-in-seattle-in-april"
+          - "precipitation-in-seattle-in-may"
+        market_question: "Will Seattle have more than 5 inches of precipitation in May 2026?"
+      - name: precipitation_london
+        description: Monthly precipitation outlook for London — Polymarket resolution via Met Office Heathrow
+        keywords: ["london precipitation", "london rain", "uk weather", "uk rainfall", "heathrow rainfall", "met office outlook"]
+        market_slugs:
+          - "precipitation-in-london-in-april"
+          - "precipitation-in-london-in-may"
+        market_question: "Will London have more than 60mm of precipitation in May 2026?"
+      - name: precipitation_hongkong
+        description: Monthly precipitation outlook for Hong Kong — Polymarket resolution via HKO, May-Sep is typhoon/monsoon season with extreme variability
+        keywords: ["hong kong precipitation", "hong kong rain", "hong kong typhoon", "south china sea", "monsoon", "hko rainfall", "black rainstorm"]
+        market_slugs:
+          - "precipitation-in-hong-kong-in-april"
+          - "precipitation-in-hong-kong-in-may"
+        market_question: "Will Hong Kong have more than 400mm of precipitation in May 2026?"
+      - name: precipitation_seoul
+        description: Monthly precipitation outlook for Seoul — Polymarket resolution via KMA, June-Aug is monsoon (jangma) season
+        keywords: ["seoul precipitation", "seoul rain", "korea weather", "jangma", "korea monsoon", "kma rainfall"]
+        market_slugs:
+          - "precipitation-in-seoul-in-april"
+          - "precipitation-in-seoul-in-may"
+        market_question: "Will Seoul have more than 80mm of precipitation in May 2026?"
+
+      # Science — real Polymarket slugs
       - name: us_measles
         description: US measles outbreak developments
         keywords: ["measles", "outbreak", "vaccine"]
-        market_slug: measles
+        market_slugs:
+          - "will-there-be-at-least-10000-measles-cases-in-the-us-in-2026-418-668-617"
+        market_question: "Will there be at least 10000 measles cases in the U.S. in 2026?"
       - name: alien_disclosure
         description: Government UFO/UAP disclosure
         keywords: ["ufo", "uap", "alien", "disclosure"]
+        market_slugs:
+          - "will-the-us-confirm-that-aliens-exist-before-2027-789"
+        market_question: "Will the US confirm that aliens exist before 2027?"
         market_slug: ufo
 
     # 6 Domain Experts with PID tuning
@@ -238,6 +330,29 @@ operational:
         clamp_pp: 5
         p_weight: 0.8
         cadence_hours: 24
+
+      # ── Weather & Climate ─────────────────────────────────────────
+      # ENSO state, polar vortex, and per-city precipitation outlooks.
+      # Lower clamp (±8pp) because weather science is more constrained
+      # than geopolitics. High p_weight (0.7) because precipitation
+      # markets are under-researched — market prices are often stale.
+      # Cadence 6h: ENSO/PV state changes slowly, daily digest is enough.
+      - name: weather
+        topics: [enso_state, polar_vortex, precipitation_nyc, precipitation_seattle, precipitation_london, precipitation_hongkong, precipitation_seoul]
+        clamp_pp: 8
+        p_weight: 0.7
+        cadence_hours: 6
+        system_prompt: >
+          You are a senior operational meteorologist specializing in seasonal
+          and sub-seasonal precipitation forecasting. You understand ENSO
+          teleconnections, polar vortex dynamics, atmospheric rivers, monsoon
+          systems, and how large-scale climate drivers shift monthly precipitation
+          probabilities. You read ECMWF seasonal outlooks, NOAA CPC forecasts,
+          and KMA/Met Office/HKO seasonal bulletins. You are NOT a climate change
+          communicator — you are a probabilistic forecaster. Your estimates are
+          calibrated: if you say 70%, you mean it rains more than average 7 times
+          out of 10. Historical base rates anchor you; anomalies require strong
+          evidence. Status quo (near-normal precipitation) is always the prior.
 
     # Causal graph edges (65)
     graph_edges:
@@ -318,3 +433,132 @@ operational:
         to: us_elections
         weight: 0.3
         direction: positive
+
+      # ── Weather internal causal graph ─────────────────────────────
+      # ENSO drives precipitation anomalies in all cities (teleconnections)
+      - from: enso_state
+        to: precipitation_nyc
+        weight: 0.5
+        direction: positive   # El Niño → wetter winters/springs in NE US
+      - from: enso_state
+        to: precipitation_seattle
+        weight: 0.6
+        direction: negative   # El Niño → drier winters in Pacific Northwest
+      - from: enso_state
+        to: precipitation_london
+        weight: 0.3
+        direction: positive   # weak ENSO signal for UK
+      - from: enso_state
+        to: precipitation_hongkong
+        weight: 0.7
+        direction: negative   # El Niño → reduced monsoon/typhoon activity
+      - from: enso_state
+        to: precipitation_seoul
+        weight: 0.6
+        direction: negative   # El Niño → drier summers in Korea
+
+      # Polar vortex disruptions drive cold-season precipitation in mid-latitudes
+      - from: polar_vortex
+        to: precipitation_nyc
+        weight: 0.6
+        direction: positive   # SSW → blocked pattern → Nor'easters possible
+      - from: polar_vortex
+        to: precipitation_seoul
+        weight: 0.5
+        direction: positive   # SSW → cold/wet intrusions in Korea winters
+      - from: polar_vortex
+        to: precipitation_london
+        weight: 0.4
+        direction: positive   # SSW → blocked Atlantic flow → wetter UK
+
+    # ── YouTube channels ────────────────────────────────────────────────────
+    # Scientific/institutional channels (treat as analyst information sources)
+    youtube_analyst_channels:
+      - channel_id: "UCrFIk7g_riIm2G2Vi90pxDA"
+        name: "Tropical Tidbits"
+        handle: "@TropicalTidbits"
+        category: "weather"
+        focus: "Global NWP model output, ENSO monitoring, CFSv2/NMME seasonal models, SST anomalies"
+        note: "PhD meteorologist (FSU). Best for ENSO state and seasonal model interpretation."
+
+      - channel_id: "UCCu5wtZ5uOWZp_roz7wHPfg"
+        name: "Simon Clark"
+        handle: "@SimonOxfPhys"
+        category: "weather"
+        focus: "Atmospheric dynamics, jet streams, ENSO teleconnections, polar vortex, global precipitation mechanisms"
+        note: "PhD atmospheric physics (Exeter). Best for understanding WHY ENSO shifts precipitation differently per city."
+
+      - channel_id: "UCdK5sfMQcJ64q8AGR_7-ZRw"
+        name: "Copernicus Climate Change Service"
+        handle: "@CopernicusECMWF"
+        category: "weather"
+        focus: "Monthly and seasonal climate bulletins, global SST, precipitation anomalies, ENSO diagnostics"
+        note: "Official EU climate service implemented by ECMWF. Posts tied to monthly forecast cycles."
+
+      - channel_id: "UCg8UHcqmfSfFJmYzGm1stNg"
+        name: "ECMWF"
+        handle: "@ecmwf"
+        category: "weather"
+        focus: "Ensemble forecast methodology, MJO, ENSO, blocking patterns, extended-range skill"
+        note: "World's leading NWP center. Explains model strengths and limitations per region."
+
+      - channel_id: "UCNOlLwBZQLUPYUs31hVFeSA"
+        name: "Bureau of Meteorology Australia"
+        handle: "@BureauOfMeteorology"
+        category: "weather"
+        focus: "ENSO Outlook (authoritative Asia-Pacific), Indian Ocean Dipole, Indo-Pacific precipitation"
+        note: "IOD is a major driver for HK and Seoul precipitation that US channels miss."
+
+    # ── Weather prophets (Twitter/X accounts) ──────────────────────────────
+    # Two categories: official/scientific (ground truth) and prophets (sentiment)
+    twitter_weather_accounts:
+      # Official — these determine market resolution, treat as ground truth
+      - handle: "@NWSNewYorkNY"
+        city: "nyc"
+        type: "official"
+        note: "NWS NYC — primary source, ~165K followers, posts multiple times daily"
+      - handle: "@NWSSeattle"
+        city: "seattle"
+        type: "official"
+        note: "NWS Seattle — most-followed local NWS office in US, ~142K followers"
+      - handle: "@metoffice"
+        city: "london"
+        type: "official"
+        note: "UK Met Office — primary London resolution source, 170K+ followers"
+      - handle: "@ObservatoryHK"
+        city: "hong-kong"
+        type: "official"
+        note: "HKO English — official HK weather authority, issues rainstorm warnings"
+      - handle: "@HKObservatory"
+        city: "hong-kong"
+        type: "official"
+        note: "HKO Chinese/bilingual — 259K followers, public sentiment indicator"
+      - handle: "@KMA_Skylove_eng"
+        city: "seoul"
+        type: "official"
+        note: "Korea Meteorological Administration English account"
+
+      # Scientific forecasters — high credibility, seasonal outlook skill
+      - handle: "@judah47"
+        type: "scientist"
+        focus: "Arctic Oscillation, polar vortex, stratospheric warming — NYC/Seoul winter precip"
+        note: "AER/MIT-affiliated. One of the highest-value follows for mid-latitude cold-season precipitation."
+      - handle: "@RyanMaue"
+        type: "scientist"
+        focus: "Global model interpretation, GFS/ECMWF ensemble visualization, seasonal anomalies"
+        note: "PhD meteorologist, ~133K followers. Good for understanding seasonal narrative momentum."
+      - handle: "@CliffMass"
+        type: "scientist"
+        focus: "Pacific Northwest mesoscale meteorology, Seattle precipitation forecasting"
+        note: "UW Professor. Specialist for Seattle precipitation — topography effects, atmospheric rivers."
+
+      # Weather prophets — treat like geopolitical prophets: retail sentiment signals
+      # Their predictions reveal what casual bettors will believe, NOT ground truth
+      - handle: "@BigJoeBastardi"
+        type: "prophet"
+        focus: "Seasonal outlooks via historical analog method — temperature and precipitation"
+        note: "WeatherBell Chief Forecaster. Large following, 60% science / 40% prophet. Moves retail sentiment."
+      - handle: "@FarmersAlmanac"
+        type: "prophet"
+        focus: "Annual long-range predictions for US (sunspot/astrology-based formula)"
+        note: "Prophet-style (95%). But massive retail reach — 1M+ FB. When they call 'wet winter' it circulates widely."
