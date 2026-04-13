@@ -400,7 +400,7 @@ operational:
         direction: positive   # Regime instability → oil supply risk
       - from: china_taiwan
         to: global_trade
-        weight: 0.9
+        weight: -0.9
         direction: negative
 
       # ── Economics ────────────────────────────────────────────────
@@ -410,7 +410,7 @@ operational:
         direction: positive
       - from: fed_policy
         to: bitcoin
-        weight: 0.5
+        weight: -0.5
         direction: negative
       - from: us_inflation
         to: fed_policy
@@ -418,7 +418,7 @@ operational:
         direction: positive
       - from: us_recession
         to: stock_market
-        weight: 0.7
+        weight: -0.7
         direction: negative
       - from: oil_price
         to: us_inflation
@@ -442,7 +442,7 @@ operational:
         direction: positive
       - from: eu_nato
         to: russia_ukraine
-        weight: 0.5
+        weight: -0.5
         direction: negative
       - from: migration
         to: us_elections
@@ -450,7 +450,7 @@ operational:
         direction: positive
       - from: india
         to: us_china_trade
-        weight: 0.4
+        weight: -0.4
         direction: negative
       - from: india
         to: global_trade
@@ -475,7 +475,7 @@ operational:
         direction: positive   # El Niño → wetter winters/springs in NE US
       - from: enso_state
         to: precipitation_seattle
-        weight: 0.6
+        weight: -0.6
         direction: negative   # El Niño → drier winters in Pacific Northwest
       - from: enso_state
         to: precipitation_london
@@ -483,11 +483,11 @@ operational:
         direction: positive   # weak ENSO signal for UK
       - from: enso_state
         to: precipitation_hongkong
-        weight: 0.7
+        weight: -0.7
         direction: negative   # El Niño → reduced monsoon/typhoon activity
       - from: enso_state
         to: precipitation_seoul
-        weight: 0.6
+        weight: -0.6
         direction: negative   # El Niño → drier summers in Korea
 
       # Polar vortex disruptions drive cold-season precipitation in mid-latitudes
