@@ -74,17 +74,33 @@ operational:
       - name: russia_ukraine
         description: Russia-Ukraine conflict developments
         keywords: ["russia", "ukraine", "putin", "zelensky", "donbas", "kharkiv"]
+        assessment_deadline: "2026-12-31"
         market_slugs:
           - "russia-x-ukraine-ceasefire-before-2027"
         market_question: "Russia x Ukraine ceasefire by end of 2026?"
       - name: us_iran
-        description: US-Iran tensions and military actions
+        description: US-Iran short-term military actions (April 2026 deadlines)
         keywords: ["iran", "us", "iran", "nuclear", "middle east"]
+        assessment_deadline: "2026-04-30"
         market_slugs:
           - "us-forces-enter-iran-by-april-30-899"
           - "will-the-iranian-regime-fall-by-april-30"
           - "us-x-iran-ceasefire-by-april-15-182-528-637"
         market_question: "US forces enter Iran by April 30?"
+      - name: iran_regime
+        description: Iranian regime stability and fall — longer horizon (end of 2026)
+        keywords: ["iran", "regime", "revolution", "protest", "khamenei", "irgc", "tehran"]
+        assessment_deadline: "2026-12-31"
+        market_slugs:
+          - "will-the-iranian-regime-fall-by-the-end-of-2026"
+        market_question: "Will the Iranian regime fall before 2027?"
+      - name: iran_nuclear_deal
+        description: US-Iran nuclear diplomacy and deal prospects
+        keywords: ["iran", "nuclear", "deal", "jcpoa", "enrichment", "iaea", "diplomacy"]
+        assessment_deadline: "2026-12-31"
+        market_slugs:
+          - "us-iran-nuclear-deal-before-2027"
+        market_question: "US-Iran nuclear deal before 2027?"
       - name: china_taiwan
         description: China-Taiwan military and diplomatic tensions
         keywords: ["china", "taiwan", "xi", "invasion", "strait"]
@@ -286,7 +302,7 @@ operational:
       # ── Geopolitics ──────────────────────────────────────────────
       # Active conflicts, military tensions, nuclear threats
       - name: geopolitics
-        topics: [russia_ukraine, us_iran, china_taiwan, israel_mideast, putin, xi, north_korea, nuclear_proliferation]
+        topics: [russia_ukraine, us_iran, iran_regime, iran_nuclear_deal, china_taiwan, israel_mideast, putin, xi, north_korea, nuclear_proliferation]
         clamp_pp: 10
         p_weight: 0.2
         cadence_hours: 4
@@ -365,6 +381,23 @@ operational:
         to: oil_price
         weight: 0.8
         direction: positive
+      # ── Iran cluster internal edges ──────────────────────────────
+      - from: us_iran
+        to: iran_regime
+        weight: 0.6
+        direction: positive
+      - from: us_iran
+        to: iran_nuclear_deal
+        weight: -0.5
+        direction: negative   # Military escalation makes deal less likely
+      - from: iran_regime
+        to: iran_nuclear_deal
+        weight: 0.4
+        direction: positive   # Regime fall could open negotiation space
+      - from: iran_regime
+        to: oil_price
+        weight: 0.7
+        direction: positive   # Regime instability → oil supply risk
       - from: china_taiwan
         to: global_trade
         weight: 0.9
