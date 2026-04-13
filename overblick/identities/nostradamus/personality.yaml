@@ -388,8 +388,8 @@ operational:
         direction: positive
       - from: us_iran
         to: iran_nuclear_deal
-        weight: -0.5
-        direction: negative   # Military escalation makes deal less likely
+        weight: -0.5          # Negative: military escalation reduces deal probability
+        direction: negative
       - from: iran_regime
         to: iran_nuclear_deal
         weight: 0.4
