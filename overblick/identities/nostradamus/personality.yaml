@@ -43,12 +43,52 @@ operational:
     active_hours: "00:00-23:59"
     timezone: "UTC"
 
+  # Base rate overrides — current-events adjustments with expiration dates.
+  # Historical defaults live in base_rates.py. Only put time-sensitive overrides here.
+  # Any override whose expires date is in the past is skipped with a log warning.
+  base_rates:
+    overrides:
+      tariff_escalation_year:
+        rate: 0.70
+        reason: "Trump tariff wars 2025-2026 made broad escalation near-certain"
+        expires: "2027-01-01"
+      recession_next_year:
+        rate: 0.25
+        reason: "Tariff shock + prolonged high rates elevate recession risk"
+        expires: "2027-01-01"
+      inflation_above_target:
+        rate: 0.55
+        reason: "Persistent above-target inflation through 2025"
+        expires: "2026-12-31"
+      fed_rate_cut_meeting:
+        rate: 0.25
+        reason: "Fed held longer than markets expected in 2025"
+        expires: "2026-12-31"
+      ai_model_leader_change:
+        rate: 0.40
+        reason: "Accelerating model releases 2025-2026"
+        expires: "2027-01-01"
+      major_ai_breakthrough:
+        rate: 0.50
+        reason: "Agents and reasoning models became mainstream in 2025"
+        expires: "2027-01-01"
+      supply_chain_disruption:
+        rate: 0.45
+        reason: "Tariffs + Red Sea + China tensions elevated supply chain risk"
+        expires: "2027-01-01"
+      btc_ath_within_year:
+        rate: 0.50
+        reason: "Back-to-back ATH cycles 2024-2025"
+        expires: "2026-12-31"
+
   # Oracle config (same as current thinktank)
   polymarket_monitor:
     check_interval_minutes: 1
     max_markets: 50
     min_probability_edge: 0.03
     real_api: true
+    calibration:
+      sqlite_path: "data/nostradamus/calibration.db"
     neo4j:
       uri: "bolt://localhost:7687"
       user: "neo4j"
@@ -69,6 +109,9 @@ operational:
   # Output: shared data directory for other agents to consume
   oracle:
     output_path: "data/shared/"
+    # Cross-reference and synthesis adjustment caps (pp = percentage points)
+    cross_reference_cap_pp: 5
+    synthesis_cap_pp: 3
     topics:
       # Geopolitics — real Polymarket slugs
       - name: russia_ukraine
