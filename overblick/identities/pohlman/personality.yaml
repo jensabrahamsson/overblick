@@ -24,10 +24,14 @@ identity:
 # OPERATIONAL CONFIG
 ################################################################################
 operational:
+  # Quiet hours — disabled: weather markets resolve 24/7, not moltbook-style agents
+  quiet_hours:
+    enabled: false
+
   # LLM routing — same gateway as polytrader
   llm:
     preferred_backend: remote
-    timeout_seconds: 120  # Weather reviews are fast — no need for 600s
+    timeout_seconds: 600  # High for multi-call LLM observer pipeline + Qwen thinking
 
   # Plugins — ONLY weather + trade execution
   plugins:
@@ -49,17 +53,18 @@ operational:
       uri: "bolt://localhost:7687"
       user: "neo4j"
 
-  # Trade execution — SIM mode after 2026-04-07 deep audit (23+ fixes)
-  # Run in simulation until fixes are validated, then flip back to LIVE.
+  # Trade execution — LIVE as of 2026-04-09
+  # Sizing fix validated (Shenzhen Apr 11: $1.37 vs old uniform $2.04).
+  # CLOB balance re-sync fix deployed. Resolutions wiped clean.
   whallet_trader:
-    simulation_mode: true         # SIM — paper trading only
-    starting_balance_usd: 25       # Virtual starting balance for SIM
-    max_position_size_percent: 10
-    max_portfolio_exposure_percent: 40
-    daily_loss_limit_percent: 20
+    simulation_mode: false        # LIVE — real CLOB trades for weather
+    starting_balance_usd: 25       # Virtual starting balance for SIM categories
+    max_position_size_percent: 15
+    max_portfolio_exposure_percent: 50
+    daily_loss_limit_percent: 50
     check_interval_seconds: 60
     category_trading_modes:
-      weather: true               # SIM weather trading (was: false = LIVE)
+      weather: false              # LIVE weather trading
     database:
       host: localhost
       port: 5432
