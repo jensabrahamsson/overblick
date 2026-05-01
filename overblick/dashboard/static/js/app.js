@@ -131,6 +131,24 @@
     var _pmSearchQuery = "";
     var _pmActiveCategory = "all";
 
+    function _setPolymarketSubnavActive(link) {
+        if (!link) return;
+        document.querySelectorAll(".pm-subnav-link").forEach(function (item) {
+            item.classList.toggle("active", item === link);
+        });
+    }
+
+    function _syncPolymarketSubnavActive() {
+        var path = window.location.pathname;
+        var match = document.querySelector(".pm-subnav-link[href='" + path + "']");
+        if (match) _setPolymarketSubnavActive(match);
+    }
+
+    document.addEventListener("click", function (e) {
+        var link = e.target.closest(".pm-subnav-link");
+        if (link) _setPolymarketSubnavActive(link);
+    });
+
     function _initPolymarketFilters() {
         var grid = document.getElementById("pm-market-grid");
         if (!grid) return;
@@ -249,10 +267,15 @@
 
     // Re-init after htmx swap
     document.body.addEventListener("htmx:afterSwap", function (e) {
-        if (e.detail.target && e.detail.target.id === "polymarket-container") {
+        if (e.detail.target && (
+            e.detail.target.id === "polymarket-container" ||
+            e.detail.target.id === "pm-content"
+        )) {
             _initPolymarketFilters();
+            _syncPolymarketSubnavActive();
         }
     });
+    _syncPolymarketSubnavActive();
 
     // ── Polymarket: Click market row or chart button to open chart ─────
     document.addEventListener("click", function (e) {

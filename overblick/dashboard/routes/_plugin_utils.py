@@ -30,6 +30,13 @@ def resolve_data_root(request: Request) -> Path:
     return resolve_base_dir(request) / "data"
 
 
+def resolve_data_dir(identity_name: str) -> Path:
+    """Get the data directory for a specific identity."""
+    # Use the default base dir (parent of overblick package)
+    base = Path(__file__).parent.parent.parent.parent
+    return base / "data" / identity_name
+
+
 def resolve_identities_dir(request: Request | None = None) -> Path:
     """Get the identities directory, resolving from app config if available."""
     if request is not None:
