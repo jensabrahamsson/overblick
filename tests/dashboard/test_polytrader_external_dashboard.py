@@ -125,8 +125,21 @@ def test_polymarket_page_has_no_inline_onclick_handlers(tmp_path):
         response = client.get("/polymarket")
 
     assert response.status_code == 200
+    assert "/static/js/oracle.js" in response.text
     assert 'onclick="' not in response.text
     assert "onclick='" not in response.text
+
+
+def test_static_oracle_js_supports_polytrader_htmx_partial(tmp_path):
+    _write_nostradamus_fixture(tmp_path)
+
+    with TestClient(_app(tmp_path)) as client:
+        response = client.get("/static/js/oracle.js")
+
+    assert response.status_code == 200
+    assert ".oracle-topic-card" in response.text
+    assert "htmx:afterSwap" in response.text
+    assert "pm-content" in response.text
 
 
 def test_oracle_page_has_no_inline_script_or_onclick(tmp_path):

@@ -38,7 +38,7 @@ async function askOracle() {
 
         if (data.error) {
             responseDiv.textContent = 'Error: ' + data.error;
-            responseDiv.style.color = 'var(--red)';
+            responseDiv.style.color = 'var(--negative-color)';
         } else {
             // Render analysis + sources
             let text = data.analysis || 'No analysis returned.';
@@ -74,47 +74,87 @@ async function askOracle() {
         }
     } catch (e) {
         responseDiv.textContent = 'Request failed: ' + e.message;
-        responseDiv.style.color = 'var(--red)';
+        responseDiv.style.color = 'var(--negative-color)';
     } finally {
         btn.disabled = false;
         btn.textContent = 'Ask Oracle';
     }
 }
 
-// Click topic card to select it in dropdown
-document.addEventListener('click', function(e) {
-    const card = e.target.closest('.oracle-topic');
-    if (card) {
-        const tid = card.dataset.topicId;
-        const select = document.getElementById('oracle-topic-select');
-        if (select) {
-            select.value = tid;
-            document.querySelectorAll('.oracle-topic').forEach(function(c) { c.classList.remove('selected'); });
-            card.classList.add('selected');
-        }
+// Click topic card to select it in dropdown. Supports the legacy full-page
+// Oracle cards and the external PolyTrader partial cards.
+document.addEventListener('click', function (e) {
+    const card = e.target.closest('.oracle-topic-card, .oracle-topic');
+    if (!card) return;
+
+    const tid = card.dataset.topicId;
+    const select = document.getElementById('oracle-topic-select');
+    if (select) {
+        select.value = tid;
+        document.querySelectorAll('.oracle-topic-card, .oracle-topic').forEach(function (c) {
+            c.classList.remove('selected');
+        });
+        card.classList.add('selected');
+
+        const askPanel = document.querySelector('.oracle-ask-panel') || document.querySelector('.oracle-ask');
+        if (askPanel) askPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 });
 
-// Ask Oracle button
-document.addEventListener('DOMContentLoaded', function() {
+let oracleCurrentCategory = 'all';
+
+function initOracleFilters() {
+    const searchInput = document.getElementById('oracleSearch');
+    const cards = document.querySelectorAll('.oracle-topic-card, .oracle-topic');
+    if (!cards.length) return;
+
+    function updateVisibility() {
+        const query = searchInput ? searchInput.value.toLowerCase() : '';
+        cards.forEach(function (card) {
+            const titleEl = card.querySelector('.oracle-card-title, .oracle-topic-name');
+            const title = titleEl ? titleEl.textContent.toLowerCase() : '';
+            const cat = card.dataset.category;
+            const matchesSearch = !query || title.indexOf(query) !== -1;
+            const matchesCat = oracleCurrentCategory === 'all' || cat === oracleCurrentCategory;
+            card.style.display = matchesSearch && matchesCat ? '' : 'none';
+        });
+    }
+
+    if (searchInput && searchInput.dataset.oracleFilterBound !== '1') {
+        searchInput.dataset.oracleFilterBound = '1';
+        searchInput.addEventListener('input', updateVisibility);
+    }
+
+    document.querySelectorAll('.pm-tab[data-cat], .oracle-filter-btn').forEach(function (btn) {
+        if (btn.dataset.oracleFilterBound === '1') return;
+        btn.dataset.oracleFilterBound = '1';
+        btn.addEventListener('click', function () {
+            const cat = btn.dataset.cat || 'all';
+            document.querySelectorAll('.pm-tab[data-cat], .oracle-filter-btn').forEach(function (b) {
+                b.classList.remove('active');
+            });
+            btn.classList.add('active');
+            oracleCurrentCategory = cat;
+            updateVisibility();
+        });
+    });
+    updateVisibility();
+}
+
+function initOracleListeners() {
     const askBtn = document.getElementById('oracle-ask-btn');
     if (askBtn) {
+        askBtn.removeEventListener('click', askOracle);
         askBtn.addEventListener('click', askOracle);
     }
-});
+    initOracleFilters();
+}
 
-// Category filter
-document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('oracle-filter-btn')) {
-        const cat = e.target.dataset.cat;
-        document.querySelectorAll('.oracle-filter-btn').forEach(function(b) { b.classList.remove('active'); });
-        e.target.classList.add('active');
-        document.querySelectorAll('.oracle-topic').forEach(function(card) {
-            if (cat === 'all' || card.dataset.category === cat) {
-                card.style.display = '';
-            } else {
-                card.style.display = 'none';
-            }
-        });
+document.addEventListener('DOMContentLoaded', initOracleListeners);
+
+document.addEventListener('htmx:afterSwap', function (evt) {
+    const target = evt.detail && evt.detail.target;
+    if (target && (target.id === 'pm-content' || target.id === 'oracle-container')) {
+        initOracleListeners();
     }
 });
