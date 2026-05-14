@@ -87,7 +87,10 @@ operational:
     max_markets: 50
     min_probability_edge: 0.03
     real_api: true
+    postgres_dsn: "postgresql://localhost/nostradamus"
     calibration:
+      postgres_dsn: "postgresql://localhost/nostradamus"
+      postgres_table: "predictions"
       sqlite_path: "data/nostradamus/calibration.db"
     neo4j:
       uri: "bolt://localhost:7687"
