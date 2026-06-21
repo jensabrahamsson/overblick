@@ -28,7 +28,7 @@ dashboard = [
     "uvicorn>=0.30",
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
-    "itsdangerous>=2.1",
+    "itsdangerous>=2.2.0",
     "bcrypt>=4.0",
 ]
 inet = [
